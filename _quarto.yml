@@ -10,6 +10,7 @@ project:
     - toolbox/*.css
     - toolbox/*.js
     - toolbox/*.webmanifest
+    - toolbox/vendor/**
     - mosaicus/app/**
     - mosaicus/mosaicus_firmware.ino
     - mosaicus/media/*
