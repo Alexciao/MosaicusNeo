@@ -9,6 +9,7 @@ project:
     - toolbox/*.html
     - toolbox/*.css
     - toolbox/*.js
+    - toolbox/*.webmanifest
     - mosaicus/app/**
     - mosaicus/mosaicus_firmware.ino
     - mosaicus/media/*
