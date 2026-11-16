@@ -1,4 +1,4 @@
-import { parseExpr, compile, zeros, extrema, intersections, niceNumber, niceStep, fmtValue, GraphError } from "../toolbox/graph-engine.js";
+import { verticalAsymptotes as vA, horizontalAsymptotes as hA, parseExpr, compile, zeros, extrema, intersections, niceNumber, niceStep, fmtValue, GraphError } from "../toolbox/graph-engine.js";
 let n = 0, bad = 0;
 const ok = (c, m) => { n++; if (!c) { bad++; console.log("FAIL", m); } };
 const near = (a, b, t = 1e-6) => Math.abs(a - b) < t;
@@ -118,5 +118,25 @@ ok(fmtValue(0.1 + 0.2) === "0.3", "fmt 0.3 " + fmtValue(0.1 + 0.2));
 ok(fmtValue(NaN) === "—", "fmt nan");
 ok(fmtValue(-2) === "−2", "fmt -2");
 
+// asymptotes
+{
+  const V = (src, a = -5, b = 5, P) => vA(F(src, P), a, b, 10).map((x) => +x.toFixed(4));
+  const Hh = (src) => hA(F(src)).map((x) => +x.toFixed(4));
+  ok(JSON.stringify(V("\\frac{1}{x}")) === "[0]", "1/x vertical " + V("\\frac{1}{x}"));
+  ok(JSON.stringify(V("\\frac{1}{x^2}")) === "[0]", "1/x^2 vertical " + V("\\frac{1}{x^2}"));
+  ok(JSON.stringify(V("\\tan(x)", -3, 3)) === "[-1.5708,1.5708]", "tan vertical " + V("\\tan(x)", -3, 3));
+  ok(JSON.stringify(V("\\ln(x)", -1, 5)) === "[0]", "ln vertical " + V("\\ln(x)", -1, 5));
+  ok(JSON.stringify(V("\\frac{x+1}{x-1}")) === "[1]", "(x+1)/(x-1) vertical " + V("\\frac{x+1}{x-1}"));
+  ok(JSON.stringify(V("\\frac{1}{x^2-1}")) === "[-1,1]", "1/(x^2-1) vertical " + V("\\frac{1}{x^2-1}"));
+  ok(JSON.stringify(V("\\frac{1}{\\sqrt{x}}", -1, 5)) === "[0]", "1/sqrt(x) vertical");
+  ok(JSON.stringify(V("\\frac{1}{x-a}", -5, 5, { a: 2 })) === "[2]", "1/(x-a) vertical");
+  for (const src of ["x^2", "\\sin(x)", "|x|", "\\sqrt{x}", "\\frac{1}{1+x^2}", "x^3-3x", "e^x", "x^{1/3}", "\\arcsin(x)"]) ok(V(src).length === 0, "no vertical for " + src + " " + V(src));
+  ok(JSON.stringify(Hh("\\frac{1}{x}")) === "[0]", "1/x horizontal");
+  ok(JSON.stringify(Hh("\\frac{x+1}{x-1}")) === "[1]", "(x+1)/(x-1) horizontal " + Hh("\\frac{x+1}{x-1}"));
+  ok(JSON.stringify(Hh("e^x")) === "[0]", "e^x horizontal " + Hh("e^x"));
+  ok(Hh("\\arctan(x)").length === 2 && near(Hh("\\arctan(x)")[0], Math.PI / 2, 1e-3), "arctan horizontal " + Hh("\\arctan(x)"));
+  ok(JSON.stringify(Hh("\\frac{2x^2}{x^2+1}")) === "[2]", "rational horizontal " + Hh("\\frac{2x^2}{x^2+1}"));
+  for (const src of ["x^2", "\\sin(x)", "x", "\\ln(x)", "\\sqrt{x}", "|x|", "\\frac{x^2+1}{x}", "\\tan(x)"]) ok(Hh(src).length === 0, "no horizontal for " + src + " " + Hh(src));
+}
 console.log(bad ? `${bad} FAILED of ${n}` : `all passed (${n})`);
 process.exit(bad ? 1 : 0);
