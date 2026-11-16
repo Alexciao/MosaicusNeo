@@ -1,4 +1,4 @@
-import { verticalAsymptotes as vA, horizontalAsymptotes as hA, parseExpr, compile, zeros, extrema, intersections, niceNumber, niceStep, fmtValue, GraphError } from "../toolbox/graph-engine.js";
+import { derivativeAt as dAt, lineEquation as lEq, verticalAsymptotes as vA, horizontalAsymptotes as hA, parseExpr, compile, zeros, extrema, intersections, niceNumber, niceStep, fmtValue, GraphError } from "../toolbox/graph-engine.js";
 let n = 0, bad = 0;
 const ok = (c, m) => { n++; if (!c) { bad++; console.log("FAIL", m); } };
 const near = (a, b, t = 1e-6) => Math.abs(a - b) < t;
@@ -137,6 +137,30 @@ ok(fmtValue(-2) === "−2", "fmt -2");
   ok(Hh("\\arctan(x)").length === 2 && near(Hh("\\arctan(x)")[0], Math.PI / 2, 1e-3), "arctan horizontal " + Hh("\\arctan(x)"));
   ok(JSON.stringify(Hh("\\frac{2x^2}{x^2+1}")) === "[2]", "rational horizontal " + Hh("\\frac{2x^2}{x^2+1}"));
   for (const src of ["x^2", "\\sin(x)", "x", "\\ln(x)", "\\sqrt{x}", "|x|", "\\frac{x^2+1}{x}", "\\tan(x)"]) ok(Hh(src).length === 0, "no horizontal for " + src + " " + Hh(src));
+}
+// derivative and tangent line
+{
+  const D = (src, x, P) => dAt(F(src, P), x);
+  const d1 = D("x^2", 3); ok(d1.kind === "ok" && near(d1.m, 6, 1e-6) && near(d1.y, 9), "d x^2");
+  ok(near(D("\\sin(x)", 0).m, 1, 1e-6), "d sin at 0");
+  ok(near(D("\\sin(x)", Math.PI / 3).m, 0.5, 1e-6), "d sin at pi/3");
+  ok(near(D("e^x", 1).m, Math.E, 1e-6), "d e^x");
+  ok(near(D("\\ln(x)", 2).m, 0.5, 1e-6), "d ln");
+  ok(near(D("x^3-3x", 1).m, 0, 1e-6), "d at extremum");
+  ok(near(D("\\frac{1}{x}", 2).m, -0.25, 1e-6), "d 1/x");
+  ok(near(D("ax^2", 2, { a: 3 }).m, 12, 1e-5), "d with parameter");
+  const c = D("|x|", 0); ok(c.kind === "corner" && near(c.left, -1, 1e-4) && near(c.right, 1, 1e-4), "corner |x| " + JSON.stringify(c));
+  ok(D("\\sqrt[3]{x}", 0).kind === "vertical", "vertical x^(1/3)");
+  ok(D("\\sqrt{x}", 0).kind === "vertical", "vertical sqrt at domain edge");
+  ok(D("\\frac{1}{x}", 0).kind === "undefined", "undefined 1/x at 0");
+  ok(D("\\ln(x)", -1).kind === "undefined", "undefined ln(-1)");
+  ok(D("\\left|x\\right|", 2).kind === "ok", "|x| smooth away from 0");
+  ok(lEq(2, 1, 1) === "y = 2x − 1", "eq " + lEq(2, 1, 1));
+  ok(lEq(-1, 2, 3) === "y = −x + 5", "eq2 " + lEq(-1, 2, 3));
+  ok(lEq(0, 1, 4) === "y = 4", "eq horizontal");
+  ok(lEq(0.5, 0, 0) === "y = (1/2)x", "eq fraction " + lEq(0.5, 0, 0));
+  ok(lEq(3, 1.5, 2.25) === "y = 3x − 9/4", "eq fraction q " + lEq(3, 1.5, 2.25));
+  ok(lEq(2, 0.1, 0.3) === "y = 2x + 1/10", "eq tenth " + lEq(2, 0.1, 0.3));
 }
 console.log(bad ? `${bad} FAILED of ${n}` : `all passed (${n})`);
 process.exit(bad ? 1 : 0);
