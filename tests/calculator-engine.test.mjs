@@ -67,7 +67,6 @@ t('8^{\\frac{1}{3}}', '2');
 t('\\sqrt{-4}', 'ERR:domain');
 t('2^{3^{2}}', '512');
 t('\\frac{1}{2}\\frac{1}{3}', '\\frac{1}{6}');
-t('100!', 'ERR:syntax');
 
 // ---- trigonometry (degrees by default) ----
 const rad = { angle: 'rad' };
@@ -134,5 +133,32 @@ t('\\sqrt[5]{32}', '2');
 t('x+1', 'ERR:syntax');
 t('\\sin\\left(30\\right)^{2}', '\\frac{1}{4}', 'exact', { angle: 'deg' });
 t('\\sin\\left(30\\right)^2+\\cos\\left(30\\right)^2', '1', 'exact', { angle: 'deg' });
+
+// percent and factorial (postfix)
+t('15\\%', '\\frac{3}{20}');
+t('200\\times15\\%', '30');
+t('50\\%', '\\frac{1}{2}');
+t('\\frac{1}{2}\\%', '\\frac{1}{200}');
+t('5!', '120');
+t('0!', '1');
+t('(2+1)!', '6');
+t('3!^2', '36');
+t('2\\times3!', '12');
+t('10!/8!', '90');
+t('\\frac{6!}{4!\\times2!}', '15');
+t('(-2)!', 'ERR:domain');
+t('2.5!', 'ERR:domain');
+t('\\frac{1}{2}!', 'ERR:domain');
+t('3001!', 'ERR:range');
+t('20!', '2432902008176640000');
+// cot
+t('\\cot\\left(45\\right)', '1', 'exact', { angle: 'deg' });
+t('\\cot\\left(30\\right)', '\\sqrt{3}', 'exact', { angle: 'deg' });
+t('\\cot\\left(90\\right)', '0', 'exact', { angle: 'deg' });
+t('\\cot\\left(0\\right)', 'ERR:domain', 'exact', { angle: 'deg' });
+t('\\cot^{-1}\\left(1\\right)', '45', 'exact', { angle: 'deg' });
+t('\\cot^{-1}\\left(0\\right)', '90', 'exact', { angle: 'deg' });
+t('\\cot^{-1}\\left(-1\\right)', '135', 'exact', { angle: 'deg' });
+t('\\cot^{2}\\left(45\\right)', '1', 'exact', { angle: 'deg' });
 console.log(fail ? `\n${fail} FAILED` : '\nall passed');
 process.exit(fail ? 1 : 0);
