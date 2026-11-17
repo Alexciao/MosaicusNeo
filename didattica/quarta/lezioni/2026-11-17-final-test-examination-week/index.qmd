@@ -1,0 +1,17 @@
+---
+title: "T1 - Final Test (Examination Week)"
+subtitle: "Campo elettrico e magnetico, dipoli ed equilibrio, teorema di Gauss"
+date: 2026-11-17
+tipo: "Test"
+categories: [Fisica]
+---
+
+## Test
+
+[Final Test, versione A (PDF) ↗](quarta_2026-11-17_final-test_A.pdf){target="_blank" .btn .btn-outline-primary}
+[Final Test, versione B (PDF) ↗](quarta_2026-11-17_final-test_B.pdf){target="_blank" .btn .btn-outline-primary}
+[Final Test, versione C (PDF) ↗](quarta_2026-11-17_final-test_C.pdf){target="_blank" .btn .btn-outline-primary}
+
+## Soluzioni
+
+[Soluzioni e griglia di correzione, versioni A, B, C (PDF) ↗](quarta_2026-11-17_final-test_soluzioni.pdf){target="_blank" .btn .btn-outline-primary}
