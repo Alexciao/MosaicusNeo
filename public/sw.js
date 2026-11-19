@@ -3,7 +3,7 @@
 //  • file statici di Next (/_next/static, con il nome che cambia a ogni versione), icone,
 //    caratteri: prima la cache, poi la rete
 // Quando cambia CACHE le copie vecchie vengono cancellate.
-const CACHE = 'mosaicus-neo-v4';
+const CACHE = 'mosaicus-neo-v5';
 const SHELL = ['/', '/manifest.webmanifest', '/icons/icon.svg', '/icons/icon-192.png', '/icons/icon-512.png', '/firmware/mosaicusneo_firmware.ino'];
 
 self.addEventListener('install', (e) => {
