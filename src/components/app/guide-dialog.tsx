@@ -667,7 +667,8 @@ export function GuideDialog() {
             </div>
             <p className="text-xs text-muted-foreground">
               MosaicusNeo v{APP_VERSION} · firmware v{FIRMWARE_VERSION} · basato su Mosaicus (© 2026 Ermes Ferdinando Rosi) · licenza MIT ·{" "}
-              <a className="underline" href="https://github.com/Alexciao/MosaicusNeo" target="_blank" rel="noopener">codice sorgente</a>
+              <a className="underline" href="https://github.com/Alexciao/MosaicusNeo" target="_blank" rel="noopener">codice sorgente</a> ·{" "}
+              <a className="underline" href="/privacy" target="_blank" rel="noopener">informativa sulla privacy</a>
             </p>
           </article>
         </div>

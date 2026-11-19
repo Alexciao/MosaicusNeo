@@ -2,11 +2,11 @@
 
 import Link from "next/link";
 import { useTheme } from "next-themes";
-import { BookOpen, ChartLine, FlaskConical, Monitor, Moon, Presentation, Sun } from "lucide-react";
+import { BookOpen, ChartLine, FlaskConical, Monitor, Moon, Presentation, ShieldCheck, Sun } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import {
-  DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMenuGroup, DropdownMenuLabel, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuSeparator, DropdownMenuTrigger,
+  DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem, DropdownMenuLabel, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuSeparator, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useLab, showPage, goHome, setLim, type Page } from "@/lib/lab-store";
 import { useWorkbench } from "@/lib/workbench-store";
@@ -71,6 +71,8 @@ function AppearanceMenu() {
             <span className="text-xs text-muted-foreground">Testi più grandi, grafici più leggeri. Per LIM e PC lenti.</span>
           </span>
         </DropdownMenuCheckboxItem>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem render={<a href="/privacy" target="_blank" rel="noopener" />}><ShieldCheck /> Informativa sulla privacy</DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
   );

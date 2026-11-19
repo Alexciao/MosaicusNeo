@@ -76,9 +76,10 @@ export function MosaicusApp() {
         {seen.quaderno && <div hidden={page !== "quaderno"} className="mz-enter"><NotebookPage /></div>}
         {seen.elab && <div hidden={page !== "elab"} className="mz-enter"><WorkbenchPage /></div>}
       </main>
-      <footer className="hidden px-4 py-6 text-center text-xs text-muted-foreground md:block">
+      <footer className="px-4 py-6 text-center text-xs text-muted-foreground">
         MosaicusNeo · basato su Mosaicus di Ermes Ferdinando Rosi · software libero con licenza MIT ·{" "}
-        <a className="underline" href="https://github.com/Alexciao/MosaicusNeo" target="_blank" rel="noopener">codice sorgente</a>
+        <a className="underline" href="https://github.com/Alexciao/MosaicusNeo" target="_blank" rel="noopener">codice sorgente</a> ·{" "}
+        <a className="font-medium text-foreground underline" href="/privacy" target="_blank" rel="noopener">privacy</a>
       </footer>
       <MobileNav />
       <GenChip />

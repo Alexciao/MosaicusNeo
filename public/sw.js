@@ -3,8 +3,8 @@
 //  • file statici di Next (/_next/static, con il nome che cambia a ogni versione), icone,
 //    caratteri: prima la cache, poi la rete
 // Quando cambia CACHE le copie vecchie vengono cancellate.
-const CACHE = 'mosaicus-neo-v5';
-const SHELL = ['/', '/manifest.webmanifest', '/icons/icon.svg', '/icons/icon-192.png', '/icons/icon-512.png', '/firmware/mosaicusneo_firmware.ino'];
+const CACHE = 'mosaicus-neo-v6';
+const SHELL = ['/', '/privacy', '/manifest.webmanifest', '/icons/icon.svg', '/icons/icon-192.png', '/icons/icon-512.png', '/firmware/mosaicusneo_firmware.ino'];
 
 self.addEventListener('install', (e) => {
   e.waitUntil(caches.open(CACHE).then((c) => c.addAll(SHELL)).then(() => self.skipWaiting()));
@@ -27,8 +27,10 @@ self.addEventListener('fetch', (e) => {
   if (req.mode === 'navigate') {
     e.respondWith(
       fetch(req)
-        .then((res) => { const copy = res.clone(); caches.open(CACHE).then((c) => c.put('/', copy)); return res; })
-        .catch(() => caches.match('/')),
+        // ogni pagina con il suo indirizzo (prima tutto finiva sotto «/»: visitare /privacy
+        // avrebbe sostituito l'app offline con l'informativa)
+        .then((res) => { if (res.ok) { const copy = res.clone(); caches.open(CACHE).then((c) => c.put(url.pathname, copy)); } return res; })
+        .catch(() => caches.match(url.pathname).then((hit) => hit || caches.match('/'))),
     );
     return;
   }

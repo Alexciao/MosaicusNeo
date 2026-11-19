@@ -3,7 +3,7 @@
 
 import { useState } from "react";
 import { toast } from "sonner";
-import { CloudCheck, CloudExclamationPoint, CloudOff, CloudSync, LoaderCircle, LogIn, LogOut, RefreshCw, UserRound } from "lucide-react";
+import { CloudCheck, CloudExclamationPoint, CloudOff, CloudSync, LoaderCircle, LogIn, LogOut, RefreshCw, ShieldCheck, UserRound } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -79,7 +79,13 @@ function AuthDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (o: b
           {tab === "in" && <Button type="button" variant="link" size="sm" className="self-center" onClick={() => { setTab("reset"); setError(""); setInfo(""); }}>Password dimenticata?</Button>}
           {tab === "reset" && <Button type="button" variant="link" size="sm" className="self-center" onClick={() => { setTab("in"); setError(""); setInfo(""); }}>Torna all&apos;accesso</Button>}
         </form>
-        <p className="text-xs text-muted-foreground">I dati sono visibili solo a te. Tema e modalità LIM restano su questo dispositivo.</p>
+        <p className="flex items-start gap-2 rounded-md border px-3 py-2 text-xs text-muted-foreground">
+          <ShieldCheck className="mt-px size-3.5 shrink-0 text-foreground" />
+          <span>
+            {tab === "up" ? "Creando l'account accetti il trattamento descritto nell'" : "I dati dell'account sono visibili solo a te. Leggi l'"}
+            <a href="/privacy" target="_blank" rel="noopener" className="font-medium text-foreground underline underline-offset-2">informativa sulla privacy</a>.
+          </span>
+        </p>
       </DialogContent>
     </Dialog>
   );
@@ -169,6 +175,7 @@ export function AccountMenu() {
           </DropdownMenuGroup>
           <DropdownMenuSeparator />
           <DropdownMenuItem onClick={() => void syncNow({ quiet: false })}><RefreshCw /> Sincronizza ora</DropdownMenuItem>
+          <DropdownMenuItem render={<a href="/privacy" target="_blank" rel="noopener" />}><ShieldCheck /> Privacy</DropdownMenuItem>
           <DropdownMenuItem onClick={() => void logout()}><LogOut /> Esci</DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
