@@ -456,8 +456,36 @@ const buzzer: SensorDef = {
 };
 
 export const SENSORS: Record<SensorType, SensorDef> = { ntc, dht, sonar, gps, analog, ldr, ds18b20, gate, hx711, imu, oled, rgb, buzzer };
-export const ARDUINO_SENSORS: SensorType[] = ["dht", "ntc", "sonar", "gps", "ldr", "analog", "ds18b20", "gate", "hx711", "imu"];
-export const OUTPUTS: SensorType[] = ["oled", "rgb", "buzzer"];
+/** Tutti i componenti, nell'ordine del catalogo «Aggiungi un componente». */
+export const COMPONENTS: SensorType[] = ["dht", "ntc", "ds18b20", "sonar", "imu", "gate", "gps", "ldr", "hx711", "analog", "oled", "rgb", "buzzer"];
+export const OUTPUTS: SensorType[] = COMPONENTS.filter((t) => SENSORS[t].output);
+
+/** Categorie per filtrare il catalogo (un componente può stare in più categorie). */
+export type ComponentTag = "temp" | "motion" | "light" | "force" | "place" | "volt" | "status";
+export const TAGS: [ComponentTag, string][] = [
+  ["temp", "Temperatura e clima"], ["motion", "Movimento e tempo"], ["light", "Luce"], ["force", "Forza e massa"],
+  ["place", "Posizione"], ["volt", "Tensione"], ["status", "Display, LED, suoni"],
+];
+export const COMPONENT_TAGS: Record<SensorType, ComponentTag[]> = {
+  dht: ["temp"], ntc: ["temp"], ds18b20: ["temp"], sonar: ["motion", "place"], imu: ["motion", "force"], gate: ["motion", "light"],
+  gps: ["place", "motion"], ldr: ["light"], hx711: ["force"], analog: ["volt"], oled: ["status"], rgb: ["status", "light"], buzzer: ["status"],
+};
+/** Parole in più per la ricerca (nomi comuni, sinonimi, kit). */
+export const COMPONENT_KEYWORDS: Record<SensorType, string> = {
+  dht: "umidità rugiada aria meteo clima dht11 dht22 am2302",
+  ntc: "termistore termometro calore raffreddamento newton resistenza",
+  ds18b20: "sonda impermeabile acqua liquido termometro onewire",
+  sonar: "ultrasuoni distanza sonar carrello caduta moto velocità accelerazione hcsr04 hc-sr04",
+  imu: "accelerometro giroscopio inclinazione vibrazioni urti oscillazioni gy521 gy-521 mpu6050",
+  gate: "fotocellula fotoporta pendolo periodo cronometro forcella infrarossi pulsante interruttore",
+  gps: "satelliti mappa percorso altitudine passeggiata neo6m neo-6m neo7m",
+  ldr: "fotoresistenza luminosità buio lampada fotocellula",
+  hx711: "bilancia peso cella di carico newton dinamometro",
+  analog: "potenziometro voltmetro tensione segnale generico pila",
+  oled: "schermo display ssd1306 stato scritte",
+  rgb: "led colori luce stato semaforo",
+  buzzer: "cicalino suono beep allarme avviso",
+};
 export const isOutput = (t: SensorType) => !!SENSORS[t].output;
 export const MAX_ARDUINO = 6;
 

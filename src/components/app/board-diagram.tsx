@@ -1,17 +1,23 @@
 "use client";
-// Schema dei collegamenti «realistico», nello stile di Tinkercad: l'Arduino Uno disegnato com'è
-// (header con le scritte vere), una breadboard con i binari dell'alimentazione, i moduli dei
-// sensori con il loro aspetto e i loro piedini nell'ordine giusto, e i fili colorati:
-// rosso = 5V, nero = GND, un colore per sensore. Si genera dai sensori e dai pin scelti.
+// Schema dei collegamenti «realistico», nello stile di Tinkercad, pensato per essere rifatto
+// sul banco foro per foro:
+// • l'Arduino Uno disegnato com'è, con le scritte vere sugli header;
+// • una breadboard con le colonne numerate e le righe a…j, come quelle vere;
+// • i moduli INFILATI nella breadboard (piedini nella riga e), i ponticelli che partono dalla
+//   riga a della stessa colonna: corti verso i binari (rosso 5V, nero GND), colorati verso Arduino;
+// • l'elenco dei fili «da foro a foro» (BoardSteps), generato dalla stessa disposizione.
+// Si genera dai sensori e dai pin scelti.
 
-import { Fragment } from "react";
+import { Fragment, useId } from "react";
 import { buildModules, type BtModule, type Mod } from "./rig-diagram";
-import type { SensorInstance } from "@/lib/sensors/rig";
+import { makeSensor, type SensorInstance } from "@/lib/sensors/rig";
+import type { SensorType } from "@/lib/sensors/catalog";
 
 const P = 12;                 // passo dei fori della breadboard (0,1")
 const HP = 11;                // passo degli header dell'Arduino (alla scala del disegno)
 const AW = 300, AH = 214;     // Arduino Uno (68,6 × 53,3 mm)
-const RED = "#dc2626", BLK = "#1f2937";
+const RED = "#dc2626", BLK = "#27272a", INK = "#52525b";
+const LZ = 20;                // fascia in alto sui moduli con i nomi dei piedini
 
 // header dell'Uno R3, da sinistra a destra (USB a sinistra)
 const TOP_LABELS = ["SCL", "SDA", "AREF", "GND", "13", "12", "~11", "~10", "~9", "8", "", "7", "~6", "~5", "4", "~3", "2", "TX→1", "RX←0"];
@@ -19,12 +25,18 @@ const TOP_PINS: (number | string | null)[] = [null, null, null, "GND", 13, 12, 1
 const BOT_LABELS = ["", "IOREF", "RESET", "3.3V", "5V", "GND", "GND", "Vin", "", "A0", "A1", "A2", "A3", "A4", "A5"];
 const BOT_PINS: (number | string | null)[] = [null, null, null, null, "5V", "GND", null, null, null, 14, 15, 16, 17, 18, 19];
 
-// disegno dei moduli: larghezza, altezza; onBoard = componenti sciolti sulla breadboard
+// disegno dei moduli: larghezza, altezza (piedini sul lato in alto); ntc e ldr sono componenti sciolti
 const SIZE: Record<string, [number, number]> = {
-  dht: [54, 88], sonar: [124, 72], gps: [80, 96], analog: [52, 60], ds18b20: [70, 84], gate: [66, 80], hx711: [62, 68],
-  imu: [56, 68], oled: [58, 62], rgb: [46, 68], buzzer: [46, 64], hc06: [60, 96], ble: [60, 96],
+  dht: [54, 86], sonar: [124, 76], gps: [80, 98], analog: [52, 66], ds18b20: [64, 92], gate: [66, 78], hx711: [62, 74],
+  imu: [56, 70], oled: [58, 66], rgb: [54, 64], buzzer: [48, 64], hc06: [60, 96], ble: [60, 96],
 };
 const ON_BOARD = new Set(["ntc", "ldr"]);
+
+// righe della breadboard (y rispetto al bordo in alto)
+const ROWS = { p1: 12, n1: 24, num1: 37.5, a: 50, b: 62, c: 74, d: 86, e: 98, gap: 110, f: 122, g: 134, h: 146, i: 158, j: 170, num2: 184, n2: 196, p2: 208 };
+const BH = 220;
+type RowKey = "a" | "b" | "c" | "d" | "e" | "f" | "g" | "h" | "i" | "j";
+const LETTERS: RowKey[] = ["a", "b", "c", "d", "e", "f", "g", "h", "i", "j"];
 
 type Pt = [number, number];
 /** Filo ad angoli retti, con le curve arrotondate (come i fili di Tinkercad). */
@@ -47,307 +59,470 @@ function ortho(pts: Pt[], r = 5) {
 function Wire({ d, color, dashed }: { d: string; color: string; dashed?: boolean }) {
   return (
     <g>
-      <path d={d} fill="none" stroke="#000" strokeOpacity={0.28} strokeWidth={5} strokeLinecap="round" strokeLinejoin="round" />
-      <path d={d} fill="none" stroke={color} strokeWidth={3.2} strokeLinecap="round" strokeLinejoin="round" strokeDasharray={dashed ? "6 4" : undefined} />
+      <path d={d} fill="none" stroke="#000" strokeOpacity={0.3} strokeWidth={5.4} strokeLinecap="round" strokeLinejoin="round" />
+      <path d={d} fill="none" stroke={color} strokeWidth={3.6} strokeLinecap="round" strokeLinejoin="round" strokeDasharray={dashed ? "7 4" : undefined} />
+      {!dashed && <path d={d} fill="none" stroke="#fff" strokeOpacity={0.32} strokeWidth={1} strokeLinecap="round" strokeLinejoin="round" />}
     </g>
   );
 }
+/** Puntale del ponticello, infilato in un foro. */
 const End = ({ x, y, color }: { x: number; y: number; color: string }) => (
-  <rect x={x - 2.6} y={y - 2.6} width={5.2} height={5.2} rx={1} fill={color} stroke="#000" strokeOpacity={0.35} strokeWidth={0.8} />
+  <g>
+    <rect x={x - 3} y={y - 3} width={6} height={6} rx={1.2} fill={color} stroke="#000" strokeOpacity={0.45} strokeWidth={0.8} />
+    <rect x={x - 1.2} y={y - 1.2} width={2.4} height={2.4} fill="#e5e7eb" opacity={0.8} />
+  </g>
 );
 
 const BANDS: Record<string, string[]> = {
   "10k": ["#7c2d12", "#111", "#ea580c"], "1k": ["#7c2d12", "#111", "#dc2626"], "2k": ["#dc2626", "#111", "#dc2626"], "4k7": ["#eab308", "#7c3aed", "#dc2626"],
 };
-/** Resistenza orizzontale tra due fori. */
-function Resistor({ x1, x2, y, value }: { x1: number; x2: number; y: number; value: keyof typeof BANDS }) {
-  const mid = (x1 + x2) / 2, bw = Math.min(18, x2 - x1 - 6);
+/** Resistenza tra due fori (orizzontale o verticale). */
+function Resistor({ x1, y1, x2, y2, value }: { x1: number; y1: number; x2: number; y2: number; value: keyof typeof BANDS }) {
+  const len = Math.hypot(x2 - x1, y2 - y1), ang = (Math.atan2(y2 - y1, x2 - x1) * 180) / Math.PI;
+  const bw = Math.min(18, len - 6);
+  return (
+    <g transform={`translate(${x1} ${y1}) rotate(${ang})`}>
+      <line x1={0} y1={0} x2={len} y2={0} stroke="#a1a1aa" strokeWidth={1.6} strokeLinecap="round" />
+      <rect x={len / 2 - bw / 2} y={-3.8} width={bw} height={7.6} rx={3.4} fill="#e2cfa3" stroke="#a8916a" strokeWidth={0.6} />
+      {BANDS[value].map((c, i) => <rect key={i} x={len / 2 - bw / 2 + 3.6 + i * 3.4} y={-3.6} width={1.8} height={7.2} fill={c} />)}
+      <rect x={len / 2 + bw / 2 - 4.6} y={-3.6} width={1.6} height={7.2} fill="#ca8a04" />
+      <rect x={len / 2 - bw / 2 + 1} y={-3} width={bw - 2} height={1.6} rx={0.8} fill="#fff" opacity={0.35} />
+    </g>
+  );
+}
+/** Termistore o fotoresistenza tra due fori in orizzontale. */
+function Part({ kind, x1, x2, y }: { kind: "ntc" | "ldr"; x1: number; x2: number; y: number }) {
+  const cx = (x1 + x2) / 2;
   return (
     <g>
-      <line x1={x1} y1={y} x2={x2} y2={y} stroke="#9ca3af" strokeWidth={1.6} />
-      <rect x={mid - bw / 2} y={y - 3.6} width={bw} height={7.2} rx={3.2} fill="#d6c39a" stroke="#a8916a" strokeWidth={0.6} />
-      {BANDS[value].map((c, i) => <rect key={i} x={mid - bw / 2 + 3.5 + i * 3.4} y={y - 3.6} width={1.8} height={7.2} fill={c} />)}
-      <rect x={mid + bw / 2 - 4.5} y={y - 3.6} width={1.6} height={7.2} fill="#ca8a04" />
+      <line x1={x1} y1={y} x2={x2} y2={y} stroke="#a1a1aa" strokeWidth={1.6} strokeLinecap="round" />
+      {kind === "ntc" ? (
+        <g>
+          <ellipse cx={cx} cy={y} rx={6} ry={4.6} fill="#1c1917" stroke="#7f1d1d" strokeWidth={0.8} />
+          <ellipse cx={cx - 1.8} cy={y - 1.6} rx={2} ry={1.1} fill="#fff" opacity={0.3} />
+        </g>
+      ) : (
+        <g>
+          <circle cx={cx} cy={y} r={6.4} fill="#f59e0b" stroke="#92400e" strokeWidth={0.8} />
+          <path d={`M${cx - 4} ${y - 2.6} h8 M${cx - 4} ${y} h8 M${cx - 4} ${y + 2.6} h8`} stroke="#7c2d12" strokeWidth={0.8} />
+          <path d={`M${cx + 4} ${y - 2.6} v2.6 M${cx - 4} ${y} v2.6`} stroke="#7c2d12" strokeWidth={0.8} />
+        </g>
+      )}
     </g>
   );
 }
 
 // ---------------------------------------------------------------------------
-// I disegni dei moduli (x, y = angolo in alto a sinistra)
+// I disegni dei moduli (x, y = angolo in alto a sinistra; i piedini escono dal lato in alto)
 // ---------------------------------------------------------------------------
-function ModuleArt({ m, x, y, w, h }: { m: Mod; x: number; y: number; w: number; h: number }) {
-  const pcb = (fill: string, stroke = "#00000055") => <rect x={x} y={y} width={w} height={h} rx={4} fill={fill} stroke={stroke} />;
-  const label = (t: string, yy: number, fill = "#fff", size = 7) => <text x={x + w / 2} y={yy} textAnchor="middle" fontSize={size} fontWeight={700} fill={fill} letterSpacing={0.3}>{t}</text>;
-  const hole = (cx: number, cy: number) => <circle cx={cx} cy={cy} r={2.4} fill="#e5e7eb" stroke="#9ca3af" strokeWidth={0.6} />;
-  switch (m.kind) {
+export function ModuleArt({ kind, options, x, y, w, h, uid }: { kind: string; options?: Record<string, number | string>; x: number; y: number; w: number; h: number; uid: string }) {
+  const pcb = (fill: string, hh = h) => (
+    <g>
+      <rect x={x + 1} y={y + 2} width={w} height={hh} rx={4} fill="#000" opacity={0.22} />
+      <rect x={x} y={y} width={w} height={hh} rx={4} fill={fill} stroke="#00000066" strokeWidth={0.8} />
+      <rect x={x + 1.5} y={y + 1.5} width={w - 3} height={hh - 3} rx={3} fill="none" stroke="#fff" strokeOpacity={0.12} />
+    </g>
+  );
+  const label = (t: string, yy: number, fill = "#fff", size = 6.5) => <text x={x + w / 2} y={yy} textAnchor="middle" fontSize={size} fontWeight={700} fill={fill} letterSpacing={0.4}>{t}</text>;
+  const hole = (cx: number, cy: number, r = 2.6) => <circle cx={cx} cy={cy} r={r} fill="#e4e4e7" stroke="#a1a1aa" strokeWidth={0.6} />;
+  const chip = (cx: number, cy: number, s: number) => (
+    <g>
+      <rect x={cx - s / 2} y={cy - s / 2} width={s} height={s} rx={1.2} fill="#18181b" />
+      <circle cx={cx - s / 2 + 2.6} cy={cy - s / 2 + 2.6} r={0.9} fill="#52525b" />
+    </g>
+  );
+  const top = y + LZ;
+  switch (kind) {
     case "dht": {
-      const model = m.options?.model === "dht22" ? "DHT22" : "DHT11";
-      const fill = model === "DHT22" ? "#f8fafc" : "#3b82f6";
+      const dht22 = options?.model === "dht22";
+      const body = dht22 ? "#f4f4f5" : "#3b82f6", slot = dht22 ? "#a1a1aa" : "#1e3a8a";
+      const gw = w - 14, gh = h - LZ - 18;
       return (
         <g>
           {pcb("#1e3a8a")}
-          <rect x={x + 7} y={y + 5} width={w - 14} height={h - 30} rx={2} fill={fill} stroke="#0f172a55" />
+          <rect x={x + 7} y={top} width={gw} height={gh} rx={2.5} fill={body} stroke="#0f172a66" />
           {Array.from({ length: 5 }, (_, r) => Array.from({ length: 4 }, (_, c) => (
-            <rect key={`${r}-${c}`} x={x + 11 + c * ((w - 22) / 4)} y={y + 9 + r * ((h - 38) / 5)} width={(w - 22) / 4 - 3} height={(h - 38) / 5 - 3} rx={1} fill="#0f172a" opacity={0.55} />
+            <rect key={`${r}-${c}`} x={x + 10.5 + c * ((gw - 7) / 4)} y={top + 4 + r * ((gh - 8) / 5)} width={(gw - 7) / 4 - 2.5} height={(gh - 8) / 5 - 2.5} rx={1} fill={slot} opacity={0.7} />
           )))}
-          {label(model, y + h - 24, "#e0e7ff", 6.5)}
+          {label(dht22 ? "DHT22" : "DHT11", y + h - 6, "#dbeafe", 6.5)}
         </g>
       );
     }
-    case "sonar":
+    case "sonar": {
+      const cy = y + LZ + 26;
       return (
         <g>
           {pcb("#1d4ed8")}
-          {[x + 30, x + w - 30].map((cx) => (
+          {[x + 31, x + w - 31].map((cx) => (
             <g key={cx}>
-              <circle cx={cx} cy={y + 26} r={20} fill="#d1d5db" stroke="#6b7280" strokeWidth={1.2} />
-              <circle cx={cx} cy={y + 26} r={15} fill="#374151" />
-              <circle cx={cx} cy={y + 26} r={15} fill="url(#mesh)" />
+              <circle cx={cx} cy={cy + 1.5} r={22} fill="#000" opacity={0.25} />
+              <circle cx={cx} cy={cy} r={22} fill="#d4d4d8" stroke="#71717a" strokeWidth={1.2} />
+              <circle cx={cx} cy={cy} r={17} fill="#3f3f46" />
+              <circle cx={cx} cy={cy} r={17} fill={`url(#${uid}mesh)`} />
+              <circle cx={cx - 6} cy={cy - 7} r={5} fill="#fff" opacity={0.12} />
             </g>
           ))}
-          <rect x={x + w / 2 - 7} y={y + 8} width={14} height={7} rx={3} fill="#d1d5db" stroke="#6b7280" strokeWidth={0.6} />
-          {label("HC-SR04", y + h - 24, "#dbeafe", 6.5)}
+          <rect x={x + w / 2 - 8} y={top + 2} width={16} height={7} rx={3.5} fill="#d4d4d8" stroke="#71717a" strokeWidth={0.6} />
+          <text x={x + w / 2} y={cy + 4} textAnchor="middle" fontSize={4.6} fontWeight={700} fill="#dbeafe">T   R</text>
+          {label("HC-SR04", y + h - 5, "#dbeafe", 5.6)}
         </g>
       );
-    case "gps":
+    }
+    case "gps": {
+      const s = w - 22;
       return (
         <g>
           {pcb("#1e40af")}
-          <rect x={x + 12} y={y + 8} width={w - 24} height={w - 24} rx={3} fill="#d9c28c" stroke="#a38a52" />
-          <circle cx={x + w / 2} cy={y + 8 + (w - 24) / 2} r={4} fill="#9ca3af" stroke="#6b7280" />
-          <circle cx={x + w - 10} cy={y + h - 26} r={3} fill="#22c55e" />
-          {label("GPS NEO-6M", y + h - 24, "#dbeafe", 6)}
+          <rect x={x + 11} y={top + 2} width={s} height={s} rx={3} fill="#b45309" opacity={0.25} />
+          <rect x={x + 13} y={top} width={s - 4} height={s - 4} rx={3} fill="#e0c88f" stroke="#a38a52" />
+          <rect x={x + 21} y={top + 8} width={s - 20} height={s - 20} rx={1.5} fill="#cdb173" stroke="#a38a52" strokeWidth={0.5} />
+          <circle cx={x + w / 2} cy={top + (s - 4) / 2} r={3.4} fill="#a1a1aa" stroke="#71717a" />
+          <circle cx={x + w - 9} cy={y + h - 9} r={2.6} fill="#22c55e" />
+          <circle cx={x + w - 9} cy={y + h - 9} r={4.5} fill="#22c55e" opacity={0.25} />
+          {label("GPS NEO-6M", y + h - 6, "#dbeafe", 5.6)}
         </g>
       );
-    case "ds18b20":
+    }
+    case "ds18b20": {
+      const bh = LZ + 24, cx = x + w / 2;
       return (
         <g>
-          <path d={`M${x + w / 2} ${y + h - 34} C ${x + w / 2} ${y + 18}, ${x + 6} ${y + 30}, ${x + 8} ${y + 8}`} fill="none" stroke="#111827" strokeWidth={5} strokeLinecap="round" />
-          <rect x={x + 2} y={y - 6} width={13} height={22} rx={5} fill="#cbd5e1" stroke="#64748b" transform={`rotate(-12 ${x + 8} ${y + 5})`} />
-          <rect x={x + 10} y={y + h - 36} width={w - 20} height={30} rx={3} fill="#15803d" stroke="#00000055" />
-          {[0, 1, 2].map((i) => <rect key={i} x={x + 14 + i * ((w - 28) / 3)} y={y + h - 33} width={(w - 28) / 3 - 2} height={9} rx={1} fill="#16a34a" stroke="#14532d" strokeWidth={0.6} />)}
-          <Resistor x1={x + 18} x2={x + w - 18} y={y + h - 15} value="4k7" />
-          {label("DS18B20", y + 12, "currentColor", 6.5)}
+          {pcb("#15803d", bh)}
+          {[0, 1, 2].map((i) => (
+            <g key={i}>
+              <rect x={x + 8 + i * ((w - 16) / 3)} y={top + 1} width={(w - 16) / 3 - 2} height={10} rx={1} fill="#22c55e" stroke="#14532d" strokeWidth={0.6} />
+              <circle cx={x + 8 + i * ((w - 16) / 3) + ((w - 16) / 3 - 2) / 2} cy={top + 6} r={2.6} fill="#a1a1aa" stroke="#3f3f46" strokeWidth={0.5} />
+            </g>
+          ))}
+          <Resistor x1={x + 14} y1={top + 18} x2={x + w - 14} y2={top + 18} value="4k7" />
+          <path d={`M${cx} ${y + bh} C ${cx} ${y + bh + 16}, ${x + 12} ${y + bh + 10}, ${x + 14} ${y + h - 18}`} fill="none" stroke="#18181b" strokeWidth={5} strokeLinecap="round" />
+          <rect x={x + 8} y={y + h - 20} width={12} height={20} rx={4} fill="#d4d4d8" stroke="#71717a" />
+          <rect x={x + 10} y={y + h - 18} width={3} height={16} rx={1.5} fill="#fff" opacity={0.5} />
+          <text x={x + w - 4} y={y + h - 4} textAnchor="end" fontSize={6} fontWeight={700} fill={INK}>DS18B20</text>
         </g>
       );
-    case "gate":
+    }
+    case "gate": {
+      const fy = top + 4, fh = h - LZ - 18;
       return (
         <g>
           {pcb("#1d4ed8")}
-          <path d={`M${x + 10} ${y + 6} h14 v28 h${w - 48} v-28 h14 v40 h-${w - 20} z`} fill="#111827" />
-          <circle cx={x + 17} cy={y + 22} r={2.2} fill="#f87171" />
-          <circle cx={x + w - 17} cy={y + 22} r={2.2} fill="#374151" />
-          {label("FOTOCELLULA", y + h - 24, "#dbeafe", 5.6)}
+          <path d={`M${x + 8} ${fy} h${w - 16} v${fh} h-14 v-${fh - 12} h-${w - 44} v${fh - 12} h-14 z`} fill="#18181b" />
+          <circle cx={x + 15} cy={fy + fh - 8} r={2.4} fill="#f87171" />
+          <circle cx={x + w - 15} cy={fy + fh - 8} r={2.4} fill="#52525b" />
+          <path d={`M${x + 19} ${fy + fh - 8} H${x + w - 19}`} stroke="#f87171" strokeWidth={0.8} strokeDasharray="2 2" opacity={0.8} />
+          {label("FOTOCELLULA", y + h - 5, "#dbeafe", 5.4)}
         </g>
       );
+    }
     case "hx711":
       return (
         <g>
           {pcb("#15803d")}
-          <rect x={x + w / 2 - 12} y={y + 12} width={24} height={14} rx={1.5} fill="#111827" />
-          {Array.from({ length: 6 }, (_, i) => <rect key={i} x={x + w / 2 - 10 + i * 4} y={y + 9} width={1.6} height={3} fill="#cbd5e1" />)}
-          {[0, 1, 2, 3].map((i) => hole(x + 10 + i * ((w - 20) / 3), y + 6))}
-          {label("HX711", y + h - 24, "#dcfce7", 6.5)}
+          {chip(x + w / 2, top + 13, 16)}
+          {Array.from({ length: 5 }, (_, i) => <rect key={i} x={x + w / 2 - 9 + i * 4.2} y={top + 2.5} width={1.6} height={3} fill="#d4d4d8" />)}
+          {Array.from({ length: 5 }, (_, i) => <rect key={`b${i}`} x={x + w / 2 - 9 + i * 4.2} y={top + 21.5} width={1.6} height={3} fill="#d4d4d8" />)}
+          {[0, 1, 2, 3].map((i) => <Fragment key={i}>{hole(x + 11 + i * ((w - 22) / 3), y + h - 18)}</Fragment>)}
+          {["E+", "E−", "A−", "A+"].map((t, i) => <text key={t} x={x + 11 + i * ((w - 22) / 3)} y={y + h - 22} textAnchor="middle" fontSize={4} fill="#dcfce7">{t}</text>)}
+          {["#dc2626", "#18181b", "#f4f4f5", "#16a34a"].map((c, i) => <rect key={c} x={x + 10 + i * ((w - 22) / 3)} y={y + h - 16} width={2} height={6} fill={c} />)}
+          {label("HX711", y + h - 4, "#dcfce7", 5.6)}
         </g>
       );
     case "imu":
       return (
         <g>
           {pcb("#1d4ed8")}
-          <rect x={x + w / 2 - 9} y={y + 12} width={18} height={18} rx={1.5} fill="#111827" />
-          <circle cx={x + w / 2 - 6} cy={y + 15} r={1.2} fill="#9ca3af" />
-          <path d={`M${x + 8} ${y + 34} h10 m-3 -3 l3 3 -3 3 M${x + 8} ${y + 34} v-10 m-3 3 l3 -3 3 3`} stroke="#e0e7ff" strokeWidth={1} fill="none" />
-          {label("GY-521", y + h - 24, "#dbeafe", 6.5)}
+          {chip(x + w / 2 + 6, top + 16, 15)}
+          <path d={`M${x + 9} ${top + 30} h11 m-3 -3 l3 3 -3 3 M${x + 9} ${top + 30} v-11 m-3 3 l3 -3 3 3`} stroke="#e0e7ff" strokeWidth={1} fill="none" />
+          <text x={x + 23} y={top + 32} fontSize={4.6} fill="#e0e7ff">X</text>
+          <text x={x + 7} y={top + 15} fontSize={4.6} fill="#e0e7ff">Y</text>
+          {hole(x + 7, y + h - 7, 2.4)}{hole(x + w - 7, y + h - 7, 2.4)}
+          {label("GY-521", y + h - 5, "#dbeafe", 5.8)}
         </g>
       );
     case "oled":
       return (
         <g>
           {pcb("#0f172a")}
-          <rect x={x + 6} y={y + 6} width={w - 12} height={h - 26} rx={2} fill="#020617" stroke="#334155" />
-          <rect x={x + 10} y={y + 10} width={w - 20} height={7} fill="#e2e8f0" />
-          <text x={x + 12} y={y + 15.8} fontSize={5.4} fontWeight={700} fill="#020617" fontFamily="monospace">PRONTO</text>
-          <text x={x + w / 2} y={y + 28} textAnchor="middle" fontSize={9} fontWeight={700} fill="#e2e8f0" fontFamily="monospace">OK</text>
-          {label("OLED 0,49\"", y + h - 12, "#94a3b8", 5.5)}
+          <rect x={x + 5} y={top} width={w - 10} height={h - LZ - 12} rx={2} fill="#020617" stroke="#334155" />
+          <rect x={x + 9} y={top + 4} width={w - 18} height={7} fill="#7dd3fc" />
+          <text x={x + 11} y={top + 9.6} fontSize={5.2} fontWeight={700} fill="#020617" fontFamily="monospace">PRONTO</text>
+          <text x={x + w / 2} y={top + 24} textAnchor="middle" fontSize={10} fontWeight={700} fill="#7dd3fc" fontFamily="monospace">OK</text>
+          {label("OLED 0,49\"", y + h - 4, "#94a3b8", 5)}
         </g>
       );
-    case "rgb":
+    case "rgb": {
+      const cy = top + 18;
       return (
         <g>
-          {pcb("#111827")}
+          {pcb("#18181b")}
           <defs>
-            <radialGradient id="ledRgb" cx="40%" cy="35%" r="70%"><stop offset="0%" stopColor="#fff" /><stop offset="45%" stopColor="#a5f3fc" /><stop offset="75%" stopColor="#f0abfc" /><stop offset="100%" stopColor="#fca5a5" /></radialGradient>
+            <radialGradient id={`${uid}led`} cx="38%" cy="32%" r="72%"><stop offset="0%" stopColor="#fff" /><stop offset="40%" stopColor="#a5f3fc" /><stop offset="72%" stopColor="#f0abfc" /><stop offset="100%" stopColor="#fca5a5" /></radialGradient>
           </defs>
-          <circle cx={x + w / 2} cy={y + 22} r={13} fill="url(#ledRgb)" stroke="#e5e7eb" strokeWidth={1} opacity={0.95} />
-          {label("RGB", y + h - 24, "#d1d5db", 6.5)}
+          <circle cx={x + w / 2} cy={cy} r={18} fill="#a5f3fc" opacity={0.12} />
+          <circle cx={x + w / 2} cy={cy} r={12.5} fill={`url(#${uid}led)`} stroke="#e4e4e7" strokeWidth={1} />
+          {label("RGB", y + h - 5, "#d4d4d8", 5.8)}
         </g>
       );
-    case "buzzer":
+    }
+    case "buzzer": {
+      const cy = top + 19;
       return (
         <g>
-          {pcb("#111827")}
-          <circle cx={x + w / 2} cy={y + 22} r={15} fill="#0b0f19" stroke="#4b5563" strokeWidth={1.4} />
-          <circle cx={x + w / 2} cy={y + 22} r={3} fill="#374151" />
-          <text x={x + w / 2 - 11} y={y + 13} fontSize={8} fontWeight={700} fill="#e5e7eb">+</text>
-          {label(m.options?.kind === "passive" ? "PASSIVO" : "BUZZER", y + h - 24, "#d1d5db", 5.6)}
+          {pcb("#18181b")}
+          <circle cx={x + w / 2} cy={cy} r={16} fill="#09090b" stroke="#52525b" strokeWidth={1.4} />
+          <circle cx={x + w / 2} cy={cy} r={11} fill="none" stroke="#27272a" strokeWidth={0.8} />
+          <circle cx={x + w / 2} cy={cy} r={3} fill="#3f3f46" />
+          <text x={x + w / 2 - 12} y={cy - 8} fontSize={7} fontWeight={700} fill="#e4e4e7">+</text>
+          {label(options?.kind === "passive" ? "PASSIVO" : "BUZZER", y + h - 5, "#d4d4d8", 5.4)}
         </g>
       );
+    }
     case "hc06":
-    case "ble":
+    case "ble": {
+      const ble = kind === "ble";
       return (
         <g>
-          {pcb(m.kind === "ble" ? "#065f46" : "#1d4ed8")}
-          <rect x={x + 8} y={y + 6} width={w - 16} height={h - 30} rx={2} fill={m.kind === "ble" ? "#047857" : "#2563eb"} stroke="#00000044" />
-          <path d={`M${x + 12} ${y + 14} h${w - 24} v6 h-${w - 30} v6 h${w - 30} v6 h-${w - 24}`} fill="none" stroke="#fbbf24" strokeWidth={1.6} />
-          <rect x={x + w / 2 - 8} y={y + 40} width={16} height={12} rx={1} fill="#111827" />
-          {label(m.kind === "ble" ? "HM-10 BLE" : "HC-06", y + h - 24, "#e0f2fe", 6.5)}
+          {pcb(ble ? "#065f46" : "#1d4ed8")}
+          <rect x={x + 7} y={top} width={w - 14} height={h - LZ - 12} rx={2} fill={ble ? "#047857" : "#2563eb"} stroke="#00000044" />
+          {chip(x + w / 2, top + 14, 14)}
+          <rect x={x + 12} y={top + 26} width={8} height={5} rx={0.8} fill="#a1a1aa" />
+          <path d={`M${x + 12} ${y + h - 30} h${w - 24} v5 h-${w - 30} v5 h${w - 30} v5 h-${w - 24}`} fill="none" stroke="#fbbf24" strokeWidth={1.6} />
+          {label(ble ? "HM-10 BLE" : "HC-06", y + h - 4, "#e0f2fe", 5.6)}
         </g>
       );
-    default:
+    }
+    default: {
+      const cy = top + 18;
       return (
         <g>
           {pcb("#475569")}
-          {label("0–5 V", y + 22, "#f1f5f9", 8)}
-          {label("SENSORE", y + h - 24, "#cbd5e1", 5.6)}
+          <rect x={x + w / 2 - 13} y={cy - 13} width={26} height={26} rx={2} fill="#2563eb" stroke="#1e3a8a" />
+          <circle cx={x + w / 2} cy={cy} r={8} fill="#e4e4e7" stroke="#a1a1aa" />
+          <rect x={x + w / 2 - 1} y={cy - 7} width={2} height={7} fill="#71717a" />
+          {label("0–5 V", y + h - 5, "#e2e8f0", 6)}
         </g>
       );
+    }
   }
+}
+
+/** Disegnino di un componente, per il catalogo e l'elenco del montaggio. */
+export function ComponentThumb({ type, options, className }: { type: SensorType; options?: Record<string, number | string>; className?: string }) {
+  const uid = useId().replace(/[^a-zA-Z0-9]/g, "");
+  if (ON_BOARD.has(type)) {
+    return (
+      <svg viewBox="0 0 48 48" className={className} aria-hidden>
+        <path d="M17 4 V22 M31 4 V22" stroke="#a1a1aa" strokeWidth={2} strokeLinecap="round" />
+        {type === "ntc" ? (
+          <g>
+            <ellipse cx={24} cy={29} rx={12} ry={10} fill="#1c1917" stroke="#7f1d1d" strokeWidth={1.4} />
+            <ellipse cx={20} cy={25} rx={4} ry={2.4} fill="#fff" opacity={0.3} />
+          </g>
+        ) : (
+          <g>
+            <circle cx={24} cy={30} r={13} fill="#f59e0b" stroke="#92400e" strokeWidth={1.4} />
+            <path d="M16 25 h16 v5 h-16 v5 h16" fill="none" stroke="#7c2d12" strokeWidth={1.4} />
+            <circle cx={20} cy={24} r={3} fill="#fff" opacity={0.3} />
+          </g>
+        )}
+      </svg>
+    );
+  }
+  const [w, h] = SIZE[type] ?? [56, 56];
+  const mod = buildModules([{ ...makeSensor(type), ...(options ? { options } : {}) }], null)[0];
+  const n = mod?.rows.length ?? 0;
+  const pad = 5, side = Math.max(w, h - 4) + pad * 2;
+  const x0 = (side - w) / 2;
+  return (
+    <svg viewBox={`0 ${-9} ${side} ${side}`} className={className} aria-hidden>
+      <defs><pattern id={`${uid}mesh`} width={3} height={3} patternUnits="userSpaceOnUse"><rect width={1.6} height={1.6} fill="#a1a1aa" opacity={0.6} /></pattern></defs>
+      {Array.from({ length: n }, (_, i) => {
+        const px = side / 2 + (i - (n - 1) / 2) * P;
+        return <rect key={i} x={px - 1.8} y={-8} width={3.6} height={10} fill="#d4a017" stroke="#92400e" strokeWidth={0.4} />;
+      })}
+      <ModuleArt kind={type} options={options ?? mod?.options} x={x0} y={0} w={w} h={h} uid={uid} />
+    </svg>
+  );
 }
 
 // ---------------------------------------------------------------------------
 // Arduino Uno
 // ---------------------------------------------------------------------------
-function ArduinoArt({ x, y, used }: { x: number; y: number; used: Map<string, string> }) {
+function ArduinoArt({ x, y, used, uid }: { x: number; y: number; used: Map<string, string>; uid: string }) {
   const topX0 = x + AW - 16 - 18 * HP, botX0 = x + AW - 16 - 14 * HP;
-  const headerStrip = (x0: number, n: number, yy: number) => <rect x={x0 - HP / 2} y={yy - 5} width={n * HP} height={10} rx={1} fill="#111" />;
+  const header = (x0: number, n: number, yy: number) => (
+    <g>
+      <rect x={x0 - HP / 2} y={yy - 5.5} width={n * HP} height={11} rx={1} fill="#18181b" />
+      <rect x={x0 - HP / 2} y={yy - 5.5} width={n * HP} height={2} rx={1} fill="#3f3f46" />
+    </g>
+  );
+  const pinHole = (cx: number, cy: number, c?: string) => (
+    <g>
+      <rect x={cx - 2.4} y={cy - 2.4} width={4.8} height={4.8} fill="#09090b" stroke="#3f3f46" strokeWidth={0.5} />
+      {c && <rect x={cx - 2.4} y={cy - 2.4} width={4.8} height={4.8} fill={c} />}
+    </g>
+  );
+  const outline = `M${x + 8} ${y} H${x + AW - 18} L${x + AW - 8} ${y + 10} V${y + 60} L${x + AW} ${y + 68} V${y + AH - 28} L${x + AW - 8} ${y + AH - 20} V${y + AH - 8} Q${x + AW - 8} ${y + AH} ${x + AW - 16} ${y + AH} H${x + 8} Q${x} ${y + AH} ${x} ${y + AH - 8} V${y + 8} Q${x} ${y} ${x + 8} ${y} Z`;
   return (
     <g>
-      <rect x={x} y={y} width={AW} height={AH} rx={10} fill="#0f7a83" stroke="#0a5960" strokeWidth={1.5} />
+      <defs>
+        <linearGradient id={`${uid}uno`} x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#11939c" /><stop offset="100%" stopColor="#0b7179" /></linearGradient>
+      </defs>
+      <path d={outline} transform="translate(2 3)" fill="#000" opacity={0.22} />
+      <path d={outline} fill={`url(#${uid}uno)`} stroke="#075a60" strokeWidth={1.4} />
       {/* fori di fissaggio */}
-      {[[x + 14, y + 12], [x + 16, y + AH - 12], [x + AW - 12, y + 34], [x + AW - 12, y + AH - 30]].map(([cx, cy], i) => <circle key={i} cx={cx} cy={cy} r={5} fill="#f8fafc" stroke="#cbd5e1" />)}
-      {/* USB-B e alimentazione */}
-      <rect x={x - 12} y={y + 34} width={46} height={40} rx={2} fill="#cbd5e1" stroke="#64748b" />
-      <rect x={x - 12} y={y + 44} width={10} height={20} fill="#94a3b8" />
-      <rect x={x - 8} y={y + AH - 64} width={40} height={30} rx={3} fill="#111827" />
-      <circle cx={x + 4} cy={y + AH - 49} r={6} fill="#1f2937" stroke="#374151" />
-      {/* pulsante di reset, LED */}
-      <rect x={x + 28} y={y + 14} width={14} height={14} rx={2} fill="#e5e7eb" stroke="#9ca3af" />
-      <circle cx={x + 35} cy={y + 21} r={4} fill="#dc2626" />
+      {[[x + 15, y + 13], [x + 16, y + AH - 13], [x + AW - 24, y + 66], [x + AW - 20, y + AH - 40]].map(([cx, cy], i) => (
+        <g key={i}><circle cx={cx} cy={cy} r={6} fill="#d4d4d8" /><circle cx={cx} cy={cy} r={3.6} fill="#fafafa" stroke="#a1a1aa" strokeWidth={0.6} /></g>
+      ))}
+      {/* USB-B */}
+      <rect x={x - 14} y={y + 30} width={50} height={44} rx={2} fill="#d4d4d8" stroke="#71717a" />
+      <rect x={x - 14} y={y + 30} width={50} height={6} rx={2} fill="#f4f4f5" opacity={0.6} />
+      <rect x={x - 14} y={y + 42} width={12} height={20} rx={1} fill="#52525b" />
+      <rect x={x - 12} y={y + 46} width={8} height={12} fill="#e4e4e7" />
+      {/* jack di alimentazione */}
+      <rect x={x - 10} y={y + AH - 68} width={46} height={34} rx={3} fill="#18181b" />
+      <rect x={x - 10} y={y + AH - 68} width={46} height={5} rx={2} fill="#3f3f46" />
+      <circle cx={x + 2} cy={y + AH - 51} r={7.5} fill="#27272a" stroke="#52525b" />
+      <circle cx={x + 2} cy={y + AH - 51} r={2.4} fill="#a1a1aa" />
+      {/* regolatore e condensatori */}
+      <rect x={x + 44} y={y + AH - 66} width={16} height={12} rx={1} fill="#27272a" />
+      {[[x + 52, y + AH - 36], [x + 70, y + AH - 36]].map(([cx, cy], i) => (
+        <g key={i}><circle cx={cx} cy={cy} r={7} fill="#a1a1aa" stroke="#52525b" /><path d={`M${cx - 5} ${cy} h10`} stroke="#52525b" strokeWidth={1.2} /></g>
+      ))}
+      {/* reset, 16U2, quarzo */}
+      <rect x={x + 48} y={y + 10} width={15} height={15} rx={2} fill="#d4d4d8" stroke="#a1a1aa" />
+      <circle cx={x + 55.5} cy={y + 17.5} r={4.4} fill="#b91c1c" />
+      <text x={x + 55.5} y={y + 31.5} textAnchor="middle" fontSize={4.6} fill="#e0f2f1">RESET</text>
+      <rect x={x + 54} y={y + 54} width={18} height={18} rx={1.2} fill="#18181b" transform={`rotate(45 ${x + 63} ${y + 63})`} />
+      <rect x={x + 76} y={y + 82} width={22} height={9} rx={4.5} fill="#e4e4e7" stroke="#a1a1aa" />
+      {/* LED */}
       {[["L", "#f59e0b", 0], ["TX", "#fbbf24", 1], ["RX", "#fbbf24", 2]].map(([t, c, i]) => (
         <g key={t as string}>
-          <rect x={x + 88} y={y + 30 + (i as number) * 10} width={7} height={4} rx={1} fill={c as string} opacity={0.85} />
-          <text x={x + 98} y={y + 34 + (i as number) * 10} fontSize={5.5} fill="#e0f2f1">{t}</text>
+          <rect x={x + 88} y={y + 30 + (i as number) * 10} width={8} height={4.4} rx={1} fill={c as string} />
+          <text x={x + 99} y={y + 34.2 + (i as number) * 10} fontSize={5.5} fill="#e0f2f1">{t}</text>
         </g>
       ))}
-      <rect x={x + AW - 54} y={y + 40} width={7} height={4} rx={1} fill="#22c55e" />
-      <text x={x + AW - 44} y={y + 44} fontSize={5.5} fill="#e0f2f1">ON</text>
-      {/* microcontrollore */}
-      <rect x={x + 120} y={y + AH - 98} width={146} height={34} rx={2} fill="#111827" />
+      <rect x={x + AW - 66} y={y + 42} width={8} height={4.4} rx={1} fill="#22c55e" />
+      <circle cx={x + AW - 62} cy={y + 44.2} r={5} fill="#22c55e" opacity={0.25} />
+      <text x={x + AW - 55} y={y + 46.5} fontSize={5.5} fill="#e0f2f1">ON</text>
+      {/* microcontrollore e zoccolo */}
+      <rect x={x + 116} y={y + AH - 104} width={154} height={42} rx={2} fill="#3f3f46" opacity={0.55} />
+      <rect x={x + 120} y={y + AH - 99} width={146} height={32} rx={2} fill="#18181b" />
+      <path d={`M${x + 120} ${y + AH - 87} a4 4 0 0 1 0 8`} fill="#3f3f46" />
       {Array.from({ length: 14 }, (_, i) => (
         <Fragment key={i}>
-          <rect x={x + 124 + i * 10.2} y={y + AH - 103} width={3.4} height={5} fill="#cbd5e1" />
-          <rect x={x + 124 + i * 10.2} y={y + AH - 64} width={3.4} height={5} fill="#cbd5e1" />
+          <rect x={x + 124 + i * 10.2} y={y + AH - 103} width={3.4} height={4} fill="#d4d4d8" />
+          <rect x={x + 124 + i * 10.2} y={y + AH - 67} width={3.4} height={4} fill="#d4d4d8" />
         </Fragment>
       ))}
-      <text x={x + 193} y={y + AH - 78} textAnchor="middle" fontSize={7} fill="#6b7280" fontFamily="monospace">ATMEGA328P</text>
+      <text x={x + 193} y={y + AH - 80} textAnchor="middle" fontSize={7} fill="#71717a" fontFamily="monospace">ATMEGA328P</text>
+      {/* ICSP */}
+      <g>
+        {Array.from({ length: 6 }, (_, i) => <rect key={i} x={x + AW - 26 + (i % 2) * 7} y={y + 98 + Math.floor(i / 2) * 7} width={5} height={5} fill="#18181b" />)}
+        <text x={x + AW - 22} y={y + 95} textAnchor="middle" fontSize={4.6} fill="#e0f2f1">ICSP</text>
+      </g>
       {/* marchio */}
       <g transform={`translate(${x + 150} ${y + 66})`}>
         <circle cx={-9} cy={0} r={8} fill="none" stroke="#e0f2f1" strokeWidth={3} />
         <circle cx={9} cy={0} r={8} fill="none" stroke="#e0f2f1" strokeWidth={3} />
-        <text x={30} y={6} fontSize={20} fontWeight={800} fill="#e0f2f1" letterSpacing={1}>UNO</text>
+        <path d="M-12.5 0 h7 M5.5 0 h7 M9 -3.5 v7" stroke="#e0f2f1" strokeWidth={1.6} />
+        <text x={30} y={7} fontSize={20} fontWeight={800} fill="#e0f2f1" letterSpacing={1}>UNO</text>
       </g>
       <text x={x + 168} y={y + 90} fontSize={7} fill="#b2dfdb" letterSpacing={2}>ARDUINO</text>
       {/* header */}
-      {headerStrip(topX0, 10, y + 10)}
-      {headerStrip(topX0 + 11 * HP, 8, y + 10)}
-      {headerStrip(botX0 + HP, 8, y + AH - 10)}
-      {headerStrip(botX0 + 9 * HP, 6, y + AH - 10)}
+      {header(topX0, 10, y + 10)}
+      {header(topX0 + 11 * HP, 8, y + 10)}
+      {header(botX0 + HP, 8, y + AH - 10)}
+      {header(botX0 + 9 * HP, 6, y + AH - 10)}
       {TOP_LABELS.map((t, i) => t && (
         <g key={`t${i}`}>
-          <rect x={topX0 + i * HP - 2} y={y + 8} width={4} height={4} fill={used.get(`t${i}`) ?? "#3f3f46"} />
-          <text transform={`translate(${topX0 + i * HP + 2.2} ${y + 18}) rotate(90)`} fontSize={5.6} fill="#ecfeff">{t}</text>
+          {pinHole(topX0 + i * HP, y + 10, used.get(`t${i}`))}
+          <text transform={`translate(${topX0 + i * HP + 2.2} ${y + 19}) rotate(90)`} fontSize={5.6} fontWeight={used.has(`t${i}`) ? 700 : 400} fill="#ecfeff">{t}</text>
         </g>
       ))}
       {BOT_LABELS.map((t, i) => t && (
         <g key={`b${i}`}>
-          <rect x={botX0 + i * HP - 2} y={y + AH - 12} width={4} height={4} fill={used.get(`b${i}`) ?? "#3f3f46"} />
-          <text transform={`translate(${botX0 + i * HP + 2.2} ${y + AH - 18}) rotate(-90)`} fontSize={5.6} fill="#ecfeff">{t}</text>
+          {pinHole(botX0 + i * HP, y + AH - 10, used.get(`b${i}`))}
+          <text transform={`translate(${botX0 + i * HP + 2.2} ${y + AH - 19}) rotate(-90)`} fontSize={5.6} fontWeight={used.has(`b${i}`) ? 700 : 400} fill="#ecfeff">{t}</text>
         </g>
       ))}
-      <text x={topX0 + 4 * HP} y={y + 46} fontSize={6} fill="#b2dfdb">DIGITAL (PWM ~)</text>
-      <text x={botX0 + 9 * HP} y={y + AH - 46} fontSize={6} fill="#b2dfdb">ANALOG IN</text>
-      <text x={botX0 + 2 * HP} y={y + AH - 46} fontSize={6} fill="#b2dfdb">POWER</text>
+      <text x={topX0 + 4 * HP} y={y + 48} fontSize={6} fill="#b2dfdb" letterSpacing={0.5}>DIGITAL (PWM ~)</text>
+      <text x={botX0 + 9 * HP} y={y + AH - 46} fontSize={6} fill="#b2dfdb" letterSpacing={0.5}>ANALOG IN</text>
+      <text x={botX0 + 2 * HP} y={y + AH - 46} fontSize={6} fill="#b2dfdb" letterSpacing={0.5}>POWER</text>
     </g>
   );
 }
 
 // ---------------------------------------------------------------------------
-// Lo schema
+// La disposizione: dove va ogni modulo, ogni filo, e l'elenco «da foro a foro»
 // ---------------------------------------------------------------------------
-/** Colonne della breadboard occupate da ogni modulo, da sinistra a destra. */
-function layoutColumns(mods: Mod[], first: number) {
-  const out: { m: Mod; w: number; h: number; span: number; startCol: number; onBoard: boolean }[] = [];
-  let col = first;
-  for (const m of mods) {
-    const onBoard = ON_BOARD.has(m.kind);
-    const [w, h] = onBoard ? [5 * P, 0] : SIZE[m.kind] ?? [56, 56];
-    const extra = m.rows.some((r) => r.via === "divider") ? 3 : 0;
-    const span = onBoard ? 6 : Math.max(m.rows.length + 1 + extra, Math.ceil((w + 12) / P));
-    out.push({ m, w, h, span, startCol: col, onBoard });
-    col += span + 1;
-  }
-  return out;
-}
+export interface StepWire { color: string; from: string; to: string; part?: string; dashed?: boolean }
+export interface StepGroup { title: string; color: string; place: string; wires: StepWire[] }
 
-interface Placed { m: Mod; x: number; y: number; w: number; h: number; pinX: number[]; startCol: number; span: number; onBoard: boolean }
+interface Placed { m: Mod; x: number; y: number; w: number; h: number; pinX: number[]; pinCol: number[]; onBoard: boolean }
 
-export function BoardDiagram({ sensors, bt = null, className }: { sensors: SensorInstance[]; bt?: BtModule; className?: string }) {
+const hole = (row: RowKey, col: number) => `${row}${col + 1}`;
+const ardName = (pin: number) => (pin >= 14 ? `A${pin - 14}` : pin === 0 ? "D0 (RX←0)" : pin === 1 ? "D1 (TX→1)" : `D${pin}`);
+
+function layout(sensors: SensorInstance[], bt: BtModule) {
   const mods = buildModules(sensors, bt);
   if (!mods.length) return null;
 
-  // --- colonne della breadboard per ogni modulo
-  const FIRST = 5;                                  // colonne 0–3: ponticelli dei binari e alimentazione
-  const placedCols = layoutColumns(mods, FIRST);
-  const last = placedCols[placedCols.length - 1];
-  const nCols = Math.max(30, last.startCol + last.span + 2);
-  const maxH = Math.max(40, ...placedCols.filter((p) => !p.onBoard).map((p) => p.h));
+  // --- colonne della breadboard: 0–3 per l'alimentazione, poi un modulo dopo l'altro
+  const FIRST = 5;
+  let col = FIRST;
+  const cols = mods.map((m) => {
+    const onBoard = ON_BOARD.has(m.kind);
+    const [w, h] = onBoard ? [0, 0] : SIZE[m.kind] ?? [56, 56];
+    const n = onBoard ? 5 : m.rows.length;
+    const extra = !onBoard && m.rows.some((r) => r.via === "divider") ? 2 : 0;
+    const span = Math.max(n + extra, Math.ceil((w + 10) / P));
+    const first = col + Math.floor((span - n - extra) / 2);
+    const out = { m, w, h, onBoard, first, n, span, start: col };
+    col += span + 1;
+    return out;
+  });
+  const nCols = Math.max(30, col + 2);
 
-  // --- fili dei segnali: uno per piedino collegato a un pin di Arduino
-  type Sig = { mi: number; ri: number; pin: number; color: string; dashed?: boolean };
+  // --- fili dei segnali
+  type Sig = { mi: number; ri: number; pin: number; color: string; dashed?: boolean; col: number };
   const sigs: Sig[] = [];
-  mods.forEach((m, mi) => m.rows.forEach((r, ri) => { if (typeof r.conn === "number") sigs.push({ mi, ri, pin: r.conn, color: m.color, dashed: r.dashed }); }));
-  const analog = sigs.filter((s) => s.pin >= 14);
-  const nBottom = analog.length + 2;                // analogici + 5V + GND
+  cols.forEach((c, mi) => c.m.rows.forEach((r, ri) => {
+    if (typeof r.conn !== "number") return;
+    const sc = c.onBoard ? c.first + 2 : r.via === "divider" ? c.first + ri + 2 : c.first + ri;
+    sigs.push({ mi, ri, pin: r.conn, color: c.m.color, dashed: r.dashed, col: sc });
+  }));
+  const ordered = [...sigs].sort((a, b) => a.col - b.col);
+  const laneOf = new Map(ordered.map((s, i) => [s, i]));
+  const analog = ordered.filter((s) => s.pin >= 14);           // dal più basso al più alto
+  const nA = analog.length;
 
-  // --- geometria verticale
-  const zoneBottom = 14 + maxH;
-  const pinTip = zoneBottom + 9;
-  const laneY = (i: number) => pinTip + 12 + i * 7;
-  const bbTop = laneY(Math.max(0, sigs.length - 1)) + 18;
-  const AX = 14 + analog.length * 7, AY = bbTop + 4;
-  const bbX = AX + AW + 46;
-  const colX = (c: number) => bbX + 14 + c * P;
-  const R = {
-    p1: bbTop + 12, n1: bbTop + 24, a: bbTop + 48, b: bbTop + 60, c: bbTop + 72, d: bbTop + 84, e: bbTop + 96,
-    f: bbTop + 120, j: bbTop + 168, n2: bbTop + 192, p2: bbTop + 204,
-  };
-  const BH = 216, bbW = (nCols - 1) * P + 28;
-  const bottomY0 = Math.max(AY + AH, bbTop + BH) + 14;
+  // --- geometria
+  const nLanes = Math.max(1, sigs.length);
+  const bbTop = 16 + nLanes * 7;
+  const laneY = (k: number) => bbTop - 12 - k * 7;
+  const AX = 22 + nA * 7, AY = bbTop + 3;
+  const bbX = AX + AW + 44;
+  const colX = (c: number) => bbX + 22 + c * P;
+  const R = Object.fromEntries(Object.entries(ROWS).map(([k, v]) => [k, bbTop + v])) as Record<keyof typeof ROWS, number>;
+  const bbW = (nCols - 1) * P + 44;
+  const bodyTop = R.e + 7;
+  const modBottom = Math.max(0, ...cols.map((c) => (c.onBoard ? 0 : bodyTop + c.h)));
+  const bottomY0 = Math.max(AY + AH, bbTop + BH, modBottom) + 14;
   const botLane = (k: number) => bottomY0 + k * 7;
-  const H = botLane(nBottom - 1) + 14, W = bbX + bbW + 10;
+  const H = botLane(nA + 1) + 12, W = bbX + bbW + 10;
 
-  // --- moduli posizionati
-  const placed: Placed[] = placedCols.map((p) => {
-    const n = p.m.rows.length;
-    const first = p.startCol + Math.floor((p.span - (p.onBoard ? 5 : n)) / 2);
-    const pinX = p.onBoard ? [colX(first), colX(first + 2), colX(first + 4)] : p.m.rows.map((_, i) => colX(first + i));
+  const placed: Placed[] = cols.map((c) => {
+    const pinCol = c.onBoard ? [c.first, c.first + 2, c.first + 4] : c.m.rows.map((_, i) => c.first + i);
+    const pinX = pinCol.map(colX);
     const mid = (pinX[0] + pinX[pinX.length - 1]) / 2;
-    return { ...p, x: mid - p.w / 2, y: zoneBottom - p.h, pinX };
+    return { m: c.m, w: c.w, h: c.h, onBoard: c.onBoard, pinCol, pinX, x: mid - c.w / 2, y: bodyTop };
   });
 
   // --- pin dell'Arduino
   const topX0 = AX + AW - 16 - 18 * HP, botX0 = AX + AW - 16 - 14 * HP;
-  const ardPin = (pin: number | string): { x: number; y: number; top: boolean; key: string } => {
+  const ardPin = (pin: number | string) => {
     const ti = TOP_PINS.indexOf(pin);
     if (ti >= 0 && typeof pin === "number") return { x: topX0 + ti * HP, y: AY + 10, top: true, key: `t${ti}` };
     const bi = BOT_PINS.indexOf(pin);
@@ -355,134 +530,162 @@ export function BoardDiagram({ sensors, bt = null, className }: { sensors: Senso
   };
   const used = new Map<string, string>();
 
-  // --- ordine delle corsie: chi parte più a destra sta più in basso (meno incroci)
-  const srcOf = (s: Sig): Pt => {
-    const p = placed[s.mi], r = p.m.rows[s.ri];
-    if (p.onBoard) return [p.pinX[1], R.e];
-    if (r.via === "divider") return [p.pinX[s.ri] - 2 * P, R.e];
-    return [p.pinX[s.ri], pinTip];
-  };
-  const ordered = [...sigs].sort((a, b) => srcOf(a)[0] - srcOf(b)[0]);
-  const laneOf = new Map(ordered.map((s, i) => [s, i]));
-  const analogOrder = [...analog].sort((a, b) => srcOf(b)[0] - srcOf(a)[0]);
+  const wires: React.ReactNode[] = [], ends: React.ReactNode[] = [], parts: React.ReactNode[] = [];
+  const steps: StepGroup[] = [];
 
-  const wires: React.ReactNode[] = [];
-  const ends: React.ReactNode[] = [];
-  const extras: React.ReactNode[] = [];
-
-  // alimentazione: Arduino → binari in basso, ponticelli ai binari in alto
+  // --- alimentazione: Arduino → binari in basso, ponticelli ai binari in alto
   const v5 = ardPin("5V"), gnd = ardPin("GND");
   used.set(v5.key, RED); used.set(gnd.key, BLK);
-  const k5 = analog.length, kg = analog.length + 1;
-  wires.push(<Wire key="p5" color={RED} d={ortho([[v5.x, v5.y], [v5.x, botLane(k5)], [colX(2), botLane(k5)], [colX(2), R.p2]])} />);
-  wires.push(<Wire key="pg" color={BLK} d={ortho([[gnd.x, gnd.y], [gnd.x, botLane(kg)], [colX(3), botLane(kg)], [colX(3), R.n2]])} />);
-  ends.push(<End key="e5a" x={colX(2)} y={R.p2} color={RED} />, <End key="ega" x={colX(3)} y={R.n2} color={BLK} />);
+  wires.push(<Wire key="pg" color={BLK} d={ortho([[gnd.x, gnd.y], [gnd.x, botLane(nA)], [colX(2), botLane(nA)], [colX(2), R.n2]])} />);
+  wires.push(<Wire key="p5" color={RED} d={ortho([[v5.x, v5.y], [v5.x, botLane(nA + 1)], [colX(3), botLane(nA + 1)], [colX(3), R.p2]])} />);
   wires.push(<Wire key="b5" color={RED} d={ortho([[colX(0), R.p2], [colX(0), R.p1]])} />);
   wires.push(<Wire key="bg" color={BLK} d={ortho([[colX(1), R.n2], [colX(1), R.n1]])} />);
-  ends.push(<End key="b5a" x={colX(0)} y={R.p2} color={RED} />, <End key="b5b" x={colX(0)} y={R.p1} color={RED} />, <End key="bga" x={colX(1)} y={R.n2} color={BLK} />, <End key="bgb" x={colX(1)} y={R.n1} color={BLK} />);
+  for (const [k, xx, yy, c] of [["e5", colX(3), R.p2, RED], ["eg", colX(2), R.n2, BLK], ["b5a", colX(0), R.p2, RED], ["b5b", colX(0), R.p1, RED], ["bga", colX(1), R.n2, BLK], ["bgb", colX(1), R.n1, BLK]] as const)
+    ends.push(<End key={k} x={xx} y={yy} color={c} />);
+  steps.push({
+    title: "Alimentazione", color: RED, place: "Prima i binari: quelli rossi (+) portano i 5V, quelli blu (−) il GND.",
+    wires: [
+      { color: RED, from: "5V di Arduino", to: "binario + in basso" },
+      { color: BLK, from: "GND di Arduino", to: "binario − in basso" },
+      { color: RED, from: "binario + in basso", to: "binario + in alto" },
+      { color: BLK, from: "binario − in basso", to: "binario − in alto" },
+    ],
+  });
 
-  // moduli: alimentazione dritta ai binari in alto, segnali verso l'Arduino
+  const railName = (c: "5V" | "GND") => (c === "5V" ? "binario + in alto" : "binario − in alto");
+  const groupOf = new Map<number, StepGroup>();
+
+  // --- moduli e componenti
   placed.forEach((p, mi) => {
+    const g: StepGroup = { title: p.m.title, color: p.m.color, place: "", wires: [] };
+    groupOf.set(mi, g);
+    steps.push(g);
     if (p.onBoard) {
-      // partitore sulla breadboard: componente in alto, punto di mezzo, componente in basso
-      const [xa, xm, xb] = p.pinX;
+      // partitore: un componente tra A e M (riga e), l'altro tra M e B (riga d)
+      const [ca, cm, cb] = p.pinCol, [xa, xm, xb] = p.pinX;
+      const kind = p.m.kind as "ntc" | "ldr";
+      const name = kind === "ntc" ? "termistore" : "fotoresistenza";
       const toGnd = p.m.options?.orientation === "ntcgnd" || p.m.options?.orientation === "ldrgnd";
-      const part = (x1: number, x2: number, yy: number) => p.m.kind === "ntc"
-        ? <g><line x1={x1} y1={yy} x2={x2} y2={yy} stroke="#9ca3af" strokeWidth={1.6} /><ellipse cx={(x1 + x2) / 2} cy={yy} rx={5} ry={4} fill="#1f2937" stroke="#7f1d1d" /></g>
-        : <g><line x1={x1} y1={yy} x2={x2} y2={yy} stroke="#9ca3af" strokeWidth={1.6} /><circle cx={(x1 + x2) / 2} cy={yy} r={5.5} fill="#f59e0b" stroke="#92400e" /><path d={`M${(x1 + x2) / 2 - 3} ${yy - 2} q1.5 2 3 0 t3 0`} stroke="#7c2d12" fill="none" strokeWidth={0.8} /></g>;
-      extras.push(<g key={`ob${mi}`}>
-        {toGnd ? <Resistor x1={xa} x2={xm} y={R.c} value="10k" /> : part(xa, xm, R.c)}
-        {toGnd ? part(xm, xb, R.d) : <Resistor x1={xm} x2={xb} y={R.d} value="10k" />}
-        <text x={xm} y={R.e + 22} textAnchor="middle" fontSize={7} fontWeight={600} fill="#334155">{p.m.kind === "ntc" ? "NTC + 10 kΩ" : "LDR + 10 kΩ"}</text>
+      parts.push(<g key={`ob${mi}`}>
+        {toGnd ? <Resistor x1={xa} y1={R.e} x2={xm} y2={R.e} value="10k" /> : <Part kind={kind} x1={xa} x2={xm} y={R.e} />}
+        {toGnd ? <Part kind={kind} x1={xm} x2={xb} y={R.d} /> : <Resistor x1={xm} y1={R.d} x2={xb} y2={R.d} value="10k" />}
+        <text x={xm} y={R.g + 2} textAnchor="middle" fontSize={7} fontWeight={700} fill={INK}>{kind === "ntc" ? "NTC" : "LDR"} + 10 kΩ</text>
       </g>);
-      wires.push(<Wire key={`o5${mi}`} color={RED} d={ortho([[xa, R.b], [xa, R.p1]])} />);
-      wires.push(<Wire key={`og${mi}`} color={BLK} d={ortho([[xb, R.b], [xb, R.n1]])} />);
-      ends.push(<End key={`o5e${mi}`} x={xa} y={R.b} color={RED} />, <End key={`oge${mi}`} x={xb} y={R.b} color={BLK} />);
+      g.place = toGnd
+        ? `Resistenza da 10 kΩ tra ${hole("e", ca)} e ${hole("e", cm)}, ${name} tra ${hole("d", cm)} e ${hole("d", cb)}.`
+        : `${name[0].toUpperCase()}${name.slice(1)} tra ${hole("e", ca)} e ${hole("e", cm)}, resistenza da 10 kΩ tra ${hole("d", cm)} e ${hole("d", cb)}.`;
+      wires.push(<Wire key={`o5${mi}`} color={RED} d={ortho([[xa, R.a], [xa, R.p1]])} />);
+      wires.push(<Wire key={`og${mi}`} color={BLK} d={ortho([[xb, R.a], [xb, R.n1]])} />);
+      ends.push(<End key={`o5a${mi}`} x={xa} y={R.a} color={RED} />, <End key={`o5b${mi}`} x={xa} y={R.p1} color={RED} />,
+        <End key={`oga${mi}`} x={xb} y={R.a} color={BLK} />, <End key={`ogb${mi}`} x={xb} y={R.n1} color={BLK} />);
+      g.wires.push({ color: RED, from: hole("a", ca), to: railName("5V") }, { color: BLK, from: hole("a", cb), to: railName("GND") });
       return;
     }
+    g.place = `Piedini nella riga e: ${p.m.rows.map((r, ri) => `${r.label.split(" ")[0].replace(/[()]/g, "")} in ${hole("e", p.pinCol[ri])}`).join(", ")}.`;
     p.m.rows.forEach((r, ri) => {
-      const x = p.pinX[ri];
+      const x = p.pinX[ri], c = p.pinCol[ri];
       if (r.conn === "5V" || r.conn === "GND") {
-        const c = r.conn === "5V" ? RED : BLK, yy = r.conn === "5V" ? R.p1 : R.n1;
-        wires.push(<Wire key={`pw${mi}-${ri}`} color={c} d={ortho([[x, pinTip], [x, yy]])} />);
-        ends.push(<End key={`pwe${mi}-${ri}`} x={x} y={yy} color={c} />);
+        const color = r.conn === "5V" ? RED : BLK, yy = r.conn === "5V" ? R.p1 : R.n1;
+        wires.push(<Wire key={`pw${mi}-${ri}`} color={color} d={ortho([[x, R.a], [x, yy]])} />);
+        ends.push(<End key={`pwa${mi}-${ri}`} x={x} y={R.a} color={color} />, <End key={`pwb${mi}-${ri}`} x={x} y={yy} color={color} />);
+        g.wires.push({ color, from: hole("a", c), to: railName(r.conn) });
       }
       if (r.via === "divider") {
-        // RXD del modulo: 1 kΩ dal pin D1, 2 kΩ verso GND → 3,3 V
-        extras.push(<g key={`dv${mi}`}>
-          <Resistor x1={x - 2 * P} x2={x} y={R.c} value="1k" />
-          <Resistor x1={x} x2={x + 2 * P} y={R.b} value="2k" />
-          <text x={x} y={R.e + 22} textAnchor="middle" fontSize={7} fontWeight={600} fill="#334155">1 kΩ + 2 kΩ</text>
+        // RXD del modulo: 2 kΩ verso GND, 1 kΩ verso il ponticello che viene da D1 → 3,3 V
+        parts.push(<g key={`dv${mi}`}>
+          <Resistor x1={x} y1={R.a} x2={x} y2={R.n1} value="2k" />
+          <Resistor x1={x} y1={R.c} x2={x + 2 * P} y2={R.c} value="1k" />
         </g>);
-        wires.push(<Wire key={`dvm${mi}`} color={p.m.color} d={ortho([[x, pinTip], [x, R.a]])} />);
-        wires.push(<Wire key={`dvg${mi}`} color={BLK} d={ortho([[x + 2 * P, R.a], [x + 2 * P, R.n1]])} />);
-        ends.push(<End key={`dve1${mi}`} x={x} y={R.a} color={p.m.color} />, <End key={`dve2${mi}`} x={x + 2 * P} y={R.a} color={BLK} />, <End key={`dve3${mi}`} x={x + 2 * P} y={R.n1} color={BLK} />);
+        g.wires.push(
+          { color: "#a16207", from: hole("a", c), to: railName("GND"), part: "resistenza 2 kΩ" },
+          { color: "#a16207", from: hole("c", c), to: hole("c", c + 2), part: "resistenza 1 kΩ" },
+        );
       }
     });
   });
 
-  // segnali
-  sigs.forEach((s, i) => {
-    const [sx, sy] = srcOf(s);
+  // --- segnali: dalla riga a, su fino alle corsie, poi ad Arduino
+  for (const s of ordered) {
+    const sx = colX(s.col), sy = R.a;
     const a = ardPin(s.pin);
     used.set(a.key, s.color);
     const ly = laneY(laneOf.get(s)!);
     let pts: Pt[];
-    const fromBoard = placed[s.mi].onBoard;
     if (a.top) pts = [[sx, sy], [sx, ly], [a.x, ly], [a.x, a.y]];
-    else if (fromBoard) {
-      const k = analogOrder.indexOf(s);
-      pts = [[sx, sy], [sx, botLane(k)], [a.x, botLane(k)], [a.x, a.y]];
-    } else {
-      const k = analogOrder.indexOf(s);
-      const lx = AX - 8 - k * 7;
-      pts = [[sx, sy], [sx, ly], [lx, ly], [lx, botLane(k)], [a.x, botLane(k)], [a.x, a.y]];
+    else {
+      const r = analog.indexOf(s);
+      const lx = AX - 12 - r * 7;
+      pts = [[sx, sy], [sx, ly], [lx, ly], [lx, botLane(r)], [a.x, botLane(r)], [a.x, a.y]];
     }
-    wires.push(<Wire key={`s${i}`} color={s.color} dashed={s.dashed} d={ortho(pts)} />);
-    ends.push(<End key={`se${i}`} x={a.x} y={a.y} color={s.color} />);
-    if (sy !== pinTip) ends.push(<End key={`ss${i}`} x={sx} y={sy} color={s.color} />);
-  });
+    const k = `${s.mi}-${s.ri}`;
+    wires.push(<Wire key={`s${k}`} color={s.color} dashed={s.dashed} d={ortho(pts)} />);
+    ends.push(<End key={`sa${k}`} x={a.x} y={a.y} color={s.color} />, <End key={`sb${k}`} x={sx} y={sy} color={s.color} />);
+    groupOf.get(s.mi)!.wires.push({ color: s.color, from: hole("a", s.col), to: ardName(s.pin), dashed: s.dashed, part: s.dashed ? "facoltativo" : undefined });
+  }
 
+  return { W, H, bbX, bbTop, bbW, nCols, R, colX, AX, AY, placed, wires, ends, parts, used, steps };
+}
+
+export function BoardDiagram({ sensors, bt = null, className }: { sensors: SensorInstance[]; bt?: BtModule; className?: string }) {
+  const uid = useId().replace(/[^a-zA-Z0-9]/g, "");
+  const L = layout(sensors, bt);
+  if (!L) return null;
+  const { W, H, bbX, bbTop, bbW, nCols, R, colX, AX, AY, placed, wires, ends, parts, used } = L;
+  const gridX = colX(0) - P / 2, gridW = nCols * P;
   return (
-    <svg viewBox={`0 0 ${W} ${H}`} role="img" aria-label="Schema realistico dei collegamenti: Arduino, breadboard e sensori" className={className}>
+    <svg viewBox={`0 0 ${W} ${H}`} role="img" aria-label="Schema realistico dei collegamenti: Arduino, breadboard e sensori" className={className}
+      fontFamily="ui-sans-serif, system-ui, sans-serif">
       <defs>
-        <pattern id="bbHoles" width={P} height={P} patternUnits="userSpaceOnUse" x={bbX + 14 - P / 2} y={bbTop + 48 - P / 2}>
-          <rect x={P / 2 - 2.2} y={P / 2 - 2.2} width={4.4} height={4.4} rx={0.8} fill="#9aa3af" />
+        <pattern id={`${uid}holes`} width={P} height={P} patternUnits="userSpaceOnUse" x={gridX} y={R.a - P / 2}>
+          <rect x={P / 2 - 2.4} y={P / 2 - 2.4} width={4.8} height={4.8} rx={0.8} fill="#d4d4d8" />
+          <rect x={P / 2 - 1.7} y={P / 2 - 1.5} width={3.4} height={3.4} rx={0.5} fill="#52525b" />
         </pattern>
-        <pattern id="railHoles" width={P} height={P} patternUnits="userSpaceOnUse" x={bbX + 14 - P / 2} y={bbTop + 12 - P / 2}>
-          <rect x={P / 2 - 2.2} y={P / 2 - 2.2} width={4.4} height={4.4} rx={0.8} fill="#9aa3af" />
+        <pattern id={`${uid}rail`} width={P} height={P} patternUnits="userSpaceOnUse" x={gridX} y={R.p1 - P / 2}>
+          <rect x={P / 2 - 2.4} y={P / 2 - 2.4} width={4.8} height={4.8} rx={0.8} fill="#d4d4d8" />
+          <rect x={P / 2 - 1.7} y={P / 2 - 1.5} width={3.4} height={3.4} rx={0.5} fill="#52525b" />
         </pattern>
-        <pattern id="mesh" width={3} height={3} patternUnits="userSpaceOnUse"><rect width={1.6} height={1.6} fill="#9ca3af" opacity={0.6} /></pattern>
+        <pattern id={`${uid}mesh`} width={3} height={3} patternUnits="userSpaceOnUse"><rect width={1.6} height={1.6} fill="#a1a1aa" opacity={0.6} /></pattern>
+        <linearGradient id={`${uid}bb`} x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#fafaf9" /><stop offset="100%" stopColor="#e7e5e4" /></linearGradient>
       </defs>
 
       {/* breadboard */}
       <g>
-        <rect x={bbX} y={bbTop} width={bbW} height={BH} rx={6} fill="#f1f3f5" stroke="#cbd2d9" />
-        <rect x={bbX + 6} y={bbTop + 104} width={bbW - 12} height={8} rx={2} fill="#dde2e7" />
-        {[[R.p1, RED, -8], [R.n1, "#2563eb", 8], [R.n2, "#2563eb", -8], [R.p2, RED, 8]].map(([yy, c, off], i) => (
-          <line key={i} x1={bbX + 8} x2={bbX + bbW - 8} y1={(yy as number) + (off as number)} y2={(yy as number) + (off as number)} stroke={c as string} strokeWidth={1.4} />
+        <rect x={bbX + 2} y={bbTop + 3} width={bbW} height={BH} rx={7} fill="#000" opacity={0.15} />
+        <rect x={bbX} y={bbTop} width={bbW} height={BH} rx={7} fill={`url(#${uid}bb)`} stroke="#d6d3d1" />
+        <rect x={bbX + 8} y={R.gap - 5} width={bbW - 16} height={10} rx={2} fill="#d6d3d1" />
+        <rect x={bbX + 8} y={R.gap - 5} width={bbW - 16} height={3} rx={1.5} fill="#a8a29e" opacity={0.4} />
+        {[[R.p1 - 8, RED], [R.n1 + 8, "#2563eb"], [R.n2 - 8, "#2563eb"], [R.p2 + 8, RED]].map(([yy, c], i) => (
+          <line key={i} x1={bbX + 14} x2={bbX + bbW - 14} y1={yy as number} y2={yy as number} stroke={c as string} strokeWidth={1.4} />
         ))}
-        <rect x={colX(0) - P / 2} y={R.p1 - P / 2} width={nCols * P} height={2 * P} fill="url(#railHoles)" />
-        <rect x={colX(0) - P / 2} y={R.n2 - P / 2} width={nCols * P} height={2 * P} fill="url(#railHoles)" />
-        <rect x={colX(0) - P / 2} y={R.a - P / 2} width={nCols * P} height={5 * P} fill="url(#bbHoles)" />
-        <rect x={colX(0) - P / 2} y={R.f - P / 2} width={nCols * P} height={5 * P} fill="url(#bbHoles)" />
-        <text x={bbX + 4} y={R.p1 + 2} fontSize={7} fontWeight={700} fill={RED}>+</text>
-        <text x={bbX + 4} y={R.n1 + 3} fontSize={8} fontWeight={700} fill="#2563eb">−</text>
-        <text x={bbX + 4} y={R.n2 + 3} fontSize={8} fontWeight={700} fill="#2563eb">−</text>
-        <text x={bbX + 4} y={R.p2 + 2} fontSize={7} fontWeight={700} fill={RED}>+</text>
+        <rect x={gridX} y={R.p1 - P / 2} width={gridW} height={2 * P} fill={`url(#${uid}rail)`} />
+        <rect x={gridX} y={R.n2 - P / 2} width={gridW} height={2 * P} fill={`url(#${uid}rail)`} />
+        <rect x={gridX} y={R.a - P / 2} width={gridW} height={5 * P} fill={`url(#${uid}holes)`} />
+        <rect x={gridX} y={R.f - P / 2} width={gridW} height={5 * P} fill={`url(#${uid}holes)`} />
+        {[R.p1, R.p2].map((yy) => [bbX + 8, bbX + bbW - 8].map((xx) => <text key={`${yy}${xx}`} x={xx} y={yy + 2.5} textAnchor="middle" fontSize={8} fontWeight={700} fill={RED}>+</text>))}
+        {[R.n1, R.n2].map((yy) => [bbX + 8, bbX + bbW - 8].map((xx) => <text key={`${yy}${xx}`} x={xx} y={yy + 3} textAnchor="middle" fontSize={9} fontWeight={700} fill="#2563eb">−</text>))}
+        {LETTERS.map((l) => [bbX + 11, bbX + bbW - 11].map((xx) => (
+          <text key={`${l}${xx}`} x={xx} y={R[l] + 2.2} textAnchor="middle" fontSize={6} fontWeight={600} fill="#78716c">{l}</text>
+        )))}
+        {Array.from({ length: nCols }, (_, c) => (
+          <Fragment key={c}>
+            <text x={colX(c)} y={R.num1 + 2} textAnchor="middle" fontSize={(c + 1) % 5 === 0 || c === 0 ? 5.6 : 4.6} fontWeight={(c + 1) % 5 === 0 || c === 0 ? 700 : 400} fill="#78716c">{c + 1}</text>
+            <text x={colX(c)} y={R.num2 + 2} textAnchor="middle" fontSize={(c + 1) % 5 === 0 || c === 0 ? 5.6 : 4.6} fontWeight={(c + 1) % 5 === 0 || c === 0 ? 700 : 400} fill="#78716c">{c + 1}</text>
+          </Fragment>
+        ))}
       </g>
 
-      <ArduinoArt x={AX} y={AY} used={used} />
-      {extras}
+      <ArduinoArt x={AX} y={AY} used={used} uid={uid} />
+      {parts}
 
-      {/* moduli e piedini */}
+      {/* moduli infilati nella riga e */}
       {placed.map((p, mi) => !p.onBoard && (
         <g key={`m${mi}`}>
-          <ModuleArt m={p.m} x={p.x} y={p.y} w={p.w} h={p.h} />
+          <ModuleArt kind={p.m.kind} options={p.m.options} x={p.x} y={p.y} w={p.w} h={p.h} uid={uid} />
           {p.m.rows.map((r, ri) => (
             <g key={ri}>
-              <rect x={p.pinX[ri] - 1.6} y={p.y + p.h - 2} width={3.2} height={11} fill="#d4a017" stroke="#92400e" strokeWidth={0.4} />
-              <text transform={`translate(${p.pinX[ri] + 2.2} ${p.y + p.h - 5}) rotate(-90)`} fontSize={5.4} fontWeight={600} fill="#ffffffdd">{r.label.split(" ")[0].replace(/[()]/g, "")}</text>
+              <rect x={p.pinX[ri] - 1.8} y={R.e - 1} width={3.6} height={p.y - R.e + 3} fill="#d4a017" stroke="#92400e" strokeWidth={0.4} />
+              <rect x={p.pinX[ri] - 3} y={p.y + 1} width={6} height={4} fill="#18181b" />
+              <text transform={`translate(${p.pinX[ri] - 2} ${p.y + 7}) rotate(90)`} fontSize={5.2} fontWeight={700} fill="#ffffffe6">{r.label.split(" ")[0].replace(/[()]/g, "")}</text>
             </g>
           ))}
         </g>
@@ -491,5 +694,38 @@ export function BoardDiagram({ sensors, bt = null, className }: { sensors: Senso
       {wires}
       {ends}
     </svg>
+  );
+}
+
+/** I fili uno per uno, con i fori della breadboard: per rifare lo schema sul banco. */
+export function BoardSteps({ sensors, bt = null }: { sensors: SensorInstance[]; bt?: BtModule }) {
+  const L = layout(sensors, bt);
+  if (!L) return null;
+  return (
+    <ol className="flex flex-col gap-2.5 text-xs">
+      {L.steps.map((g, i) => (
+        <li key={i} className="rounded-lg border p-2.5">
+          <p className="flex items-center gap-2 text-sm font-semibold">
+            <span className="grid size-5 shrink-0 place-items-center rounded-full text-[0.65rem] font-bold text-white" style={{ background: g.color }}>{i + 1}</span>
+            {g.title}
+          </p>
+          <p className="mt-1 text-muted-foreground">{g.place}</p>
+          {!!g.wires.length && (
+            <ul className="mt-1.5 grid gap-x-4 gap-y-1 sm:grid-cols-2">
+              {g.wires.map((w, k) => (
+                <li key={k} className="flex items-center gap-2">
+                  <span className="h-1 w-4 shrink-0 rounded-full"
+                    style={w.dashed ? { backgroundImage: `repeating-linear-gradient(90deg, ${w.color} 0 4px, transparent 4px 6px)` } : { background: w.color }} />
+                  <span className="font-mono font-semibold">{w.from}</span>
+                  <span className="text-muted-foreground">→</span>
+                  <span className="font-mono font-semibold">{w.to}</span>
+                  {w.part && <span className="text-muted-foreground">({w.part})</span>}
+                </li>
+              ))}
+            </ul>
+          )}
+        </li>
+      ))}
+    </ol>
   );
 }

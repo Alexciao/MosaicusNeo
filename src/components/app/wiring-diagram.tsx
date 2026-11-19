@@ -10,7 +10,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import type { SensorInstance } from "@/lib/sensors/rig";
 import { prefs, isPhoneWidth } from "@/lib/prefs";
 import { GlideNav } from "./glide-nav";
-import { BoardDiagram } from "./board-diagram";
+import { BoardDiagram, BoardSteps } from "./board-diagram";
 import { RigDiagram, type BtModule } from "./rig-diagram";
 
 type Style = "real" | "schema";
@@ -34,6 +34,12 @@ export function WiringDiagram({ sensors, bt = null }: { sensors: SensorInstance[
         <div key={style} className="mz-enter">{draw("h-auto w-full")}</div>
       </button>
       <p className="text-xs text-muted-foreground">Rosso = 5V, nero = GND, un colore per sensore. Collega con Arduino staccato dal computer; tutti i GND insieme.</p>
+      {style === "real" && (
+        <details className="group rounded-lg border p-2.5" open={!isPhoneWidth()}>
+          <summary className="cursor-pointer text-sm font-semibold">Foro per foro <span className="font-normal text-muted-foreground">· i fili come nel disegno, con le colonne (1, 2, 3…) e le righe (a…j) della breadboard</span></summary>
+          <div className="pt-2.5"><BoardSteps sensors={sensors} bt={bt} /></div>
+        </details>
+      )}
       <Dialog open={big} onOpenChange={setBig}>
         <DialogContent className="flex h-[92svh] max-h-none flex-col gap-3 p-4 sm:max-w-[min(96vw,1400px)]">
           <DialogHeader>
@@ -42,6 +48,7 @@ export function WiringDiagram({ sensors, bt = null }: { sensors: SensorInstance[
           </DialogHeader>
           <div className="min-h-0 flex-1 overflow-auto rounded-lg border bg-background p-2">
             {draw("h-auto min-w-[900px] w-full")}
+            {style === "real" && <div className="mx-auto max-w-3xl pt-4"><BoardSteps sensors={sensors} bt={bt} /></div>}
           </div>
         </DialogContent>
       </Dialog>

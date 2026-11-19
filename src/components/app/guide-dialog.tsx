@@ -15,7 +15,7 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { SENSORS, ARDUINO_SENSORS, OUTPUTS, type SensorType } from "@/lib/sensors/catalog";
+import { SENSORS, COMPONENTS, type SensorType } from "@/lib/sensors/catalog";
 import { makeSensor } from "@/lib/sensors/rig";
 import { useLab, openGuide, closeGuide, createRigFrom, setLim } from "@/lib/lab-store";
 import { detectDevice, bluetoothAvailable, DEVICE_LABEL, OS_LABEL, BROWSER_LABEL, type GuideDevice, type DeviceInfo } from "@/lib/device";
@@ -374,7 +374,7 @@ function Wiring() {
       </div>
       {(mode === "pick" || !mine) && (
         <div className="grid gap-1.5 sm:grid-cols-2">
-          {[...ARDUINO_SENSORS, ...OUTPUTS].map((t) => (
+          {COMPONENTS.map((t) => (
             <label key={t} className="flex items-center gap-2 rounded-md border px-2.5 py-2 text-sm">
               <Checkbox checked={picked.includes(t)} onCheckedChange={(v) => setPicked((p) => (v ? [...p, t] : p.filter((x) => x !== t)))} />
               <span><B>{SENSORS[t].title}</B> <span className="text-muted-foreground">· {SENSORS[t].measures}</span></span>
@@ -437,7 +437,7 @@ function Rigs() {
       <P>Un <B>montaggio</B> è l&apos;elenco dei sensori collegati ad Arduino, con i loro pin e ogni quanto leggerli. Fino a 6 sensori insieme, anche dello stesso tipo (es. due termistori per confrontare due tazze).</P>
       <Steps items={[
         ["Apri la scheda «Sensori»", "A destra (sul telefono: «Modifica sensori» sotto il titolo)."],
-        ["Aggiungi o togli sensori", "«Aggiungi un sensore» mostra quelli disponibili e che cosa misurano."],
+        ["Aggiungi o togli componenti", "«Aggiungi un componente» apre il catalogo di sensori, display, LED e cicalino: si cerca per nome o per grandezza, si filtra per tipo, ognuno con il suo disegnino."],
         ["Scegli i pin", "Ogni sensore ha i suoi menu: i pin già usati non si possono scegliere; i sensori analogici vanno su A0…A5."],
         ["Scegli il ritmo", "«Una lettura ogni … ms»: il DHT non va sotto 1000 ms, il GPS legge una volta al secondo, il sonar fino a 30 ms."],
         ["Opzioni", "Ogni sensore ha le sue (taratura, verso positivo, modello del DHT…); quelle meno usate sono in «Opzioni avanzate»."],
@@ -516,7 +516,7 @@ function Outputs() {
   ];
   return (
     <>
-      <P>Un display, un LED RGB o un cicalino collegati ad Arduino dicono <B>da soli</B> in che stato è, anche quando il telefono è in tasca o lontano. Si aggiungono nella scheda «Sensori» → <B>Indicatori di stato</B>, con i pin che preferisci (schema e passi in «Collegamenti»). Servono il firmware v{FIRMWARE_VERSION} o più recente.</P>
+      <P>Un display, un LED RGB o un cicalino collegati ad Arduino dicono <B>da soli</B> in che stato è, anche quando il telefono è in tasca o lontano. Si aggiungono come gli altri componenti, dalla scheda «Sensori» → <B>Aggiungi un componente</B> (categoria «Display, LED, suoni»), con i pin che preferisci (schema e passi in «Collegamenti»). Servono il firmware v{FIRMWARE_VERSION} o più recente.</P>
       <div className="overflow-x-auto rounded-lg border">
         <table className="w-full text-sm">
           <thead className="bg-muted/50 text-left"><tr><th className="p-2">Situazione</th><th className="p-2">Display</th><th className="p-2">LED</th><th className="p-2">Cicalino</th></tr></thead>
@@ -539,7 +539,7 @@ function Outputs() {
       <ul className="list-disc space-y-1 pl-5 text-sm text-muted-foreground">
         <li>Arduino ricorda gli indicatori: dalla misura successiva, appena acceso, mostra subito «in attesa dell&apos;app» (utile sul campo, prima di collegare il telefono).</li>
         <li>Durante la misura il display mostra la prima grandezza in grande e la seconda sotto, aggiornate ogni secondo.</li>
-        <li>«Prova gli indicatori» (scheda Sensori, con Arduino collegato) fa cambiare colore al LED, suonare il cicalino e scrivere «CIAO» sul display.</li>
+        <li>«Prova display, LED e cicalino» (scheda Sensori, con Arduino collegato) fa cambiare colore al LED, suonare il cicalino e scrivere «CIAO» sul display.</li>
         <li>Nella scheda della misura l&apos;app mostra in piccolo che cosa stanno mostrando in quel momento display, LED e cicalino.</li>
         <li>Il cicalino si può zittire (opzione «Bip finché non è tutto pronto»). Display e accelerometro MPU-6050 possono stare sugli stessi due pin I2C (di solito A4 e A5).</li>
       </ul>
