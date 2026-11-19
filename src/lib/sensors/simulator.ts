@@ -13,7 +13,7 @@
 //             luce che cambia, tensione che oscilla; GPS → passeggiata
 //  Rumore realistico, echi persi o spuri, qualche checksum sbagliato del DHT.
 
-const FW = "1.2-sim";
+const FW = "1.3-sim";
 export const WARP: Record<string, number> = { cooling: 30, breath: 5, walk: 5 };
 
 const gauss = (s: number) => s * Math.sqrt(-2 * Math.log(Math.random() + 1e-12)) * Math.cos(2 * Math.PI * Math.random());
@@ -154,6 +154,7 @@ export class SimulatedLink {
     const c = cmd.trim();
     let m: RegExpMatchArray | null;
     if (c === "ID?") return this.emit(`#MOSAICUS,${FW},READY`);
+    if (c.startsWith("LINK,")) return;
     if (c === "PING") { if (!this.pinged) { this.pinged = true; this.st("I,-1,0"); } return; }
     if (c === "STOP") { const was = this.timers.length > 0; this.stop(); this.emit("#ACK,STOP"); if (was) this.st("I,-1,0"); return; }
     if (c === "OUT,CLEAR") { this.outs.clear(); return this.emit("#ACK,OUT,CLEAR"); }
@@ -161,15 +162,15 @@ export class SimulatedLink {
     if (c === "OUT,SAVE") return this.emit("#ACK,OUT,SAVE");
     if (c === "OUT,TEST") { setTimeout(() => this.emit("#ACK,OUT,TEST"), 1500); return; }
     if (c.startsWith("OUT,L,")) return;
-    if (c === "CFG,CLEAR") { this.stop(); this.slots.clear(); return this.emit("#ACK,CFG,CLEAR"); }
+    if (c === "CFG,CLEAR") { this.stop(); this.slots.clear(); if (this.pinged) this.st("I,-1,0"); return this.emit("#ACK,CFG,CLEAR"); }
     if ((m = c.match(/^CFG,ADD,(\d+),(NTC|ANA|DHT|SONAR|GPS|DS18|GATE|HX711|IMU),(\d+),(\d+),(\d+),(\d+)$/))) {
       const slot = +m[1], type = m[2], a = +m[4], b = +m[5], opt = +m[6];
       const twoPins = ["SONAR", "GPS", "HX711", "IMU"].includes(type);
       const taken = [...this.slots.entries()].filter(([k, s]) => k !== slot && !(type === "IMU" && s.type === "IMU")).flatMap(([, s]) => [s.pinA]);
-      if (slot > 5) return this.emit(`#ERR,CFG,${slot},SLOT`);
-      if ((type === "NTC" || type === "ANA") && !(a >= 14 && a <= 19)) return this.emit(`#ERR,CFG,${slot},ANALOGICO`);
-      if (a < 2 || a > 19 || (twoPins && (b < 2 || b > 19 || a === b))) return this.emit(`#ERR,CFG,${slot},PIN`);
-      if (taken.includes(a)) return this.emit(`#ERR,CFG,${slot},DOPPIO`);
+      if (slot > 5) { this.st(`C,${slot},6`); return this.emit(`#ERR,CFG,${slot},SLOT`); }
+      if ((type === "NTC" || type === "ANA") && !(a >= 14 && a <= 19)) { this.st(`C,${slot},2`); return this.emit(`#ERR,CFG,${slot},ANALOGICO`); }
+      if (a < 2 || a > 19 || (twoPins && (b < 2 || b > 19 || a === b))) { this.st(`C,${slot},1`); return this.emit(`#ERR,CFG,${slot},PIN`); }
+      if (taken.includes(a)) { this.st(`C,${slot},3`); return this.emit(`#ERR,CFG,${slot},DOPPIO`); }
       const min = type === "DHT" ? (opt === 22 ? 2000 : 1000) : type === "GPS" || type === "DS18" ? 1000 : type === "SONAR" ? 30
         : type === "HX711" ? 100 : type === "IMU" ? 10 : 5;
       this.slots.set(slot, { type, interval: Math.max(min, +m[3]), opt, pinA: a });

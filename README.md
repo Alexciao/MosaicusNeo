@@ -23,7 +23,7 @@ Il cuore dell'app è il **progetto**: fino a 6 sensori su un Arduino Uno, anche 
 | Cella di carico + HX711 | DT + SCK | massa, forza |
 | Accelerometro MPU-6050 (GY-521) | SDA + SCL (I2C) | aₓ, aᵧ, a_z, \|a\|, velocità angolari |
 
-**Display, LED e cicalino** (facoltativi, fuori dai 6 posti dei sensori): display OLED 64×32 da 0,49" (I2C), LED RGB, cicalino attivo o passivo. Li comanda Arduino da solo: blu = in attesa dell'app o pronto, giallo = GPS o sensore in ricerca, rosso = problema, verde = sta misurando; il cicalino suona finché qualcosa non è pronto (1, 2 o 3 bip ogni 3 s) e tace quando la misura procede bene. Il display mostra lo stato e, durante la misura, il valore principale. Arduino li ricorda (EEPROM): appena acceso segnala subito «in attesa dell'app». Il GPS senza fix viene mostrato come «in ricerca», non come errore.
+**Display, LED e cicalino** (facoltativi, fuori dai 6 posti dei sensori): display OLED 64×32 da 0,49" (I2C), LED RGB, cicalino attivo o passivo. Li comanda Arduino da solo: blu = in attesa dell'app o pronto, giallo = GPS o sensore in ricerca, rosso = problema, verde = sta misurando; il cicalino suona finché qualcosa non è pronto (1, 2 o 3 bip ogni 3 s) e tace quando la misura procede bene. Il display mostra lo stato e, durante la misura, il valore principale. Arduino li ricorda (EEPROM): appena acceso segnala subito «in attesa dell'app». Il GPS senza fix viene mostrato come «in ricerca», non come errore. Con più sensori in difficoltà il display li mostra a turno («PROBL 1/2»), con «#2» per distinguere due sensori dello stesso tipo; un componente rifiutato dalla configurazione resta segnalato («CONFIG», con il motivo). Se il modulo Bluetooth ha risposto a «Configura», in attesa dell'app il display mostra «ATTESA BT».
 
 La guida ai collegamenti si genera dai pin scelti: schema **realistico** (Arduino Uno e moduli infilati in una breadboard con colonne e righe numerate) o **schema** compatto, Bluetooth facoltativo, occorrente e passi foro per foro.
 
@@ -33,7 +33,7 @@ Con più sensori a ritmi diversi ogni lettura conserva il suo istante; quando se
 
 ## Firmware
 
-Un solo sketch: [`firmware/mosaicusneo_firmware/mosaicusneo_firmware.ino`](firmware/mosaicusneo_firmware/mosaicusneo_firmware.ino) (v1.2, nessuna libreria esterna: I2C e 1-Wire a software, 69 % della flash, 79 % della RAM), da caricare una volta con l'IDE di Arduino. L'app configura i sensori con comandi seriali (115200 baud) e il firmware invia solo dati grezzi (conteggi ADC, tempi di volo, i byte del DHT, i campi NMEA del GPS): le conversioni avvengono nell'app, dove si vedono e si tarano.
+Un solo sketch: [`firmware/mosaicusneo_firmware/mosaicusneo_firmware.ino`](firmware/mosaicusneo_firmware/mosaicusneo_firmware.ino) (v1.3, nessuna libreria esterna: I2C e 1-Wire a software, 73 % della flash, 81 % della RAM), da caricare una volta con l'IDE di Arduino. L'app configura i sensori con comandi seriali (115200 baud) e il firmware invia solo dati grezzi (conteggi ADC, tempi di volo, i byte del DHT, i campi NMEA del GPS): le conversioni avvengono nell'app, dove si vedono e si tarano.
 
 ```
 CFG,CLEAR                                          → #ACK,CFG,CLEAR
@@ -42,7 +42,7 @@ CFG,ADD,<slot>,<NTC|ANA|DHT|SONAR|GPS|DS18|GATE|HX711|IMU>,<ms>,<pinA>,<pinB>,<o
 START                                              → #ACK,START, poi D,<slot>,<t_ms>,<valori…>
 STOP · START,SCOPE,… (oscilloscopio) · BT,SETUP (HC-06) · BT,SETUP,BLE (HM-10, AT-09, HC-08) · ID?
 OUT,CLEAR · OUT,ADD,<OLED|RGB|BUZ>,<p1>,<p2>,<p3>,<opz> · OUT,SAVE · OUT,TEST · OUT,L,<1|2>,<testo>
-PING (ogni 2 s dall'app)                           ← #ST,<W|I|S|E|T|O>,<slot>,<0|1|2> a ogni cambio di stato
+PING (ogni 2 s dall'app) · LINK,<U|B>              ← #ST,<W|I|S|E|T|O|C>,<slot>,<problema>,<k>,<n>,<bt>,<link> a ogni cambio
 ```
 
 Pin come numeri (A0 = 14 … A5 = 19); tempi con risoluzione di 1 µs e orologio a 64 bit (nessun azzeramento dopo 71 minuti).

@@ -57,7 +57,10 @@ export type StatusTone = "off" | "wait" | "on" | "err";
 export type Page = "misura" | "quaderno" | "elab";
 export type GuideStep = "link" | "wait" | "start" | "stop" | "pick" | "send" | "go" | null;
 /** Stato riferito da Arduino (firmware 1.2): W attesa app · I pronto · S in ricerca · E problema · T misura ok · O oscilloscopio */
-export interface DeviceStatus { st: "W" | "I" | "S" | "E" | "T" | "O"; slot: number; issue: number; at: number }
+/** Stato riferito da Arduino (#ST). k/n: con più sensori in difficoltà il display li mostra a turno;
+ *  bt: modulo Bluetooth configurato (0, 1 HC-06, 2 BLE); link: collegamento attuale (U USB, B Bluetooth).
+ *  st "C": configurazione rifiutata (slot -1 = display, LED o cicalino; issue = motivo). */
+export interface DeviceStatus { st: "W" | "I" | "S" | "E" | "T" | "O" | "C"; slot: number; issue: number; k: number; n: number; bt: number; link: "U" | "B"; at: number }
 
 /** Pannello di uno strumento (oscilloscopio, synth): riceve le righe che lo riguardano. */
 export interface InstrumentPanel {
@@ -620,6 +623,7 @@ function logSerial(line: string) {
   if (!logTimer) logTimer = setTimeout(() => { logTimer = null; set({ serialLog: [...logBuf] }); }, 200);
 }
 
+let btNoReply = false;
 function handleLine(line: string) {
   logSerial(line);
   if (waiter && waiter.match(line)) { const w = waiter; waiter = null; w.resolve(line); return; }
@@ -628,13 +632,24 @@ function handleLine(line: string) {
     const fw = line.split(",")[1] ?? null;
     set({ ready: true, fw });
     if (kind === "simulatore" || (fw && cmpVersion(fw, "1.2") >= 0)) startPing();
+    // dalla 1.3 Arduino sa se è collegato via cavo o via Bluetooth, e lo scrive sul display
+    if (kind === "arduino" && fw && cmpVersion(fw, "1.3") >= 0) {
+      const bt = link?.transport === "ble" || !!(link as unknown as { viaBluetooth?: boolean })?.viaBluetooth;
+      void link?.write(`LINK,${bt ? "B" : "U"}`);
+    }
     if (kind === "arduino" && fw && cmpVersion(fw, FIRMWARE_VERSION) < 0) {
       toast.warning(`Su Arduino c'è il firmware v${fw}: aggiornalo alla v${FIRMWARE_VERSION}.`, { duration: 10000, action: { label: "Come si fa", onClick: () => openGuide("firmware") } });
     }
     setStatus(kind === "simulatore" ? simStatus() : `Arduino pronto${link?.transport === "ble" ? " (Bluetooth LE)" : ""} · firmware ${fw}`, "on");
     return;
   }
+  if (line === "#BT,NOREPLY") { btNoReply = true; return; }
   if (line === "#BT,SETUP") { toast.info("Configurazione del modulo Bluetooth: nome «MosaicusNeo», 115200 baud…"); return; }
+  if ((line === "#ACK,BT,SETUP,BLE" || line === "#ACK,BT,SETUP") && btNoReply) {
+    btNoReply = false;
+    toast.warning("Il modulo Bluetooth non ha risposto. Controlla TXD → D0 e RXD ← D1 (con il partitore), che il LED del modulo lampeggi e che nessun telefono sia collegato, poi riprova.", { duration: 14000 });
+    return;
+  }
   if (line === "#ACK,BT,SETUP,BLE") {
     toast.success("Modulo BLE configurato: ora si chiama «MosaicusNeo». Scollega il cavo, alimenta Arduino e scegli «Bluetooth LE» → «MosaicusNeo» (su iPhone usa il browser Bluefy). Se il nome non compare, cerca HMSoft, BT05 o HC-08.", { duration: 14000 });
     return;
@@ -651,8 +666,8 @@ function handleLine(line: string) {
     return;
   }
   if (line.startsWith("#ST,")) {
-    const [, st, slot, issue] = line.split(",");
-    set({ device: { st: (st as DeviceStatus["st"]) || "I", slot: Number(slot), issue: Number(issue), at: Date.now() } });
+    const [, st, slot, issue, k, n, bt, lk] = line.split(",");
+    set({ device: { st: (st as DeviceStatus["st"]) || "I", slot: Number(slot), issue: Number(issue), k: Number(k) || 0, n: Number(n) || 0, bt: Number(bt) || 0, link: lk === "B" ? "B" : "U", at: Date.now() } });
     return;
   }
   if (line.startsWith("#")) return;

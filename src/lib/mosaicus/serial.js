@@ -13,6 +13,8 @@ export class SerialLink {
     this._keepReading = false;
   }
   onLine(cb) { this._lineCb = cb; }
+  /** Porta seriale Bluetooth (HC-06 via RFCOMM, Chrome per Android) invece del cavo USB. */
+  get viaBluetooth() { try { return !!this.port?.getInfo?.().bluetoothServiceClassId; } catch { return false; } }
   onClose(cb) { this._closeCb = cb; }
 
   async open() {
