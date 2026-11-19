@@ -14,6 +14,7 @@ import { Wrench } from "lucide-react";
 import { ChartGroup } from "@/lib/mosaicus/chart.js";
 import { SerialLink, serialSupported } from "@/lib/mosaicus/serial.js";
 import { BleLink } from "@/lib/mosaicus/ble";
+import { PhoneLink } from "@/lib/mosaicus/phone";
 import { SimulatedLink, WARP } from "@/lib/sensors/simulator";
 import * as repo from "@/lib/cloud/repo";
 import { toCSV, toXLSX, download } from "@/lib/mosaicus/export.js";
@@ -24,7 +25,7 @@ import { toGPX, toGeoJSON, type TrackPoint } from "@/lib/mosaicus/geo";
 import { SENSORS, pinName, type SensorType } from "@/lib/sensors/catalog";
 import {
   resolveRig, validateRig, hasErrors, firmwareCommands, buildRows, alignRows, seriesOf, interpAt, tolerance,
-  makeSensor, usedPins, newId, sensorLabel, LEGACY, inputsOf, outputsOf, firmwareNeeded, type Rig, type SensorInstance, type Resolved, type ResolvedQuantity,
+  makeSensor, usedPins, newId, sensorLabel, LEGACY, inputsOf, outputsOf, isPhoneRig, firmwareNeeded, type Rig, type SensorInstance, type Resolved, type ResolvedQuantity,
 } from "@/lib/sensors/rig";
 import { PRESETS, INSTRUMENTS, presetById, instrumentById, presetSensors, type Preset, type Instrument } from "@/lib/sensors/presets";
 import type { Row, Tone } from "@/lib/sensors/types";
@@ -33,7 +34,7 @@ import type { Row, Tone } from "@/lib/sensors/types";
 // Tipi
 // ---------------------------------------------------------------------------
 export interface Link {
-  kind: "arduino" | "simulatore";
+  kind: "arduino" | "simulatore" | "telefono";
   /** come arriva Arduino: cavo/Bluetooth classico (Web Serial) o Bluetooth LE */
   transport?: "serial" | "ble";
   scenario?: string;
@@ -221,7 +222,9 @@ export function columnsOf(rig = get().rig) {
   ];
 }
 export const rigHas = (types: SensorType[], rig = get().rig) => rig.sensors.some((s) => types.includes(s.type));
-export const needsArduino = (rig = get().rig) => inputsOf(rig).length > 0;
+export const needsArduino = (rig = get().rig) => inputsOf(rig).some((s) => !SENSORS[s.type].phone);
+/** Il progetto usa i sensori del telefono: si collega con «Attiva i sensori», non con Arduino. */
+export const needsPhone = (rig = get().rig) => isPhoneRig(rig);
 export const hasMap = (rig = get().rig) => rigHas(["gps"], rig);
 export const simScenario = () => labInfo().preset?.sim ?? (hasMap() ? "walk" : "free");
 
@@ -556,9 +559,10 @@ const simStatus = () => {
   return `Simulatore pronto${warp ? ` · tempo ×${warp}` : ""}`;
 };
 
-/** arduino = Web Serial (cavo USB, o HC-06 su Android); ble = modulo Bluetooth LE; sim = simulatore */
-export async function connect(kind: "arduino" | "ble" | "sim") {
-  const l = (kind === "sim" ? new SimulatedLink() : kind === "ble" ? new BleLink() : new SerialLink()) as unknown as Link;
+/** arduino = Web Serial (cavo USB, o HC-06 su Android); ble = modulo Bluetooth LE; sim = simulatore;
+ *  phone = sensori del telefono o del computer, senza Arduino */
+export async function connect(kind: "arduino" | "ble" | "sim" | "phone") {
+  const l = (kind === "sim" ? new SimulatedLink() : kind === "ble" ? new BleLink() : kind === "phone" ? new PhoneLink() : new SerialLink()) as unknown as Link;
   if (kind === "sim") { l.scenario = simScenario(); l.scopeSignal = simSignal; }
   l.onLine(handleLine);
   l.onClose(() => {
@@ -572,7 +576,7 @@ export async function connect(kind: "arduino" | "ble" | "sim") {
     if (wasRunning) {
       set({ running: false });
       stopKeepAlive();
-      toast.warning("Arduino scollegato durante la misura. I dati raccolti sono stati salvati.");
+      toast.warning(`${l.kind === "telefono" ? "Sensori del telefono disattivati" : "Arduino scollegato"} durante la misura. I dati raccolti sono stati salvati.`);
       void autosave();
     }
   });
@@ -580,12 +584,13 @@ export async function connect(kind: "arduino" | "ble" | "sim") {
     await l.open();
   } catch (err) {
     const e = err as Error;
-    if (e?.name !== "NotFoundError") toast.error(kind === "ble" ? `Bluetooth LE: ${e.message}` : `Impossibile aprire la porta: ${e.message}`);
+    if (e?.name !== "NotFoundError") toast.error(kind === "ble" ? `Bluetooth LE: ${e.message}` : kind === "phone" ? `Sensori del telefono: ${e.message}.` : `Impossibile aprire la porta: ${e.message}`);
     return;
   }
   link = l;
-  set({ linkKind: l.kind, transport: kind === "sim" ? null : kind === "ble" ? "ble" : "serial", ready: false });
-  setStatus(kind === "sim" ? "Avvio del simulatore…" : "In attesa del firmware…", "wait");
+  set({ linkKind: l.kind, transport: kind === "sim" || kind === "phone" ? null : kind === "ble" ? "ble" : "serial", ready: false });
+  setStatus(kind === "sim" ? "Avvio del simulatore…" : kind === "phone" ? "Attivo i sensori…" : "In attesa del firmware…", "wait");
+  if (kind === "phone") return;              // il telefono risponde subito, niente firmware da cercare
   // l'Uno si riavvia quando si apre la porta USB: tempo al bootloader, poi chiedo l'identità
   // (via Bluetooth non si riavvia: la risposta arriva subito; lo chiedo due volte per sicurezza)
   setTimeout(() => { if (link === l && !get().ready) void l.write("ID?"); }, kind === "sim" ? 600 : kind === "ble" ? 400 : 2200);
@@ -640,7 +645,7 @@ function handleLine(line: string) {
     if (kind === "arduino" && fw && cmpVersion(fw, FIRMWARE_VERSION) < 0) {
       toast.warning(`Su Arduino c'è il firmware v${fw}: aggiornalo alla v${FIRMWARE_VERSION}.`, { duration: 10000, action: { label: "Come si fa", onClick: () => openGuide("firmware") } });
     }
-    setStatus(kind === "simulatore" ? simStatus() : `Arduino pronto${link?.transport === "ble" ? " (Bluetooth LE)" : ""} · firmware ${fw}`, "on");
+    setStatus(kind === "simulatore" ? simStatus() : kind === "telefono" ? "Sensori del telefono pronti" : `Arduino pronto${link?.transport === "ble" ? " (Bluetooth LE)" : ""} · firmware ${fw}`, "on");
     return;
   }
   if (line === "#BT,NOREPLY") { btNoReply = true; return; }
@@ -658,6 +663,7 @@ function handleLine(line: string) {
     toast.success("Modulo HC-06 configurato: ora si chiama «MosaicusNeo». Associalo nelle impostazioni Bluetooth del telefono (PIN 1234).", { duration: 12000 });
     return;
   }
+  if (line.startsWith("#ERR,PHONE,")) { toast.error(line.slice(11), { duration: 8000 }); return; }
   if (line.startsWith("#ERR")) {
     const what = line.slice(5);
     toast.error(/SCOPE|BT|CFG|START/.test(what)
@@ -768,12 +774,13 @@ export async function start() {
     const sim = link.kind === "simulatore";
     if (sim) link.scenario = simScenario();
     const need = firmwareNeeded(rig);
-    if (!sim && st.fw && cmpVersion(st.fw, need) < 0) {
+    const phone = link.kind === "telefono";
+    if (!sim && !phone && st.fw && cmpVersion(st.fw, need) < 0) {
       const what = rig.sensors.filter((s) => SENSORS[s.type].since).map(sensorLabel).join(", ");
       toast.error(`${what}: serve il firmware v${need} (su Arduino c'è la v${st.fw}). Aggiornalo con l'IDE di Arduino.`, { duration: 12000, action: { label: "Come si fa", onClick: () => openGuide("firmware") } });
       return;
     }
-    const outputs = sim || (!!st.fw && cmpVersion(st.fw, "1.2") >= 0);
+    const outputs = !phone && (sim || (!!st.fw && cmpVersion(st.fw, "1.2") >= 0));
     for (const cmd of firmwareCommands(rig, res, { outputs })) {
       const reply = await request(cmd, (l) => l.startsWith("#ACK,CFG") || l.startsWith("#ACK,OUT") || l.startsWith("#ERR"));
       if (!reply) { toast.error("Arduino non risponde alla configurazione. Scollegalo e ricollegalo."); return; }

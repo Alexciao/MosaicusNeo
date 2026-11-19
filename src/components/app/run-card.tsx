@@ -11,7 +11,8 @@ import {
 import { sensorLabel } from "@/lib/sensors/rig";
 import { fmtVal } from "@/lib/prefs";
 import { cn } from "@/lib/utils";
-import { ConnectButton } from "./connection-controls";
+import { isPhoneRig } from "@/lib/sensors/rig";
+import { ConnectButton, PhoneButton } from "./connection-controls";
 
 function Readouts() {
   const rows = useLab((s) => s.rows);
@@ -54,6 +55,7 @@ export function RunCard() {
   const startable = useLab(canStart);
   const step = useLab(guideStep);
   const sonar = useLab((s) => rigHas(["sonar"], s.rig));
+  const phone = useLab((s) => isPhoneRig(s.rig));
   return (
     <Card className="gap-4 p-4">
       <label className="flex items-center gap-2 text-muted-foreground">
@@ -66,9 +68,9 @@ export function RunCard() {
         <div className="flex shrink-0 flex-wrap items-center gap-2">
           {step === "link" ? (
             <>
-              <ConnectButton size="lg" />
+              {phone ? <PhoneButton size="lg" /> : <ConnectButton size="lg" />}
               <Button size="lg" variant="outline" onClick={() => void connect("sim")}><Cpu /> Simulatore</Button>
-              <Button size="lg" variant="ghost" className="text-muted-foreground" onClick={showWiring}><Plug /> Schema dei collegamenti</Button>
+              {!phone && <Button size="lg" variant="ghost" className="text-muted-foreground" onClick={showWiring}><Plug /> Schema dei collegamenti</Button>}
             </>
           ) : step === "wait" ? (
             <Button size="lg" variant="outline" disabled><LoaderCircle className="animate-spin" /> Collegamento…</Button>

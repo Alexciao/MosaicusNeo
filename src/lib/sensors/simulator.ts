@@ -109,6 +109,31 @@ function gateBlocked(t: number, k: number) {
   const T = 2.006 * (1 + 0.15 * k), x = Math.sin((2 * Math.PI * t) / T) * Math.exp(-t / 400);
   return Math.abs(x) < 0.06 * Math.exp(t / 400) ? 1 : 0;
 }
+/**
+ * Telefono simulato.
+ *  • phone-turn: appoggiato su una sedia girevole, a 2 s parte e gira a ~0,4 giri/s (ω_z ≈ 140 °/s)
+ *  • altrimenti (phone-pendulum): appeso a due spaghi, pendolo da 0,64 m (T ≈ 1,6 s), smorzato
+ */
+function phoneMotion(t: number, scenario: string) {
+  if (scenario === "phone-turn") {
+    const w = t < 2 ? 0 : 140 * (1 - Math.exp(-(t - 2) / 0.6)) * Math.exp(-Math.max(0, t - 12) / 4);
+    const wr = (w * Math.PI) / 180, r = 0.35;
+    return [wr * wr * r + gauss(0.05), gauss(0.05), G + gauss(0.05), gauss(1.5), gauss(1.5), w + gauss(1.5)];
+  }
+  const T = 1.6, th0 = 0.35 * Math.exp(-t / 40), om = (2 * Math.PI) / T;
+  const th = th0 * Math.sin(om * t), thd = th0 * om * Math.cos(om * t);
+  // lungo il filo (y): g·cos θ + L·θ'²; tangente (x): rumore (in caduta libera lungo la traiettoria)
+  return [gauss(0.08), G * Math.cos(th) + 0.64 * thd * thd + gauss(0.05), gauss(0.08), gauss(1), gauss(1), (thd * 180) / Math.PI + gauss(1)];
+}
+/** Microfono simulato: un'auto che suona a 440 Hz passa davanti al telefono a 15 m/s (effetto Doppler). */
+function phoneSound(t: number): (number | string)[] {
+  const u = ((t % 12) - 6), v = 15, c = 343, d = 6;
+  const vr = (v * v * u) / Math.sqrt(d * d + (v * u) ** 2);    // velocità radiale (positiva = si allontana)
+  const f = 440 * c / (c + vr);
+  const L = -38 - 10 * Math.log10(1 + ((v * u) / d) ** 2) + gauss(0.4);
+  return [(f + gauss(0.6)).toFixed(2), L.toFixed(2)];
+}
+
 function slotValues(s: SimSlot, t: number, scenario: string, k: number, nowMs: number): (number | string)[] {
   const sc = scenario === "free" && s.type === "GPS" ? "walk" : scenario;
   const w = world(t, sc, k);
@@ -125,6 +150,8 @@ function slotValues(s: SimSlot, t: number, scenario: string, k: number, nowMs: n
   if (s.type === "DHT") return dhtBytes(w.T + gauss(0.05), w.RH + gauss(0.3), s.opt);
   if (s.type === "SONAR") return [sonarEcho(w.x)];
   if (s.type === "GPS") return gpsFields(t, world(t, "walk"), nowMs);
+  if (s.type === "PMOT") return phoneMotion(t, scenario).map((v) => v.toFixed(4));
+  if (s.type === "PSND") return phoneSound(t);
   return [];
 }
 
@@ -163,6 +190,12 @@ export class SimulatedLink {
     if (c === "OUT,TEST") { setTimeout(() => this.emit("#ACK,OUT,TEST"), 1500); return; }
     if (c.startsWith("OUT,L,")) return;
     if (c === "CFG,CLEAR") { this.stop(); this.slots.clear(); if (this.pinged) this.st("I,-1,0"); return this.emit("#ACK,CFG,CLEAR"); }
+    if ((m = c.match(/^CFG,ADD,(\d+),(PMOT|PSND),(\d+),/))) {
+      // sensori del telefono simulati: nessun pin
+      const slot = +m[1];
+      this.slots.set(slot, { type: m[2], interval: Math.max(m[2] === "PMOT" ? 10 : 30, +m[3]), opt: 0, pinA: -1 - slot });
+      return this.emit(`#ACK,CFG,ADD,${slot}`);
+    }
     if ((m = c.match(/^CFG,ADD,(\d+),(NTC|ANA|DHT|SONAR|GPS|DS18|GATE|HX711|IMU),(\d+),(\d+),(\d+),(\d+)$/))) {
       const slot = +m[1], type = m[2], a = +m[4], b = +m[5], opt = +m[6];
       const twoPins = ["SONAR", "GPS", "HX711", "IMU"].includes(type);

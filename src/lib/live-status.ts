@@ -23,7 +23,7 @@ export function liveStatus(rig: Rig, res: Resolved, rows: Row[], running: boolea
     const waitS = s.type === "gps" || s.type === "dht" || s.type === "ds18b20" ? 4 : 2;
     if (!mine.length) {
       if (def.events) continue;                       // la fotocellula scrive solo ai passaggi
-      if (elapsedS > waitS) out.push({ sensorId: s.id, tone: "error", text: `${name}: nessun dato`, hint: "controlla fili e pin" });
+      if (elapsedS > waitS) out.push({ sensorId: s.id, tone: "error", text: `${name}: nessun dato`, hint: def.phone ? (s.type === "psound" ? "consenti l'accesso al microfono" : "apri l'app sul telefono: i computer di solito non hanno questi sensori") : "controlla fili e pin" });
       continue;
     }
     const last = mine[0];

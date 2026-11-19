@@ -167,7 +167,7 @@ function PickerCard({ type, count, disabled, why, onPick }: { type: SensorType; 
         <span className="block pr-6 text-sm leading-snug font-semibold">{def.title}</span>
         <span className="block text-xs text-muted-foreground">{def.measures}</span>
         <span className="mt-1 block text-[0.7rem] text-muted-foreground">
-          {disabled && why ? why : def.pins.map((p) => `${p.role.split(" ")[0]} (${p.kind === "analog" ? "A0…A5" : "pin digitale"})`).join(" · ")}
+          {disabled && why ? why : def.phone ? "sul telefono, niente da collegare" : def.pins.map((p) => `${p.role.split(" ")[0]} (${p.kind === "analog" ? "A0…A5" : "pin digitale"})`).join(" · ")}
         </span>
       </span>
       {count > 0 && (
@@ -189,6 +189,8 @@ export function ComponentPicker({ open, onOpenChange }: { open: boolean; onOpenC
   const state = (t: SensorType): [boolean, string?] => {
     const def = SENSORS[t];
     if (count(t) >= def.max) return [true, def.max === 1 ? "già nel progetto (massimo uno)" : `al massimo ${def.max}`];
+    if (def.phone && rig.sensors.some((s) => !SENSORS[s.type].phone)) return [true, "non insieme ai componenti di Arduino: crea un progetto a parte"];
+    if (!def.phone && rig.sensors.some((s) => SENSORS[s.type].phone)) return [true, "non insieme ai sensori del telefono"];
     if (!def.output && nArduino >= MAX_ARDUINO) return [true, `Arduino legge al massimo ${MAX_ARDUINO} sensori`];
     return [false];
   };

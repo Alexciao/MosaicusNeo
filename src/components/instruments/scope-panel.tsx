@@ -25,7 +25,7 @@ import { useState } from "react";
 /** Scelta tra poche opzioni, con la pillola che scivola (come le altre schede dell'app). */
 export function Segmented<T extends string>({ value, onChange, items, label, className }: { value: T; onChange: (v: T) => void; items: [T, React.ReactNode, string?][]; label: string; className?: string }) {
   return (
-    <GlideNav label={label} value={value} className={cn("w-fit max-w-full overflow-x-auto [scrollbar-width:none]", className)}
+    <GlideNav label={label} value={value} className={cn("w-fit max-w-full shrink-0 overflow-x-auto overflow-y-hidden [scrollbar-width:none]", className)}
       items={items.map(([id, content, title]) => ({ id, content, title, onSelect: () => onChange(id) }))} />
   );
 }

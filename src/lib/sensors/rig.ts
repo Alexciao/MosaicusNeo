@@ -70,6 +70,11 @@ export function usedPins(rig: Rig, except?: string) {
 /** Sensori veri (esclusi gli indicatori di stato). */
 export const inputsOf = (rig: Rig) => rig.sensors.filter((s) => !SENSORS[s.type].output);
 export const outputsOf = (rig: Rig) => rig.sensors.filter((s) => SENSORS[s.type].output);
+/** Sensori del telefono e componenti di Arduino (questi ultimi comprendono display, LED e cicalino). */
+export const phoneOf = (rig: Rig) => rig.sensors.filter((s) => SENSORS[s.type].phone);
+export const arduinoOf = (rig: Rig) => rig.sensors.filter((s) => !SENSORS[s.type].phone);
+/** Progetto che usa solo i sensori del telefono: niente Arduino, niente schema dei collegamenti. */
+export const isPhoneRig = (rig: Rig) => rig.sensors.length > 0 && rig.sensors.every((s) => SENSORS[s.type].phone);
 /** Versione minima del firmware per questo montaggio. */
 export function firmwareNeeded(rig: Rig) {
   return rig.sensors.some((s) => SENSORS[s.type].since) ? "1.2" : "1.1";
@@ -110,8 +115,9 @@ export interface Issue { sensorId?: string; level: "error" | "warn"; text: strin
 
 export function validateRig(rig: Rig): Issue[] {
   const out: Issue[] = [];
-  const arduino = inputsOf(rig);
-  if (!arduino.length) out.push({ level: "error", text: rig.sensors.length ? "Ci sono solo display, LED o cicalino: aggiungi almeno un sensore." : "Il progetto è vuoto: aggiungi almeno un sensore." });
+  const inputs = inputsOf(rig), arduino = inputs.filter((s) => !SENSORS[s.type].phone);
+  if (phoneOf(rig).length && arduinoOf(rig).length) out.push({ level: "error", text: "I sensori del telefono non si usano insieme ai componenti di Arduino: tienili in un progetto a parte." });
+  if (!inputs.length) out.push({ level: "error", text: rig.sensors.length ? "Ci sono solo display, LED o cicalino: aggiungi almeno un sensore." : "Il progetto è vuoto: aggiungi almeno un sensore." });
   if (arduino.length > MAX_ARDUINO) out.push({ level: "error", text: `Troppi sensori: Arduino ne legge al massimo ${MAX_ARDUINO}. Rimuovine qualcuno.` });
   const count = new Map<SensorType, number>();
   for (const s of rig.sensors) count.set(s.type, (count.get(s.type) ?? 0) + 1);

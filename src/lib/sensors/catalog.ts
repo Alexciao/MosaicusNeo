@@ -7,12 +7,12 @@
 // Aggiungere un sensore = aggiungere una voce qui (e, se è di Arduino, un tipo nel firmware).
 
 import type { LucideIcon } from "lucide-react";
-import { Activity, BellRing, Droplets, Lightbulb, Monitor, Move3d, MoveHorizontal, Satellite, ScanLine, Sun, Thermometer, ThermometerSnowflake, Weight } from "lucide-react";
+import { Activity, AudioLines, BellRing, Droplets, Lightbulb, Monitor, Move3d, MoveHorizontal, Satellite, ScanLine, Smartphone, Sun, Thermometer, ThermometerSnowflake, Weight } from "lucide-react";
 import { localPolyDerivs } from "@/lib/mosaicus/analysis.js";
 import { nmeaToDeg, haversine, nmeaTime } from "@/lib/mosaicus/geo";
 import type { Options, Param, Tone, WiringBlock } from "./types";
 
-export type SensorType = "ntc" | "dht" | "sonar" | "gps" | "analog" | "ldr" | "ds18b20" | "gate" | "hx711" | "imu" | "oled" | "rgb" | "buzzer";
+export type SensorType = "ntc" | "dht" | "sonar" | "gps" | "analog" | "ldr" | "ds18b20" | "gate" | "hx711" | "imu" | "oled" | "rgb" | "buzzer" | "pmotion" | "psound";
 export type Rec = Record<string, number | boolean> & { t: number };
 
 /** bus: i pin I2C si possono condividere tra più dispositivi I2C (display, MPU-6050) */
@@ -29,7 +29,9 @@ export interface SensorDef {
   icon: LucideIcon;
   tone: Tone;
   /** tipo nel firmware (CFG,ADD,…,<tipo>,… oppure OUT,ADD,<tipo>,… per gli indicatori) */
-  fw: "NTC" | "ANA" | "DHT" | "SONAR" | "GPS" | "DS18" | "GATE" | "HX711" | "IMU" | "OLED" | "RGB" | "BUZ";
+  fw: "NTC" | "ANA" | "DHT" | "SONAR" | "GPS" | "DS18" | "GATE" | "HX711" | "IMU" | "OLED" | "RGB" | "BUZ" | "PMOT" | "PSND";
+  /** sensore del telefono o del computer: niente Arduino, non si mescola con i componenti di Arduino */
+  phone?: boolean;
   /** indicatore di stato (display, LED, cicalino): non misura nulla e non occupa uno dei 6 posti */
   output?: boolean;
   /** scrive solo quando cambia qualcosa (fotocellula): nessun ritmo di lettura */
@@ -455,23 +457,69 @@ const buzzer: SensorDef = {
   wiring: (p) => [{ title: "Cicalino", pins: { s: p.a }, text: `Piedino + (il più lungo, o «S») su ${p.a}, piedino − a GND.` }],
 };
 
-export const SENSORS: Record<SensorType, SensorDef> = { ntc, dht, sonar, gps, analog, ldr, ds18b20, gate, hx711, imu, oled, rgb, buzzer };
+// ---------------------------------------------------------------------------
+// Sensori del telefono (senza Arduino): stesso protocollo, li legge PhoneLink
+// ---------------------------------------------------------------------------
+const PHONE_AXES = "Telefono in verticale davanti a te: x verso destra, y verso l'alto lungo lo schermo, z uscente dallo schermo. A telefono fermo sul tavolo a_z ≈ +9,8 m/s²: l'accelerometro misura la reazione del tavolo, opposta alla gravità.";
+const pmotion: SensorDef = {
+  rawFields: ["ax", "ay", "az", "gx", "gy", "gz"],
+  type: "pmotion", title: "Accelerometro e giroscopio del telefono", short: "Telefono", measures: "accelerazione e rotazione sui 3 assi",
+  description: "I sensori di movimento del telefono, fino a circa 60 letture al secondo. Niente Arduino: apri l'app sul telefono.",
+  icon: Smartphone, tone: "lime", fw: "PMOT", phone: true,
+  pins: [], interval: { def: 20, min: 10 }, max: 1,
+  options: [
+    { key: "sign", label: "Segno dell'accelerometro", type: "select", value: "std", advanced: true,
+      options: [["std", "standard (sul tavolo a_z ≈ +9,8)"], ["inv", "invertito"]] },
+  ],
+  quantities: () => [
+    { key: "ax", digits: 2, line: true, primary: true }, { key: "ay", digits: 2, line: true }, { key: "az", digits: 2, line: true, primary: true },
+    { key: "am", digits: 2, line: true },
+    { key: "gx", digits: 1, line: true }, { key: "gy", digits: 1, line: true }, { key: "gz", digits: 1, line: true },
+  ],
+  parse([ax, ay, az, gx, gy, gz], o) {
+    if (![ax, ay, az].some(Number.isFinite)) return { t: 0, ax: NaN, ay: NaN, az: NaN, am: NaN, gx, gy, gz };
+    const k = o.sign === "inv" ? -1 : 1;
+    return { t: 0, ax: k * ax, ay: k * ay, az: k * az, am: Math.hypot(ax, ay, az), gx, gy, gz };
+  },
+  wiring: () => [
+    { title: "Niente da collegare", text: "Apri MosaicusNeo sul telefono (Chrome su Android, Safari su iPhone) e premi «Attiva i sensori». Su iPhone conferma il permesso." },
+    { title: "Gli assi del telefono", text: PHONE_AXES },
+  ],
+};
+const psound: SensorDef = {
+  rawFields: ["f_hz", "level_db"],
+  type: "psound", title: "Microfono (frequenza e livello)", short: "Microfono", measures: "frequenza dominante e livello del suono",
+  description: "Frequenza dominante (50 Hz – 5 kHz) e livello relativo dal microfono del telefono o del computer. L'audio non viene registrato.",
+  icon: AudioLines, tone: "rose", fw: "PSND", phone: true,
+  pins: [], interval: { def: 50, min: 30 }, max: 1,
+  options: [],
+  quantities: () => [{ key: "freq", digits: 1, primary: true }, { key: "level", digits: 1, line: true, primary: true }],
+  parse([f, L]) { return { t: 0, freq: f, level: L }; },
+  wiring: () => [{ title: "Niente da collegare", text: "Usa il microfono del dispositivo: premi «Attiva i sensori» e consenti l'accesso al microfono." }],
+};
+
+export const SENSORS: Record<SensorType, SensorDef> = { ntc, dht, sonar, gps, analog, ldr, ds18b20, gate, hx711, imu, oled, rgb, buzzer, pmotion, psound };
+export const isPhoneType = (t: SensorType) => !!SENSORS[t].phone;
 /** Tutti i componenti, nell'ordine del catalogo «Aggiungi un componente». */
-export const COMPONENTS: SensorType[] = ["dht", "ntc", "ds18b20", "sonar", "imu", "gate", "gps", "ldr", "hx711", "analog", "oled", "rgb", "buzzer"];
+export const COMPONENTS: SensorType[] = ["dht", "ntc", "ds18b20", "sonar", "imu", "gate", "gps", "ldr", "hx711", "analog", "oled", "rgb", "buzzer", "pmotion", "psound"];
 export const OUTPUTS: SensorType[] = COMPONENTS.filter((t) => SENSORS[t].output);
 
 /** Categorie per filtrare il catalogo (un componente può stare in più categorie). */
-export type ComponentTag = "temp" | "motion" | "light" | "force" | "place" | "volt" | "status";
+export type ComponentTag = "temp" | "motion" | "light" | "force" | "place" | "volt" | "status" | "phone";
 export const TAGS: [ComponentTag, string][] = [
   ["temp", "Temperatura e clima"], ["motion", "Movimento e tempo"], ["light", "Luce"], ["force", "Forza e massa"],
-  ["place", "Posizione"], ["volt", "Tensione"], ["status", "Display, LED e cicalino"],
+  ["place", "Posizione"], ["volt", "Tensione"], ["status", "Display, LED e cicalino"], ["phone", "Telefono, senza Arduino"],
 ];
 export const COMPONENT_TAGS: Record<SensorType, ComponentTag[]> = {
   dht: ["temp"], ntc: ["temp"], ds18b20: ["temp"], sonar: ["motion", "place"], imu: ["motion", "force"], gate: ["motion", "light"],
   gps: ["place", "motion"], ldr: ["light"], hx711: ["force"], analog: ["volt"], oled: ["status"], rgb: ["status", "light"], buzzer: ["status"],
+  // solo nella loro categoria: l'elenco principale resta quello dei componenti di Arduino
+  pmotion: ["phone"], psound: ["phone"],
 };
 /** Parole in più per la ricerca (nomi comuni, sinonimi, kit). */
 export const COMPONENT_KEYWORDS: Record<SensorType, string> = {
+  pmotion: "telefono smartphone accelerometro giroscopio pendolo ascensore rotazione phyphox",
+  psound: "telefono microfono suono frequenza doppler glissato livello decibel",
   dht: "umidità rugiada aria meteo clima dht11 dht22 am2302",
   ntc: "termistore termometro calore raffreddamento newton resistenza",
   ds18b20: "sonda impermeabile acqua liquido termometro onewire",

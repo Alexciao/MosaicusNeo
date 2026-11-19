@@ -5,7 +5,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
-import { useLab, labInfo, needsArduino, hasMap, openGuide, showWiring } from "@/lib/lab-store";
+import { useLab, labInfo, needsArduino, needsPhone, hasMap, openGuide, showWiring } from "@/lib/lab-store";
 import { SENSORS, pinName } from "@/lib/sensors/catalog";
 import { sensorLabel } from "@/lib/sensors/rig";
 import { audioSupported } from "@/lib/mosaicus/audio.js";
@@ -113,7 +113,7 @@ export function MeasurePage() {
 
       <section className="flex min-w-0 flex-col gap-4">
         <LabHeading onPick={() => setLabs(true)} onSensors={() => setRig(true)} />
-        {(ins ? ins.source === "arduino" : needsArduino(rig)) && <div className="lg:hidden"><ConnectionControls className="flex-wrap" /></div>}
+        {(ins ? ins.source === "arduino" : needsArduino(rig) || needsPhone(rig)) && <div className="lg:hidden"><ConnectionControls className="flex-wrap" /></div>}
         <SupportBanner />
         {ins?.kind === "scope" ? <ScopePanel key={ins.id} exp={ins} />
           : ins?.kind === "synth" ? <SynthPanel key={ins.id} exp={ins} />

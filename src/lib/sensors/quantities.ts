@@ -130,6 +130,10 @@ export const QUANTITIES: Record<string, Quantity> = {
   gx: { sym: "ωₓ", name: "velocità angolare x", unit: "°/s", models: ["mean", "dsin"], physics: { dsin: periodFrom() } },
   gy: { sym: "ωᵧ", name: "velocità angolare y", unit: "°/s", models: ["mean", "dsin"], physics: { dsin: periodFrom() } },
   gz: { sym: "ω_z", name: "velocità angolare z", unit: "°/s", models: ["mean", "dsin"], physics: { dsin: periodFrom() } },
+  // --- microfono
+  freq: { sym: "f", name: "frequenza dominante", unit: "Hz", models: ["mean", "lin"], slope: "rapidità di variazione della frequenza",
+    physics: { mean: mean("frequenza media", "Hz"), lin: [{ label: "df/dt", unit: "Hz/s", calc: (f) => P(f, "m") }] } },
+  level: { sym: "L", name: "livello sonoro (relativo)", unit: "dB", models: ["mean", "lin", "dsin"], physics: { mean: mean("livello medio", "dB") } },
 };
 
 /** Chiave di base: "T_2" → "T". */

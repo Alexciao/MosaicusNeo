@@ -6,7 +6,7 @@
 // Gli strumenti (oscilloscopi, synth) hanno un pannello proprio: non sono serie di sensori.
 
 import type { LucideIcon } from "lucide-react";
-import { AudioWaveform, Droplets, MapPinned, MoveRight, Piano, Thermometer, WavesHorizontal, Zap } from "lucide-react";
+import { AudioLines, AudioWaveform, Droplets, Rotate3d, Smartphone, MapPinned, MoveRight, Piano, Thermometer, WavesHorizontal, Zap } from "lucide-react";
 import type { SensorType } from "./catalog";
 import { makeSensor, type SensorInstance } from "./rig";
 import type { Options, Tone, WiringBlock } from "./types";
@@ -68,8 +68,32 @@ export const PRESETS: Preset[] = [
       { title: "Il primo fix", tip: true, text: "All'aperto il GPS trova i satelliti in un tempo tra 30 s e qualche minuto. I punti senza posizione restano in tabella ma non compaiono sulla mappa." },
     ],
   },
+  // --- sensori del telefono, senza Arduino
+  {
+    id: "phoneAcc", topic: "Telefono", title: "Accelerometro", subtitle: "Pendolo, ascensore · telefono",
+    icon: Smartphone, tone: "lime", sim: "phone-pendulum",
+    sensors: [{ type: "pmotion", interval: 20 }],
+    visible: ["ax", "ay", "az"], readouts: ["am", "ay"],
+    tips: [{ title: "Idea", tip: true, text: "Pendolo: appendi il telefono a due spaghi, schermo verso di te, e fallo oscillare; il fit della sinusoide su a_y dà il periodo. Ascensore: telefono sul pavimento, guarda a_z alla partenza e all'arrivo." }],
+  },
+  {
+    id: "phoneGyro", topic: "Telefono", title: "Giroscopio", subtitle: "Moto circolare · telefono",
+    icon: Rotate3d, tone: "sky", sim: "phone-turn",
+    sensors: [{ type: "pmotion", interval: 20 }],
+    visible: ["gz"], readouts: ["gz", "ax"],
+    tips: [{ title: "Idea", tip: true, text: "Telefono su una sedia girevole o un giradischi: ω_z resta costante nel moto circolare uniforme, e aₓ verso il centro vale ω²r. Nel pendolo il giroscopio oscilla con il periodo del pendolo, a_y con frequenza doppia: perché?" }],
+  },
+  {
+    id: "phoneSound", topic: "Telefono", title: "Frequenza nel tempo", subtitle: "Effetto Doppler · microfono",
+    icon: AudioLines, tone: "rose", sim: "phone-sound",
+    sensors: [{ type: "psound", interval: 50 }],
+    visible: ["freq", "level"], readouts: ["freq", "level"],
+    tips: [{ title: "Idea", tip: true, text: "Un'auto o un motorino che suona passandoti davanti: la frequenza scende quando ti supera. Dal salto di frequenza ricavi la velocità: v ≈ c·Δf / (2f)." }],
+  },
 ];
-export const PRESET_TOPICS = ["Cinematica", "Termologia", "Sul campo"];
+export const PRESET_TOPICS = ["Cinematica", "Termologia", "Sul campo", "Telefono"];
+/** Argomenti chiusi all'inizio nella barra: il centro dell'app resta Arduino. */
+export const COLLAPSED_TOPICS = ["Telefono"];
 export const presetById = (id: string | null | undefined) => PRESETS.find((p) => p.id === id);
 
 /** I sensori di un preset come istanze (pin e opzioni di partenza). */
