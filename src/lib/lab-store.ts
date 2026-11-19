@@ -12,7 +12,7 @@ import { ChartGroup } from "@/lib/mosaicus/chart.js";
 import { SerialLink, serialSupported } from "@/lib/mosaicus/serial.js";
 import { SimulatedLink } from "@/lib/mosaicus/simulator.js";
 import { PhoneLink } from "@/lib/mosaicus/phone.js";
-import { saveSession, getSession, deleteSession, listSessions } from "@/lib/mosaicus/storage.js";
+import * as repo from "@/lib/cloud/repo";
 import { toCSV, toXLSX, download } from "@/lib/mosaicus/export.js";
 import { APP_VERSION, FIRMWARE_VERSION, cmpVersion } from "@/lib/version";
 import { prefs, fmtVal, stamp } from "@/lib/prefs";
@@ -33,7 +33,7 @@ export interface Link {
   onClose(cb: () => void): void;
 }
 export interface Session { id?: number; name: string; created: number; source: string; fw: string | null }
-export interface SessionSummary { id: number; name: string; experiment: string; created: number; n: number }
+export interface SessionSummary { id: number; name: string; experiment: string; created: number; n: number; cloud?: boolean; dirty?: boolean }
 export type StatusTone = "off" | "wait" | "on" | "err";
 export type Page = "misura" | "elab";
 export type GuideStep = "link" | "wait" | "start" | "stop" | "pick" | "send" | "go" | null;
@@ -189,6 +189,13 @@ export function selectExperiment(id: string, { keepData = false } = {}) {
     toast(needPhone ? "Questo esperimento usa i sensori del telefono: ho scollegato Arduino." : "Questo esperimento usa Arduino: ho disattivato i sensori del telefono.");
   }
   if (link?.kind === "simulatore" && get().ready) setStatus(simStatus(), "on");
+}
+
+/** Parametri del lab corrente riletti dalle preferenze (es. arrivate da un altro dispositivo). */
+export function reloadParams() {
+  const exp = currentExp();
+  set({ params: { ...defaultParams(exp), ...prefs.get<Params>(`mosaicus.params.${exp.id}`, {}) } });
+  recompute();
 }
 
 export function setParam(key: string, value: number | string) {
@@ -424,7 +431,7 @@ export async function autosave(quiet = false) {
     params: { ...st.params }, raw, app: APP_VERSION,
   };
   try {
-    const id = (await saveSession(rec)) as number;
+    const id = (await repo.save("sessions", rec)).id;
     set({ session: { ...st.session, id: st.session.id ?? id } });
     if (!quiet) toast.success(`Misura salvata nel Quaderno (${raw.length} punti).`);
     await refreshSessions();
@@ -540,12 +547,17 @@ function stackPNG(): Promise<Blob> {
 // Quaderno delle misure
 // ---------------------------------------------------------------------------
 export async function refreshSessions() {
-  try { set({ sessions: (await listSessions()) as SessionSummary[] }); } catch { set({ sessions: [] }); }
+  try {
+    const list = (await repo.all("sessions")).filter(repo.visible)
+      .map((s) => ({ id: s.id!, name: String(s.name), experiment: String(s.experiment), created: Number(s.created), n: (s.raw as unknown[] | undefined)?.length ?? 0, cloud: !!s.owner, dirty: !!s.dirty }))
+      .sort((a, b) => b.created - a.created);
+    set({ sessions: list });
+  } catch { set({ sessions: [] }); }
 }
 
 export async function openSession(id: number) {
   if (get().running) { toast("Ferma la misura prima di aprire una misura del quaderno."); return; }
-  const s = await getSession(id);
+  const s = (await repo.get("sessions", id)) as (Record<string, never> & { id: number; experiment: string; raw: number[][]; params: Params; name: string; created: number; source: string; fw: string | null }) | undefined;
   if (!s) return;
   showPage("misura");
   selectExperiment(s.experiment, { keepData: true });
@@ -563,7 +575,7 @@ export async function openSession(id: number) {
 }
 
 export async function removeSession(id: number) {
-  await deleteSession(id);
+  await repo.remove("sessions", id);
   const s = get().session;
   if (s?.id === id) set({ session: { ...s, id: undefined } });
   await refreshSessions();

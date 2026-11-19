@@ -1,4 +1,9 @@
 // Preferenze locali (localStorage): piccole comodità per chi usa questo browser.
+type PrefListener = (key: string) => void;
+const listeners = new Set<PrefListener>();
+/** Avvisa quando cambia una preferenza (per la sincronizzazione delle impostazioni). */
+export function onPrefChange(fn: PrefListener) { listeners.add(fn); return () => { listeners.delete(fn); }; }
+
 export const prefs = {
   get<T>(key: string, fallback: T): T {
     try {
@@ -14,6 +19,7 @@ export const prefs = {
     } catch {
       /* storage non disponibile */
     }
+    listeners.forEach((fn) => fn(key));
   },
 };
 

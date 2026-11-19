@@ -42,3 +42,4 @@ next-env.d.ts
 
 # copia generata del firmware (fonte: firmware/)
 /public/firmware/
+!.env.example

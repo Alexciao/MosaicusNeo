@@ -11,10 +11,7 @@
 import { audio, periodicWave, audioSupported } from './audio.js';
 import { TIMBRES, synth } from './dsp.js';
 
-const store = {
-  get(k, d) { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; } catch { return d; } },
-  set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch { /* niente */ } },
-};
+import { prefs as store } from '@/lib/prefs';
 
 // ---------------------------------------------------------------------------
 // Ricette dei timbri

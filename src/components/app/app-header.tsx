@@ -12,6 +12,7 @@ import { useWorkbench } from "@/lib/workbench-store";
 import { cn } from "@/lib/utils";
 import { ConnectionControls } from "./connection-controls";
 import { GuideDialog } from "./guide-dialog";
+import { AccountMenu } from "./account-menu";
 import { APP_VERSION } from "@/lib/version";
 
 export function NavTabs({ className }: { className?: string }) {
@@ -92,6 +93,7 @@ export function AppHeader() {
             <TooltipContent>{lim ? "Esci dalla modalità LIM" : "Modalità LIM: testi e grafici più grandi per la proiezione"}</TooltipContent>
           </Tooltip>
           <ThemeMenu />
+          <AccountMenu />
         </div>
       </div>
     </header>

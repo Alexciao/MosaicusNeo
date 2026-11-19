@@ -12,6 +12,7 @@ import { AppHeader } from "./app-header";
 import { MeasurePage } from "./measure-page";
 import { ConfirmHost } from "./confirm-host";
 import { WorkbenchPage } from "@/components/workbench/workbench-page";
+import { startCloud } from "@/lib/cloud/sync";
 
 /** Barra in basso sul telefono: Lab apre l'elenco, Misura e Elaborazione cambiano pagina. */
 function MobileNav() {
@@ -54,6 +55,7 @@ function GenChip() {
 export function MosaicusApp() {
   const page = useLab((s) => s.page);
   useEffect(() => {
+    startCloud();
     void boot();
     if ("serviceWorker" in navigator && process.env.NODE_ENV === "production") {
       navigator.serviceWorker.register("/sw.js").catch(() => { /* offline non disponibile */ });

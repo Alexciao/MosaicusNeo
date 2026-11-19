@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { ChevronDown, FolderOpen, RotateCcw, Trash } from "lucide-react";
+import { ChevronDown, CloudCheck, CloudUpload, FolderOpen, RotateCcw, Trash } from "lucide-react";
+import { useCloud } from "@/lib/cloud/sync";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -77,6 +78,7 @@ function ParamsForm() {
 function Notebook() {
   const sessions = useLab((s) => s.sessions);
   const current = useLab((s) => s.session?.id);
+  const signedIn = useCloud((s) => !!s.user);
   if (sessions == null) return <p className="text-sm text-muted-foreground">Carico…</p>;
   if (!sessions.length) return <p className="text-sm text-muted-foreground">Ancora nessuna misura. Le misure si salvano qui da sole quando premi «Ferma».</p>;
   return (
@@ -84,7 +86,12 @@ function Notebook() {
       {sessions.map((s) => (
         <li key={s.id} className={cn("flex items-center gap-2 rounded-lg border px-3 py-2", current === s.id && "border-primary/30 bg-accent/40")}>
           <div className="min-w-0 flex-1">
-            <b className="block truncate text-sm">{s.name}</b>
+            <b className="flex items-center gap-1.5 truncate text-sm">
+              <span className="truncate">{s.name}</span>
+              {signedIn && s.cloud && (s.dirty
+                ? <CloudUpload className="size-3.5 shrink-0 text-muted-foreground" aria-label="da salvare nel cloud" />
+                : <CloudCheck className="size-3.5 shrink-0 text-success" aria-label="salvata nel cloud" />)}
+            </b>
             <small className="block truncate text-xs text-muted-foreground">
               {byId(s.experiment)?.title ?? ""} · {new Date(s.created).toLocaleString("it-IT", { dateStyle: "short", timeStyle: "short" })} · {s.n} punti
             </small>

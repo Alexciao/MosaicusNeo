@@ -6,7 +6,7 @@
 
 import { create } from "zustand";
 import { toast } from "sonner";
-import { saveBox, deleteBox as dbDeleteBox, listBoxes } from "@/lib/mosaicus/storage.js";
+import * as repo from "@/lib/cloud/repo";
 import { compile } from "@/lib/mosaicus/formula.js";
 import { toXLSX, download } from "@/lib/mosaicus/export.js";
 
@@ -97,7 +97,7 @@ const timers = new Map<number, ReturnType<typeof setTimeout>>();
 function persist(box: Box) {
   clearTimeout(timers.get(box.id));
   timers.set(box.id, setTimeout(() => {
-    saveBox(box).catch((e: Error) => toast.error(`Salvataggio non riuscito: ${e.message}`));
+    repo.save("boxes", box as unknown as Record<string, unknown>).catch((e: Error) => toast.error(`Salvataggio non riuscito: ${e.message}`));
   }, 250));
 }
 
@@ -107,12 +107,12 @@ export const useWorkbench = create<WorkbenchState>((set, get) => ({
   focusId: null,
   async load() {
     let boxes: Box[] = [];
-    try { boxes = (await listBoxes()) as Box[]; } catch { boxes = []; }
+    try { boxes = ((await repo.all("boxes")).filter(repo.visible) as unknown as Box[]).sort((a, b) => a.created - b.created); } catch { boxes = []; }
     set({ boxes, loaded: true });
   },
   async addBox(data) {
-    const box = { created: Date.now(), checked: true, computed: [], analyses: [], ...data } as Box;
-    box.id = (await saveBox(box)) as number;
+    const draft = { created: Date.now(), checked: true, computed: [], analyses: [], ...data };
+    const box = (await repo.save("boxes", draft as unknown as Record<string, unknown>)) as unknown as Box;
     set({ boxes: [...get().boxes, box] });
     return box;
   },
@@ -126,7 +126,7 @@ export const useWorkbench = create<WorkbenchState>((set, get) => ({
     set({ boxes });
   },
   async removeBox(id) {
-    await dbDeleteBox(id);
+    await repo.remove("boxes", id);
     set({ boxes: get().boxes.filter((b) => b.id !== id) });
   },
   setAllChecked(checked) {

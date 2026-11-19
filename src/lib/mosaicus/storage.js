@@ -45,3 +45,9 @@ export async function listBoxes() {
   const all = await tx('boxes', 'readonly', (st) => st.getAll());
   return all.sort((a, b) => a.created - b.created);
 }
+
+// ---------- accesso generico (sincronizzazione con il cloud) ----------
+export const getRecord = (store, id) => tx(store, 'readonly', (st) => st.get(id));
+export const putRecord = (store, rec) => tx(store, 'readwrite', (st) => (rec.id ? st.put(rec) : st.add(rec)));
+export const deleteRecord = (store, id) => tx(store, 'readwrite', (st) => st.delete(id));
+export const allRecords = (store) => tx(store, 'readonly', (st) => st.getAll());
