@@ -1,7 +1,7 @@
 "use client";
-// Il montaggio: i sensori collegati, con pin, ritmo e opzioni. Funziona allo stesso modo per gli
+// I componenti del progetto, con pin, intervallo e opzioni. Funziona allo stesso modo per gli
 // esperimenti pronti (le modifiche diventano una versione personale, ripristinabile) e per i
-// montaggi liberi.
+// progetti dell'utente.
 
 import { useState } from "react";
 import { Check, ChevronDown, CopyPlus, Plus, RotateCcw, Search, Trash, TriangleExclamationPoint, X } from "lucide-react";
@@ -83,7 +83,7 @@ function SensorCard({ s, defaultOpen }: { s: SensorInstance; defaultOpen: boolea
           <ChevronDown className={cn("size-4 shrink-0 text-muted-foreground transition-transform", !open && "-rotate-90")} />
         </CollapsibleTrigger>
         <Button size="icon-sm" variant="ghost" aria-label={`Togli ${sensorLabel(s)}`} disabled={running} className="text-muted-foreground hover:text-destructive"
-          onClick={async () => { if (await confirm({ title: `Togliere «${sensorLabel(s)}» dal montaggio?`, action: "Togli", destructive: true })) removeSensor(s.id); }}>
+          onClick={async () => { if (await confirm({ title: `Togliere «${sensorLabel(s)}» dal progetto?`, action: "Togli", destructive: true })) removeSensor(s.id); }}>
           <Trash />
         </Button>
       </div>
@@ -171,7 +171,7 @@ function PickerCard({ type, count, disabled, why, onPick }: { type: SensorType; 
         </span>
       </span>
       {count > 0 && (
-        <span className="absolute top-2 right-2 flex items-center gap-0.5 rounded-full bg-foreground px-1.5 py-0.5 text-[0.65rem] font-semibold text-background" title="Già nel montaggio">
+        <span className="absolute top-2 right-2 flex items-center gap-0.5 rounded-full bg-foreground px-1.5 py-0.5 text-[0.65rem] font-semibold text-background" title="Già nel progetto">
           <Check className="size-3" />{count > 1 ? count : null}
         </span>
       )}
@@ -188,7 +188,7 @@ export function ComponentPicker({ open, onOpenChange }: { open: boolean; onOpenC
   const count = (t: SensorType) => rig.sensors.filter((s) => s.type === t).length;
   const state = (t: SensorType): [boolean, string?] => {
     const def = SENSORS[t];
-    if (count(t) >= def.max) return [true, def.max === 1 ? "già nel montaggio (ce ne può essere uno solo)" : `al massimo ${def.max}`];
+    if (count(t) >= def.max) return [true, def.max === 1 ? "già nel progetto (massimo uno)" : `al massimo ${def.max}`];
     if (!def.output && nArduino >= MAX_ARDUINO) return [true, `Arduino legge al massimo ${MAX_ARDUINO} sensori`];
     return [false];
   };
@@ -214,7 +214,7 @@ export function ComponentPicker({ open, onOpenChange }: { open: boolean; onOpenC
       <DialogContent className="flex h-[min(46rem,90svh)] max-h-[90svh] flex-col gap-3 sm:max-w-2xl">
         <DialogHeader>
           <DialogTitle>Aggiungi un componente</DialogTitle>
-          <DialogDescription>Sensori, display, LED e cicalino da collegare ad Arduino. I pin si scelgono dopo; lo schema dei collegamenti si aggiorna da solo.</DialogDescription>
+          <DialogDescription>Sensori, display, LED e cicalino. I pin si scelgono dopo l&apos;aggiunta.</DialogDescription>
         </DialogHeader>
         <div className="relative">
           <Search className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" />
@@ -236,7 +236,7 @@ export function ComponentPicker({ open, onOpenChange }: { open: boolean; onOpenC
             <p className="py-10 text-center text-sm text-muted-foreground">Nessun componente{q ? <> per «{query.trim()}»</> : null}{tag !== "all" ? " in questa categoria" : ""}.</p>
           )}
         </div>
-        <p className="text-xs text-muted-foreground">Arduino legge fino a {MAX_ARDUINO} sensori insieme, ognuno col suo ritmo; display, LED e cicalino non contano.</p>
+        <p className="text-xs text-muted-foreground">Massimo {MAX_ARDUINO} sensori, ognuno con il suo intervallo. Display, LED e cicalino non contano.</p>
       </DialogContent>
     </Dialog>
   );
@@ -259,15 +259,15 @@ export function RigEditor() {
       {custom ? (
         <div className="flex items-end gap-2">
           <div className="flex flex-1 flex-col gap-1.5">
-            <Label htmlFor="rig-name" className="text-xs text-muted-foreground">Nome del montaggio</Label>
+            <Label htmlFor="rig-name" className="text-xs text-muted-foreground">Nome del progetto</Label>
             <Input key={rig.id} id="rig-name" defaultValue={rig.name} onBlur={(e) => renameRig(e.target.value)} className="h-8" />
           </div>
         </div>
       ) : (
         <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-          <span className="mr-auto">{modified ? <>Versione personale di «{info.title}»</> : <>Sensori di «{info.title}»</>}</span>
+          <span className="mr-auto">{modified ? <>Versione personale di «{info.title}»</> : <>Componenti di «{info.title}»</>}</span>
           {modified && <Button size="xs" variant="outline" disabled={running} onClick={resetPreset}><RotateCcw /> Ripristina</Button>}
-          <Button size="xs" variant="outline" disabled={running} onClick={() => newRig({ copy: true })} title="Crea un montaggio libero a partire da questo"><CopyPlus /> Copia come montaggio</Button>
+          <Button size="xs" variant="outline" disabled={running} onClick={() => newRig({ copy: true })} title="Crea un tuo progetto con questi componenti"><CopyPlus /> Copia come progetto</Button>
         </div>
       )}
 
@@ -283,18 +283,18 @@ export function RigEditor() {
       <div className="flex flex-wrap gap-2">
         <Button variant="outline" disabled={running} onClick={() => setPicker(true)} className="flex-1 border-dashed"><Plus /> Aggiungi un componente</Button>
         {!!outs.length && (
-          <Button variant="ghost" disabled={running || !linked} onClick={() => void testOutputs()} title={linked ? "Fa lampeggiare il LED, suonare il cicalino e scrivere sul display" : "Prima collega Arduino"}>Prova display, LED e cicalino</Button>
+          <Button variant="ghost" disabled={running || !linked} onClick={() => void testOutputs()} title={linked ? "Accende il LED, suona il cicalino e scrive sul display" : "Collega prima Arduino"}>Prova display, LED e cicalino</Button>
         )}
       </div>
-      {!rig.sensors.length && <p className="text-center text-xs text-muted-foreground">Scegli i componenti che hai collegato ad Arduino: l&apos;app ti mostra come collegarli e li legge tutti insieme.</p>}
+      {!rig.sensors.length && <p className="text-center text-xs text-muted-foreground">Nessun componente. Aggiungi quelli che colleghi ad Arduino.</p>}
       {!!inputs.length && !outs.length && (
-        <p className="text-xs text-muted-foreground">Facoltativi: un display, un LED RGB o un cicalino dicono da soli se Arduino è pronto e sta misurando. <button type="button" className="underline underline-offset-2" onClick={() => openGuide("outputs")}>Come funzionano</button></p>
+        <p className="text-xs text-muted-foreground">Facoltativo: un display, un LED RGB o un cicalino mostrano se Arduino è pronto o sta misurando. <button type="button" className="underline underline-offset-2" onClick={() => openGuide("outputs")}>Come funzionano</button></p>
       )}
       <ComponentPicker open={picker} onOpenChange={setPicker} />
       {custom && (
         <Button variant="ghost" size="sm" disabled={running} className="self-start text-destructive hover:bg-destructive/10 hover:text-destructive"
-          onClick={async () => { if (await confirm({ title: `Eliminare il montaggio «${rig.name}»?`, description: "Le misure già fatte restano nel Quaderno.", action: "Elimina", destructive: true })) deleteRig(rig.id); }}>
-          <Trash /> Elimina questo montaggio
+          onClick={async () => { if (await confirm({ title: `Eliminare il progetto «${rig.name}»?`, description: "Le misure già fatte restano nel Quaderno.", action: "Elimina", destructive: true })) deleteRig(rig.id); }}>
+          <Trash /> Elimina il progetto
         </Button>
       )}
       <details className="text-xs text-muted-foreground">

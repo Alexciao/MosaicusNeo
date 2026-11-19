@@ -33,7 +33,7 @@ function Item({ id, title, subtitle, icon: Icon, tone, onPicked, badge, menu }: 
           // bordo sempre di 1 px (trasparente se non attivo) e niente contorno del browser: lo spessore non cambia mai
           "flex w-full items-center gap-3 rounded-lg px-2 py-2 text-left ring-1 ring-transparent ring-inset outline-none transition-[background-color,box-shadow] duration-150 ease-out disabled:cursor-not-allowed disabled:opacity-50 focus-visible:ring-ring",
           menu && "pr-9", active ? "bg-brand/8 ring-brand/30" : "hover:bg-muted")}>
-        <span className={cn("grid size-9 shrink-0 place-items-center rounded-lg text-tone-ink", toneBg[tone])}><Icon className="size-[1.15rem]" /></span>
+        <span className={cn("grid size-9 shrink-0 place-items-center rounded-lg text-foreground", toneBg[tone])}><Icon className="size-[1.15rem]" /></span>
         <span className="min-w-0 flex-1">
           <span className={cn("flex items-center gap-1.5 truncate text-sm font-semibold", active && "text-brand")}>
             <span className="truncate">{title}</span>
