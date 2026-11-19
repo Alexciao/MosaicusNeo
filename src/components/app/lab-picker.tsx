@@ -14,6 +14,8 @@ import { useLab, selectLab, newRig, rigSummary, renameRigById, duplicateRig, del
 import type { Rig } from "@/lib/sensors/rig";
 import type { Tone } from "@/lib/sensors/types";
 import { confirm } from "@/lib/confirm";
+import { GithubMark } from "./github-mark";
+import { REPO_URL, ISSUES_URL } from "@/lib/links";
 import { prefs } from "@/lib/prefs";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { cn } from "@/lib/utils";
@@ -133,6 +135,11 @@ export function LabPicker({ onPicked }: { onPicked?: () => void }) {
       <Section id="tools" title="Strumenti">
         <ul className="flex flex-col gap-0.5">{INSTRUMENTS.map((i) => <Item key={i.id} {...i} onPicked={onPicked} />)}</ul>
       </Section>
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 border-t px-2 pt-3 text-xs text-muted-foreground">
+        <a href={REPO_URL} target="_blank" rel="noopener" className="inline-flex items-center gap-1.5 hover:text-foreground"><GithubMark className="size-3.5" /> GitHub</a>
+        <a href={ISSUES_URL} target="_blank" rel="noopener" className="hover:text-foreground" title="Segnala un problema su GitHub">Segnalazioni</a>
+        <a href="/privacy" target="_blank" rel="noopener" className="hover:text-foreground">Privacy</a>
+      </div>
     </nav>
   );
 }

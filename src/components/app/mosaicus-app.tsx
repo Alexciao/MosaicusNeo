@@ -15,6 +15,8 @@ import { GuideDialog } from "./guide-dialog";
 import { WorkbenchPage } from "@/components/workbench/workbench-page";
 import { NotebookPage } from "@/components/notebook/notebook-page";
 import { startCloud } from "@/lib/cloud/sync";
+import { GithubMark } from "./github-mark";
+import { REPO_URL, ISSUES_URL } from "@/lib/links";
 
 /** Barra in basso sul telefono: Lab apre l'elenco, Misura e Elaborazione cambiano pagina. */
 function MobileNav() {
@@ -78,7 +80,8 @@ export function MosaicusApp() {
       </main>
       <footer className="px-4 py-6 text-center text-xs text-muted-foreground">
         MosaicusNeo · basato su Mosaicus di Ermes Ferdinando Rosi · software libero con licenza MIT ·{" "}
-        <a className="underline" href="https://github.com/Alexciao/MosaicusNeo" target="_blank" rel="noopener">codice sorgente</a> ·{" "}
+        <a className="inline-flex items-center gap-1 underline" href={REPO_URL} target="_blank" rel="noopener"><GithubMark className="size-3" />GitHub</a> ·{" "}
+        <a className="underline" href={ISSUES_URL} target="_blank" rel="noopener">segnala un problema</a> ·{" "}
         <a className="font-medium text-foreground underline" href="/privacy" target="_blank" rel="noopener">privacy</a>
       </footer>
       <MobileNav />

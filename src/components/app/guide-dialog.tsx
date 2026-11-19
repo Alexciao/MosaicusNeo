@@ -23,6 +23,8 @@ import { APP_VERSION, FIRMWARE_URL, FIRMWARE_VERSION } from "@/lib/version";
 import { cn } from "@/lib/utils";
 import { Segmented } from "@/components/instruments/scope-panel";
 import { WiringGuide } from "./wiring-diagram";
+import { GithubMark } from "./github-mark";
+import { REPO_URL, ISSUES_URL, FIRMWARE_SOURCE_URL } from "@/lib/links";
 
 // ---------------------------------------------------------------------------
 // Mattoncini del testo
@@ -333,6 +335,7 @@ function Firmware() {
       {DETECTED && DETECTED.device !== "pc" && <ShareLink />}
       <div className="flex flex-wrap items-center gap-3 rounded-lg border bg-muted/40 p-3">
         <Button render={<a href={FIRMWARE_URL} download="mosaicusneo_firmware.ino" />}><Download /> Scarica il firmware v{FIRMWARE_VERSION}</Button>
+        <Button variant="outline" render={<a href={FIRMWARE_SOURCE_URL} target="_blank" rel="noopener" />}><GithubMark className="size-4" /> Codice su GitHub</Button>
         <span className="text-xs text-muted-foreground">mosaicusneo_firmware.ino · nessuna libreria da installare</span>
       </div>
       <Steps items={[
@@ -602,6 +605,7 @@ function Problems() {
       <Faq q="L'app è lenta">
         <p>Dispositivo poco potente o troppi grafici. Attiva la <B>modalità LIM</B> (menu Aspetto): disattiva le animazioni e disegna grafici più leggeri. Chiudi le altre schede; nelle misure lunghe mostra meno grafici (menu «Grafici»).</p>
       </Faq>
+      <Note>Il problema non è qui? <a className="font-medium text-brand underline underline-offset-2" href={ISSUES_URL} target="_blank" rel="noopener">Segnalalo su GitHub</a>: descrivi dispositivo, browser, componenti e che cosa succede.</Note>
     </div>
   );
 }
@@ -667,7 +671,8 @@ export function GuideDialog() {
             </div>
             <p className="text-xs text-muted-foreground">
               MosaicusNeo v{APP_VERSION} · firmware v{FIRMWARE_VERSION} · basato su Mosaicus (© 2026 Ermes Ferdinando Rosi) · licenza MIT ·{" "}
-              <a className="underline" href="https://github.com/Alexciao/MosaicusNeo" target="_blank" rel="noopener">codice sorgente</a> ·{" "}
+              <a className="underline" href={REPO_URL} target="_blank" rel="noopener">codice sorgente su GitHub</a> ·{" "}
+              <a className="underline" href={ISSUES_URL} target="_blank" rel="noopener">segnala un problema</a> ·{" "}
               <a className="underline" href="/privacy" target="_blank" rel="noopener">informativa sulla privacy</a>
             </p>
           </article>

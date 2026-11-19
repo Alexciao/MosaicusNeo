@@ -2,7 +2,9 @@
 
 import Link from "next/link";
 import { useTheme } from "next-themes";
-import { BookOpen, ChartLine, FlaskConical, Monitor, Moon, Presentation, ShieldCheck, Sun } from "lucide-react";
+import { BookOpen, Bug, ChartLine, FlaskConical, Monitor, Moon, Presentation, ShieldCheck, Sun } from "lucide-react";
+import { GithubMark } from "./github-mark";
+import { REPO_URL, ISSUES_URL } from "@/lib/links";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import {
@@ -72,6 +74,8 @@ function AppearanceMenu() {
           </span>
         </DropdownMenuCheckboxItem>
         <DropdownMenuSeparator />
+        <DropdownMenuItem render={<a href={REPO_URL} target="_blank" rel="noopener" />}><GithubMark /> Codice sorgente su GitHub</DropdownMenuItem>
+        <DropdownMenuItem render={<a href={ISSUES_URL} target="_blank" rel="noopener" />}><Bug /> Segnala un problema</DropdownMenuItem>
         <DropdownMenuItem render={<a href="/privacy" target="_blank" rel="noopener" />}><ShieldCheck /> Informativa sulla privacy</DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
