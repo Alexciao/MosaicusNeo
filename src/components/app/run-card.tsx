@@ -59,7 +59,7 @@ export function RunCard() {
       <label className="flex items-center gap-2 text-muted-foreground">
         <Pencil className="size-3.5 shrink-0" />
         <input value={name} onChange={(e) => setSessionName(e.target.value)} onBlur={() => void commitSessionName()}
-          placeholder="Nome della misura (es. Gruppo 3 – piano inclinato)" aria-label="Nome della misura"
+          placeholder="Nome della misura, es. Gruppo 3 · piano inclinato" aria-label="Nome della misura"
           className="min-w-0 flex-1 bg-transparent text-sm font-medium text-foreground outline-none placeholder:font-normal placeholder:text-muted-foreground" />
       </label>
       <div className="flex flex-col gap-4 md:flex-row md:items-center">
@@ -78,7 +78,7 @@ export function RunCard() {
             <Button size="lg" className="min-w-32" disabled={!startable} onClick={() => void start()}><Play className="fill-current" /> Avvia</Button>
           )}
           {sonar && step !== "link" && step !== "wait" && (
-            <Button size="icon-lg" variant="outline" onClick={zeroPosition} title="Azzera: la posizione attuale diventa l'origine" aria-label="Azzera la posizione"><Crosshair /></Button>
+            <Button size="icon-lg" variant="outline" onClick={zeroPosition} title="Usa la posizione attuale come origine" aria-label="Azzera la posizione"><Crosshair /></Button>
           )}
         </div>
         <div className={cn("min-w-0 flex-1 md:border-l md:pl-5", step === "link" && "opacity-50")}><Readouts /></div>

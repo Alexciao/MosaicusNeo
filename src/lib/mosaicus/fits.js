@@ -198,7 +198,7 @@ export const MODELS = {
   power: {
     label: 'Potenza', short: 'potenza', formula: 'y = A·xⁿ', minPoints: 4,
     run(t, y, U) {
-      if (!t.every((v) => v > 0)) return { error: 'La potenza richiede t > 0 in tutto l\'intervallo.' };
+      if (!t.every((v) => v > 0)) return { error: 'La legge di potenza richiede x > 0 in tutto l\'intervallo: scegli un tratto senza valori nulli o negativi.' };
       let p0 = [y[0] || 1, 1];
       if (y.every((v) => v > 0)) { const g = polyfit(t.map(Math.log), y.map(Math.log), 1, 0); if (g) p0 = [Math.exp(g.coef[0]), g.coef[1]]; }
       const f = (p, x) => p[0] * Math.pow(x, p[1]);
@@ -246,10 +246,10 @@ export function runModel(id, t, y, units) {
   if (!M) return { error: 'Modello sconosciuto.' };
   if (t.length < M.minPoints) return { error: `Servono almeno ${M.minPoints} punti validi nell'intervallo.` };
   let r;
-  try { r = M.run(t, y, units); } catch (e) { return { error: `Il fit non è riuscito (${e.message}).` }; }
-  if (!r) return { error: 'Il fit non è riuscito: prova con un altro intervallo.' };
+  try { r = M.run(t, y, units); } catch (e) { return { error: `Fit non riuscito (${e.message}).` }; }
+  if (!r) return { error: 'Fit non riuscito: scegli un altro intervallo.' };
   if (r.error) return r;
-  if (r.params.some((p) => p.key !== 'sd' && !isFinite(p.value))) return { error: 'Il fit non converge: prova un altro modello o un intervallo diverso.' };
+  if (r.params.some((p) => p.key !== 'sd' && !isFinite(p.value))) return { error: 'Il fit non converge: cambia modello o intervallo.' };
   const n = t.length;
   const residuals = y.map((v, i) => v - r.curve(t[i]));
   const mean = y.reduce((s, v) => s + v, 0) / n;

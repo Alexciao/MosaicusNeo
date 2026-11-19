@@ -203,11 +203,11 @@ export async function syncNow({ pull = true, quiet = true } = {}) {
     }
     await pushSettings(user);
     set({ status: "idle", lastSync: Date.now(), pending: await countPending(user) });
-    if (!quiet && !refreshed) toast.success("Tutto sincronizzato.");
+    if (!quiet && !refreshed) toast.success("Dati sincronizzati.");
   } catch (e) {
     const offline = typeof navigator !== "undefined" && !navigator.onLine;
     set({ status: offline ? "offline" : "error", error: offline ? null : (e as Error).message, pending: await countPending(user) });
-    if (!quiet) toast.error(offline ? "Sei offline: sincronizzo appena torna la rete." : `Sincronizzazione non riuscita: ${(e as Error).message}`);
+    if (!quiet) toast.error(offline ? "Sei offline. La sincronizzazione riprende quando torna la rete." : `Sincronizzazione non riuscita: ${(e as Error).message}`);
   } finally {
     running = false;
     if (again) { again = false; void syncNow({ pull: false }); }
@@ -262,7 +262,7 @@ async function onSignedIn(user: string) {
       if (!r.owner) { await putQuiet(t, { ...r, owner: user, dirty: true, updated: r.updated ?? Date.now() }); adopted++; }
     }
   }
-  if (adopted) toast.success(`${adopted} ${adopted === 1 ? "elemento creato" : "elementi creati"} su questo dispositivo ${adopted === 1 ? "entra" : "entrano"} nel tuo account.`);
+  if (adopted) toast.success(`${adopted === 1 ? "1 elemento creato" : `${adopted} elementi creati`} su questo dispositivo ${adopted === 1 ? "è stato aggiunto" : "sono stati aggiunti"} al tuo account.`);
   await Promise.all([refreshSessions(), useWorkbench.getState().load()]);
   await syncNow();
 }
@@ -309,10 +309,10 @@ export async function signOut({ force = false } = {}) {
 function authError(msg: string) {
   const m = msg.toLowerCase();
   if (m.includes("invalid login")) return "Email o password non corretti.";
-  if (m.includes("email not confirmed")) return "Prima conferma l'indirizzo email: trovi il link nella posta.";
-  if (m.includes("already registered")) return "Esiste già un account con questa email: accedi.";
+  if (m.includes("email not confirmed")) return "Conferma prima l'indirizzo email con il link che ti è stato inviato.";
+  if (m.includes("already registered")) return "Esiste già un account con questa email. Usa «Accedi».";
   if (m.includes("password should be")) return "La password deve avere almeno 6 caratteri.";
   if (m.includes("rate limit")) return "Troppi tentativi: riprova tra qualche minuto.";
-  if (m.includes("fetch")) return "Non riesco a raggiungere il server: sei online?";
+  if (m.includes("fetch")) return "Server non raggiungibile. Controlla la connessione.";
   return msg;
 }

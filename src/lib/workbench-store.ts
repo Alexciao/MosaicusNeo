@@ -15,7 +15,7 @@ export interface ComputedColumn { key: string; sym: string; unit: string; formul
 export interface Measure { label: string; value: number; sigma: number; unit: string }
 export interface Analysis {
   id: number;
-  kind: "fit" | "line" | "tangent" | "ruler";
+  kind: "fit" | "line" | "tangent" | "ruler" | "stats";
   title: string;
   main: Measure;
   detail: string;
@@ -40,6 +40,8 @@ export interface Box {
   id: number;
   created: number;
   checked: boolean;
+  /** riquadro chiuso: si vede solo l'intestazione con i risultati */
+  collapsed?: boolean;
   title: string;
   subtitle?: string;
   experiment: string;
@@ -89,7 +91,9 @@ interface WorkbenchState {
   addBox: (data: NewBox) => Promise<Box>;
   updateBox: (id: number, patch: Partial<Box> | ((b: Box) => Partial<Box>)) => void;
   removeBox: (id: number) => Promise<void>;
+  duplicateBox: (id: number) => Promise<void>;
   setAllChecked: (checked: boolean) => void;
+  setAllCollapsed: (collapsed: boolean) => void;
   focus: (id: number | null) => void;
 }
 
@@ -129,9 +133,25 @@ export const useWorkbench = create<WorkbenchState>((set, get) => ({
     await repo.remove("boxes", id);
     set({ boxes: get().boxes.filter((b) => b.id !== id) });
   },
+  async duplicateBox(id) {
+    const b = get().boxes.find((x) => x.id === id);
+    if (!b) return;
+    const { id: _id, created: _c, ...rest } = b;
+    void _id; void _c;
+    const box = await get().addBox({ ...rest, title: `${b.title} (copia)`, collapsed: false } as NewBox);
+    set({ focusId: box.id });
+  },
   setAllChecked(checked) {
     const boxes = get().boxes.map((b) => {
       const next = { ...b, checked };
+      persist(next);
+      return next;
+    });
+    set({ boxes });
+  },
+  setAllCollapsed(collapsed) {
+    const boxes = get().boxes.map((b) => {
+      const next = { ...b, collapsed };
       persist(next);
       return next;
     });
@@ -174,5 +194,5 @@ export function exportCheckedBoxes() {
   const all = [{ name: "Riepilogo", rows: summary }, ...(analyses.length > 1 ? [{ name: "Analisi", rows: analyses }] : []), ...sheets];
   const d = new Date(), p2 = (n: number) => String(n).padStart(2, "0");
   download(toXLSX(all), `mosaicusneo_elaborazione_${d.getFullYear()}-${p2(d.getMonth() + 1)}-${p2(d.getDate())}_${p2(d.getHours())}-${p2(d.getMinutes())}.xlsx`);
-  toast.success(`Esportati ${sel.length} riquadri in un unico file Excel.`);
+  toast.success(sel.length === 1 ? "Riquadro esportato in Excel." : `${sel.length} riquadri esportati in Excel.`);
 }

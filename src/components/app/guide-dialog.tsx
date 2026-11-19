@@ -1,7 +1,7 @@
 "use client";
 // La guida di MosaicusNeo: un manuale a capitoli, passo passo, per chi non ha mai usato Arduino.
-// Il capitolo «Collegare i sensori» genera lo schema e le istruzioni per i sensori scelti
-// (o per il montaggio aperto). Gli altri punti dell'app possono aprirla a un capitolo preciso.
+// Il capitolo «Collegare i componenti» genera lo schema e le istruzioni per i componenti scelti
+// (o per il progetto aperto). Gli altri punti dell'app possono aprirla a un capitolo preciso.
 
 import { useEffect, useState } from "react";
 import { create } from "zustand";
@@ -15,15 +15,14 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { SENSORS, ARDUINO_SENSORS, OUTPUTS, type SensorType } from "@/lib/sensors/catalog";
+import { SENSORS, COMPONENTS, type SensorType } from "@/lib/sensors/catalog";
 import { makeSensor } from "@/lib/sensors/rig";
 import { useLab, openGuide, closeGuide, createRigFrom, setLim } from "@/lib/lab-store";
 import { detectDevice, bluetoothAvailable, DEVICE_LABEL, OS_LABEL, BROWSER_LABEL, type GuideDevice, type DeviceInfo } from "@/lib/device";
 import { APP_VERSION, FIRMWARE_URL, FIRMWARE_VERSION } from "@/lib/version";
 import { cn } from "@/lib/utils";
 import { Segmented } from "@/components/instruments/scope-panel";
-import { WiringSteps, type BtModule } from "./rig-diagram";
-import { WiringDiagram } from "./wiring-diagram";
+import { WiringGuide } from "./wiring-diagram";
 
 // ---------------------------------------------------------------------------
 // Mattoncini del testo
@@ -121,48 +120,48 @@ function DeviceChecks({ d }: { d: DeviceInfo }) {
   const mobile = d.os === "android" || d.os === "ios";
 
   const usb: [CheckState, string] = mobile
-    ? ["na", d.os === "android" ? "Sul telefono il browser non può usare il cavo verso Arduino: si usa il Bluetooth." : "iPhone e iPad non permettono il cavo verso Arduino: si usa un modulo Bluetooth LE."]
+    ? ["na", d.os === "android" ? "Il browser del telefono non usa il cavo verso Arduino: collegati via Bluetooth." : "iPhone e iPad non permettono il cavo verso Arduino: serve un modulo Bluetooth LE."]
     : d.serial ? ["ok", "Puoi collegare Arduino con il cavo USB."]
-    : ["no", chromium ? "Il collegamento seriale è disattivato in questo browser: aggiorna Chrome o Edge." : `${BROWSER_LABEL[d.browser]} non permette di parlare con Arduino: apri questa pagina in Chrome o Edge.`];
+    : ["no", chromium ? "Collegamento seriale disattivato in questo browser: aggiorna Chrome o Edge." : `${BROWSER_LABEL[d.browser]} non comunica con Arduino: apri questa pagina in Chrome o Edge.`];
 
   const ble: [CheckState, string] = d.bluetooth
-    ? btOn === false ? ["warn", "Il browser lo supporta, ma il Bluetooth è spento o assente: accendilo nelle impostazioni."] : ["ok", "Puoi collegarti a un modulo Bluetooth LE (HM-10, AT-09, HC-08)."]
-    : d.os === "ios" ? ["no", "Safari e gli altri browser di iPhone non danno il Bluetooth alle pagine web: installa il browser gratuito Bluefy (App Store) e apri lì MosaicusNeo."]
-    : ["no", chromium ? "Bluetooth web non disponibile qui (su Linux va attivato in chrome://flags)." : `${BROWSER_LABEL[d.browser]} non ha il Bluetooth per le pagine web: usa Chrome o Edge.`];
+    ? btOn === false ? ["warn", "Supportato, ma il Bluetooth è spento o assente: attivalo nelle impostazioni."] : ["ok", "Puoi collegarti a un modulo Bluetooth LE (HM-10, AT-09, HC-08)."]
+    : d.os === "ios" ? ["no", "I browser di iPhone non danno il Bluetooth alle pagine web: installa Bluefy (gratuito, App Store) e apri lì MosaicusNeo."]
+    : ["no", chromium ? "Bluetooth web non disponibile (su Linux va attivato in chrome://flags)." : `${BROWSER_LABEL[d.browser]} non supporta il Bluetooth web: usa Chrome o Edge.`];
 
-  const hc06: [CheckState, string] = d.os === "ios" ? ["no", "L'HC-06 usa il Bluetooth classico, che iPhone e iPad non aprono alle app: serve un modulo BLE."]
-    : d.os === "android" ? (d.serial ? ["ok", "Puoi usare l'HC-06: associalo prima nelle impostazioni Bluetooth (PIN 1234)."] : ["no", d.browser === "chrome" ? `Serve Chrome 138 o più recente (qui: ${d.version ?? "?"}): aggiornalo dal Play Store.` : "Serve Chrome per Android, versione 138 o più recente."])
-    : d.serial ? ["warn", "Sul computer funziona solo se l'HC-06 è già associato nelle impostazioni Bluetooth del sistema; il BLE è più semplice."] : ["no", "Serve Chrome o Edge."];
+  const hc06: [CheckState, string] = d.os === "ios" ? ["no", "L'HC-06 usa il Bluetooth classico, che iPhone e iPad non supportano: serve un modulo BLE."]
+    : d.os === "android" ? (d.serial ? ["ok", "Puoi usare l'HC-06: associalo prima nelle impostazioni Bluetooth (PIN 1234)."] : ["no", d.browser === "chrome" ? `Serve Chrome 138 o successivo (qui: ${d.version ?? "?"}): aggiornalo dal Play Store.` : "Serve Chrome per Android 138 o successivo."])
+    : d.serial ? ["warn", "Funziona solo se l'HC-06 è già associato nelle impostazioni Bluetooth del sistema. Un modulo BLE non richiede associazione."] : ["no", "Serve Chrome o Edge."];
 
   return (
     <ul className="divide-y rounded-lg border px-3">
       <CheckRow state={usb[0]} title="Cavo USB">{usb[1]}</CheckRow>
       <CheckRow state={ble[0]} title="Bluetooth LE">{ble[1]}</CheckRow>
       <CheckRow state={hc06[0]} title="Bluetooth HC-06">{hc06[1]}</CheckRow>
-      <CheckRow state={d.secure ? "ok" : "no"} title="Connessione sicura">{d.secure ? "La pagina è in https: il browser permette USB e Bluetooth." : "Apri l'app dal suo indirizzo https: senza, il browser blocca USB e Bluetooth."}</CheckRow>
-      <CheckRow state={d.standalone ? "ok" : "na"} title="Come app, anche offline">
-        {d.standalone ? "MosaicusNeo è installata: si apre anche senza rete." : d.os === "ios" ? "Facoltativo: Condividi → «Aggiungi alla schermata Home»." : "Facoltativo: menu del browser → «Installa MosaicusNeo». Funziona anche senza rete."}
+      <CheckRow state={d.secure ? "ok" : "no"} title="Connessione sicura">{d.secure ? "Pagina in https: USB e Bluetooth consentiti." : "Apri l'app dal suo indirizzo https: senza, il browser blocca USB e Bluetooth."}</CheckRow>
+      <CheckRow state={d.standalone ? "ok" : "na"} title="Installata come app">
+        {d.standalone ? "Si apre anche senza rete." : d.os === "ios" ? "Facoltativo: Condividi → «Aggiungi alla schermata Home»." : "Facoltativo: menu del browser → «Installa MosaicusNeo». Poi si apre anche senza rete."}
       </CheckRow>
     </ul>
   );
 }
 
 function PortHint({ os }: { os: string | null }) {
-  if (os === "windows") return <>In alto, nel menu a tendina: <B>Arduino Uno</B> e la porta <B>COM3, COM4…</B> (quella che compare quando colleghi il cavo).</>;
-  if (os === "mac") return <>In alto, nel menu a tendina: <B>Arduino Uno</B> e la porta <B>/dev/cu.usbmodem…</B> (o <B>/dev/cu.wchusbserial…</B> per i cloni).</>;
-  if (os === "linux") return <>In alto: <B>Arduino Uno</B> e <B>/dev/ttyACM0</B> (o <B>/dev/ttyUSB0</B>). Se non hai i permessi: <code className="rounded bg-muted px-1">sudo usermod -aG dialout $USER</code>, poi esci e rientra.</>;
-  if (os === "chromeos") return <>Sul Chromebook usa l&apos;<B>Arduino Cloud Editor</B> (con il suo plugin): scegli <B>Arduino Uno</B> e la porta che compare.</>;
-  return <>In alto, nel menu a tendina: <B>Arduino Uno</B> e la porta (Windows: COM3, COM4…; Mac: /dev/cu.usbmodem…; Linux: /dev/ttyACM0).</>;
+  if (os === "windows") return <>Nel menu in alto: <B>Arduino Uno</B> e la porta <B>COM3, COM4…</B> che compare quando colleghi il cavo.</>;
+  if (os === "mac") return <>Nel menu in alto: <B>Arduino Uno</B> e la porta <B>/dev/cu.usbmodem…</B> (cloni: <B>/dev/cu.wchusbserial…</B>).</>;
+  if (os === "linux") return <>Nel menu in alto: <B>Arduino Uno</B> e <B>/dev/ttyACM0</B> (o <B>/dev/ttyUSB0</B>). Senza permessi: <code className="rounded bg-muted px-1">sudo usermod -aG dialout $USER</code>, poi esci e rientra.</>;
+  if (os === "chromeos") return <>Usa l&apos;<B>Arduino Cloud Editor</B> con il suo plugin: scegli <B>Arduino Uno</B> e la porta che compare.</>;
+  return <>Nel menu in alto: <B>Arduino Uno</B> e la porta (Windows: COM3, COM4…; Mac: /dev/cu.usbmodem…; Linux: /dev/ttyACM0).</>;
 }
 
 function ConnectHow() {
   const dev = useDev();
   return (
     <>
-      {dev === "pc" && <>«Collega Arduino» e scegli la porta USB; con un modulo BLE: menu ▾ → «Bluetooth LE».</>}
-      {(dev === "android" || dev === "board") && <>«Collega» → «Bluetooth» (HC-06, già associato) o menu ▾ → «Bluetooth LE».</>}
-      {dev === "ios" && <>In Bluefy: «Collega» → menu ▾ → «Bluetooth LE» → «MosaicusNeo».</>}
-      {" "}Aspetta <B>Arduino pronto</B>. Senza hardware: «Simulatore».
+      {dev === "pc" && <>«Collega Arduino» e scegli la porta USB. Con un modulo BLE: menu ▾ → «Bluetooth LE».</>}
+      {(dev === "android" || dev === "board") && <>HC-06 già associato: «Collega via Bluetooth». Modulo BLE: menu ▾ → «Bluetooth LE».</>}
+      {dev === "ios" && <>In Bluefy: «Collega via Bluetooth LE» → «MosaicusNeo».</>}
+      {" "}Attendi <B>Arduino pronto</B>. Senza hardware: «Simulatore».
     </>
   );
 }
@@ -173,40 +172,40 @@ function DevicePath() {
   const os = DETECTED?.device === "pc" ? DETECTED.os : null;
   if (dev === "pc") return (
     <Steps items={[
-      ["Usa Chrome o Edge", "Firefox e Safari non possono parlare con Arduino."],
-      ["Carica il firmware su Arduino", <>Una volta sola: <ChapterLink id="firmware">Caricare il firmware</ChapterLink>.</>],
-      ["Collega i sensori", <>Schema generato per i tuoi sensori: <ChapterLink id="wiring">Collegare i sensori</ChapterLink>.</>],
-      ["Collega Arduino con il cavo USB", <>«Collega Arduino» → scegli la porta{os === "windows" ? " (COM3, COM4…)" : os === "mac" ? " (/dev/cu.usbmodem…)" : os === "linux" ? " (/dev/ttyACM0)" : ""} → aspetta «Arduino pronto».</>],
-      ["Misura e analizza", <>«Avvia», «Ferma», poi trascina sul grafico e «Analizza il tratto». Vedi <ChapterLink id="measure">Misurare</ChapterLink>.</>],
+      ["Usa Chrome o Edge", "Firefox e Safari non comunicano con Arduino."],
+      ["Carica il firmware", <>Una volta sola: <ChapterLink id="firmware">Caricare il firmware</ChapterLink>.</>],
+      ["Collega i componenti", <>Segui lo schema: <ChapterLink id="wiring">Collegare i componenti</ChapterLink>.</>],
+      ["Collega Arduino con il cavo USB", <>«Collega Arduino» → scegli la porta{os === "windows" ? " (COM3, COM4…)" : os === "mac" ? " (/dev/cu.usbmodem…)" : os === "linux" ? " (/dev/ttyACM0)" : ""} → attendi «Arduino pronto».</>],
+      ["Misura e analizza", <>«Avvia», «Ferma», seleziona un tratto sul grafico e «Analizza il tratto». Vedi <ChapterLink id="measure">Misurare</ChapterLink>.</>],
     ]} />
   );
   if (dev === "android") return (
     <Steps items={[
-      ["Prima, da un computer: carica il firmware", <>Il telefono non può programmare Arduino. Una volta sola, da un PC: <ChapterLink id="firmware">Caricare il firmware</ChapterLink>.</>],
-      ["Aggiungi un modulo Bluetooth", <>HC-06 (classico) o BLE (HM-10, AT-09, HC-08): si collegano allo stesso modo. Schema in <ChapterLink id="wiring">Collegare i sensori</ChapterLink> → «Con Bluetooth».</>],
-      ["Configura il modulo (dal computer, una volta)", <>Arduino via USB, scheda «Collegamenti» → «Senza cavo: Bluetooth» → «Configura». Vedi <ChapterLink id="field">Sul campo e Bluetooth</ChapterLink>.</>],
-      ["Sul telefono: Chrome", "HC-06: associa «MosaicusNeo» nelle impostazioni Bluetooth (PIN 1234), poi «Collega via Bluetooth». BLE: «Collega» → menu ▾ → «Bluetooth LE»."],
-      ["Power bank su Arduino, poi misura", "Lo schermo resta acceso durante la misura; il Quaderno si salva ogni 30 secondi."],
+      ["Da un computer: carica il firmware", <>Il telefono non programma Arduino. Una volta sola: <ChapterLink id="firmware">Caricare il firmware</ChapterLink>.</>],
+      ["Aggiungi un modulo Bluetooth", <>HC-06 o BLE (HM-10, AT-09, HC-08). In «Collegamenti» attiva <B>Bluetooth</B>: lo schema lo include.</>],
+      ["Dal computer: configura il modulo", <>Una volta sola, con Arduino via USB: <ChapterLink id="field">Sul campo e Bluetooth</ChapterLink>.</>],
+      ["Sul telefono, in Chrome: collega", "HC-06: associa «MosaicusNeo» nelle impostazioni Bluetooth (PIN 1234), poi «Collega via Bluetooth». BLE: menu ▾ → «Bluetooth LE»."],
+      ["Alimenta Arduino con un power bank e misura", "Lo schermo resta acceso durante la misura. Il Quaderno si salva ogni 30 s."],
     ]} />
   );
   if (dev === "ios") return (
     <>
-      <Note kind="warn">Su iPhone e iPad servono un modulo <B>Bluetooth LE</B> (HM-10, AT-09/BT05, HC-08) e il browser gratuito <B>Bluefy</B>. Il cavo e l&apos;HC-06 non funzionano: è un limite di iOS, non dell&apos;app.</Note>
+      <Note kind="warn">Su iPhone e iPad servono un modulo <B>Bluetooth LE</B> (HM-10, AT-09/BT05, HC-08) e il browser gratuito <B>Bluefy</B>. Cavo e HC-06 non funzionano: è un limite di iOS.</Note>
       <Steps items={[
-        ["Prima, da un computer: carica il firmware", <>Una volta sola: <ChapterLink id="firmware">Caricare il firmware</ChapterLink>.</>],
-        ["Collega il modulo BLE", <>Schema in <ChapterLink id="wiring">Collegare i sensori</ChapterLink> → «Con Bluetooth LE».</>],
-        ["Configura il modulo (dal computer, una volta)", "Arduino via USB: «Collegamenti» → «Senza cavo: Bluetooth» → BLE → «Configura modulo BLE»."],
-        ["Installa Bluefy e apri MosaicusNeo lì", "Dall'App Store. Poi scrivi l'indirizzo dell'app nella barra di Bluefy."],
-        ["Collega e misura", "«Collega» → menu ▾ → «Bluetooth LE» → «MosaicusNeo». Arduino alimentato da un power bank."],
+        ["Da un computer: carica il firmware", <>Una volta sola: <ChapterLink id="firmware">Caricare il firmware</ChapterLink>.</>],
+        ["Collega il modulo BLE", <>In «Collegamenti» attiva <B>Bluetooth</B> e scegli <B>BLE</B>: lo schema lo include.</>],
+        ["Dal computer: configura il modulo", <>Una volta sola, con Arduino via USB: <ChapterLink id="field">Sul campo e Bluetooth</ChapterLink>.</>],
+        ["Installa Bluefy e apri MosaicusNeo", "Dall'App Store. Scrivi l'indirizzo dell'app nella barra di Bluefy."],
+        ["Collega e misura", "Arduino sul power bank, poi «Collega via Bluetooth LE» → «MosaicusNeo»."],
       ]} />
     </>
   );
   return (
     <Steps items={[
-      ["Attiva la modalità LIM", <>Testi grandi e grafici più leggeri, pensati per le lavagne lente. <button type="button" className="font-medium text-brand underline underline-offset-2" onClick={() => setLim(true)}>Attivala ora</button> (o dal menu Aspetto, in alto).</>],
-      ["Scegli come avere i dati", "Le lavagne Android non usano il cavo verso Arduino. Tre strade: un modulo Bluetooth (come un telefono Android, con Chrome); oppure misura dal computer della classe e proietta quello; oppure accedi con lo stesso account: le misure fatte altrove compaiono nel Quaderno."],
-      ["Con il Bluetooth", <>Firmware e configurazione del modulo si fanno una volta da un computer: <ChapterLink id="field">Sul campo e Bluetooth</ChapterLink>. Poi «Collega» → Bluetooth.</>],
-      ["Per mostrare e discutere", "Quaderno → «Analizza»: i tratti vanno in Elaborazione, dove fit e tangenti si usano con le dita (trascina, tocca)."],
+      ["Attiva la modalità LIM", <>Testi grandi e grafici più leggeri per le lavagne lente. <button type="button" className="font-medium text-brand underline underline-offset-2" onClick={() => setLim(true)}>Attivala ora</button> (anche dal menu Aspetto, in alto).</>],
+      ["Scegli da dove arrivano i dati", "La lavagna non usa il cavo verso Arduino. Puoi: usare un modulo Bluetooth (come su Android, con Chrome); misurare dal computer di classe e proiettarlo; accedere con lo stesso account e aprire dal Quaderno le misure fatte altrove."],
+      ["Con il Bluetooth", <>Firmware e configurazione del modulo si fanno una volta da un computer: <ChapterLink id="field">Sul campo e Bluetooth</ChapterLink>.</>],
+      ["Per discutere i dati in classe", "Quaderno → «Analizza»: in Elaborazione fit e tangenti si usano anche al tocco."],
     ]} />
   );
 }
@@ -220,7 +219,7 @@ function ShareLink() {
   };
   return (
     <div className="flex flex-wrap items-center gap-2 rounded-lg border bg-muted/40 p-3 text-sm">
-      <span className="min-w-0 flex-1">Userai un altro dispositivo? Apri lì questo indirizzo: <B>{url.replace(/^https?:\/\//, "")}</B></span>
+      <span className="min-w-0 flex-1">Sull&apos;altro dispositivo apri questo indirizzo: <B>{url.replace(/^https?:\/\//, "")}</B></span>
       <Button size="sm" variant="outline" onClick={() => void share()}>{canShare ? <Share2 /> : <Copy />} {canShare ? "Condividi il link" : "Copia il link"}</Button>
     </div>
   );
@@ -236,7 +235,7 @@ function StartDevice() {
         <H>Il tuo percorso: {DEVICE_LABEL[dev].toLowerCase()}</H>
         <ChapterLink id="device">Controlla il dispositivo →</ChapterLink>
       </div>
-      {!okHere && <Note kind="warn">Su questo dispositivo manca qualcosa per collegarsi ad Arduino: il capitolo <ChapterLink id="device">Il tuo dispositivo</ChapterLink> dice che cosa e come rimediare.</Note>}
+      {!okHere && <Note kind="warn">Questo dispositivo non può ancora collegarsi ad Arduino. Cosa manca e come rimediare: <ChapterLink id="device">Il tuo dispositivo</ChapterLink>.</Note>}
       <OtherDeviceNote />
       <DevicePath />
     </>
@@ -263,8 +262,8 @@ function YourDevice() {
       )}
       <H>Che cosa funziona qui</H>
       {d ? <DeviceChecks d={d} /> : <P>Non riesco a riconoscere il dispositivo.</P>}
-      <H>Con che cosa misurerai?</H>
-      <P>Le istruzioni seguono il dispositivo scelto qui (anche dal menu in alto, in ogni capitolo). Se leggi la guida dal computer ma misurerai con il telefono, scegli il telefono.</P>
+      <H>Con quale dispositivo misuri</H>
+      <P>Le istruzioni della guida seguono questa scelta (modificabile anche dal menu in alto). Se leggi dal computer ma misuri con il telefono, scegli il telefono.</P>
       <div className="grid gap-2 sm:grid-cols-2">
         {DEVICES.map((x) => {
           const XIcon = DEVICE_ICON[x];
@@ -281,7 +280,7 @@ function YourDevice() {
       <H>Il tuo percorso: {DEVICE_LABEL[dev].toLowerCase()}</H>
       <DevicePath />
       {d && dev !== d.device && <ShareLink />}
-      <H>Tutti i dispositivi a confronto</H>
+      <H>Confronto dei dispositivi</H>
       <div className="overflow-x-auto rounded-lg border">
         <table className="w-full text-sm">
           <thead className="bg-muted/50 text-left"><tr><th className="p-2">Dispositivo</th><th className="p-2">Cavo USB</th><th className="p-2">Bluetooth</th></tr></thead>
@@ -289,7 +288,7 @@ function YourDevice() {
             {([
               ["pc", "Computer (Chrome, Edge)", "sì", "BLE sì; HC-06 se già associato"],
               ["android", "Android (Chrome)", "—", "HC-06 e BLE"],
-              ["ios", "iPhone, iPad", "—", "solo BLE, nel browser gratuito Bluefy"],
+              ["ios", "iPhone, iPad", "—", "solo BLE, nel browser Bluefy"],
               ["board", "Lavagna Android", "—", "come Android (Chrome)"],
             ] as const).map(([k, a, b, c]) => (
               <tr key={k} className={cn("border-t", k === dev && "bg-brand/5")}><td className="p-2 text-foreground">{a}</td><td className="p-2">{b}</td><td className="p-2">{c}</td></tr>
@@ -304,22 +303,22 @@ function YourDevice() {
 function Start() {
   return (
     <>
-      <P>MosaicusNeo trasforma un Arduino e qualche sensore in un laboratorio di fisica: misura, mostra i grafici in tempo reale, salva tutto e aiuta ad analizzare i dati. Funziona nel browser, anche senza rete.</P>
+      <P>MosaicusNeo legge i sensori collegati ad Arduino, mostra i grafici in tempo reale, salva le misure e le analizza. Funziona nel browser, anche senza rete.</P>
       <H>Che cosa serve</H>
       <ul className="grid gap-2 text-sm sm:grid-cols-2">
-        <li className="rounded-lg border p-3"><B>Arduino Uno</B> (o un clone, es. Elegoo UNO R3) con il suo cavo USB.</li>
-        <li className="rounded-lg border p-3"><B>I sensori</B> del tuo esperimento, una breadboard e qualche filo (jumper).</li>
-        <li className="rounded-lg border p-3"><B>Un computer</B> con Chrome o Edge, per caricare il firmware la prima volta e per misurare via cavo.</li>
-        <li className="rounded-lg border p-3"><B>Facoltativo</B>: un modulo Bluetooth e un power bank per misurare senza cavo, con il telefono.</li>
+        <li className="rounded-lg border p-3"><B>Arduino Uno</B> o un clone (es. Elegoo UNO R3), con il cavo USB.</li>
+        <li className="rounded-lg border p-3"><B>I componenti</B> dell&apos;esperimento, una breadboard e cavetti jumper.</li>
+        <li className="rounded-lg border p-3"><B>Un computer</B> con Chrome o Edge: serve per caricare il firmware e per misurare via cavo.</li>
+        <li className="rounded-lg border p-3"><B>Facoltativo</B>: modulo Bluetooth e power bank, per misurare senza cavo con il telefono.</li>
       </ul>
       <StartDevice />
-      <H>Il giro completo, in breve</H>
+      <H>I passaggi</H>
       <ol className="grid gap-2 text-sm sm:grid-cols-5">
-        {[["1", "Firmware", "una volta sola"], ["2", "Esperimento", "elenco a sinistra"], ["3", "Collegamenti", "schema generato"], ["4", "Misura", "Avvia → Ferma"], ["5", "Analisi", "Quaderno → Elaborazione"]].map(([n, t, d]) => (
+        {[["1", "Firmware", "una volta sola"], ["2", "Esperimento", "elenco a sinistra"], ["3", "Collegamenti", "segui lo schema"], ["4", "Misura", "Avvia → Ferma"], ["5", "Analisi", "Elaborazione"]].map(([n, t, d]) => (
           <li key={n} className="rounded-lg border p-2.5"><span className="text-xs font-bold text-brand">{n}</span><p className="font-semibold">{t}</p><p className="text-xs text-muted-foreground">{d}</p></li>
         ))}
       </ol>
-      <Note>Non hai ancora l&apos;hardware? Premi <B>Simulatore</B>: un Arduino finto produce dati realistici per ogni esperimento.</Note>
+      <Note>Senza hardware premi <B>Simulatore</B>: genera dati realistici per ogni esperimento.</Note>
     </>
   );
 }
@@ -329,23 +328,23 @@ function Firmware() {
   const os = DETECTED?.device === "pc" ? DETECTED.os : null;
   return (
     <>
-      <P>Il firmware è il programma che gira su Arduino. Ce n&apos;è uno solo per tutti gli esperimenti: si carica una volta, poi è l&apos;app a dirgli quali sensori leggere.</P>
-      {dev !== "pc" && <Note kind="warn">Il firmware si carica <B>da un computer</B> (Windows, Mac, Linux o Chromebook) con il cavo USB: {DEVICE_LABEL[dev].toLowerCase()} non può programmare Arduino. Dopo, misuri con {dev === "board" ? "la lavagna" : "il telefono"} via Bluetooth.</Note>}
+      <P>Il firmware è il programma che gira su Arduino. È uno solo per tutti gli esperimenti: lo carichi una volta, poi l&apos;app gli indica quali componenti leggere.</P>
+      {dev !== "pc" && <Note kind="warn">Il firmware si carica <B>da un computer</B> (Windows, Mac, Linux o Chromebook) con il cavo USB: {DEVICE_LABEL[dev].toLowerCase()} non programma Arduino. Poi misuri con {dev === "board" ? "la lavagna" : "il telefono"} via Bluetooth.</Note>}
       {DETECTED && DETECTED.device !== "pc" && <ShareLink />}
       <div className="flex flex-wrap items-center gap-3 rounded-lg border bg-muted/40 p-3">
         <Button render={<a href={FIRMWARE_URL} download="mosaicusneo_firmware.ino" />}><Download /> Scarica il firmware v{FIRMWARE_VERSION}</Button>
         <span className="text-xs text-muted-foreground">mosaicusneo_firmware.ino · nessuna libreria da installare</span>
       </div>
       <Steps items={[
-        ["Installa l'IDE di Arduino", <>Dal sito arduino.cc → Software → «Arduino IDE 2» per il tuo sistema. Su un Chromebook o un computer della scuola senza permessi puoi usare l&apos;Arduino Cloud Editor.</>],
-        ["Apri il file scaricato", <>Doppio clic su <B>mosaicusneo_firmware.ino</B>. L&apos;IDE chiede di metterlo in una cartella con lo stesso nome: rispondi <B>OK</B>.</>],
-        ["Collega Arduino con il cavo USB", "Si accende il LED «ON». Se hai un modulo Bluetooth su D0, stacca ora il filo TXD del modulo."],
+        ["Installa Arduino IDE 2", <>Da arduino.cc → Software. Su Chromebook o su computer senza permessi di installazione usa l&apos;Arduino Cloud Editor.</>],
+        ["Apri il file scaricato", <>Apri <B>mosaicusneo_firmware.ino</B>. Se l&apos;IDE chiede di spostarlo in una cartella con lo stesso nome, conferma con <B>OK</B>.</>],
+        ["Collega Arduino con il cavo USB", "Si accende il LED «ON». Se c'è un modulo Bluetooth su D0, stacca ora il suo filo TXD."],
         ["Scegli scheda e porta", <PortHint key="port" os={os} />],
-        ["Premi «Carica» (la freccia →)", <>Dopo qualche secondo in basso compare <B>Caricamento completato</B>. I LED TX/RX lampeggiano durante il caricamento.</>],
-        ["Controlla in MosaicusNeo", <>Chiudi l&apos;IDE (o il suo Monitor seriale), torna qui e premi <B>Collega Arduino</B>: scegli la porta. Lo stato diventa <B>Arduino pronto · firmware {FIRMWARE_VERSION}</B>.</>],
+        ["Premi «Carica» (freccia →)", <>I LED TX/RX lampeggiano; dopo qualche secondo compare <B>Caricamento completato</B>.</>],
+        ["Verifica in MosaicusNeo", <>Chiudi l&apos;IDE, premi <B>Collega Arduino</B> e scegli la porta. Lo stato diventa <B>Arduino pronto · firmware {FIRMWARE_VERSION}</B>.</>],
       ]} />
-      <Note>Clone con chip CH340 e la porta non compare? Installa il driver CH340 (cerca «CH340 driver» con il nome del tuo sistema), poi ricollega il cavo.</Note>
-      <Note kind="warn">Una porta seriale può essere aperta da un programma alla volta: se l&apos;IDE di Arduino ha il Monitor seriale aperto, MosaicusNeo non si collega (e viceversa).</Note>
+      <Note>Clone con chip CH340 e nessuna porta? Installa il driver CH340 per il tuo sistema e ricollega il cavo.</Note>
+      <Note kind="warn">La porta seriale si apre da un solo programma alla volta: con il Monitor seriale dell&apos;IDE aperto, MosaicusNeo non si collega, e viceversa.</Note>
     </>
   );
 }
@@ -355,26 +354,14 @@ function Wiring() {
   const mine = rig.sensors.length > 0;
   const [mode, setMode] = useState<"rig" | "pick">(mine ? "rig" : "pick");
   const [picked, setPicked] = useState<SensorType[]>(mine ? [...new Set(rig.sensors.map((s) => s.type))] : ["dht"]);
-  const [bt, setBt] = useState<"none" | "hc06" | "ble">("none");
   const sensors = mode === "rig" && mine ? rig.sensors : (() => { const taken = new Set<number>(); return picked.map((t) => makeSensor(t, taken)); })();
-  const btMod: BtModule = bt === "none" ? null : bt;
   return (
     <>
-      <P>Lo schema qui sotto si genera da solo per i sensori che ti servono, con i pin giusti. Le stesse istruzioni sono sempre nella scheda «Collegamenti» dell&apos;esperimento.</P>
-      <div className="flex flex-wrap items-center gap-2">
-        {mine && <Segmented label="Quali sensori" value={mode} onChange={setMode} items={[["rig", "Il mio montaggio"], ["pick", "Scegli i sensori"]]} />}
-        <Select value={bt} onValueChange={(v) => v && setBt(v as typeof bt)} items={{ none: "Senza Bluetooth", hc06: "Con Bluetooth HC-06", ble: "Con Bluetooth LE (HM-10…)" }}>
-          <SelectTrigger size="sm" className="w-56"><SelectValue /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="none">Senza Bluetooth</SelectItem>
-            <SelectItem value="hc06">Con Bluetooth HC-06</SelectItem>
-            <SelectItem value="ble">Con Bluetooth LE (HM-10…)</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
+      <P>Schema, materiale e passi dipendono dai componenti e dai pin scelti. La stessa guida è nella scheda «Collegamenti». Per il modulo Bluetooth attiva <B>Bluetooth</B> sopra lo schema.</P>
+      {mine && <Segmented label="Quali componenti" value={mode} onChange={setMode} items={[["rig", "Progetto aperto"], ["pick", "Scegli i componenti"]]} />}
       {(mode === "pick" || !mine) && (
         <div className="grid gap-1.5 sm:grid-cols-2">
-          {[...ARDUINO_SENSORS, ...OUTPUTS].map((t) => (
+          {COMPONENTS.map((t) => (
             <label key={t} className="flex items-center gap-2 rounded-md border px-2.5 py-2 text-sm">
               <Checkbox checked={picked.includes(t)} onCheckedChange={(v) => setPicked((p) => (v ? [...p, t] : p.filter((x) => x !== t)))} />
               <span><B>{SENSORS[t].title}</B> <span className="text-muted-foreground">· {SENSORS[t].measures}</span></span>
@@ -382,27 +369,18 @@ function Wiring() {
           ))}
         </div>
       )}
-      {sensors.length || btMod ? (
-        <>
-          <WiringDiagram sensors={sensors} bt={btMod} />
-          <p className="-mt-2 text-xs text-muted-foreground">Tratteggiato = facoltativo. I pin si cambiano nella scheda «Sensori» dell&apos;esperimento.</p>
-          <H>Passo passo</H>
-          <Note>Prima di collegare: <B>stacca Arduino dal computer</B>. Ricontrolla i fili, poi ricollega.</Note>
-          <WiringSteps sensors={sensors} bt={btMod} />
-          <H>Regole d&apos;oro</H>
-          <ul className="list-disc space-y-1 pl-5 text-sm text-muted-foreground">
-            <li>Tutti i GND devono essere collegati insieme (al GND di Arduino).</li>
-            <li>Usa i fili rossi per i 5V e neri per GND: si ritrovano gli errori a colpo d&apos;occhio.</li>
-            <li>Sulla breadboard le cinque buche di una stessa colonna sono collegate tra loro; le due righe lunghe ai bordi sono i «binari» per 5V e GND.</li>
-            <li>Mai più di 5 V su un pin, mai la rete elettrica. D0 e D1 servono al cavo USB e al Bluetooth.</li>
-          </ul>
-          {mode === "pick" && !!picked.length && (
-            <Button variant="outline" className="self-start" onClick={() => { createRigFrom(picked); closeGuide(); }}>
-              <Wrench /> Crea un montaggio con questi sensori
-            </Button>
-          )}
-        </>
-      ) : <P>Scegli almeno un sensore.</P>}
+      <WiringGuide sensors={sensors} />
+      {mode === "pick" && !!picked.length && (
+        <Button variant="outline" className="self-start" onClick={() => { createRigFrom(picked); closeGuide(); }}>
+          <Wrench /> Crea un progetto con questi componenti
+        </Button>
+      )}
+      <H>La breadboard</H>
+      <ul className="list-disc space-y-1 pl-5 text-sm text-muted-foreground">
+        <li>I cinque fori di una colonna (a–e oppure f–j) sono collegati tra loro; il solco centrale li separa.</li>
+        <li>I binari laterali corrono per tutta la lunghezza: rosso (+) per il 5V, blu (−) per il GND.</li>
+        <li>D0 e D1 sono riservati al cavo USB e al Bluetooth: non collegarci componenti.</li>
+      </ul>
     </>
   );
 }
@@ -411,21 +389,21 @@ function Measure() {
   return (
     <>
       <Steps items={[
-        ["Scegli l'esperimento", "Nell'elenco a sinistra. In alto vedi i sensori del montaggio con i loro pin."],
-        ["Controlla i collegamenti", "Scheda «Collegamenti» (a destra, o in basso sul telefono): schema e istruzioni."],
+        ["Scegli l'esperimento", "Dall'elenco a sinistra. In alto compaiono i componenti con i loro pin."],
+        ["Controlla i collegamenti", "Scheda «Collegamenti» (a destra; sul telefono in basso)."],
         ["Collega Arduino", <ConnectHow key="connect" />],
-        ["Dai un nome alla misura", "Nella scheda della misura, sopra il pulsante: es. «Gruppo 3 – piano inclinato». Se lo lasci vuoto, ci pensa l'app."],
-        ["Avvia e ferma", "«Avvia»: i punti arrivano in tempo reale e le letture in evidenza si aggiornano. «Ferma» quando hai finito: la misura va nel Quaderno."],
-        ["Scegli un tratto", "Trascina sul grafico: il tratto si colora su tutti i grafici. Doppio clic per annullare, pizzico o Ctrl + rotella per lo zoom."],
-        ["Analizzalo", "«Analizza il tratto»: si apre Elaborazione sul nuovo riquadro. Il «+» accanto lo aggiunge senza cambiare pagina, per mandarne più d'uno."],
+        ["Dai un nome alla misura", "Sopra il pulsante «Avvia», es. «Gruppo 3 · piano inclinato». Se lo lasci vuoto: titolo dell'esperimento con data e ora."],
+        ["Avvia e ferma", "Con «Avvia» i punti arrivano in tempo reale. Con «Ferma» la misura viene salvata nel Quaderno."],
+        ["Seleziona un tratto", "Trascina sul grafico: il tratto si evidenzia su tutti i grafici. Doppio clic per annullare; pizzico o Ctrl + rotella per lo zoom."],
+        ["Analizzalo", "«Analizza il tratto» apre Elaborazione sul nuovo riquadro. Il «+» accanto aggiunge il riquadro senza cambiare pagina."],
       ]} />
-      <H>Altri comandi utili</H>
+      <H>Altri comandi</H>
       <ul className="list-disc space-y-1 pl-5 text-sm text-muted-foreground">
-        <li><B>Grafici</B>: il menu sopra i grafici sceglie quali grandezze vedere; i «dati grezzi» sono le letture del sensore prima delle conversioni.</li>
-        <li><B>Tabella</B> e <B>Esporta</B> (icone a destra): tutti i numeri, oppure Excel, CSV, immagine, GPX.</li>
+        <li><B>Grafici</B>: il menu sopra i grafici sceglie le grandezze. I «dati grezzi» sono le letture prima delle conversioni.</li>
+        <li><B>Tabella</B> ed <B>Esporta</B> (icone a destra): i valori numerici, o file Excel, CSV, immagine, GPX.</li>
         <li><B>Azzera</B> (mirino, con il sensore a ultrasuoni): la posizione attuale diventa lo zero.</li>
-        <li><B>Quaderno</B> (pagina in alto): tutte le misure, da cercare e filtrare; «Apri» per rivederle in Misura, «Analizza» per mandarle intere a Elaborazione.</li>
-        <li><B>Modalità LIM</B> (menu Aspetto, in alto): testi grandi e grafici più leggeri, per lavagne e PC lenti.</li>
+        <li><B>Quaderno</B>: tutte le misure, con ricerca e filtri. «Apri» la riporta in Misura, «Analizza» la manda intera in Elaborazione.</li>
+        <li><B>Modalità LIM</B> (menu Aspetto): testi grandi e grafici più leggeri, per lavagne e PC lenti.</li>
       </ul>
     </>
   );
@@ -434,17 +412,24 @@ function Measure() {
 function Rigs() {
   return (
     <>
-      <P>Un <B>montaggio</B> è l&apos;elenco dei sensori collegati ad Arduino, con i loro pin e ogni quanto leggerli. Fino a 6 sensori insieme, anche dello stesso tipo (es. due termistori per confrontare due tazze).</P>
+      <P>Ogni esperimento e ogni progetto ha un elenco di <B>componenti</B>: sensori, display, LED e cicalino, ciascuno con i suoi pin e il suo ritmo di lettura. Fino a 6 sensori insieme, anche dello stesso tipo (es. due termistori per confrontare due tazze).</P>
+      <H>Progetti</H>
+      <P>Un <B>progetto</B> è un insieme di componenti scelto da te. Lo trovi in <B>«I miei progetti»</B>, in cima alla barra laterale:</P>
+      <ul className="list-disc space-y-1 pl-5 text-sm text-muted-foreground">
+        <li><B>Nuovo progetto</B>: parti da zero.</li>
+        <li><B>Copia come progetto</B> (in un esperimento, scheda «Componenti»): parti dai suoi componenti.</li>
+        <li>Con un account, i progetti sono disponibili su tutti i tuoi dispositivi.</li>
+      </ul>
+      <P>Se modifichi un esperimento pronto ottieni una <B>versione personale</B>; «Ripristina» torna all&apos;originale.</P>
+      <H>Modificare i componenti</H>
       <Steps items={[
-        ["Apri la scheda «Sensori»", "A destra (sul telefono: «Modifica sensori» sotto il titolo)."],
-        ["Aggiungi o togli sensori", "«Aggiungi un sensore» mostra quelli disponibili e che cosa misurano."],
-        ["Scegli i pin", "Ogni sensore ha i suoi menu: i pin già usati non si possono scegliere; i sensori analogici vanno su A0…A5."],
-        ["Scegli il ritmo", "«Una lettura ogni … ms»: il DHT non va sotto 1000 ms, il GPS legge una volta al secondo, il sonar fino a 30 ms."],
-        ["Opzioni", "Ogni sensore ha le sue (taratura, verso positivo, modello del DHT…); quelle meno usate sono in «Opzioni avanzate»."],
+        ["Apri la scheda «Componenti»", "A destra; sul telefono, il pulsante sotto il titolo."],
+        ["Aggiungi o togli componenti", "«Aggiungi un componente» apre il catalogo: cerca per nome o grandezza, filtra per categoria."],
+        ["Scegli i pin", "I pin già occupati non sono selezionabili. I sensori analogici vanno su A0…A5."],
+        ["Scegli il ritmo", "«Una lettura ogni … ms». Limiti: DHT almeno 1000 ms, GPS una lettura al secondo, sonar fino a 30 ms."],
+        ["Regola le opzioni", "Taratura, verso positivo, modello del DHT… Le meno usate sono in «Opzioni avanzate»."],
       ]} />
-      <H>Esperimenti pronti e montaggi tuoi</H>
-      <P>Gli esperimenti pronti si possono modificare: diventano una <B>versione personale</B>, con il pulsante «Ripristina» per tornare all&apos;originale. Con «Copia come montaggio» o «Nuovo montaggio di sensori» crei un montaggio libero, che trovi in «I miei montaggi» (e su tutti i tuoi dispositivi, se accedi con un account).</P>
-      <Note>Se l&apos;app segnala un problema (pin doppio, troppi sensori…) il messaggio dice anche come risolverlo; «Avvia» resta spento finché c&apos;è un errore.</Note>
+      <Note>Con un errore nei componenti (pin doppio, troppi sensori…) «Avvia» resta disattivato; il messaggio indica come correggerlo.</Note>
     </>
   );
 }
@@ -452,18 +437,24 @@ function Rigs() {
 function Analysis() {
   return (
     <>
-      <P>Ogni tratto inviato diventa un <B>riquadro</B>, con il suo grafico e i suoi strumenti. Sopra il grafico scegli che cosa mettere sugli assi (anche una grandezza in funzione di un&apos;altra, es. T in funzione dell&apos;altitudine).</P>
+      <P>Ogni tratto inviato da Misura o dal Quaderno diventa un <B>riquadro</B>, con grafico, strumenti e dati. Sopra il grafico scegli le grandezze sugli assi, anche una in funzione dell&apos;altra (es. T in funzione dell&apos;altitudine).</P>
+      <H>Strumenti</H>
       <div className="grid gap-2 sm:grid-cols-2">
         {[
-          ["Tratto", "Trascina per scegliere la parte di dati su cui lavorare."],
-          ["Retta a occhio", "Muovi le due maniglie finché la retta passa in mezzo ai punti (le frecce ⬆⬇ contano i punti sopra e sotto), poi tocca due punti della retta: l'app calcola Δy/Δx. «E il computer?» confronta con la retta dei minimi quadrati."],
-          ["Tangente", "Tocca un punto della curva: pendenza istantanea (es. la velocità in quell'istante)."],
-          ["Fit", "Scegli un modello: retta, parabola, esponenziale, sinusoide smorzata… L'app dà i parametri con l'incertezza e il loro significato fisico. «Il modello è giusto?» controlla i residui."],
-          ["Righello", "Su un'onda: due linee su due creste, N periodi tra le due → T = Δt/N, f = 1/T."],
-          ["Foglio dei dati", "Tutti i numeri; «Nuova colonna» calcola una grandezza con una formula (es. x^2, ln(T − 21), sqrt(L/g))."],
+          ["Tratto", "Trascina per scegliere i dati. Statistiche del tratto: media ± errore della media (s/√n), deviazione standard s, minimo e massimo, variazione Δy e rapporto medio Δy/Δx (es. velocità media)."],
+          ["Retta a occhio", "Sposta le due maniglie finché la retta passa tra i punti (⬆⬇ contano i punti sopra e sotto), poi tocca due punti della retta per leggere Δy/Δx. «Confronta con i minimi quadrati» la confronta con la retta dei minimi quadrati."],
+          ["Tangente", "Tocca un punto della curva: pendenza in quel punto, es. la velocità istantanea."],
+          ["Fit", "Scegli un modello (retta, parabola, esponenziale, sinusoide smorzata…): parametri con incertezza e significato fisico. «Verifica i residui» mostra i residui. «Confronta tutti i modelli»: tabella con s, R² e giudizio sui residui; il migliore è evidenziato."],
+          ["Righello", "Su un'onda: metti le due linee su due creste e indica quanti periodi N ci sono tra loro. T = Δt/N, f = 1/T."],
+          ["Foglio dei dati", "Tutti i valori. «Nuova colonna» calcola una grandezza da una formula (es. x^2, ln(T − 21), sqrt(L/g))."],
         ].map(([t, d]) => <div key={t} className="rounded-lg border p-3"><p className="font-semibold">{t}</p><p className="text-sm text-muted-foreground">{d}</p></div>)}
       </div>
-      <P>«Salva» conserva un risultato nel riquadro. Alla fine spunta i riquadri e premi <B>Esporta in Excel</B>: un foglio di riepilogo, uno con tutte le analisi e uno per riquadro.</P>
+      <H>Risultati e riquadri</H>
+      <ul className="list-disc space-y-1 pl-5 text-sm text-muted-foreground">
+        <li><B>Salva</B> aggiunge un risultato al riquadro. L&apos;icona a occhio lo mostra o lo nasconde sul grafico.</li>
+        <li>Un riquadro si può comprimere o <B>duplicare</B>, per provare un&apos;altra analisi sugli stessi dati.</li>
+        <li>Spunta i riquadri e premi <B>Esporta in Excel</B>: un foglio di riepilogo, uno con tutti i risultati e uno per riquadro.</li>
+      </ul>
     </>
   );
 }
@@ -474,7 +465,7 @@ function Field() {
     <>
       <OtherDeviceNote />
       {dev === "ios" && <Note kind="warn">Su iPhone e iPad: solo moduli <B>BLE</B> e solo nel browser <B>Bluefy</B>.</Note>}
-      <P>Con un modulo Bluetooth e un power bank, Arduino si porta all&apos;aperto e si collega al telefono. Due tipi di modulo, collegati allo stesso modo (schema nel capitolo <ChapterLink id="wiring">Collegare i sensori</ChapterLink>, scegli «Con Bluetooth»).</P>
+      <P>Con un modulo Bluetooth e un power bank misuri all&apos;aperto, con il telefono. I due tipi di modulo si collegano agli stessi pin: in «Collegamenti» attiva <B>Bluetooth</B> e scegli <B>HC-06</B> o <B>BLE</B> (vedi <ChapterLink id="wiring">Collegare i componenti</ChapterLink>).</P>
       <div className="overflow-x-auto rounded-lg border">
         <table className="w-full text-sm">
           <thead className="bg-muted/50 text-left"><tr><th className="p-2" /><th className="p-2">HC-06 (classico)</th><th className="p-2">BLE (HM-10, AT-09, HC-08)</th></tr></thead>
@@ -482,26 +473,27 @@ function Field() {
             <tr className={cn("border-t", (dev === "android" || dev === "board") && "bg-brand/5")}><td className="p-2 text-foreground">Android{dev === "board" ? " / LIM" : ""}</td><td className="p-2">sì (Chrome)</td><td className="p-2">sì (Chrome)</td></tr>
             <tr className={cn("border-t", dev === "ios" && "bg-brand/5")}><td className="p-2 text-foreground">iPhone / iPad</td><td className="p-2">no</td><td className="p-2">sì, con il browser Bluefy</td></tr>
             <tr className={cn("border-t", dev === "pc" && "bg-brand/5")}><td className="p-2 text-foreground">Computer</td><td className="p-2">se associato prima</td><td className="p-2">sì (Chrome, Edge)</td></tr>
-            <tr className="border-t"><td className="p-2 text-foreground">Prima di collegarsi</td><td className="p-2">associalo nelle impostazioni</td><td className="p-2">niente: si sceglie dall&apos;app</td></tr>
+            <tr className="border-t"><td className="p-2 text-foreground">Prima di collegarsi</td><td className="p-2">associalo nelle impostazioni</td><td className="p-2">nulla: si sceglie dall&apos;app</td></tr>
           </tbody>
         </table>
       </div>
-      <H>Preparare il modulo (una volta sola)</H>
+      <H>Configurare il modulo (una volta sola)</H>
       <Steps items={[
-        "Collega il modulo come nello schema (VCC 5V, GND, TXD → D0, RXD ← D1 con il partitore 1 kΩ / 2 kΩ).",
-        ["Collega Arduino al computer con il cavo USB", "Il LED del modulo deve lampeggiare (nessun telefono collegato)."],
-        ["In MosaicusNeo: «Collega Arduino»", "Poi scheda «Collegamenti» → «Senza cavo: Bluetooth» → scegli il tipo di modulo → «Configura»."],
-        ["Aspetta il messaggio di conferma", "Il modulo ora si chiama «MosaicusNeo» e parla a 115200 baud, come Arduino."],
+        ["Collega il modulo come nello schema", "VCC a 5V, GND a GND, TXD → D0, RXD ← D1 attraverso il partitore 1 kΩ / 2 kΩ."],
+        ["Collega Arduino al computer con il cavo USB", "Il LED del modulo lampeggia: nessun telefono è collegato."],
+        ["«Collega Arduino»", "Attendi «Arduino pronto»."],
+        ["Premi «Configura»", "In «Collegamenti», con Bluetooth attivo, nel passo del modulo Bluetooth."],
+        ["Attendi la conferma", "Il modulo ora si chiama «MosaicusNeo» e comunica a 115200 baud, come Arduino."],
       ]} />
       <H>Misurare con il telefono</H>
       <Steps items={[
-        ["Alimenta Arduino con un power bank", "Il cavo USB al power bank, non al computer."],
-        ["Apri MosaicusNeo", <>Android: Chrome. iPhone/iPad: il browser gratuito <B>Bluefy</B> (App Store), con l&apos;indirizzo dell&apos;app.</>],
-        ["Collega", <>HC-06: associa prima «MosaicusNeo» (PIN 1234) nelle impostazioni Bluetooth, poi «Collega via Bluetooth». BLE: «Collega» → menu ▾ → <B>Bluetooth LE</B> → «MosaicusNeo».</>],
-        ["Avvia", "Lo schermo resta acceso durante la misura e il Quaderno si salva ogni 30 secondi: se il telefono si blocca, i dati non vanno persi."],
+        ["Alimenta Arduino con un power bank", "Il cavo USB va al power bank, non al computer."],
+        ["Apri MosaicusNeo", <>Android: Chrome. iPhone e iPad: <B>Bluefy</B> (gratuito, App Store), con l&apos;indirizzo dell&apos;app.</>],
+        ["Collega", <>HC-06: associa «MosaicusNeo» nelle impostazioni Bluetooth (PIN 1234), poi «Collega via Bluetooth». BLE: menu ▾ → <B>Bluetooth LE</B> → «MosaicusNeo» (su iPhone: «Collega via Bluetooth LE»).</>],
+        ["Avvia", "Lo schermo resta acceso durante la misura e il Quaderno si salva ogni 30 s: se il telefono si blocca, i dati restano."],
       ]} />
-      <H>Il GPS</H>
-      <P>All&apos;aperto, con il cielo libero, il primo fix richiede da 30 secondi a qualche minuto (il LED del modulo lampeggia quando ha la posizione). I punti senza posizione restano nella tabella ma non vanno sulla mappa. La mappa colora i punti con la grandezza scelta; esporta in GPX per Google Earth o Strava, in GeoJSON per QGIS.</P>
+      <H>GPS</H>
+      <P>Il primo fix richiede da 30 secondi a qualche minuto, all&apos;aperto e con il cielo libero; il LED del modulo lampeggia quando ha la posizione. I punti senza posizione restano in tabella ma non compaiono sulla mappa. La mappa colora i punti secondo la grandezza scelta. Esporta in GPX (Google Earth, Strava) o GeoJSON (QGIS).</P>
     </>
   );
 }
@@ -516,7 +508,7 @@ function Outputs() {
   ];
   return (
     <>
-      <P>Un display, un LED RGB o un cicalino collegati ad Arduino dicono <B>da soli</B> in che stato è, anche quando il telefono è in tasca o lontano. Si aggiungono nella scheda «Sensori» → <B>Indicatori di stato</B>, con i pin che preferisci (schema e passi in «Collegamenti»). Servono il firmware v{FIRMWARE_VERSION} o più recente.</P>
+      <P>Display, LED RGB e cicalino mostrano lo stato di Arduino senza guardare il telefono. Si aggiungono come gli altri componenti: scheda «Componenti» → <B>Aggiungi un componente</B>, categoria «Display, LED, suoni». Richiedono il firmware v{FIRMWARE_VERSION} o successivo.</P>
       <div className="overflow-x-auto rounded-lg border">
         <table className="w-full text-sm">
           <thead className="bg-muted/50 text-left"><tr><th className="p-2">Situazione</th><th className="p-2">Display</th><th className="p-2">LED</th><th className="p-2">Cicalino</th></tr></thead>
@@ -532,16 +524,17 @@ function Outputs() {
           </tbody>
         </table>
       </div>
-      <Note>In breve: <B>finché il cicalino suona, qualcosa non è pronto</B>. Quando smette, Arduino sta misurando e tutto va bene.</Note>
-      <H>Il GPS «cerca», non è rotto</H>
-      <P>Appena acceso, e ogni volta che è al chiuso, il GPS non ha ancora la posizione: sta cercando i satelliti. Per questo display e LED dicono «in ricerca» (giallo, 2 bip) e mostrano quanti satelliti vede. All&apos;aperto, con il cielo libero, ci vogliono da 30 secondi a qualche minuto. Se invece dal GPS non arriva proprio niente, è un problema di fili (rosso, 3 bip, «fili GPS?»).</P>
-      <H>Da sapere</H>
+      <Note><B>Finché il cicalino suona, qualcosa non è pronto.</B> Quando tace, Arduino sta misurando regolarmente.</Note>
+      <H>GPS in ricerca</H>
+      <P>Appena acceso, o al chiuso, il GPS cerca i satelliti: giallo, 2 bip, e sul display il numero di satelliti visti. All&apos;aperto il fix arriva in 30 secondi o qualche minuto. Se dal GPS non arriva alcun dato, controlla i fili: rosso, 3 bip, «fili GPS?».</P>
+      <H>Dettagli</H>
       <ul className="list-disc space-y-1 pl-5 text-sm text-muted-foreground">
-        <li>Arduino ricorda gli indicatori: dalla misura successiva, appena acceso, mostra subito «in attesa dell&apos;app» (utile sul campo, prima di collegare il telefono).</li>
+        <li>Arduino memorizza gli indicatori: alle accensioni successive mostra subito «in attesa dell&apos;app», anche prima di collegare il telefono.</li>
         <li>Durante la misura il display mostra la prima grandezza in grande e la seconda sotto, aggiornate ogni secondo.</li>
-        <li>«Prova gli indicatori» (scheda Sensori, con Arduino collegato) fa cambiare colore al LED, suonare il cicalino e scrivere «CIAO» sul display.</li>
-        <li>Nella scheda della misura l&apos;app mostra in piccolo che cosa stanno mostrando in quel momento display, LED e cicalino.</li>
-        <li>Il cicalino si può zittire (opzione «Bip finché non è tutto pronto»). Display e accelerometro MPU-6050 possono stare sugli stessi due pin I2C (di solito A4 e A5).</li>
+        <li>«Prova display, LED e cicalino» (scheda «Componenti», con Arduino collegato) cambia colore al LED, fa suonare il cicalino e scrive «CIAO» sul display.</li>
+        <li>La scheda della misura riporta in piccolo che cosa mostrano in quel momento display, LED e cicalino.</li>
+        <li>Per silenziare il cicalino: opzione «Bip finché non è tutto pronto» → no.</li>
+        <li>Display e accelerometro MPU-6050 possono condividere i due pin I2C (di solito A4 e A5).</li>
       </ul>
     </>
   );
@@ -550,16 +543,16 @@ function Outputs() {
 function Data() {
   return (
     <>
-      <H>Dove finiscono i dati</H>
-      <P>Le misure (Quaderno) e i riquadri di Elaborazione restano <B>nel browser di questo dispositivo</B>, anche senza rete. Se cancelli i dati di navigazione si perdono: esporta quello che vuoi conservare.</P>
+      <H>Dove sono salvati</H>
+      <P>Misure del Quaderno e riquadri di Elaborazione restano <B>nel browser di questo dispositivo</B>, anche senza rete. Cancellando i dati di navigazione si perdono: esporta ciò che vuoi conservare.</P>
       <H>Account (facoltativo)</H>
-      <P>Con «Accedi» crei un account con email e password: misure, riquadri, montaggi e preferenze si salvano nel cloud e li ritrovi su tutti i tuoi dispositivi. Le misure fatte prima di accedere entrano nell&apos;account. Uscendo, i dati dell&apos;account spariscono da quel dispositivo ma restano nel cloud: utile sui computer della scuola.</P>
-      <H>Formati di export</H>
+      <P>Con «Accedi» crei un account con email e password. Misure, riquadri, progetti e preferenze vengono salvati nel cloud e sono disponibili su tutti i tuoi dispositivi; anche le misure fatte prima di accedere passano all&apos;account. Quando esci, i dati spariscono dal dispositivo ma restano nel cloud: adatto ai computer della scuola.</P>
+      <H>Formati di esportazione</H>
       <ul className="list-disc space-y-1 pl-5 text-sm text-muted-foreground">
-        <li><B>Excel (.xlsx)</B>: dati e un foglio con sensori, pin e opzioni usati.</li>
+        <li><B>Excel (.xlsx)</B>: i dati e un foglio con componenti, pin e opzioni usati.</li>
         <li><B>CSV per Excel in italiano</B> (virgola decimale) o <B>CSV standard</B> (Fogli Google, Python).</li>
-        <li><B>Immagine</B> dei grafici, <B>GPX</B> e <B>GeoJSON</B> per le tracce GPS.</li>
-        <li><B>Dati grezzi</B> (CSV o Excel): le letture così come arrivano da Arduino (conteggi ADC, µs dell&apos;eco, byte del DHT, campi NMEA), una riga per lettura, con nomi di colonna semplici. Per script in Python, R o MATLAB.</li>
+        <li><B>Immagine</B> dei grafici; <B>GPX</B> e <B>GeoJSON</B> per le tracce GPS.</li>
+        <li><B>Dati grezzi</B> (CSV o Excel): le letture come arrivano da Arduino (conteggi ADC, µs dell&apos;eco, byte del DHT, campi NMEA), una riga per lettura. Per script in Python, R o MATLAB.</li>
       </ul>
     </>
   );
@@ -569,32 +562,33 @@ function Problems() {
   return (
     <div className="flex flex-col gap-2">
       <Faq q="«Collega Arduino» non mostra nessuna porta">
-        <p>Usa Chrome o Edge su computer. Prova un altro cavo (alcuni cavi portano solo la corrente) o un&apos;altra porta USB. Con un clone CH340 serve il driver CH340. Chiudi l&apos;IDE di Arduino: tiene occupata la porta.</p>
+        <p>Browser non supportato, cavo solo di ricarica, driver mancante o porta occupata. Usa Chrome o Edge su computer; prova un altro cavo o un&apos;altra porta USB; con un clone CH340 installa il driver CH340; chiudi l&apos;IDE di Arduino.</p>
       </Faq>
       <Faq q="«Firmware non trovato»">
-        <p>Su Arduino non c&apos;è il firmware MosaicusNeo: caricalo (capitolo <ChapterLink id="firmware">Caricare il firmware</ChapterLink>). Se c&apos;è un modulo Bluetooth su D0, staccane il filo TXD mentre carichi.</p>
+        <p>Su Arduino non c&apos;è il firmware MosaicusNeo. Caricalo: <ChapterLink id="firmware">Caricare il firmware</ChapterLink>. Con un modulo Bluetooth su D0, stacca il filo TXD durante il caricamento.</p>
       </Faq>
       <Faq q="«Il firmware su Arduino è vecchio»">
-        <p>Scarica di nuovo il firmware dalla guida e ricaricalo: le funzioni nuove (montaggi, Bluetooth LE) richiedono la v{FIRMWARE_VERSION}.</p>
+        <p>Le funzioni recenti (progetti, Bluetooth LE) richiedono la v{FIRMWARE_VERSION}. Scarica di nuovo il firmware e ricaricalo.</p>
       </Faq>
       <Faq q="Il DHT11 dà valori vuoti o «—»">
-        <p>Controlla DATA sul pin giusto e VCC a 5V. Il sensore «nudo» a 4 piedini vuole la resistenza da 10 kΩ tra DATA e 5V. Non leggere più spesso di una volta al secondo (DHT22: ogni 2 s).</p>
+        <p>Collegamento errato o letture troppo frequenti. Verifica DATA sul pin scelto e VCC a 5V; il sensore senza modulo (4 piedini) richiede 10 kΩ tra DATA e 5V. Leggi al massimo una volta al secondo (DHT22: ogni 2 s).</p>
       </Faq>
       <Faq q="Il sonar dà salti o punti mancanti">
-        <p>Bersaglio piatto e abbastanza grande, tra 5 cm e 3 m, niente oggetti vicini al fascio. Le opzioni avanzate scartano i salti anomali e regolano la lisciatura di velocità e accelerazione.</p>
+        <p>L&apos;eco si perde o rimbalza su altri oggetti. Usa un bersaglio piatto e ampio, tra 5 cm e 3 m, con il fascio libero. Nelle opzioni avanzate puoi scartare i salti anomali e regolare la lisciatura di velocità e accelerazione.</p>
       </Faq>
       <Faq q="La temperatura del termistore è sbagliata di qualche grado">
-        <p>Controlla la «posizione del termistore nel partitore» (tra 5V e il pin, o tra il pin e GND) e, nelle opzioni avanzate, R₀ e B del tuo termistore. Una correzione di taratura si somma a tutti i valori.</p>
+        <p>Configurazione diversa dal circuito reale. Verifica la «posizione del termistore nel partitore» (tra 5V e il pin, o tra il pin e GND) e, nelle opzioni avanzate, R₀ e B del termistore. Una correzione di taratura si somma a tutti i valori.</p>
       </Faq>
       <Faq q="Il GPS non trova la posizione">
-        <p>Se l&apos;app dice «cerco i satelliti», il GPS funziona: sta solo aspettando il segnale. Solo all&apos;aperto, lontano da palazzi alti; il primo fix può richiedere qualche minuto. Controlla che il TX del GPS vada sul pin «RX di Arduino» scelto nel montaggio.</p>
+        <p>Con «cerco i satelliti» il GPS funziona, ma non ha ancora segnale: spostati all&apos;aperto, lontano da edifici alti, e attendi qualche minuto. Se non arriva alcun dato, verifica che il TX del GPS sia sul pin «RX di Arduino» scelto.</p>
       </Faq>
       <Faq q="Il modulo Bluetooth non compare">
-        <p>HC-06: va associato prima nelle impostazioni del telefono (PIN 1234 o 0000), e funziona solo su Android. BLE: compare dall&apos;app, non nelle impostazioni; se non trovi «MosaicusNeo», cerca HMSoft, BT05 o HC-08 (il modulo non è stato configurato). Su iPhone usa Bluefy, non Safari.</p>
-        <p>Si collega ma non arriva nulla? Il modulo è ancora a 9600 baud: rifai «Configura» con il cavo USB.</p>
+        <p>HC-06: non è associato o il dispositivo non lo supporta. Associalo nelle impostazioni del telefono (PIN 1234 o 0000); funziona solo su Android.</p>
+        <p>BLE: si cerca dall&apos;app, non dalle impostazioni. Se «MosaicusNeo» non c&apos;è, il modulo non è configurato: cerca HMSoft, BT05 o HC-08. Su iPhone usa Bluefy, non Safari.</p>
+        <p>Si collega ma non arrivano dati: il modulo è ancora a 9600 baud. Ripeti «Configura» con il cavo USB (<ChapterLink id="field">Sul campo e Bluetooth</ChapterLink>).</p>
       </Faq>
       <Faq q="L'app è lenta">
-        <p>Attiva la <B>modalità LIM</B> (menu Aspetto): oltre a ingrandire i testi spegne le animazioni e disegna i grafici con meno pixel, molto più leggera su lavagne e PC vecchi. Chiudi le altre schede pesanti; durante misure molto lunghe mostra meno grafici (menu «Grafici»).</p>
+        <p>Dispositivo poco potente o troppi grafici. Attiva la <B>modalità LIM</B> (menu Aspetto): disattiva le animazioni e disegna grafici più leggeri. Chiudi le altre schede; nelle misure lunghe mostra meno grafici (menu «Grafici»).</p>
       </Faq>
     </div>
   );
@@ -607,12 +601,12 @@ const CHAPTERS: { id: string; title: string; icon: LucideIcon; body: () => React
   { id: "start", title: "Inizia qui", icon: Rocket, body: Start },
   { id: "device", title: "Il tuo dispositivo", icon: Smartphone, body: YourDevice },
   { id: "firmware", title: "Caricare il firmware", icon: Cpu, body: Firmware },
-  { id: "wiring", title: "Collegare i sensori", icon: Plug, body: Wiring },
+  { id: "wiring", title: "Collegare i componenti", icon: Plug, body: Wiring },
   { id: "measure", title: "Misurare", icon: FlaskConical, body: Measure },
-  { id: "rigs", title: "Montaggi di sensori", icon: SlidersHorizontal, body: Rigs },
+  { id: "rigs", title: "Progetti e componenti", icon: SlidersHorizontal, body: Rigs },
   { id: "analysis", title: "Elaborazione", icon: ChartLine, body: Analysis },
   { id: "field", title: "Sul campo e Bluetooth", icon: Bluetooth, body: Field },
-  { id: "outputs", title: "Indicatori di stato", icon: Siren, body: Outputs },
+  { id: "outputs", title: "Display, LED e cicalino", icon: Siren, body: Outputs },
   { id: "data", title: "Dati e account", icon: Cloud, body: Data },
   { id: "problems", title: "Problemi comuni", icon: LifeBuoy, body: Problems },
 ];
@@ -637,7 +631,7 @@ export function GuideDialog() {
         <DialogHeader className="flex-row flex-wrap items-center gap-x-4 gap-y-2 border-b px-5 py-3 pr-12">
           <DialogTitle className="mr-auto">Guida di MosaicusNeo</DialogTitle>
           <DevicePicker />
-          <DialogDescription className="sr-only">Manuale passo passo: firmware, collegamenti, misure, analisi, Bluetooth.</DialogDescription>
+          <DialogDescription className="sr-only">Manuale: firmware, collegamenti, misure, elaborazione, Bluetooth.</DialogDescription>
         </DialogHeader>
         <div className="flex min-h-0 flex-1 flex-col md:flex-row">
           <nav aria-label="Capitoli" className="flex shrink-0 gap-1 overflow-x-auto border-b p-2 md:w-56 md:flex-col md:overflow-y-auto md:border-r md:border-b-0">

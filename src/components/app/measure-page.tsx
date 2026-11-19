@@ -29,18 +29,18 @@ function SupportBanner() {
     if (audioSupported()) return null;
     return (
       <Alert variant="destructive"><TriangleExclamationPoint /><AlertTitle>Audio non disponibile</AlertTitle>
-        <AlertDescription>Questo browser non supporta la Web Audio API: prova con Chrome, Edge, Firefox o Safari aggiornati.</AlertDescription></Alert>
+        <AlertDescription>Questo browser non supporta la Web Audio API. Usa Chrome, Edge, Firefox o Safari aggiornati.</AlertDescription></Alert>
     );
   }
   const arduino = info.instrument ? info.instrument.source === "arduino" && !info.instrument.optionalLink : needsArduino(rig);
   if (!arduino || canReachArduino()) return null;
   const ios = typeof navigator !== "undefined" && /iPhone|iPad|iPod/i.test(navigator.userAgent);
   return (
-    <Alert><TriangleExclamationPoint /><AlertTitle>Questo browser non parla con Arduino</AlertTitle>
+    <Alert><TriangleExclamationPoint /><AlertTitle>Questo browser non si collega ad Arduino</AlertTitle>
       <AlertDescription>
         {ios
-          ? "Safari non può collegarsi ad Arduino. Su iPhone e iPad apri MosaicusNeo nel browser gratuito Bluefy e usa un modulo Bluetooth LE (HM-10, AT-09, HC-08): vedi la «Guida». Il simulatore funziona comunque."
-          : "Serve Chrome o Edge (computer o Android). Su Android ci si collega anche via Bluetooth, con un modulo HC-06 o BLE. Il simulatore funziona comunque."}
+          ? "Su iPhone e iPad apri MosaicusNeo nel browser gratuito Bluefy, con un modulo Bluetooth LE (HM-10, AT-09, HC-08). Il simulatore funziona comunque."
+          : "Usa Chrome o Edge su computer o Android. Su Android puoi collegarti anche via Bluetooth (HC-06 o modulo BLE). Il simulatore funziona comunque."}
         <Button size="xs" variant="outline" className="mt-2" onClick={() => openGuide("field")}>Apri la guida</Button>
       </AlertDescription>
     </Alert>
@@ -81,7 +81,7 @@ export function LabHeading({ onPick, onSensors }: { onPick: () => void; onSensor
             );
           })}
           <Button variant="ghost" size="xs" onClick={onSensors} className="text-muted-foreground 2xl:hidden">
-            <SlidersHorizontal /> {rig.sensors.length ? "Modifica sensori" : "Aggiungi sensori"}
+            <SlidersHorizontal /> {rig.sensors.length ? "Modifica componenti" : "Aggiungi componenti"}
           </Button>
           {!!rig.sensors.length && (
             <Button variant="ghost" size="xs" onClick={showWiring} className="text-muted-foreground">
@@ -120,9 +120,9 @@ export function MeasurePage() {
             : !rig.sensors.length ? (
               <Card className="flex flex-col items-center gap-3 p-10 text-center">
                 <span className="grid size-14 place-items-center rounded-2xl bg-tone-saffron text-tone-ink"><SlidersHorizontal className="size-7" /></span>
-                <h3 className="text-lg font-semibold">Un montaggio tutto tuo</h3>
-                <p className="max-w-md text-sm text-muted-foreground">Scegli i sensori che hai collegato ad Arduino, anche più di uno insieme: l&apos;app ti mostra come collegarli, li legge con il ritmo giusto e li mette sugli stessi grafici.</p>
-                <Button onClick={() => setRig(true)}>Aggiungi i sensori</Button>
+                <h3 className="text-lg font-semibold">Nessun componente</h3>
+                <p className="max-w-md text-sm text-muted-foreground">Aggiungi i sensori che colleghi ad Arduino. Puoi usarne più di uno: le letture finiscono sugli stessi grafici.</p>
+                <Button onClick={() => setRig(true)}>Aggiungi un componente</Button>
               </Card>
             ) : (
               <>
@@ -145,7 +145,7 @@ export function MeasurePage() {
       </Sheet>
       <Sheet open={rigOpen} onOpenChange={setRig}>
         <SheetContent side="right" className="w-full overflow-x-hidden overflow-y-auto sm:max-w-md">
-          <SheetHeader><SheetTitle>Sensori</SheetTitle></SheetHeader>
+          <SheetHeader><SheetTitle>Componenti</SheetTitle></SheetHeader>
           <div className="px-4 pb-8"><RigEditor /></div>
         </SheetContent>
       </Sheet>

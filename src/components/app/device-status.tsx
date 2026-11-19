@@ -113,7 +113,7 @@ function Oled({ bar, big, small }: { bar: string; big: string; small: string }) 
 }
 
 const LED: Record<DeviceStatus["st"], { color: string; blink: number; text: string }> = {
-  W: { color: "#3b82f6", blink: 500, text: "blu lampeggiante: aspetta l'app" },
+  W: { color: "#3b82f6", blink: 500, text: "blu lampeggiante: in attesa dell'app" },
   I: { color: "#3b82f6", blink: 0, text: "blu: collegato, pronto" },
   S: { color: "#eab308", blink: 125, text: "giallo lampeggiante: in ricerca" },
   E: { color: "#ef4444", blink: 125, text: "rosso lampeggiante: problema" },
@@ -162,7 +162,7 @@ export function DeviceMirror() {
       {has("buzzer") && (
         <span className="inline-flex items-center gap-1.5">
           {beeps ? <Volume2 className="size-4 text-warning" /> : <VolumeX className="size-4 text-success" />}
-          {beeps ? `${beeps} bip ogni 3 s` : "silenzio: tutto pronto"}
+          {beeps ? `${beeps} bip ogni 3 s` : "nessun bip"}
         </span>
       )}
       {!has("oled") && !has("rgb") && !has("buzzer") && <span>{SENSORS.oled.title}</span>}

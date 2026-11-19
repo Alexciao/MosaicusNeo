@@ -1,17 +1,17 @@
 "use client";
-// Il montaggio: i sensori collegati, con pin, ritmo e opzioni. Funziona allo stesso modo per gli
+// I componenti del progetto, con pin, intervallo e opzioni. Funziona allo stesso modo per gli
 // esperimenti pronti (le modifiche diventano una versione personale, ripristinabile) e per i
-// montaggi liberi.
+// progetti dell'utente.
 
 import { useState } from "react";
-import { ChevronDown, CopyPlus, Plus, RotateCcw, Siren, Trash, TriangleExclamationPoint } from "lucide-react";
+import { Check, ChevronDown, CopyPlus, Plus, RotateCcw, Search, Trash, TriangleExclamationPoint, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { SENSORS, ARDUINO_SENSORS, OUTPUTS, MAX_ARDUINO, pinName, pinsFor, type SensorType } from "@/lib/sensors/catalog";
+import { SENSORS, COMPONENTS, COMPONENT_TAGS, COMPONENT_KEYWORDS, TAGS, MAX_ARDUINO, pinName, pinsFor, type ComponentTag, type SensorType } from "@/lib/sensors/catalog";
 import { validateRig, usedPins, sensorLabel, inputsOf, outputsOf, type SensorInstance } from "@/lib/sensors/rig";
 import { QUANTITIES } from "@/lib/sensors/quantities";
 import type { Param } from "@/lib/sensors/types";
@@ -20,7 +20,8 @@ import {
 } from "@/lib/lab-store";
 import { confirm } from "@/lib/confirm";
 import { cn } from "@/lib/utils";
-import { toneBg } from "./tone";
+import { isPhoneWidth } from "@/lib/prefs";
+import { ComponentThumb } from "./board-diagram";
 
 function OptionField({ p, value, onChange, id, disabled }: { p: Param; value: number | string; onChange: (v: number | string) => void; id: string; disabled?: boolean }) {
   const [text, setText] = useState(String(value ?? ""));
@@ -60,7 +61,6 @@ function SensorCard({ s, defaultOpen }: { s: SensorInstance; defaultOpen: boolea
   const [open, setOpen] = useState(defaultOpen);
   const [adv, setAdv] = useState(false);
   const def = SENSORS[s.type];
-  const Icon = def.icon;
   const taken = usedPins(rig, s.id);
   const issues = validateRig(rig).filter((i) => i.sensorId === s.id);
   const basic = def.options.filter((o) => !o.advanced && !(s.type === "analog" && s.options.calibrate !== "yes" && ["sym", "unit", "k", "q"].includes(o.key)));
@@ -71,7 +71,7 @@ function SensorCard({ s, defaultOpen }: { s: SensorInstance; defaultOpen: boolea
     <Collapsible open={open} onOpenChange={setOpen} className={cn("rounded-lg border bg-card", issues.some((i) => i.level === "error") && "border-destructive/50")}>
       <div className="flex items-center gap-2.5 p-2.5">
         <CollapsibleTrigger className="flex min-w-0 flex-1 items-center gap-2.5 text-left">
-          <span className={cn("grid size-9 shrink-0 place-items-center rounded-lg text-tone-ink", toneBg[def.tone])}><Icon className="size-4.5" /></span>
+          <span className="grid size-10 shrink-0 place-items-center rounded-lg bg-muted p-1"><ComponentThumb type={s.type} options={s.options} className="size-full" /></span>
           <span className="min-w-0 flex-1">
             <span className="block truncate text-sm font-semibold">{sensorLabel(s)}</span>
             <span className="flex flex-wrap gap-1 pt-0.5">
@@ -83,7 +83,7 @@ function SensorCard({ s, defaultOpen }: { s: SensorInstance; defaultOpen: boolea
           <ChevronDown className={cn("size-4 shrink-0 text-muted-foreground transition-transform", !open && "-rotate-90")} />
         </CollapsibleTrigger>
         <Button size="icon-sm" variant="ghost" aria-label={`Togli ${sensorLabel(s)}`} disabled={running} className="text-muted-foreground hover:text-destructive"
-          onClick={async () => { if (await confirm({ title: `Togliere «${sensorLabel(s)}» dal montaggio?`, action: "Togli", destructive: true })) removeSensor(s.id); }}>
+          onClick={async () => { if (await confirm({ title: `Togliere «${sensorLabel(s)}» dal progetto?`, action: "Togli", destructive: true })) removeSensor(s.id); }}>
           <Trash />
         </Button>
       </div>
@@ -153,50 +153,90 @@ function SensorCard({ s, defaultOpen }: { s: SensorInstance; defaultOpen: boolea
   );
 }
 
-function PickerCard({ type, disabled, why, onPick }: { type: SensorType; disabled: boolean; why?: string; onPick: () => void }) {
+const fold = (t: string) => t.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+
+function PickerCard({ type, count, disabled, why, onPick }: { type: SensorType; count: number; disabled: boolean; why?: string; onPick: () => void }) {
   const def = SENSORS[type];
-  const Icon = def.icon;
   return (
     <button type="button" disabled={disabled} onClick={onPick}
-      className="flex items-start gap-3 rounded-lg border p-3 text-left transition-colors hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50">
-      <span className={cn("grid size-10 shrink-0 place-items-center rounded-lg text-tone-ink", toneBg[def.tone])}><Icon className="size-5" /></span>
-      <span className="min-w-0">
-        <span className="block text-sm font-semibold">{def.title}</span>
+      className="group relative flex items-center gap-3 rounded-lg border p-2.5 text-left transition-colors hover:border-foreground/25 hover:bg-muted/60 disabled:cursor-not-allowed disabled:opacity-50">
+      <span className="grid size-16 shrink-0 place-items-center rounded-md bg-muted p-1.5 transition-transform group-enabled:group-hover:scale-105">
+        <ComponentThumb type={type} className="size-full" />
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className="block pr-6 text-sm leading-snug font-semibold">{def.title}</span>
         <span className="block text-xs text-muted-foreground">{def.measures}</span>
         <span className="mt-1 block text-[0.7rem] text-muted-foreground">
           {disabled && why ? why : def.pins.map((p) => `${p.role.split(" ")[0]} (${p.kind === "analog" ? "A0…A5" : "pin digitale"})`).join(" · ")}
         </span>
       </span>
+      {count > 0 && (
+        <span className="absolute top-2 right-2 flex items-center gap-0.5 rounded-full bg-foreground px-1.5 py-0.5 text-[0.65rem] font-semibold text-background" title="Già nel progetto">
+          <Check className="size-3" />{count > 1 ? count : null}
+        </span>
+      )}
     </button>
   );
 }
 
-export function SensorPicker({ open, onOpenChange, outputs = false }: { open: boolean; onOpenChange: (o: boolean) => void; outputs?: boolean }) {
+/** Il catalogo dei componenti: sensori, display, LED e cicalino, tutti insieme; si cerca e si filtra. */
+export function ComponentPicker({ open, onOpenChange }: { open: boolean; onOpenChange: (o: boolean) => void }) {
   const rig = useLab((s) => s.rig);
+  const [query, setQuery] = useState("");
+  const [tag, setTag] = useState<ComponentTag | "all">("all");
   const nArduino = inputsOf(rig).length;
   const count = (t: SensorType) => rig.sensors.filter((s) => s.type === t).length;
   const state = (t: SensorType): [boolean, string?] => {
     const def = SENSORS[t];
-    if (count(t) >= def.max) return [true, def.max === 1 ? "già nel montaggio (ce ne può essere uno solo)" : `al massimo ${def.max}`];
+    if (count(t) >= def.max) return [true, def.max === 1 ? "già nel progetto (massimo uno)" : `al massimo ${def.max}`];
     if (!def.output && nArduino >= MAX_ARDUINO) return [true, `Arduino legge al massimo ${MAX_ARDUINO} sensori`];
     return [false];
   };
+  const q = fold(query.trim());
+  const list = COMPONENTS.filter((t) => {
+    if (tag !== "all" && !COMPONENT_TAGS[t].includes(tag)) return false;
+    if (!q) return true;
+    const d = SENSORS[t];
+    const hay = fold([d.title, d.short, d.measures, d.description, COMPONENT_KEYWORDS[t], ...COMPONENT_TAGS[t].map((k) => TAGS.find(([id]) => id === k)?.[1] ?? "")].join(" "));
+    return q.split(/\s+/).every((w) => hay.includes(w));
+  });
   const pick = (t: SensorType) => { addSensor(t); onOpenChange(false); };
+  const change = (o: boolean) => { onOpenChange(o); if (!o) { setQuery(""); setTag("all"); } };
+  const chip = (id: ComponentTag | "all", label: string) => (
+    <button key={id} type="button" onClick={() => setTag(id)} aria-pressed={tag === id}
+      className={cn("shrink-0 rounded-full border px-2.5 py-1 text-xs font-medium transition-colors",
+        tag === id ? "border-foreground bg-foreground text-background" : "text-muted-foreground hover:bg-muted hover:text-foreground")}>
+      {label}
+    </button>
+  );
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[90svh] overflow-y-auto sm:max-w-2xl">
+    <Dialog open={open} onOpenChange={change}>
+      <DialogContent className="flex h-[min(46rem,90svh)] max-h-[90svh] flex-col gap-3 sm:max-w-2xl">
         <DialogHeader>
-          <DialogTitle>{outputs ? "Aggiungi un indicatore di stato" : "Aggiungi un sensore"}</DialogTitle>
-          <DialogDescription>
-            {outputs
-              ? "Display, LED o cicalino collegati ad Arduino: mostrano da soli se è pronto, se il GPS sta cercando i satelliti, se c'è un problema o se sta misurando. Comodi all'aperto, quando il telefono è in tasca."
-              : <>Sensori da collegare ad Arduino: il firmware MosaicusNeo li legge tutti, fino a {MAX_ARDUINO} insieme, ognuno con il suo ritmo. I pin si scelgono dopo.</>}
-          </DialogDescription>
+          <DialogTitle>Aggiungi un componente</DialogTitle>
+          <DialogDescription>Sensori, display, LED e cicalino. I pin si scelgono dopo l&apos;aggiunta.</DialogDescription>
         </DialogHeader>
-        <div className="grid gap-2 sm:grid-cols-2">
-          {(outputs ? OUTPUTS : ARDUINO_SENSORS).map((t) => { const [d, why] = state(t); return <PickerCard key={t} type={t} disabled={d} why={why} onPick={() => pick(t)} />; })}
+        <div className="relative">
+          <Search className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" />
+          <Input autoFocus={!isPhoneWidth()} value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Cerca: temperatura, distanza, display…" aria-label="Cerca un componente" className="h-9 pr-8 pl-8" />
+          {query && (
+            <button type="button" aria-label="Cancella la ricerca" onClick={() => setQuery("")} className="absolute top-1/2 right-2 -translate-y-1/2 rounded p-0.5 text-muted-foreground hover:text-foreground"><X className="size-4" /></button>
+          )}
         </div>
-        {!outputs && <p className="text-xs text-muted-foreground">Cerchi un display, un LED o un cicalino che dica se è tutto pronto? Sono tra gli <b>indicatori di stato</b>, sotto l&apos;elenco dei sensori.</p>}
+        <div className="-mx-1 flex shrink-0 gap-1.5 overflow-x-auto px-1 pb-1 [scrollbar-width:none] sm:flex-wrap" role="group" aria-label="Filtra per tipo">
+          {chip("all", "Tutti")}
+          {TAGS.map(([id, label]) => chip(id, label))}
+        </div>
+        <div className="-mx-1 min-h-0 flex-1 overflow-y-auto px-1">
+          {list.length ? (
+            <div className="grid gap-2 sm:grid-cols-2">
+              {list.map((t) => { const [d, why] = state(t); return <PickerCard key={t} type={t} count={count(t)} disabled={d} why={why} onPick={() => pick(t)} />; })}
+            </div>
+          ) : (
+            <p className="py-10 text-center text-sm text-muted-foreground">Nessun componente{q ? <> per «{query.trim()}»</> : null}{tag !== "all" ? " in questa categoria" : ""}.</p>
+          )}
+        </div>
+        <p className="text-xs text-muted-foreground">Massimo {MAX_ARDUINO} sensori, ognuno con il suo intervallo. Display, LED e cicalino non contano.</p>
       </DialogContent>
     </Dialog>
   );
@@ -208,7 +248,6 @@ export function RigEditor() {
   const running = useLab((s) => s.running);
   const labId = useLab((s) => s.labId);
   const [picker, setPicker] = useState(false);
-  const [outPicker, setOutPicker] = useState(false);
   const linked = useLab((s) => s.ready && !!s.linkKind);
   const inputs = inputsOf(rig), outs = outputsOf(rig);
   const info = labInfo(labId);
@@ -220,15 +259,15 @@ export function RigEditor() {
       {custom ? (
         <div className="flex items-end gap-2">
           <div className="flex flex-1 flex-col gap-1.5">
-            <Label htmlFor="rig-name" className="text-xs text-muted-foreground">Nome del montaggio</Label>
+            <Label htmlFor="rig-name" className="text-xs text-muted-foreground">Nome del progetto</Label>
             <Input key={rig.id} id="rig-name" defaultValue={rig.name} onBlur={(e) => renameRig(e.target.value)} className="h-8" />
           </div>
         </div>
       ) : (
         <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-          <span className="mr-auto">{modified ? <>Versione personale di «{info.title}»</> : <>Sensori di «{info.title}»</>}</span>
+          <span className="mr-auto">{modified ? <>Versione personale di «{info.title}»</> : <>Componenti di «{info.title}»</>}</span>
           {modified && <Button size="xs" variant="outline" disabled={running} onClick={resetPreset}><RotateCcw /> Ripristina</Button>}
-          <Button size="xs" variant="outline" disabled={running} onClick={() => newRig({ copy: true })} title="Crea un montaggio libero a partire da questo"><CopyPlus /> Copia come montaggio</Button>
+          <Button size="xs" variant="outline" disabled={running} onClick={() => newRig({ copy: true })} title="Crea un tuo progetto con questi componenti"><CopyPlus /> Copia come progetto</Button>
         </div>
       )}
 
@@ -239,26 +278,23 @@ export function RigEditor() {
       ))}
 
       <div className="flex flex-col gap-2">
-        {inputs.map((s) => <SensorCard key={s.id} s={s} defaultOpen={inputs.length === 1 || custom} />)}
+        {rig.sensors.map((s) => <SensorCard key={s.id} s={s} defaultOpen={rig.sensors.length === 1 || custom} />)}
       </div>
-      <Button variant="outline" disabled={running} onClick={() => setPicker(true)} className="border-dashed"><Plus /> Aggiungi un sensore</Button>
-      {!inputs.length && <p className="text-center text-xs text-muted-foreground">Scegli i sensori che hai collegato ad Arduino: l&apos;app ti mostra come collegarli e li legge tutti insieme.</p>}
-      <SensorPicker open={picker} onOpenChange={setPicker} />
-
-      <div className="mt-2 flex flex-col gap-2 border-t pt-3">
-        <div className="flex items-baseline justify-between gap-2">
-          <h4 className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">Indicatori di stato</h4>
-          {!!outs.length && <Button size="xs" variant="ghost" disabled={running || !linked} onClick={() => void testOutputs()} title={linked ? "Fa lampeggiare il LED, suonare il cicalino e scrivere sul display" : "Prima collega Arduino"}>Prova gli indicatori</Button>}
-        </div>
-        {!outs.length && <p className="text-xs text-muted-foreground">Facoltativi: un display, un LED RGB o un cicalino su Arduino dicono da soli se è pronto e sta misurando (il cicalino suona finché qualcosa non va). <button type="button" className="underline underline-offset-2" onClick={() => openGuide("outputs")}>Come funzionano</button></p>}
-        {outs.map((s) => <SensorCard key={s.id} s={s} defaultOpen={custom} />)}
-        <Button variant="ghost" size="sm" disabled={running || outs.length >= OUTPUTS.length} onClick={() => setOutPicker(true)} className="self-start text-muted-foreground"><Siren /> Aggiungi un indicatore</Button>
-        <SensorPicker open={outPicker} onOpenChange={setOutPicker} outputs />
+      <div className="flex flex-wrap gap-2">
+        <Button variant="outline" disabled={running} onClick={() => setPicker(true)} className="flex-1 border-dashed"><Plus /> Aggiungi un componente</Button>
+        {!!outs.length && (
+          <Button variant="ghost" disabled={running || !linked} onClick={() => void testOutputs()} title={linked ? "Accende il LED, suona il cicalino e scrive sul display" : "Collega prima Arduino"}>Prova display, LED e cicalino</Button>
+        )}
       </div>
+      {!rig.sensors.length && <p className="text-center text-xs text-muted-foreground">Nessun componente. Aggiungi quelli che colleghi ad Arduino.</p>}
+      {!!inputs.length && !outs.length && (
+        <p className="text-xs text-muted-foreground">Facoltativo: un display, un LED RGB o un cicalino mostrano se Arduino è pronto o sta misurando. <button type="button" className="underline underline-offset-2" onClick={() => openGuide("outputs")}>Come funzionano</button></p>
+      )}
+      <ComponentPicker open={picker} onOpenChange={setPicker} />
       {custom && (
         <Button variant="ghost" size="sm" disabled={running} className="self-start text-destructive hover:bg-destructive/10 hover:text-destructive"
-          onClick={async () => { if (await confirm({ title: `Eliminare il montaggio «${rig.name}»?`, description: "Le misure già fatte restano nel Quaderno.", action: "Elimina", destructive: true })) deleteRig(rig.id); }}>
-          <Trash /> Elimina questo montaggio
+          onClick={async () => { if (await confirm({ title: `Eliminare il progetto «${rig.name}»?`, description: "Le misure già fatte restano nel Quaderno.", action: "Elimina", destructive: true })) deleteRig(rig.id); }}>
+          <Trash /> Elimina il progetto
         </Button>
       )}
       <details className="text-xs text-muted-foreground">

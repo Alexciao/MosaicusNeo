@@ -96,7 +96,7 @@ export function TrackMap({ points, label, unit, highlight, follow, onPick, class
       <div ref={el} className="absolute inset-0 z-0" />
       {!points.length && (
         <div className="pointer-events-none absolute inset-0 z-[500] grid place-items-center bg-background/40 p-6 text-center text-sm font-medium text-muted-foreground">
-          Ancora nessuna posizione: all&apos;aperto il GPS trova i satelliti in 30 s – qualche minuto.
+          Nessuna posizione. All&apos;aperto il GPS trova i satelliti in 30 s – qualche minuto.
         </div>
       )}
       <Button size="icon-sm" variant="outline" onClick={recenter} aria-label="Centra la traccia" title="Centra la traccia"

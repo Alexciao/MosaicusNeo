@@ -1,66 +1,27 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
-import { ArrowRight, BookOpen, Bluetooth, CloudCheck, CloudUpload, FolderOpen, Trash } from "lucide-react";
+import { useEffect, useRef } from "react";
+import { ArrowRight, BookOpen, CloudCheck, CloudUpload, FolderOpen, Trash } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { useLab, labInfo, needsArduino, openSession, removeSession, bluetoothSetup, showPage, setSideTab, openGuide } from "@/lib/lab-store";
+import { useLab, labInfo, needsArduino, openSession, removeSession, showPage, setSideTab } from "@/lib/lab-store";
 import { useCloud } from "@/lib/cloud/sync";
 import { confirm } from "@/lib/confirm";
-import { prefs } from "@/lib/prefs";
 import { cn } from "@/lib/utils";
 import { WiringBlocks } from "./wiring";
-import { WiringSteps } from "./rig-diagram";
-import { WiringDiagram } from "./wiring-diagram";
+import { WiringGuide } from "./wiring-diagram";
 import { RigEditor } from "./rig-editor";
-import { Segmented } from "@/components/instruments/scope-panel";
 
-/** Collegamenti del montaggio: mappa dei pin, uno schema per sensore, Bluetooth facoltativo. */
+/** Collegamenti del progetto: schema, occorrente e passi; i consigli dell'esperimento in fondo. */
 function RigWiring() {
   const rig = useLab((s) => s.rig);
   const labId = useLab((s) => s.labId);
-  const linkKind = useLab((s) => s.linkKind);
-  const ready = useLab((s) => s.ready);
-  const running = useLab((s) => s.running);
-  const transport = useLab((s) => s.transport);
-  const [bt, setBtState] = useState<"hc06" | "ble">(() => prefs.get("mosaicus.btModule", "hc06"));
-  const setBt = (v: "hc06" | "ble") => { setBtState(v); prefs.set("mosaicus.btModule", v); };
   const info = labInfo(labId);
   return (
-    <div className="flex flex-col gap-3">
-      {!!rig.sensors.length && (
-        <div className="flex flex-col gap-2">
-          <div className="flex items-baseline justify-between gap-2">
-            <h4 className="text-sm font-semibold">Come collegare i sensori</h4>
-            <button type="button" className="text-xs text-muted-foreground underline underline-offset-2 hover:text-foreground" onClick={() => openGuide("wiring")}>Guida completa</button>
-          </div>
-          <WiringDiagram sensors={rig.sensors} />
-        </div>
-      )}
-      <h4 className="text-sm font-semibold">Passo passo</h4>
-      <WiringSteps sensors={rig.sensors} />
+    <div className="flex flex-col gap-4">
+      <WiringGuide sensors={rig.sensors} />
       {!!info.preset?.tips?.length && <WiringBlocks blocks={info.preset.tips} />}
-      {needsArduino(rig) && (
-        <details className="rounded-lg border p-3">
-          <summary className="flex cursor-pointer items-center gap-1.5 text-sm font-semibold"><Bluetooth className="size-4" /> Senza cavo: Bluetooth (facoltativo)</summary>
-          <div className="flex flex-col gap-3 pt-3">
-            <p className="text-xs text-muted-foreground">Due tipi di modulo, collegati allo stesso modo su D0/D1 (con il partitore sul pin RXD). Il protocollo è lo stesso del cavo. Mentre carichi il firmware dall&apos;IDE, stacca il filo TXD del modulo da D0.</p>
-            <Segmented label="Tipo di modulo" value={bt} onChange={setBt} items={[["hc06", "HC-06 (classico)"], ["ble", "BLE (HM-10, AT-09, HC-08)"]]} />
-            <WiringBlocks blocks={[{
-              title: bt === "ble" ? "Modulo BLE" : "HC-06", schematic: "hc06", pins: { name: bt === "ble" ? "HM-10 / AT-09" : "HC-06" },
-              text: bt === "ble"
-                ? "Bluetooth Low Energy: funziona con Chrome su computer e Android, e su iPhone/iPad con il browser gratuito Bluefy. Una volta sola, con il cavo USB: «Configura modulo BLE» (nome «MosaicusNeo», 115200 baud). Poi «Collega» → menu ▾ → «Bluetooth LE»: non serve associarlo prima."
-                : "Bluetooth classico: funziona con Chrome su Android (non su iPhone). Una volta sola, con il cavo USB: «Configura HC-06» (nome «MosaicusNeo», 115200 baud). Poi associa «MosaicusNeo» nelle impostazioni Bluetooth di Android (PIN 1234) e in Chrome «Collega via Bluetooth».",
-            }]} />
-            {linkKind === "arduino" && ready && transport === "serial" && (
-              <Button size="sm" variant="outline" className="self-start" disabled={running} onClick={() => void bluetoothSetup(bt)}>
-                <Bluetooth /> {bt === "ble" ? "Configura modulo BLE" : "Configura HC-06"}
-              </Button>
-            )}
-          </div>
-        </details>
-      )}
     </div>
   );
 }
@@ -69,12 +30,11 @@ function Notebook() {
   const sessions = useLab((s) => s.sessions);
   const current = useLab((s) => s.session?.id);
   const signedIn = useCloud((s) => !!s.user);
-  if (sessions == null) return <p className="text-sm text-muted-foreground">Carico…</p>;
-  if (!sessions.length) return <p className="text-sm text-muted-foreground">Ancora nessuna misura. Le misure si salvano qui da sole quando premi «Ferma».</p>;
+  if (sessions == null) return <p className="text-sm text-muted-foreground">Caricamento…</p>;
+  if (!sessions.length) return <p className="text-sm text-muted-foreground">Nessuna misura. Premi «Avvia» e poi «Ferma»: la misura si salva qui.</p>;
   const recent = sessions.slice(0, 5);
   return (
     <div className="flex flex-col gap-2">
-    <p className="text-xs text-muted-foreground">Le ultime misure. Tutte le altre, con ricerca e filtri, sono nella pagina Quaderno.</p>
     <ul className="flex flex-col gap-1.5">
       {recent.map((s) => (
         <li key={s.id} className={cn("flex items-center gap-2 rounded-lg border px-3 py-2", current === s.id && "border-brand/30 bg-brand/5")}>
@@ -92,7 +52,7 @@ function Notebook() {
           <Button size="icon-sm" variant="ghost" aria-label={`Apri ${s.name}`} title="Apri" onClick={() => void openSession(s.id)}><FolderOpen /></Button>
           <Button size="icon-sm" variant="ghost" aria-label={`Elimina ${s.name}`} title="Elimina" className="text-muted-foreground hover:text-destructive"
             onClick={async () => {
-              if (await confirm({ title: `Eliminare «${s.name}»?`, description: "La misura sparisce dal Quaderno. I tratti già inviati a Elaborazione restano.", action: "Elimina", destructive: true })) await removeSession(s.id);
+              if (await confirm({ title: `Eliminare «${s.name}»?`, description: "I tratti già inviati a Elaborazione restano.", action: "Elimina", destructive: true })) await removeSession(s.id);
             }}>
             <Trash />
           </Button>
@@ -112,7 +72,7 @@ function SerialMonitor() {
   useEffect(() => { const el = ref.current; if (el) el.scrollTop = el.scrollHeight; }, [log]);
   return (
     <div className="flex flex-col gap-2">
-      <p className="text-xs text-muted-foreground">Le righe grezze che arrivano da Arduino: il dato «com&apos;è», prima di ogni conversione. «D,slot,t,…» sono le letture dei sensori.</p>
+      <p className="text-xs text-muted-foreground">Righe ricevute da Arduino, non convertite. Le righe «D,slot,t,…» sono letture.</p>
       <pre ref={ref} className="h-72 overflow-auto rounded-lg bg-screen p-3 font-mono text-[0.72rem] leading-relaxed text-lime/90">
         {log.length ? log.join("\n") : "In attesa di dati…"}
       </pre>
@@ -127,7 +87,7 @@ export function SidePanel() {
   const ins = info.instrument;
   const tabs = (ins
     ? [["wiring", "Collegamenti"], ins.source !== "audio" ? ["serial", "Seriale"] : null]
-    : [["sensors", `Sensori${rig.sensors.length ? ` (${rig.sensors.length})` : ""}`], ["wiring", "Collegamenti"], ["notebook", "Quaderno"], needsArduino(rig) ? ["serial", "Seriale"] : null]
+    : [["sensors", `Componenti${rig.sensors.length ? ` (${rig.sensors.length})` : ""}`], ["wiring", "Collegamenti"], ["notebook", "Quaderno"], needsArduino(rig) ? ["serial", "Seriale"] : null]
   ).filter(Boolean) as [string, string][];
   const tab = useLab((s) => s.sideTab);
   const active = tabs.some(([id]) => id === tab) ? tab : tabs[0][0];

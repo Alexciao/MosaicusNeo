@@ -39,13 +39,13 @@ function AuthDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (o: b
   };
   const submit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (tab === "in") void run(async () => { await signIn(email.trim(), password); onOpenChange(false); toast.success("Accesso eseguito: sincronizzo i tuoi dati."); });
+    if (tab === "in") void run(async () => { await signIn(email.trim(), password); onOpenChange(false); toast.success("Accesso eseguito. Sincronizzazione in corso."); });
     else if (tab === "up") void run(async () => {
       const { needsConfirmation } = await signUp(email.trim(), password);
-      if (needsConfirmation) setInfo("Ti ho mandato un'email: apri il link per confermare l'indirizzo, poi accedi.");
+      if (needsConfirmation) setInfo("Email di conferma inviata. Apri il link, poi accedi.");
       else { onOpenChange(false); toast.success("Account creato."); }
     });
-    else void run(async () => { await resetPassword(email.trim()); setInfo("Se l'indirizzo ha un account, riceverai un'email con il link per scegliere una nuova password."); });
+    else void run(async () => { await resetPassword(email.trim()); setInfo("Se l'indirizzo ha un account, riceverai un'email con il link."); });
   };
 
   return (
@@ -54,8 +54,8 @@ function AuthDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (o: b
         <DialogHeader>
           <DialogTitle>{tab === "reset" ? "Password dimenticata" : "Account MosaicusNeo"}</DialogTitle>
           <DialogDescription>
-            {tab === "reset" ? "Scrivi l'email dell'account: ti mandiamo il link per sceglierne una nuova."
-              : "Facoltativo. Con un account misure e riquadri si salvano nel cloud e li ritrovi su tutti i tuoi dispositivi. Senza, restano in questo browser."}
+            {tab === "reset" ? "Inserisci l'email dell'account: riceverai un link per scegliere una nuova password."
+              : "Facoltativo. Con un account misure e riquadri si salvano nel cloud e sono disponibili su ogni dispositivo. Senza, restano in questo browser."}
           </DialogDescription>
         </DialogHeader>
         {tab !== "reset" && (
@@ -79,7 +79,7 @@ function AuthDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (o: b
           {tab === "in" && <Button type="button" variant="link" size="sm" className="self-center" onClick={() => { setTab("reset"); setError(""); setInfo(""); }}>Password dimenticata?</Button>}
           {tab === "reset" && <Button type="button" variant="link" size="sm" className="self-center" onClick={() => { setTab("in"); setError(""); setInfo(""); }}>Torna all&apos;accesso</Button>}
         </form>
-        <p className="text-xs text-muted-foreground">I dati sono visibili solo a te. Le preferenze del dispositivo (tema, modalità LIM) restano locali.</p>
+        <p className="text-xs text-muted-foreground">I dati sono visibili solo a te. Tema e modalità LIM restano su questo dispositivo.</p>
       </DialogContent>
     </Dialog>
   );
@@ -94,7 +94,7 @@ function RecoveryDialog() {
   return (
     <Dialog open={recovery} onOpenChange={(o) => { if (!o) useCloud.setState({ recovery: false }); }}>
       <DialogContent className="sm:max-w-sm">
-        <DialogHeader><DialogTitle>Nuova password</DialogTitle><DialogDescription>Scegli la nuova password dell&apos;account.</DialogDescription></DialogHeader>
+        <DialogHeader><DialogTitle>Nuova password</DialogTitle><DialogDescription>Almeno 6 caratteri.</DialogDescription></DialogHeader>
         <form className="flex flex-col gap-3" onSubmit={async (e) => {
           e.preventDefault(); setBusy(true); setError("");
           try { await updatePassword(password); toast.success("Password aggiornata."); } catch (err) { setError((err as Error).message); } finally { setBusy(false); }
@@ -110,9 +110,9 @@ function RecoveryDialog() {
 
 function statusText(status: string, lastSync: number | null, pending: number, error: string | null) {
   if (status === "syncing") return "Sincronizzazione in corso…";
-  if (status === "offline") return `Offline${pending ? `: ${pending} modifiche in attesa` : ""}. Sincronizzo appena torna la rete.`;
+  if (status === "offline") return `Offline${pending ? ` · ${pending} modifiche in attesa` : ""}. La sincronizzazione riprende con la rete.`;
   if (status === "error") return `Errore di sincronizzazione${error ? `: ${error}` : ""}`;
-  if (pending) return `${pending} modifiche da salvare…`;
+  if (pending) return `${pending} modifiche da sincronizzare`;
   return lastSync ? `Sincronizzato alle ${new Date(lastSync).toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" })}` : "Pronto";
 }
 
@@ -144,14 +144,14 @@ export function AccountMenu() {
     let res = await signOut();
     if (!res.ok) {
       const go = await confirm({
-        title: "Uscire senza salvare tutto?",
-        description: `${res.pending} modifiche non sono ancora nel cloud (sei offline?). Se esci ora restano solo su questo dispositivo e verranno caricate al prossimo accesso con questo account.`,
+        title: "Uscire con modifiche non sincronizzate?",
+        description: `${res.pending} modifiche non sono ancora nel cloud. Restano su questo dispositivo e vengono caricate al prossimo accesso con questo account.`,
         action: "Esci comunque", destructive: true,
       });
       if (!go) return;
       res = await signOut({ force: true });
     }
-    toast.success("Sei uscito. I tuoi dati restano nel cloud.");
+    toast.success("Disconnesso. I dati restano nel cloud.");
   };
   return (
     <>
