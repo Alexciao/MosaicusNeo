@@ -2,7 +2,7 @@
 
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useTheme } from "next-themes";
-import { ArrowRight, Binary, ChartLine, Check, ChevronDown, Download, Plus, FileSpreadsheet, FileText, Image as ImageIcon, MapPinned, Maximize2, Route, Scan, Table2, X, ZoomIn, ZoomOut } from "lucide-react";
+import { ArrowRight, Binary, ChartLine, Check, ChevronDown, Download, Plus, FileSpreadsheet, FileText, Image as ImageIcon, MapPinned, Maximize2, MoveHorizontal, Route, Scan, Table2, X, ZoomIn, ZoomOut } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -82,7 +82,7 @@ function ChartStack() {
               aria-label={`Grafico ${v?.label ?? id}`} className="absolute inset-0 size-full touch-none" style={{ cursor: "crosshair" }} />
             {i === 0 && dragHint && (
               <div aria-hidden className="pointer-events-none absolute inset-x-0 top-1/3 flex flex-col items-center gap-2">
-                <span className="mz-drag-hand text-3xl">👆</span>
+                <span className="mz-drag-hand grid size-10 place-items-center rounded-full bg-foreground/80 text-background"><MoveHorizontal className="size-5" /></span>
                 <span className="rounded-full bg-foreground/80 px-3 py-1 text-xs font-medium text-background">trascina per scegliere un tratto</span>
               </div>
             )}

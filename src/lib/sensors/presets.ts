@@ -35,28 +35,28 @@ export const PRESETS: Preset[] = [
     icon: MoveRight, tone: "sky", sim: "incline",
     sensors: [{ type: "sonar", interval: 50 }],
     visible: ["x", "v", "a"], readouts: ["x", "v"],
-    tips: [{ title: "Idea", tip: true, text: "Carrello su un piano inclinato, bersaglio piatto tra 5 cm e 1 m dal sensore. Con il fit della parabola su x(t) trovi l'accelerazione." }],
+    tips: [{ title: "Idea", tip: true, text: "Carrello su un piano inclinato, con un bersaglio piatto tra 5 cm e 1 m dal sensore. Il fit della parabola su x(t) dà l'accelerazione." }],
   },
   {
     id: "harmonic", topic: "Cinematica", title: "Moto armonico", subtitle: "Oscillazioni · HC-SR04",
     icon: WavesHorizontal, tone: "rose", sim: "spring",
     sensors: [{ type: "sonar", interval: 50, options: { window: 2 } }],
     visible: ["x", "v", "a"], readouts: ["x", "v"],
-    tips: [{ title: "Idea", tip: true, text: "Massa appesa a una molla, sensore a terra, cartoncino sotto la massa. Fit con la sinusoide smorzata: periodo e smorzamento." }],
+    tips: [{ title: "Idea", tip: true, text: "Massa appesa a una molla, sensore a terra rivolto verso l'alto, cartoncino sotto la massa. Il fit della sinusoide smorzata dà periodo e smorzamento." }],
   },
   {
     id: "cooling", topic: "Termologia", title: "Raffreddamento", subtitle: "Legge di Newton · termistore NTC",
     icon: Thermometer, tone: "rose", sim: "cooling", simNote: "tempo ×30",
     sensors: [{ type: "ntc", interval: 1000 }],
     visible: ["T"], readouts: ["T", "R"],
-    tips: [{ title: "Idea", tip: true, text: "Termistore in una patata calda (o in acqua calda), poi lascialo raffreddare. Fit esponenziale con asintoto, oppure retta su ln(T − Tₐ)." }],
+    tips: [{ title: "Idea", tip: true, text: "Scalda il termistore in acqua calda o in una patata calda, poi lascialo raffreddare in aria. Usa il fit esponenziale con asintoto, oppure la retta su ln(T − Tₐ)." }],
   },
   {
     id: "humidity", topic: "Termologia", title: "Umidità e temperatura", subtitle: "Punto di rugiada · DHT11",
     icon: Droplets, tone: "sky", sim: "breath", simNote: "tempo ×5",
     sensors: [{ type: "dht", interval: 2000 }],
     visible: ["RH", "T"], readouts: ["RH", "T", "Td"],
-    tips: [{ title: "Idea", tip: true, text: "Soffia sul sensore: l'umidità sale di colpo e torna giù lentamente. Con un fit esponenziale misuri il tempo caratteristico." }],
+    tips: [{ title: "Idea", tip: true, text: "Soffia sul sensore: l'umidità sale di colpo e scende lentamente. Il fit esponenziale della discesa dà il tempo caratteristico." }],
   },
   {
     id: "gpsmap", topic: "Sul campo", title: "Mappa della temperatura", subtitle: "GPS + DHT11 · telefono via Bluetooth",
@@ -64,8 +64,8 @@ export const PRESETS: Preset[] = [
     sensors: [{ type: "gps", interval: 2000 }, { type: "dht", interval: 2000 }],
     visible: ["T", "alt"], readouts: ["T", "RH", "sats", "s"],
     tips: [
-      { title: "Senza cavo: Bluetooth", tip: true, text: "Con l'HC-06 (vedi «Bluetooth» qui sotto) e un power bank, Arduino si collega al telefono Android: Chrome → «Collega via Bluetooth». Lo schermo resta acceso durante la misura e il Quaderno si salva ogni 30 s." },
-      { title: "Il primo fix", tip: true, text: "All'aperto il GPS trova i satelliti in 30 s – qualche minuto. I punti senza posizione restano nella tabella ma non vanno sulla mappa." },
+      { title: "Senza cavo: Bluetooth", tip: true, text: "Con un modulo HC-06 e un power bank, collega Arduino a un telefono Android da Chrome con «Collega via Bluetooth». Durante la misura lo schermo resta acceso e i dati vengono salvati nel Quaderno ogni 30 s." },
+      { title: "Il primo fix", tip: true, text: "All'aperto il GPS trova i satelliti in un tempo tra 30 s e qualche minuto. I punti senza posizione restano in tabella ma non compaiono sulla mappa." },
     ],
   },
 ];
@@ -101,20 +101,20 @@ export interface Instrument {
 
 export const INSTRUMENTS: Instrument[] = [
   {
-    id: "scope", kind: "scope", source: "audio", title: "Oscilloscopio", subtitle: "Guarda la forma di un suono", icon: AudioWaveform, tone: "lime",
-    wiring: [{ title: "Microfono del dispositivo", text: "Telefono o computer: non serve altro. L'audio non viene registrato né inviato." }],
+    id: "scope", kind: "scope", source: "audio", title: "Oscilloscopio", subtitle: "Forma d'onda di un suono", icon: AudioWaveform, tone: "lime",
+    wiring: [{ title: "Microfono del dispositivo", text: "Basta il microfono del telefono o del computer. L'audio non viene registrato né inviato." }],
   },
   {
-    id: "synth", kind: "synth", source: "arduino", optionalLink: true, title: "Synth", subtitle: "Crea un suono e suonalo: tastiera, dito, telefono, HC-SR04",
+    id: "synth", kind: "synth", source: "arduino", optionalLink: true, title: "Synth", subtitle: "Genera un suono · tastiera, tocco, inclinazione, HC-SR04",
     icon: Piano, tone: "saffron", sim: "hand",
-    wiring: [{ title: "Con Arduino (facoltativo)", schematic: "hcsr04", pins: { trig: "D12", echo: "D11" }, text: "HC-SR04 con TRIG su D12 ed ECHO su D11, rivolto verso l'alto: la mano sopra tra 5 e 50 cm." }],
+    wiring: [{ title: "Con Arduino (facoltativo)", schematic: "hcsr04", pins: { trig: "D12", echo: "D11" }, text: "HC-SR04 con TRIG su D12 ed ECHO su D11, rivolto verso l'alto. Muovi la mano tra 5 e 50 cm sopra il sensore." }],
   },
   {
-    id: "escope", kind: "scope", source: "arduino", title: "Oscilloscopio elettrico", subtitle: "Guarda una tensione su A0: microfono, bobina", icon: Zap, tone: "sky", sim: "scope",
+    id: "escope", kind: "scope", source: "arduino", title: "Oscilloscopio elettrico", subtitle: "Tensione su A0 · microfono, bobina", icon: Zap, tone: "sky", sim: "scope",
     wiring: [
       { title: "Solo 0–5 V", warn: true, text: "Mai la rete elettrica. Il segnale va su A0." },
       { title: "Microfono del kit", schematic: "mic" },
-      { title: "Bobina e magnete", schematic: "coil", text: "Fai cadere il magnete nella bobina, trigger singolo." },
+      { title: "Bobina e magnete", schematic: "coil", text: "Usa il trigger singolo e fai cadere il magnete nella bobina." },
     ],
   },
 ];

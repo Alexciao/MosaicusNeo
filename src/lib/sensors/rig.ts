@@ -111,29 +111,29 @@ export interface Issue { sensorId?: string; level: "error" | "warn"; text: strin
 export function validateRig(rig: Rig): Issue[] {
   const out: Issue[] = [];
   const arduino = inputsOf(rig);
-  if (!arduino.length) out.push({ level: "error", text: rig.sensors.length ? "Ci sono solo indicatori: aggiungi almeno un sensore." : "Il montaggio è vuoto: aggiungi almeno un sensore." });
-  if (arduino.length > MAX_ARDUINO) out.push({ level: "error", text: `Arduino legge al massimo ${MAX_ARDUINO} sensori alla volta.` });
+  if (!arduino.length) out.push({ level: "error", text: rig.sensors.length ? "Ci sono solo display, LED o cicalino: aggiungi almeno un sensore." : "Il progetto è vuoto: aggiungi almeno un sensore." });
+  if (arduino.length > MAX_ARDUINO) out.push({ level: "error", text: `Troppi sensori: Arduino ne legge al massimo ${MAX_ARDUINO}. Rimuovine qualcuno.` });
   const count = new Map<SensorType, number>();
   for (const s of rig.sensors) count.set(s.type, (count.get(s.type) ?? 0) + 1);
-  for (const [type, n] of count) if (n > SENSORS[type].max) out.push({ level: "error", text: SENSORS[type].max === 1 ? `Ci può essere un solo sensore «${SENSORS[type].title}».` : `Al massimo ${SENSORS[type].max} sensori «${SENSORS[type].title}».` });
+  for (const [type, n] of count) if (n > SENSORS[type].max) out.push({ level: "error", text: SENSORS[type].max === 1 ? `Puoi usare un solo «${SENSORS[type].title}»: rimuovi quello in più.` : `Puoi usare al massimo ${SENSORS[type].max} «${SENSORS[type].title}»: rimuovi quelli in più.` });
   const seen = new Map<number, { who: string; bus?: string }>();
   for (const s of rig.sensors) {
     const def = SENSORS[s.type];
     for (const spec of def.pins) {
       const p = s.pins[spec.key];
-      if (p === 0 || p === 1) out.push({ sensorId: s.id, level: "error", text: `${sensorLabel(s)}: D0 e D1 sono della porta seriale (USB e Bluetooth).` });
-      else if (!pinsFor(spec.kind).includes(p)) out.push({ sensorId: s.id, level: "error", text: `${sensorLabel(s)}: ${spec.role} deve stare su un pin analogico (A0…A5).` });
+      if (p === 0 || p === 1) out.push({ sensorId: s.id, level: "error", text: `${sensorLabel(s)}: D0 e D1 sono riservati alla seriale (USB e Bluetooth). Scegli un altro pin.` });
+      else if (!pinsFor(spec.kind).includes(p)) out.push({ sensorId: s.id, level: "error", text: `${sensorLabel(s)}: sposta ${spec.role} su un pin analogico (A0…A5).` });
       const prev = seen.get(p);
       // due dispositivi I2C sullo stesso filo vanno bene (SDA con SDA, SCL con SCL)
-      if (prev && !(spec.bus && prev.bus === spec.bus)) out.push({ sensorId: s.id, level: "error", text: `${pinName(p)} è usato due volte (${prev.who} e ${sensorLabel(s)} · ${spec.role}).` });
+      if (prev && !(spec.bus && prev.bus === spec.bus)) out.push({ sensorId: s.id, level: "error", text: `${pinName(p)} è usato due volte (${prev.who} e ${sensorLabel(s)} · ${spec.role}). Cambia uno dei due pin.` });
       seen.set(p, { who: `${sensorLabel(s)} · ${spec.role}`, bus: spec.bus });
     }
     if (def.output || def.events) continue;
     const min = def.minInterval?.(s.options) ?? def.interval.min;
-    if (s.interval < min) out.push({ sensorId: s.id, level: "warn", text: `${sensorLabel(s)}: più veloce di ${min} ms non si può, userò ${min} ms.` });
+    if (s.interval < min) out.push({ sensorId: s.id, level: "warn", text: `${sensorLabel(s)}: l'intervallo minimo è ${min} ms, verrà usato quello.` });
   }
-  if (count.get("gps") && count.get("dht")) out.push({ level: "warn", text: "Con il GPS acceso il DHT si legge nei momenti di silenzio del GPS: qualche lettura può arrivare in ritardo." });
-  if ((count.get("sonar") ?? 0) > 1) out.push({ level: "warn", text: "Più sensori a ultrasuoni possono sentire l'uno l'eco dell'altro: puntali in direzioni diverse." });
+  if (count.get("gps") && count.get("dht")) out.push({ level: "warn", text: "Con il GPS, il DHT viene letto tra un messaggio e l'altro del GPS: alcune letture possono arrivare in ritardo." });
+  if ((count.get("sonar") ?? 0) > 1) out.push({ level: "warn", text: "Più sensori a ultrasuoni possono captare l'eco l'uno dell'altro: puntali in direzioni diverse." });
   return out;
 }
 export const hasErrors = (issues: Issue[]) => issues.some((i) => i.level === "error");

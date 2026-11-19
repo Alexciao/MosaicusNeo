@@ -375,11 +375,11 @@ function Wiring() {
           <Wrench /> Crea un progetto con questi componenti
         </Button>
       )}
-      <H>Come funziona la breadboard</H>
+      <H>La breadboard</H>
       <ul className="list-disc space-y-1 pl-5 text-sm text-muted-foreground">
-        <li>I cinque fori di una colonna (a–e, oppure f–j) sono collegati tra loro. Il solco centrale li separa.</li>
-        <li>I binari lungo i bordi corrono per tutta la lunghezza: rosso (+) per il 5V, blu (−) per il GND.</li>
-        <li>D0 e D1 servono al cavo USB e al Bluetooth: non usarli per i sensori.</li>
+        <li>I cinque fori di una colonna (a–e oppure f–j) sono collegati tra loro; il solco centrale li separa.</li>
+        <li>I binari laterali corrono per tutta la lunghezza: rosso (+) per il 5V, blu (−) per il GND.</li>
+        <li>D0 e D1 sono riservati al cavo USB e al Bluetooth: non collegarci componenti.</li>
       </ul>
     </>
   );
@@ -389,21 +389,21 @@ function Measure() {
   return (
     <>
       <Steps items={[
-        ["Scegli l'esperimento", "Nell'elenco a sinistra. In alto vedi i sensori del montaggio con i loro pin."],
-        ["Controlla i collegamenti", "Scheda «Collegamenti» (a destra, o in basso sul telefono): schema e istruzioni."],
+        ["Scegli l'esperimento", "Dall'elenco a sinistra. In alto compaiono i componenti con i loro pin."],
+        ["Controlla i collegamenti", "Scheda «Collegamenti» (a destra; sul telefono in basso)."],
         ["Collega Arduino", <ConnectHow key="connect" />],
-        ["Dai un nome alla misura", "Nella scheda della misura, sopra il pulsante: es. «Gruppo 3 – piano inclinato». Se lo lasci vuoto, ci pensa l'app."],
-        ["Avvia e ferma", "«Avvia»: i punti arrivano in tempo reale e le letture in evidenza si aggiornano. «Ferma» quando hai finito: la misura va nel Quaderno."],
-        ["Scegli un tratto", "Trascina sul grafico: il tratto si colora su tutti i grafici. Doppio clic per annullare, pizzico o Ctrl + rotella per lo zoom."],
-        ["Analizzalo", "«Analizza il tratto»: si apre Elaborazione sul nuovo riquadro. Il «+» accanto lo aggiunge senza cambiare pagina, per mandarne più d'uno."],
+        ["Dai un nome alla misura", "Sopra il pulsante «Avvia», es. «Gruppo 3 · piano inclinato». Se lo lasci vuoto: titolo dell'esperimento con data e ora."],
+        ["Avvia e ferma", "Con «Avvia» i punti arrivano in tempo reale. Con «Ferma» la misura viene salvata nel Quaderno."],
+        ["Seleziona un tratto", "Trascina sul grafico: il tratto si evidenzia su tutti i grafici. Doppio clic per annullare; pizzico o Ctrl + rotella per lo zoom."],
+        ["Analizzalo", "«Analizza il tratto» apre Elaborazione sul nuovo riquadro. Il «+» accanto aggiunge il riquadro senza cambiare pagina."],
       ]} />
-      <H>Altri comandi utili</H>
+      <H>Altri comandi</H>
       <ul className="list-disc space-y-1 pl-5 text-sm text-muted-foreground">
-        <li><B>Grafici</B>: il menu sopra i grafici sceglie quali grandezze vedere; i «dati grezzi» sono le letture del sensore prima delle conversioni.</li>
-        <li><B>Tabella</B> e <B>Esporta</B> (icone a destra): tutti i numeri, oppure Excel, CSV, immagine, GPX.</li>
+        <li><B>Grafici</B>: il menu sopra i grafici sceglie le grandezze. I «dati grezzi» sono le letture prima delle conversioni.</li>
+        <li><B>Tabella</B> ed <B>Esporta</B> (icone a destra): i valori numerici, o file Excel, CSV, immagine, GPX.</li>
         <li><B>Azzera</B> (mirino, con il sensore a ultrasuoni): la posizione attuale diventa lo zero.</li>
-        <li><B>Quaderno</B> (pagina in alto): tutte le misure, da cercare e filtrare; «Apri» per rivederle in Misura, «Analizza» per mandarle intere a Elaborazione.</li>
-        <li><B>Modalità LIM</B> (menu Aspetto, in alto): testi grandi e grafici più leggeri, per lavagne e PC lenti.</li>
+        <li><B>Quaderno</B>: tutte le misure, con ricerca e filtri. «Apri» la riporta in Misura, «Analizza» la manda intera in Elaborazione.</li>
+        <li><B>Modalità LIM</B> (menu Aspetto): testi grandi e grafici più leggeri, per lavagne e PC lenti.</li>
       </ul>
     </>
   );
@@ -412,17 +412,24 @@ function Measure() {
 function Rigs() {
   return (
     <>
-      <P>Un <B>montaggio</B> è l&apos;elenco dei sensori collegati ad Arduino, con i loro pin e ogni quanto leggerli. Fino a 6 sensori insieme, anche dello stesso tipo (es. due termistori per confrontare due tazze).</P>
+      <P>Ogni esperimento e ogni progetto ha un elenco di <B>componenti</B>: sensori, display, LED e cicalino, ciascuno con i suoi pin e il suo ritmo di lettura. Fino a 6 sensori insieme, anche dello stesso tipo (es. due termistori per confrontare due tazze).</P>
+      <H>Progetti</H>
+      <P>Un <B>progetto</B> è un insieme di componenti scelto da te. Lo trovi in <B>«I miei progetti»</B>, in cima alla barra laterale:</P>
+      <ul className="list-disc space-y-1 pl-5 text-sm text-muted-foreground">
+        <li><B>Nuovo progetto</B>: parti da zero.</li>
+        <li><B>Copia come progetto</B> (in un esperimento, scheda «Componenti»): parti dai suoi componenti.</li>
+        <li>Con un account, i progetti sono disponibili su tutti i tuoi dispositivi.</li>
+      </ul>
+      <P>Se modifichi un esperimento pronto ottieni una <B>versione personale</B>; «Ripristina» torna all&apos;originale.</P>
+      <H>Modificare i componenti</H>
       <Steps items={[
-        ["Apri la scheda «Sensori»", "A destra (sul telefono: «Modifica sensori» sotto il titolo)."],
-        ["Aggiungi o togli componenti", "«Aggiungi un componente» apre il catalogo di sensori, display, LED e cicalino: si cerca per nome o per grandezza, si filtra per tipo, ognuno con il suo disegnino."],
-        ["Scegli i pin", "Ogni sensore ha i suoi menu: i pin già usati non si possono scegliere; i sensori analogici vanno su A0…A5."],
-        ["Scegli il ritmo", "«Una lettura ogni … ms»: il DHT non va sotto 1000 ms, il GPS legge una volta al secondo, il sonar fino a 30 ms."],
-        ["Opzioni", "Ogni sensore ha le sue (taratura, verso positivo, modello del DHT…); quelle meno usate sono in «Opzioni avanzate»."],
+        ["Apri la scheda «Componenti»", "A destra; sul telefono, il pulsante sotto il titolo."],
+        ["Aggiungi o togli componenti", "«Aggiungi un componente» apre il catalogo: cerca per nome o grandezza, filtra per categoria."],
+        ["Scegli i pin", "I pin già occupati non sono selezionabili. I sensori analogici vanno su A0…A5."],
+        ["Scegli il ritmo", "«Una lettura ogni … ms». Limiti: DHT almeno 1000 ms, GPS una lettura al secondo, sonar fino a 30 ms."],
+        ["Regola le opzioni", "Taratura, verso positivo, modello del DHT… Le meno usate sono in «Opzioni avanzate»."],
       ]} />
-      <H>Esperimenti pronti e montaggi tuoi</H>
-      <P>Gli esperimenti pronti si possono modificare: diventano una <B>versione personale</B>, con il pulsante «Ripristina» per tornare all&apos;originale. Con «Copia come montaggio» o «Nuovo montaggio di sensori» crei un montaggio libero, che trovi in «I miei montaggi» (e su tutti i tuoi dispositivi, se accedi con un account).</P>
-      <Note>Se l&apos;app segnala un problema (pin doppio, troppi sensori…) il messaggio dice anche come risolverlo; «Avvia» resta spento finché c&apos;è un errore.</Note>
+      <Note>Con un errore nei componenti (pin doppio, troppi sensori…) «Avvia» resta disattivato; il messaggio indica come correggerlo.</Note>
     </>
   );
 }
@@ -430,18 +437,24 @@ function Rigs() {
 function Analysis() {
   return (
     <>
-      <P>Ogni tratto inviato diventa un <B>riquadro</B>, con il suo grafico e i suoi strumenti. Sopra il grafico scegli che cosa mettere sugli assi (anche una grandezza in funzione di un&apos;altra, es. T in funzione dell&apos;altitudine).</P>
+      <P>Ogni tratto inviato da Misura o dal Quaderno diventa un <B>riquadro</B>, con grafico, strumenti e dati. Sopra il grafico scegli le grandezze sugli assi, anche una in funzione dell&apos;altra (es. T in funzione dell&apos;altitudine).</P>
+      <H>Strumenti</H>
       <div className="grid gap-2 sm:grid-cols-2">
         {[
-          ["Tratto", "Trascina per scegliere la parte di dati su cui lavorare."],
-          ["Retta a occhio", "Muovi le due maniglie finché la retta passa in mezzo ai punti (le frecce ⬆⬇ contano i punti sopra e sotto), poi tocca due punti della retta: l'app calcola Δy/Δx. «E il computer?» confronta con la retta dei minimi quadrati."],
-          ["Tangente", "Tocca un punto della curva: pendenza istantanea (es. la velocità in quell'istante)."],
-          ["Fit", "Scegli un modello: retta, parabola, esponenziale, sinusoide smorzata… L'app dà i parametri con l'incertezza e il loro significato fisico. «Il modello è giusto?» controlla i residui."],
-          ["Righello", "Su un'onda: due linee su due creste, N periodi tra le due → T = Δt/N, f = 1/T."],
-          ["Foglio dei dati", "Tutti i numeri; «Nuova colonna» calcola una grandezza con una formula (es. x^2, ln(T − 21), sqrt(L/g))."],
+          ["Tratto", "Trascina per scegliere i dati. Statistiche del tratto: media ± errore della media (s/√n), deviazione standard s, minimo e massimo, Δy e rapidità media Δy/Δx."],
+          ["Retta a occhio", "Sposta le due maniglie finché la retta passa tra i punti (⬆⬇ contano i punti sopra e sotto), poi tocca due punti della retta per leggere Δy/Δx. «E il computer?» la confronta con la retta dei minimi quadrati."],
+          ["Tangente", "Tocca un punto della curva: pendenza in quel punto, es. la velocità istantanea."],
+          ["Fit", "Scegli un modello (retta, parabola, esponenziale, sinusoide smorzata…): parametri con incertezza e significato fisico. «Il modello è giusto?» mostra i residui. «Confronta tutti i modelli»: tabella con s, R² e giudizio sui residui; il migliore è evidenziato."],
+          ["Righello", "Su un'onda: metti le due linee su due creste e indica quanti periodi N ci sono tra loro. T = Δt/N, f = 1/T."],
+          ["Foglio dei dati", "Tutti i valori. «Nuova colonna» calcola una grandezza da una formula (es. x^2, ln(T − 21), sqrt(L/g))."],
         ].map(([t, d]) => <div key={t} className="rounded-lg border p-3"><p className="font-semibold">{t}</p><p className="text-sm text-muted-foreground">{d}</p></div>)}
       </div>
-      <P>«Salva» conserva un risultato nel riquadro. Alla fine spunta i riquadri e premi <B>Esporta in Excel</B>: un foglio di riepilogo, uno con tutte le analisi e uno per riquadro.</P>
+      <H>Risultati e riquadri</H>
+      <ul className="list-disc space-y-1 pl-5 text-sm text-muted-foreground">
+        <li><B>Salva</B> aggiunge un risultato al riquadro. L&apos;icona a occhio lo mostra o lo nasconde sul grafico.</li>
+        <li>Un riquadro si può comprimere o <B>duplicare</B>, per provare un&apos;altra analisi sugli stessi dati.</li>
+        <li>Spunta i riquadri e premi <B>Esporta in Excel</B>: un foglio di riepilogo, uno con tutti i risultati e uno per riquadro.</li>
+      </ul>
     </>
   );
 }
