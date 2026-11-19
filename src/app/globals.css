@@ -1,0 +1,214 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-inter), system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: ui-monospace, "Cascadia Code", "SF Mono", Menlo, monospace;
+  --font-heading: var(--font-sans);
+  --color-ring: var(--ring);
+  --color-input: var(--input);
+  --color-border: var(--border);
+  --color-destructive: var(--destructive);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent: var(--accent);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-muted: var(--muted);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary: var(--secondary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary: var(--primary);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-popover: var(--popover);
+  --color-card-foreground: var(--card-foreground);
+  --color-card: var(--card);
+  /* colori del marchio */
+  --color-brand: var(--brand);
+  --color-brand-foreground: var(--brand-foreground);
+  --color-lime: var(--lime);
+  --color-lime-foreground: var(--lime-foreground);
+  --color-screen: var(--mz-screen);
+  --color-tone-lime: var(--tone-lime);
+  --color-tone-sky: var(--tone-sky);
+  --color-tone-rose: var(--tone-rose);
+  --color-tone-saffron: var(--tone-saffron);
+  --color-tone-ink: var(--tone-ink);
+  --color-success: var(--success);
+  --color-warning: var(--warning);
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.4);
+  --radius-2xl: calc(var(--radius) * 1.8);
+  --radius-3xl: calc(var(--radius) * 2.2);
+  --radius-4xl: calc(var(--radius) * 2.6);
+}
+
+/* Palette: superfici neutre (zinco), un solo accento — il verde del marchio.
+   Il lime resta solo sugli "schermi" (oscilloscopio, synth, monitor seriale). */
+:root {
+  --background: #fafafa;
+  --foreground: #09090b;
+  --card: #ffffff;
+  --card-foreground: #09090b;
+  --popover: #ffffff;
+  --popover-foreground: #09090b;
+  --primary: #0b5d50;
+  --primary-foreground: #ffffff;
+  --secondary: #f4f4f5;
+  --secondary-foreground: #18181b;
+  --muted: #f4f4f5;
+  --muted-foreground: #71717a;
+  --accent: #f4f4f5;
+  --accent-foreground: #18181b;
+  --destructive: #dc2626;
+  --border: #e4e4e7;
+  --input: #e4e4e7;
+  --ring: #0b5d50;
+  --radius: 0.625rem;
+
+  --brand: #0b5d50;
+  --brand-foreground: #ffffff;
+  --lime: #c6f432;
+  --lime-foreground: #052e26;
+  --success: #15803d;
+  --warning: #b45309;
+  --tone-lime: #ecfccb;
+  --tone-sky: #e0f2fe;
+  --tone-rose: #ffe4e6;
+  --tone-saffron: #fef3c7;
+  --tone-ink: #0b5d50;
+
+  /* canvas: grafici, oscilloscopio */
+  --mz-chart-bg: #ffffff;
+  --mz-card: #ffffff;
+  --mz-grid: #f0f0f2;
+  --mz-muted: #71717a;
+  --mz-axis: #d4d4d8;
+  --mz-ink: #18181b;
+  --mz-accent: #0b5d50;
+  --mz-fit: #db2777;
+  --mz-raw: rgba(24, 24, 27, 0.4);
+  --mz-sel: rgba(14, 116, 144, 0.1);
+  --mz-tip-bg: #18181b;
+  --mz-tip-ink: #ffffff;
+  --mz-green: #0b5d50;
+  --mz-rosa: #f472b6;
+  --mz-rosa-d: #db2777;
+  --mz-screen: #0c1f1b;
+  --slot-a: #ffffff;
+  --slot-b: #7dd3fc;
+  --slot-c: #f9a8d4;
+  --slot-b-dash: none;
+  --slot-c-dash: none;
+}
+
+.dark {
+  --background: #09090b;
+  --foreground: #fafafa;
+  --card: #111113;
+  --card-foreground: #fafafa;
+  --popover: #18181b;
+  --popover-foreground: #fafafa;
+  --primary: #5eead4;
+  --primary-foreground: #042f2a;
+  --secondary: #27272a;
+  --secondary-foreground: #fafafa;
+  --muted: #1c1c1f;
+  --muted-foreground: #a1a1aa;
+  --accent: #27272a;
+  --accent-foreground: #fafafa;
+  --destructive: #f87171;
+  --border: rgba(255, 255, 255, 0.09);
+  --input: rgba(255, 255, 255, 0.13);
+  --ring: #5eead4;
+
+  --brand: #5eead4;
+  --brand-foreground: #042f2a;
+  --success: #4ade80;
+  --warning: #fbbf24;
+  --tone-lime: rgba(163, 230, 53, 0.12);
+  --tone-sky: rgba(56, 189, 248, 0.12);
+  --tone-rose: rgba(244, 114, 182, 0.12);
+  --tone-saffron: rgba(251, 191, 36, 0.12);
+  --tone-ink: #e4e4e7;
+
+  --mz-chart-bg: #111113;
+  --mz-card: #18181b;
+  --mz-grid: rgba(255, 255, 255, 0.06);
+  --mz-muted: #a1a1aa;
+  --mz-axis: rgba(255, 255, 255, 0.18);
+  --mz-ink: #fafafa;
+  --mz-accent: #5eead4;
+  --mz-fit: #f472b6;
+  --mz-raw: rgba(255, 255, 255, 0.35);
+  --mz-sel: rgba(94, 234, 212, 0.1);
+  --mz-tip-bg: #fafafa;
+  --mz-tip-ink: #09090b;
+  --mz-green: #5eead4;
+  --mz-rosa: #f472b6;
+  --mz-rosa-d: #f9a8d4;
+  --mz-screen: #050d0b;
+}
+
+/* Modalità LIM: tutto in rem, basta ingrandire il carattere della radice */
+html.lim {
+  font-size: 20px;
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+  html {
+    @apply font-sans;
+    font-feature-settings: "cv11", "ss01";
+  }
+  ::selection {
+    background: color-mix(in oklab, var(--primary) 22%, transparent);
+  }
+}
+
+@layer utilities {
+  .tabular {
+    font-variant-numeric: tabular-nums;
+  }
+  /* frazione tipografica per i calcoli della pagina Elaborazione */
+  .frac {
+    display: inline-flex;
+    flex-direction: column;
+    vertical-align: middle;
+    text-align: center;
+    line-height: 1.15;
+    margin: 0 0.15em;
+  }
+  .frac > span:first-child {
+    border-bottom: 1px solid currentColor;
+    padding: 0 0.2em;
+  }
+  .frac > span:last-child {
+    padding: 0 0.2em;
+  }
+}
+
+/* suggerimento animato «trascina qui» sul primo grafico */
+@keyframes mz-drag {
+  0% { transform: translateX(-40%); opacity: 0; }
+  15% { opacity: 1; }
+  85% { opacity: 1; }
+  100% { transform: translateX(40%); opacity: 0; }
+}
+.mz-drag-hand {
+  animation: mz-drag 2.2s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mz-drag-hand { animation: none; }
+}

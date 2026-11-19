@@ -1,9 +1,0 @@
----
-title: "Archivio"
-listing:
-  contents: "*.qmd"
-  sort: "date desc"
-  categories: true
-  fields: [title, description, date, categories]
----
-Materiali degli anni passati. Usa i filtri per materia, classe e anno.
