@@ -2,7 +2,7 @@
 
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useTheme } from "next-themes";
-import { ChartLine, ChevronDown, Download, FileSpreadsheet, FileText, Image as ImageIcon, MapPinned, Maximize2, Route, Scan, Send, Table2, X, ZoomIn, ZoomOut } from "lucide-react";
+import { ArrowRight, ChartLine, Check, ChevronDown, Download, Plus, FileSpreadsheet, FileText, Image as ImageIcon, MapPinned, Maximize2, Route, Scan, Table2, X, ZoomIn, ZoomOut } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -14,10 +14,11 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Chart } from "@/lib/mosaicus/chart.js";
 import {
-  useLab, measureGroup, toggleView, viewsOf, columnsOf, hasMap, selectedRows, clearSelection, sendSelection, exportData,
+  useLab, measureGroup, toggleView, viewsOf, columnsOf, hasMap, selectedRows, clearSelection, sendSelection, exportData, sentBoxId, goElab,
   hideDragHint, type ExportKind,
 } from "@/lib/lab-store";
 import { fmtCell, fmtVal } from "@/lib/prefs";
+import { useWorkbench } from "@/lib/workbench-store";
 import { cn } from "@/lib/utils";
 
 function Tip({ label, children }: { label: string; children: React.ReactElement }) {
@@ -141,6 +142,8 @@ export function ChartCard() {
   const nSel = selection ? selectedRows().length : rows.length;
   const g = measureGroup();
   const doExport = (k: ExportKind) => void exportData(k);
+  const sentId = useLab(sentBoxId);
+  useWorkbench((s) => s.boxes.length);   // ridisegna se un riquadro viene eliminato
   const shownNames = views.filter((v) => visible.includes(v.id)).map((v) => v.sym).join(", ");
 
   return (
@@ -211,9 +214,23 @@ export function ChartCard() {
           </p>
           <div className="ml-auto flex items-center gap-2">
             {selection && <Button size="sm" variant="ghost" onClick={clearSelection}><X /> Annulla</Button>}
-            <Button size="sm" variant={selection ? "default" : "outline"} disabled={running} onClick={() => void sendSelection()}>
-              <Send /> {selection ? "Invia il tratto a Elaborazione" : "Invia tutto a Elaborazione"}
-            </Button>
+            {sentId != null ? (
+              <Button size="sm" variant="outline" onClick={() => goElab(sentId)}>
+                <Check className="text-brand" /> Già in Elaborazione · Apri <ArrowRight />
+              </Button>
+            ) : (
+              <div className="flex">
+                <Button size="sm" variant={selection ? "default" : "outline"} disabled={running} className="rounded-r-none" onClick={() => void sendSelection()}>
+                  {selection ? "Analizza il tratto" : "Analizza tutta la misura"} <ArrowRight />
+                </Button>
+                <Tip label="Aggiungi a Elaborazione senza aprirla (per mandare più tratti)">
+                  <Button size="icon-sm" variant={selection ? "default" : "outline"} disabled={running} aria-label="Aggiungi a Elaborazione senza aprirla"
+                    className={cn("rounded-l-none", selection ? "border-l border-l-primary-foreground/15" : "border-l-0")} onClick={() => void sendSelection({ open: false })}>
+                    <Plus />
+                  </Button>
+                </Tip>
+              </div>
+            )}
           </div>
         </div>
       )}

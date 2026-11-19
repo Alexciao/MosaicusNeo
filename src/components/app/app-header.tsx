@@ -30,7 +30,7 @@ export function NavTabs({ className }: { className?: string }) {
     >
       <Icon className="size-4" />
       {label}
-      {!!badge && <span className="rounded-full bg-brand/10 px-1.5 text-xs font-semibold text-brand tabular">{badge}</span>}
+      {!!badge && <span key={badge} className="animate-in rounded-full bg-brand/10 px-1.5 text-xs font-semibold text-brand tabular duration-500 zoom-in-50">{badge}</span>}
     </button>
   );
   return (

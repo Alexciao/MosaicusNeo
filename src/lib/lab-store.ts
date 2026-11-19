@@ -104,6 +104,8 @@ interface LabState {
   rigOpen: boolean;
   /** capitolo della guida aperto (null = guida chiusa) */
   guide: string | null;
+  /** ultimo tratto inviato a Elaborazione: per riconoscerlo e aprirlo */
+  lastSent: { key: string; boxId: number } | null;
 }
 
 const EMPTY_RIG: Rig = { id: "empty", name: "", sensors: [] };
@@ -135,6 +137,7 @@ export const useLab = create<LabState>(() => ({
   labsOpen: false,
   rigOpen: false,
   guide: null,
+  lastSent: null,
 }));
 
 const get = useLab.getState;
@@ -234,8 +237,8 @@ export function instrumentApi(ins: Instrument): InstrumentApi {
       await link.write(cmd);
     },
     async sendBox(data, msg) {
-      await useWorkbench.getState().addBox({ experiment: ins.id, expTitle: ins.title, sessionId: null, sessionName: "", ...data } as NewBox);
-      toast.success(msg, { duration: 6000, action: { label: "Vai a Elaborazione →", onClick: () => goElab() } });
+      const box = await useWorkbench.getState().addBox({ experiment: ins.id, expTitle: ins.title, sessionId: null, sessionName: "", ...data } as NewBox);
+      toast.success(msg, { duration: 6000, action: { label: "Apri in Elaborazione", onClick: () => goElab(box.id) } });
     },
     setSimSignal(sig) { simSignal = sig; if (link?.kind === "simulatore") link.scopeSignal = sig; },
   };
@@ -253,7 +256,24 @@ export function showPage(page: Page) {
 export function openGuide(chapter = "start") { set({ guide: chapter }); }
 export function closeGuide() { set({ guide: null }); }
 
-export function goElab() { set({ sent: false }); showPage("elab"); }
+/** Vai a Elaborazione, sul riquadro indicato o sull'ultimo inviato. */
+export function goElab(boxId?: number) {
+  const id = boxId ?? get().lastSent?.boxId;
+  set({ sent: false });
+  showPage("elab");
+  if (id != null) useWorkbench.getState().focus(id);
+}
+
+/** Chiave del tratto selezionato (misura, intervallo, grafico attivo). */
+export function selectionKey(st = get()) {
+  const [a, b] = st.selection ?? [-Infinity, Infinity];
+  return `${st.session?.id ?? st.session?.created ?? "-"}|${a}|${b}|${st.viewId}|${st.nRaw}`;
+}
+/** Il tratto selezionato è già in Elaborazione? Restituisce il riquadro, se esiste ancora. */
+export function sentBoxId(st = get()): number | null {
+  if (!st.lastSent || st.lastSent.key !== selectionKey(st)) return null;
+  return useWorkbench.getState().boxes.some((b) => b.id === st.lastSent!.boxId) ? st.lastSent.boxId : null;
+}
 
 export function setLim(on: boolean) {
   document.documentElement.classList.toggle("lim", on);
@@ -728,9 +748,16 @@ export function zeroPosition() {
 // ---------------------------------------------------------------------------
 // Invio a Elaborazione
 // ---------------------------------------------------------------------------
-export async function sendSelection() {
+/**
+ * Manda il tratto selezionato (o tutta la misura) a Elaborazione.
+ * open = true: apre subito Elaborazione sul nuovo riquadro; altrimenti resta qui (per mandarne altri).
+ */
+export async function sendSelection({ open = true } = {}) {
   const st = get();
   if (st.running) { toast("Ferma la misura prima di salvare un tratto."); return; }
+  const already = sentBoxId(st);
+  if (already != null) { if (open) goElab(already); else toast("Questo tratto è già in Elaborazione.", { action: { label: "Apri", onClick: () => goElab(already) } }); return; }
+  const key = selectionKey(st);
   const rig = st.rig, res = resolved(rig);
   const [t1s, t2s] = st.selection ?? [-Infinity, Infinity];
   // grandezze fisiche (non i dati tecnici) con almeno un valore nel tratto
@@ -750,16 +777,22 @@ export async function sendSelection() {
   const exp = labInfo();
   const session = get().session;
   const yKey = view && keys.includes(view.key) ? view.key : keys.find((k) => own.has(k)) ?? keys[0];
-  await useWorkbench.getState().addBox({
+  const box = await useWorkbench.getState().addBox({
     title: `${exp.title} · ${fmtVal(t1, 2)}–${fmtVal(t2, 2)} s`,
     experiment: exp.id, expTitle: exp.title,
     sessionId: session?.id ?? null, sessionName: st.sessionName.trim() || session?.name || "",
     t1, t2, columns, yKey, xKey: "t",
     rows: aligned.map((r) => Object.fromEntries(["t", ...keys].map((k) => [k, Number.isFinite(r[k] as number) ? (r[k] as number) : NaN]))),
   });
-  set({ sent: true });
+  set({ sent: true, lastSent: { key, boxId: box.id } });
   const mixed = rig.sensors.length > 1 && keys.some((k) => !own.has(k));
-  toast.success(`Tratto inviato (${aligned.length} punti).${mixed ? " Le grandezze degli altri sensori sono interpolate sui tempi di questo." : ""}`, { duration: 6000, action: { label: "Vai a Elaborazione →", onClick: () => goElab() } });
+  const note = mixed ? " Le grandezze degli altri sensori sono interpolate sui tempi di questo." : "";
+  if (open) {
+    goElab(box.id);
+    if (mixed) toast(note.trim(), { duration: 6000 });
+  } else {
+    toast.success(`Tratto aggiunto a Elaborazione (${aligned.length} punti).${note}`, { duration: 6000, action: { label: "Apri", onClick: () => goElab(box.id) } });
+  }
 }
 
 // ---------------------------------------------------------------------------

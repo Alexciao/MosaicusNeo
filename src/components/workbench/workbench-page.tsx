@@ -18,7 +18,7 @@ export function WorkbenchPage() {
         <div className="min-w-0 flex-1">
           <Button size="sm" variant="ghost" className="-ml-2 mb-1" onClick={() => showPage("misura")}><ArrowLeft /> Torna alla misura</Button>
           <h2 className="text-xl font-bold tracking-tight">Elaborazione</h2>
-          <p className="text-sm text-muted-foreground">Ogni riquadro è un tratto inviato da Misura. Spunta quelli da esportare.</p>
+          <p className="text-sm text-muted-foreground">Ogni riquadro è un tratto inviato da Misura, il più recente in cima. Spunta quelli da esportare.</p>
         </div>
         <div className="flex flex-wrap gap-2">
           <Button variant="outline" disabled={!boxes.length} onClick={() => useWorkbench.getState().setAllChecked(!all)}>
@@ -37,7 +37,7 @@ export function WorkbenchPage() {
         </Card>
       )}
 
-      {boxes.map((b) => <BoxCard key={b.id} box={b} />)}
+      {[...boxes].reverse().map((b) => <BoxCard key={b.id} box={b} />)}
     </div>
   );
 }
