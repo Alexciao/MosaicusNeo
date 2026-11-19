@@ -1,77 +1,50 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { ChevronDown, CloudCheck, CloudUpload, FolderOpen, RotateCcw, Trash } from "lucide-react";
-import { useCloud } from "@/lib/cloud/sync";
+import { Bluetooth, CloudCheck, CloudUpload, FolderOpen, Trash } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import type { Param } from "@/lib/mosaicus/experiments";
-import { byId } from "@/lib/mosaicus/experiments";
-import { useLab, currentExp, setParam, resetParams, openSession, removeSession } from "@/lib/lab-store";
+import { SENSORS, pinName } from "@/lib/sensors/catalog";
+import { useLab, labInfo, needsArduino, openSession, removeSession, bluetoothSetup } from "@/lib/lab-store";
+import { useCloud } from "@/lib/cloud/sync";
 import { confirm } from "@/lib/confirm";
 import { prefs } from "@/lib/prefs";
 import { cn } from "@/lib/utils";
-import { WiringBlocks } from "./wiring";
+import { PinMap, WiringBlocks } from "./wiring";
+import { RigEditor } from "./rig-editor";
 
-function NumberParam({ p, value }: { p: Param; value: number }) {
-  const [text, setText] = useState(String(value));
-  const commit = () => {
-    const v = parseFloat(text.replace(",", "."));
-    if (!Number.isFinite(v)) { setText(String(value)); return; }
-    if (v !== value) setParam(p.key, v);
-  };
+/** Collegamenti del montaggio: mappa dei pin, uno schema per sensore, Bluetooth facoltativo. */
+function RigWiring() {
+  const rig = useLab((s) => s.rig);
+  const labId = useLab((s) => s.labId);
+  const linkKind = useLab((s) => s.linkKind);
+  const ready = useLab((s) => s.ready);
+  const running = useLab((s) => s.running);
+  const info = labInfo(labId);
+  const blocks = rig.sensors.flatMap((s) => {
+    const def = SENSORS[s.type];
+    const pins = Object.fromEntries(def.pins.map((p) => [p.key, pinName(s.pins[p.key])]));
+    return def.wiring(pins, s.options).map((b) => ({ ...b, title: rig.sensors.length > 1 ? `${b.title} · ${s.label?.trim() || def.short}` : b.title }));
+  });
   return (
-    <Input id={`param-${p.key}`} type="number" inputMode="decimal" step={p.step ?? "any"} min={p.min}
-      value={text} onChange={(e) => setText(e.target.value)} onBlur={commit}
-      onKeyDown={(e) => { if (e.key === "Enter") commit(); }} className="h-8 tabular" />
-  );
-}
-
-function ParamRow({ p }: { p: Param }) {
-  const value = useLab((s) => s.params[p.key]);
-  return (
-    <div className="flex flex-col gap-1.5">
-      <Label htmlFor={`param-${p.key}`} className="text-xs leading-snug font-medium text-muted-foreground">
-        {p.label}{p.unit ? <span className="font-normal"> ({p.unit})</span> : null}
-      </Label>
-      {p.type === "select" ? (
-        <Select value={String(value)} onValueChange={(v) => v != null && setParam(p.key, String(v))} items={Object.fromEntries(p.options!)}>
-          <SelectTrigger id={`param-${p.key}`} size="sm" className="w-full"><SelectValue /></SelectTrigger>
-          <SelectContent>{p.options!.map(([v, l]) => <SelectItem key={v} value={v}>{l}</SelectItem>)}</SelectContent>
-        </Select>
-      ) : (
-        <NumberParam key={String(value)} p={p} value={Number(value)} />
+    <div className="flex flex-col gap-3">
+      <PinMap rig={rig} />
+      <WiringBlocks blocks={[...blocks, ...(info.preset?.tips ?? [])]} />
+      {needsArduino(rig) && (
+        <details className="rounded-lg border p-3">
+          <summary className="flex cursor-pointer items-center gap-1.5 text-sm font-semibold"><Bluetooth className="size-4" /> Senza cavo: Bluetooth HC-06 (facoltativo)</summary>
+          <div className="pt-2">
+            <WiringBlocks blocks={[{ title: "HC-06", schematic: "hc06", text: "Con un power bank su Arduino e l'HC-06, il telefono Android si collega senza cavo: Chrome → «Collega via Bluetooth». Una volta sola, collegati via USB: «Configura HC-06» (nome «MosaicusNeo», 115200 baud), poi associa «MosaicusNeo» nelle impostazioni Bluetooth (PIN 1234). Mentre carichi il firmware, stacca il filo TXD da D0." }]} />
+            {linkKind === "arduino" && ready && (
+              <Button size="sm" variant="outline" className="mt-2" disabled={running} onClick={() => void bluetoothSetup()}>
+                <Bluetooth /> Configura HC-06
+              </Button>
+            )}
+          </div>
+        </details>
       )}
     </div>
-  );
-}
-
-function ParamsForm() {
-  const expId = useLab((s) => s.expId);
-  const [adv, setAdv] = useState(false);
-  const exp = currentExp();
-  void expId;
-  const basic = exp.params.filter((p) => !p.advanced), advanced = exp.params.filter((p) => p.advanced);
-  return (
-    <form className="flex flex-col gap-3" onSubmit={(e) => e.preventDefault()}>
-      {basic.map((p) => <ParamRow key={`${exp.id}-${p.key}`} p={p} />)}
-      {!!advanced.length && (
-        <Collapsible open={adv} onOpenChange={setAdv} className="rounded-lg border">
-          <CollapsibleTrigger className="flex w-full items-center gap-2 px-3 py-2 text-sm font-semibold">
-            <ChevronDown className={cn("size-4 transition-transform", !adv && "-rotate-90")} /> Parametri avanzati
-          </CollapsibleTrigger>
-          <CollapsibleContent className="flex flex-col gap-3 border-t px-3 pt-3 pb-3">
-            {advanced.map((p) => <ParamRow key={`${exp.id}-${p.key}`} p={p} />)}
-            <Button type="button" size="sm" variant="outline" className="self-start" onClick={resetParams}><RotateCcw /> Ripristina valori predefiniti</Button>
-          </CollapsibleContent>
-        </Collapsible>
-      )}
-    </form>
   );
 }
 
@@ -84,7 +57,7 @@ function Notebook() {
   return (
     <ul className="flex flex-col gap-1.5">
       {sessions.map((s) => (
-        <li key={s.id} className={cn("flex items-center gap-2 rounded-lg border px-3 py-2", current === s.id && "border-primary/30 bg-accent/40")}>
+        <li key={s.id} className={cn("flex items-center gap-2 rounded-lg border px-3 py-2", current === s.id && "border-primary/30 bg-primary/5")}>
           <div className="min-w-0 flex-1">
             <b className="flex items-center gap-1.5 truncate text-sm">
               <span className="truncate">{s.name}</span>
@@ -93,7 +66,7 @@ function Notebook() {
                 : <CloudCheck className="size-3.5 shrink-0 text-success" aria-label="salvata nel cloud" />)}
             </b>
             <small className="block truncate text-xs text-muted-foreground">
-              {byId(s.experiment)?.title ?? ""} · {new Date(s.created).toLocaleString("it-IT", { dateStyle: "short", timeStyle: "short" })} · {s.n} punti
+              {s.labTitle} · {new Date(s.created).toLocaleString("it-IT", { dateStyle: "short", timeStyle: "short" })} · {s.n} letture
             </small>
           </div>
           <Button size="icon-sm" variant="ghost" aria-label={`Apri ${s.name}`} title="Apri" onClick={() => void openSession(s.id)}><FolderOpen /></Button>
@@ -115,7 +88,7 @@ function SerialMonitor() {
   useEffect(() => { const el = ref.current; if (el) el.scrollTop = el.scrollHeight; }, [log]);
   return (
     <div className="flex flex-col gap-2">
-      <p className="text-xs text-muted-foreground">Le righe grezze che arrivano dal dispositivo: il dato «com&apos;è», prima di ogni conversione.</p>
+      <p className="text-xs text-muted-foreground">Le righe grezze che arrivano da Arduino: il dato «com&apos;è», prima di ogni conversione. «D,slot,t,…» sono le letture dei sensori.</p>
       <pre ref={ref} className="h-72 overflow-auto rounded-lg bg-screen p-3 font-mono text-[0.72rem] leading-relaxed text-lime/90">
         {log.length ? log.join("\n") : "In attesa di dati…"}
       </pre>
@@ -124,16 +97,15 @@ function SerialMonitor() {
 }
 
 export function SidePanel() {
-  const expId = useLab((s) => s.expId);
-  const exp = currentExp();
-  void expId;
-  const tabs = [
-    !exp.kind && exp.params.length ? ["params", "Parametri"] : null,
-    ["wiring", "Collegamenti"],
-    !exp.kind ? ["notebook", "Quaderno"] : null,
-    exp.source !== "audio" ? ["serial", "Seriale"] : null,
-  ].filter(Boolean) as [string, string][];
-  const [tab, setTab] = useState(() => prefs.get("mosaicus.sideTab", "params"));
+  const labId = useLab((s) => s.labId);
+  const rig = useLab((s) => s.rig);
+  const info = labInfo(labId);
+  const ins = info.instrument;
+  const tabs = (ins
+    ? [["wiring", "Collegamenti"], ins.source !== "audio" ? ["serial", "Seriale"] : null]
+    : [["sensors", `Sensori${rig.sensors.length ? ` (${rig.sensors.length})` : ""}`], ["wiring", "Collegamenti"], ["notebook", "Quaderno"], needsArduino(rig) ? ["serial", "Seriale"] : null]
+  ).filter(Boolean) as [string, string][];
+  const [tab, setTab] = useState(() => prefs.get("mosaicus.sideTab", "sensors"));
   const active = tabs.some(([id]) => id === tab) ? tab : tabs[0][0];
   return (
     <Card className="gap-0 p-0">
@@ -144,8 +116,8 @@ export function SidePanel() {
           </TabsList>
         </div>
         <div className="p-4">
-          <TabsContent value="params"><ParamsForm /></TabsContent>
-          <TabsContent value="wiring"><WiringBlocks blocks={exp.wiring} /></TabsContent>
+          <TabsContent value="sensors"><RigEditor /></TabsContent>
+          <TabsContent value="wiring">{ins ? <WiringBlocks blocks={ins.wiring} /> : <RigWiring />}</TabsContent>
           <TabsContent value="notebook"><Notebook /></TabsContent>
           <TabsContent value="serial"><SerialMonitor /></TabsContent>
         </div>

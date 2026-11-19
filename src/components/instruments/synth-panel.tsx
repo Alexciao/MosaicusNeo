@@ -18,7 +18,7 @@ import {
 } from "@/lib/mosaicus/synth-controller";
 import { noteOf, noteFreq, NOTE_IT } from "@/lib/mosaicus/dsp.js";
 import { fmtIt } from "@/lib/mosaicus/screen.js";
-import type { Experiment } from "@/lib/mosaicus/experiments";
+import type { Instrument } from "@/lib/sensors/presets";
 import { instrumentApi, registerInstrument } from "@/lib/lab-store";
 import { cn } from "@/lib/utils";
 import { Segmented } from "./scope-panel";
@@ -65,7 +65,7 @@ function PianoKeys({ onKey, activeF }: { onKey: (n: number) => void; activeF: nu
   );
 }
 
-export function SynthPanel({ exp }: { exp: Experiment }) {
+export function SynthPanel({ exp }: { exp: Instrument }) {
   const [, bump] = useReducer((x: number) => x + 1, 0);
   const ctl = useMemo(() => createSynthController({ ...instrumentApi(exp), toast: (m: string) => toast(m) }, () => bump()), [exp]);
   const scrRef = useRef<HTMLCanvasElement>(null);

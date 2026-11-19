@@ -6,7 +6,7 @@ Copyright (c) 2026 Ermes Ferdinando Rosi — https://ermesfrosi.it
 LICENZA
 -------
 
-Mosaicus è software libero, distribuito con licenza MIT: il testo completo è
+MosaicusNeo, basato su Mosaicus, è software libero, distribuito con licenza MIT: il testo completo è
 nel file LICENSE.txt, nella stessa cartella di questo.
 In breve: puoi usarlo, copiarlo, modificarlo e ridistribuirlo, anche a scuola
 o in un'attività commerciale, purché conservi l'avviso di copyright e il testo
@@ -20,16 +20,18 @@ PRIVACY
 Il microfono serve solo a misurare il suono in tempo reale: l'audio non viene
 registrato né inviato a nessuno e resta sul tuo dispositivo. Il microfono si
 spegne quando lasci lo strumento o cambi sorgente.
-Mosaicus non usa cookie, statistiche di visita né servizi esterni. Le misure e
-il Quaderno restano nel browser di questo dispositivo (se cancelli i dati di
-navigazione, si perdono) e ne escono solo se li esporti tu.
+MosaicusNeo non usa cookie di profilazione né statistiche di visita. Senza
+account le misure e il Quaderno restano nel browser di questo dispositivo (se
+cancelli i dati di navigazione, si perdono) e ne escono solo se li esporti tu.
+Con un account facoltativo, i dati dell'account si salvano su Supabase e sono
+visibili solo a te. Le mappe usano le tessere di OpenStreetMap.
 
 CREDITI
 -------
 
-Versione "Neo": interfaccia riscritta con Next.js, React, shadcn/ui, Base UI,
-Tailwind CSS, lucide (icone), zustand, next-themes e sonner, tutti con licenza
-MIT (o ISC per lucide). Carattere tipografico: Inter (Rasmus Andersson), licenza
+MosaicusNeo: interfaccia riscritta con Next.js, React, shadcn/ui, Base UI,
+Tailwind CSS, lucide (icone), zustand, next-themes e sonner, Leaflet (BSD-2) e
+supabase-js, tutti con licenze libere (MIT, ISC per lucide). Carattere tipografico: Inter (Rasmus Andersson), licenza
 SIL Open Font License 1.1, incorporato da next/font.
 I motori di calcolo (fit, DSP, grafici su canvas, formule, export XLSX) sono
 quelli originali di Mosaicus e non usano librerie di terzi.

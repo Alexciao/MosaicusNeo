@@ -1,4 +1,4 @@
-// Mosaicus — motore del synth: una sola sorgente di suono per tutta l'app.
+// MosaicusNeo — motore del synth: una sola sorgente di suono per tutta l'app.
 //
 //  • Timbro: somma di 8 armoniche (sintesi additiva). Le forme d'onda classiche sono ricette
 //    di armoniche (serie di Fourier); gli strumenti sono ricette approssimate.

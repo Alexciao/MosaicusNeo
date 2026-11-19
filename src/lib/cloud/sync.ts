@@ -51,7 +51,7 @@ const SETTINGS_TS = "mosaicus.cloud.settingsUpdated";
 interface Tomb { table: Store; id: string; owner: string }
 
 /** Preferenze che seguono l'account (non quelle del singolo dispositivo: tema, LIM, pagina). */
-const SYNCED = ["mosaicus.params.", "mosaicus.visible.", "mosaicus.synth", "mosaicus.scope.", "mosaicus.mapKey"];
+const SYNCED = ["mosaicus.rig", "mosaicus.visible.", "mosaicus.synth", "mosaicus.scope.", "mosaicus.mapKey"];
 const isSynced = (k: string) => SYNCED.some((p) => k.startsWith(p));
 
 // ---------------------------------------------------------------------------

@@ -1,10 +1,10 @@
-// Mosaicus — service worker: l'app funziona anche senza rete.
+// MosaicusNeo — service worker: l'app funziona anche senza rete.
 //  • pagine: prima la rete (così arrivano gli aggiornamenti), poi la copia in cache
 //  • file statici di Next (/_next/static, con il nome che cambia a ogni versione), icone,
 //    caratteri: prima la cache, poi la rete
 // Quando cambia CACHE le copie vecchie vengono cancellate.
-const CACHE = 'mosaicus-neo-v1';
-const SHELL = ['/', '/manifest.webmanifest', '/icons/icon.svg', '/icons/icon-192.png', '/icons/icon-512.png', '/firmware/mosaicus_firmware.ino'];
+const CACHE = 'mosaicus-neo-v2';
+const SHELL = ['/', '/manifest.webmanifest', '/icons/icon.svg', '/icons/icon-192.png', '/icons/icon-512.png', '/firmware/mosaicusneo_firmware.ino'];
 
 self.addEventListener('install', (e) => {
   e.waitUntil(caches.open(CACHE).then((c) => c.addAll(SHELL)).then(() => self.skipWaiting()));

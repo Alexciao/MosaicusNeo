@@ -1,4 +1,4 @@
-// Mosaicus — synth: come lo suoni (tastiera, nastro, inclinazione, ultrasuoni) e i disegni
+// MosaicusNeo — synth: come lo suoni (tastiera, nastro, inclinazione, ultrasuoni) e i disegni
 // (schermo della forma d'onda, nastro delle note). Il motore audio è in synth-engine.js,
 // il pannello React in components/instruments/synth-panel.tsx.
 //
@@ -117,8 +117,8 @@ export function createSynthController(api: InstrumentApi & { toast: (m: string) 
   const stopTilt = () => { window.removeEventListener("deviceorientation", onTilt); L.tiltOn = false; };
 
   function onLine(line: string) {
-    if (SY.mode !== "sonar" || !L.acq || !line.startsWith("S,")) return false;
-    const echo = Number(line.split(",")[2]);
+    if (SY.mode !== "sonar" || !L.acq || !line.startsWith("D,0,")) return false;
+    const echo = Number(line.split(",")[3]);
     if (!(echo > 0)) return true;
     const d = (echo * 1e-6 * V_SOUND) / 2;
     if (d > 1.2) return true;
@@ -144,7 +144,8 @@ export function createSynthController(api: InstrumentApi & { toast: (m: string) 
     if (SY.mode === "tilt") { if (!(await startTilt())) return; L.playing = true; setU(L.u ?? 0.5, true); }
     if (SY.mode === "sonar") {
       if (!api.ready()) { api.toast("Prima collega Arduino (o il simulatore) con i pulsanti in alto."); return; }
-      L.acq = true; L.dBuf = []; L.playing = true; await api.send("START,SONAR,30"); noteOn(SY.f);
+      L.acq = true; L.dBuf = []; L.playing = true; // un HC-SR04 con TRIG su D12 ed ECHO su D11, letto ogni 30 ms
+      await api.send("CFG,CLEAR"); await api.send("CFG,ADD,0,SONAR,30,12,11,0"); await api.send("START"); noteOn(SY.f);
     }
     paint();
   }

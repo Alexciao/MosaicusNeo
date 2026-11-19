@@ -1,4 +1,4 @@
-// Mosaicus — esportazione: CSV (Excel italiano o standard) e XLSX nativo.
+// MosaicusNeo — esportazione: CSV (Excel italiano o standard) e XLSX nativo.
 // Il file .xlsx è costruito a mano (zip "store" + XML di Office Open XML), senza librerie.
 
 /** Testo CSV. it=true → separatore ';' e virgola decimale (Excel in italiano). */

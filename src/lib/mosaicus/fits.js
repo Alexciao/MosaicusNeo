@@ -1,4 +1,4 @@
-// Mosaicus — motore di fit unico, uguale per tutti gli esperimenti.
+// MosaicusNeo — motore di fit unico, uguale per tutti gli esperimenti.
 //
 // Ogni modello restituisce: parametri con incertezza standard (σ, dalla matrice di
 // covarianza s²·(JᵀJ)⁻¹), equazione con i numeri, R², residui e la curva.

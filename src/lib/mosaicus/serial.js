@@ -1,4 +1,4 @@
-// Mosaicus — collegamento con Arduino tramite Web Serial API (Chrome/Edge su computer).
+// MosaicusNeo — collegamento con Arduino tramite Web Serial API (Chrome/Edge su computer).
 // Stessa interfaccia del simulatore: open(), write(cmd), close(), onLine(cb), onClose(cb).
 
 export const serialSupported = () => 'serial' in navigator;

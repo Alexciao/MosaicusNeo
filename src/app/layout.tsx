@@ -10,11 +10,11 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "Mosaicus · micro-laboratorio di fisica",
+  title: "MosaicusNeo · micro-laboratorio di fisica",
   description:
     "Esperimenti di fisica con Arduino e con i sensori del telefono: grafici in tempo reale, oscilloscopio, synth, analisi dei dati ed esportazione in Excel. Funziona anche senza rete.",
-  applicationName: "Mosaicus",
-  appleWebApp: { capable: true, title: "Mosaicus", statusBarStyle: "black-translucent" },
+  applicationName: "MosaicusNeo",
+  appleWebApp: { capable: true, title: "MosaicusNeo", statusBarStyle: "black-translucent" },
 };
 
 export const viewport: Viewport = {

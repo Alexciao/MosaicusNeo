@@ -16,7 +16,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 import { createScopeEngine, DT_STEPS, EXAMPLES, N_ARD, WIN_STEPS, LIVE, slotColor, type Circuit } from "@/lib/mosaicus/scope-engine";
 import { fmtIt } from "@/lib/mosaicus/screen.js";
 import { sig, noteOf } from "@/lib/mosaicus/dsp.js";
-import type { Experiment } from "@/lib/mosaicus/experiments";
+import type { Instrument } from "@/lib/sensors/presets";
 import { instrumentApi, registerInstrument } from "@/lib/lab-store";
 import { cn } from "@/lib/utils";
 import { useState } from "react";
@@ -31,7 +31,7 @@ export function Segmented<T extends string>({ value, onChange, items, label, cla
   );
 }
 
-export function ScopePanel({ exp }: { exp: Experiment }) {
+export function ScopePanel({ exp }: { exp: Instrument }) {
   const [, bump] = useReducer((x: number) => x + 1, 0);
   const engine = useMemo(() => createScopeEngine({ ...instrumentApi(exp), toast: (m: string) => toast(m) }, () => bump()), [exp]);
   const waveRef = useRef<HTMLCanvasElement>(null);

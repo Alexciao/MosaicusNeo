@@ -1,5 +1,5 @@
 "use client";
-// Mosaicus — riquadri della pagina Elaborazione.
+// MosaicusNeo — riquadri della pagina Elaborazione.
 // Ogni tratto inviato da Misura (o da uno strumento) diventa un "riquadro": i suoi dati,
 // gli assi scelti, le colonne calcolate con una formula e le analisi salvate.
 // Lo stato vive qui (zustand) e si salva in IndexedDB poco dopo ogni modifica.
@@ -173,6 +173,6 @@ export function exportCheckedBoxes() {
   }
   const all = [{ name: "Riepilogo", rows: summary }, ...(analyses.length > 1 ? [{ name: "Analisi", rows: analyses }] : []), ...sheets];
   const d = new Date(), p2 = (n: number) => String(n).padStart(2, "0");
-  download(toXLSX(all), `mosaicus_elaborazione_${d.getFullYear()}-${p2(d.getMonth() + 1)}-${p2(d.getDate())}_${p2(d.getHours())}-${p2(d.getMinutes())}.xlsx`);
+  download(toXLSX(all), `mosaicusneo_elaborazione_${d.getFullYear()}-${p2(d.getMonth() + 1)}-${p2(d.getDate())}_${p2(d.getHours())}-${p2(d.getMinutes())}.xlsx`);
   toast.success(`Esportati ${sel.length} riquadri in un unico file Excel.`);
 }

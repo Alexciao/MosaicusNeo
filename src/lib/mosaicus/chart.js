@@ -1,4 +1,4 @@
-// Mosaicus — grafici su <canvas>, senza librerie esterne.
+// MosaicusNeo — grafici su <canvas>, senza librerie esterne.
 //
 // ChartGroup collega più grafici impilati che condividono l'asse dei tempi:
 // stesso intervallo visibile (zoom), stessa selezione, stesso mirino.

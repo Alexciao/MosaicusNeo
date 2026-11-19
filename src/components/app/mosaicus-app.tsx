@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { ChartLine, FlaskConical, LayoutGrid, Square, Volume2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { useLab, boot, showPage, selectExperiment } from "@/lib/lab-store";
+import { useLab, boot, showPage, selectLab } from "@/lib/lab-store";
 import { useWorkbench } from "@/lib/workbench-store";
 import { generatorState, onGeneratorChange, stopGenerator } from "@/lib/mosaicus/synth-engine.js";
 import { fmtVal } from "@/lib/prefs";
@@ -36,14 +36,14 @@ function MobileNav() {
 /** Spia del synth acceso, visibile nelle altre pagine (il suono continua). */
 function GenChip() {
   const [, setTick] = useState(0);
-  const expId = useLab((s) => s.expId);
+  const labId = useLab((s) => s.labId);
   const page = useLab((s) => s.page);
   useEffect(() => { const off = onGeneratorChange(() => setTick((t) => t + 1)); return () => { off(); }; }, []);
   const G = generatorState();
-  if (!G.on || (expId === "synth" && page === "misura")) return null;
+  if (!G.on || (labId === "synth" && page === "misura")) return null;
   return (
     <div className="fixed right-4 bottom-20 z-40 flex items-center gap-1 rounded-full border bg-screen p-1 pl-3 text-lime shadow-lg md:bottom-4">
-      <button type="button" className="flex items-center gap-2 text-sm font-semibold" onClick={() => { showPage("misura"); selectExperiment("synth"); }} title="Apri il synth">
+      <button type="button" className="flex items-center gap-2 text-sm font-semibold" onClick={() => { showPage("misura"); selectLab("synth"); }} title="Apri il synth">
         <Volume2 className="size-4" />
         {fmtVal(G.f, G.f < 100 ? 1 : 0)} Hz{G.two ? ` + ${fmtVal(G.f + G.df, 1)} Hz` : ""}
       </button>
@@ -66,7 +66,7 @@ export function MosaicusApp() {
       <AppHeader />
       <main className="flex-1">{page === "elab" ? <WorkbenchPage /> : <MeasurePage />}</main>
       <footer className="hidden px-4 py-6 text-center text-xs text-muted-foreground md:block">
-        Mosaicus · software libero con licenza MIT · © 2026 Ermes Ferdinando Rosi ·{" "}
+        MosaicusNeo · basato su Mosaicus di Ermes Ferdinando Rosi · software libero con licenza MIT ·{" "}
         <a className="underline" href="https://github.com/Alexciao/MosaicusNeo" target="_blank" rel="noopener">codice sorgente</a>
       </footer>
       <MobileNav />

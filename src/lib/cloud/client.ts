@@ -1,5 +1,5 @@
 "use client";
-// Client Supabase. Se le variabili d'ambiente mancano, Mosaicus funziona solo in locale:
+// Client Supabase. Se le variabili d'ambiente mancano, MosaicusNeo funziona solo in locale:
 // niente pulsante «Accedi», niente sincronizzazione.
 
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";

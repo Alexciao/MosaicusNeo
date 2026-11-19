@@ -52,7 +52,7 @@ function AuthDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (o: b
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-sm">
         <DialogHeader>
-          <DialogTitle>{tab === "reset" ? "Password dimenticata" : "Account Mosaicus"}</DialogTitle>
+          <DialogTitle>{tab === "reset" ? "Password dimenticata" : "Account MosaicusNeo"}</DialogTitle>
           <DialogDescription>
             {tab === "reset" ? "Scrivi l'email dell'account: ti mandiamo il link per sceglierne una nuova."
               : "Facoltativo. Con un account misure e riquadri si salvano nel cloud e li ritrovi su tutti i tuoi dispositivi. Senza, restano in questo browser."}

@@ -1,4 +1,4 @@
-// Mosaicus — elaborazione dei segnali per l'oscilloscopio, il generatore e lo strumento.
+// MosaicusNeo — elaborazione dei segnali per l'oscilloscopio, il generatore e lo strumento.
 // Funzioni pure (niente DOM, niente Web Audio): si provano con node nei test.
 //
 //  • fft            trasformata di Fourier veloce (radix 2, sul posto)

@@ -1,4 +1,4 @@
-// Mosaicus — oscilloscopio (motore, senza interfaccia).
+// MosaicusNeo — oscilloscopio (motore, senza interfaccia).
 //
 // Due modalità con la stessa interfaccia:
 //  • 'audio'   : microfono o suoni di esempio / synth dell'app (Web Audio, ~48 000 campioni/s)

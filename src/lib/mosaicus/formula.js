@@ -1,4 +1,4 @@
-// Mosaicus — formule per le colonne calcolate, alla maniera di un foglio di calcolo.
+// MosaicusNeo — formule per le colonne calcolate, alla maniera di un foglio di calcolo.
 // Analizzatore a discesa ricorsiva: niente eval(), solo ciò che è previsto qui.
 //
 //   Numeri:    3   0,5   1.5   2e-3        (la virgola vale come separatore decimale)

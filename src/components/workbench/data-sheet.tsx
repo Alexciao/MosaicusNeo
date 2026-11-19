@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { compile } from "@/lib/mosaicus/formula.js";
-import { QUANTITIES } from "@/lib/mosaicus/experiments";
+import { quantityOf } from "@/lib/sensors/quantities";
 import { useWorkbench, axisLabel, type Box } from "@/lib/workbench-store";
 import { confirm } from "@/lib/confirm";
 import { fmtCell } from "@/lib/prefs";
@@ -87,7 +87,7 @@ export function DataSheet({ box, rows, errors }: { box: Box; rows: Record<string
                       <th key={c.key} className={cn("min-w-28 px-3 py-2 text-right align-top font-medium", c.key === box.xKey && "bg-sky-500/8", c.key === box.yKey && "bg-primary/8")}>
                         <div className="font-semibold">{axisLabel(c)}</div>
                         <div className="truncate text-[0.7rem] font-normal text-muted-foreground" title={isComp(c.key) ? "formula" : undefined}>
-                          {isComp(c.key) ? `= ${box.computed.find((k) => k.key === c.key)!.formula}` : QUANTITIES[c.key]?.name || "misurata"}
+                          {isComp(c.key) ? `= ${box.computed.find((k) => k.key === c.key)!.formula}` : (c as { name?: string }).name || quantityOf(c.key)?.name || "misurata"}
                         </div>
                         <div className="mt-1 flex justify-end gap-1">
                           {axBtn("x", c.key)}{axBtn("y", c.key)}

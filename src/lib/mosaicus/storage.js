@@ -1,4 +1,4 @@
-// Mosaicus — archivio locale (IndexedDB, resta nel browser di questo computer).
+// MosaicusNeo — archivio locale (IndexedDB, resta nel browser di questo computer).
 //  • sessions: le misure complete (Quaderno delle misure)
 //  • boxes:    i tratti selezionati e salvati, con analisi e colonne calcolate (pagina Elaborazione)
 const DB = 'mosaicus', VER = 2;

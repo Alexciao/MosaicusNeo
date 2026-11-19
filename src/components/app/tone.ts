@@ -1,4 +1,4 @@
-import type { Tone } from "@/lib/mosaicus/experiments";
+import type { Tone } from "@/lib/sensors/types";
 
 export const toneBg: Record<Tone, string> = {
   lime: "bg-tone-lime",

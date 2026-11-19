@@ -2,21 +2,21 @@
 
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useTheme } from "next-themes";
-import { ArrowRight, ChevronDown, Download, FileSpreadsheet, FileText, Image as ImageIcon, MapPinned, Route, Maximize2, Scan, Send, X, ZoomIn, ZoomOut } from "lucide-react";
+import { ChartLine, ChevronDown, Download, FileSpreadsheet, FileText, Image as ImageIcon, MapPinned, Maximize2, Route, Scan, Send, Table2, X, ZoomIn, ZoomOut } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Toggle } from "@/components/ui/toggle";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import {
+  DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Chart } from "@/lib/mosaicus/chart.js";
 import {
-  useLab, measureGroup, toggleView, currentExp, selectedRows, clearSelection, sendSelection, exportData,
-  hideDragHint, showPage, type ExportKind,
+  useLab, measureGroup, toggleView, viewsOf, columnsOf, hasMap, selectedRows, clearSelection, sendSelection, exportData,
+  hideDragHint, type ExportKind,
 } from "@/lib/lab-store";
-import { useWorkbench } from "@/lib/workbench-store";
 import { fmtCell, fmtVal } from "@/lib/prefs";
 import { cn } from "@/lib/utils";
 
@@ -30,7 +30,7 @@ function Tip({ label, children }: { label: string; children: React.ReactElement 
 }
 
 function ChartStack() {
-  const expId = useLab((s) => s.expId);
+  const rig = useLab((s) => s.rig);
   const visible = useLab((s) => s.visible);
   const rows = useLab((s) => s.rows);
   const viewId = useLab((s) => s.viewId);
@@ -38,7 +38,7 @@ function ChartStack() {
   const dragHint = useLab((s) => s.dragHint);
   const { resolvedTheme } = useTheme();
   const canvases = useRef(new Map<string, HTMLCanvasElement>());
-  const key = `${expId}|${visible.join(",")}`;
+  const key = `${rig.id}|${visible.join(",")}`;
 
   useLayoutEffect(() => {
     const g = measureGroup();
@@ -54,28 +54,28 @@ function ChartStack() {
   }, [key]);
 
   useEffect(() => {
-    const exp = currentExp();
-    const t = rows.map((r) => r.t);
+    const views = viewsOf(rig);
     const rawColor = getComputedStyle(document.documentElement).getPropertyValue("--mz-raw").trim();
     for (const ch of measureGroup().charts) {
-      const v = exp.views.find((w) => w.id === ch.viewId);
+      const v = views.find((w) => w.id === ch.viewId);
       if (!v) continue;
+      // ogni sensore ha il suo ritmo: nel grafico vanno solo le righe con questa grandezza
+      const x: number[] = [], y: number[] = [];
+      for (const r of rows) { const val = r[v.key]; if (typeof val === "number" && Number.isFinite(val)) { x.push(r.t); y.push(val); } }
       ch.setData({
-        series: [{ x: t, y: rows.map((r) => r[v.key]), label: v.sym, color: v.raw ? rawColor : undefined, mode: v.line ? "both" : "points" }],
-        xLabel: exp.xLabel, yLabel: v.yLabel,
+        series: [{ x, y, label: v.sym, color: v.raw ? rawColor : undefined, mode: v.line ? "both" : "points" }],
+        xLabel: "t (s)", yLabel: v.yLabel,
       });
     }
-  }, [rows, key, resolvedTheme]);
+  }, [rows, key, rig, resolvedTheme]);
 
+  const h = visible.length > 2 ? "h-[clamp(360px,64vh,760px)]" : "h-[clamp(300px,52vh,620px)]";
   return (
-    <div
-      className={cn("flex flex-col overflow-hidden rounded-lg border bg-[var(--mz-chart-bg)]", lim ? "h-[72vh]" : "h-[clamp(320px,58vh,680px)]")}
-      onPointerDownCapture={() => hideDragHint()}
-    >
+    <div className={cn("flex flex-col overflow-hidden rounded-lg border bg-[var(--mz-chart-bg)]", lim ? "h-[72vh]" : h)} onPointerDownCapture={() => hideDragHint()}>
       {visible.map((id, i) => {
-        const v = currentExp().views.find((w) => w.id === id);
+        const v = viewsOf(rig).find((w) => w.id === id);
         return (
-          <div key={`${expId}-${id}`} className={cn("relative min-h-0 flex-1 border-l-[3px] transition-colors", id === viewId && visible.length > 1 ? "border-l-primary" : "border-l-transparent", i > 0 && "border-t")}
+          <div key={`${rig.id}-${id}`} className={cn("relative min-h-0 flex-1 border-l-[3px] transition-colors", id === viewId && visible.length > 1 ? "border-l-primary" : "border-l-transparent", i > 0 && "border-t")}
             style={{ flexGrow: i === visible.length - 1 ? 1.25 : 1 }}>
             <canvas ref={(el) => { if (el) canvases.current.set(id, el); else canvases.current.delete(id); }}
               aria-label={`Grafico ${v?.label ?? id}`} className="absolute inset-0 size-full touch-none" style={{ cursor: "crosshair" }} />
@@ -92,133 +92,132 @@ function ChartStack() {
   );
 }
 
-function SelectionTable() {
+/** Tabella dei dati (selezione o tutta la misura), in una finestra. */
+function DataDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (o: boolean) => void }) {
   const rows = useLab((s) => s.rows);
   const selection = useLab((s) => s.selection);
-  void rows; void selection;
-  const cols = currentExp().columns;
-  const sel = selectedRows();
-  const shown = sel.slice(0, 500);
+  void rows;
+  const cols = columnsOf();
+  const sel = open ? selectedRows() : [];
+  const shown = sel.slice(-500);
   return (
-    <>
-      {sel.length > 500 && <p className="mb-2 text-xs text-muted-foreground">Mostro le prime 500 righe di {sel.length}: l&apos;export le contiene tutte.</p>}
-      <div className="max-h-96 overflow-auto rounded-md border">
-        <Table>
-          <TableHeader className="sticky top-0 bg-card">
-            <TableRow>{cols.map((c) => <TableHead key={c.key} className="tabular">{c.head}</TableHead>)}</TableRow>
-          </TableHeader>
-          <TableBody>
-            {shown.length ? shown.map((r, i) => (
-              <TableRow key={i}>{cols.map((c) => <TableCell key={c.key} className="tabular">{fmtCell(r[c.key])}</TableCell>)}</TableRow>
-            )) : (
-              <TableRow><TableCell colSpan={cols.length} className="text-muted-foreground">Ancora nessun dato.</TableCell></TableRow>
-            )}
-          </TableBody>
-        </Table>
-      </div>
-    </>
-  );
-}
-
-function SentSegments() {
-  const sessionId = useLab((s) => s.session?.id);
-  const boxes = useWorkbench((s) => s.boxes);
-  const list = sessionId ? boxes.filter((b) => b.sessionId === sessionId) : [];
-  if (!list.length) return <p className="text-sm text-muted-foreground">Ancora nessuno per questa misura.</p>;
-  return (
-    <ul className="flex flex-col gap-1.5">
-      {list.map((b) => (
-        <li key={b.id} className="flex items-center justify-between gap-2 rounded-md border px-3 py-2">
-          <span className="min-w-0"><b className="block truncate text-sm">{b.title}</b><small className="text-muted-foreground">{b.rows.length} punti · {b.analyses.length} analisi</small></span>
-          <Button size="sm" variant="outline" onClick={() => { showPage("elab"); useWorkbench.getState().focus(b.id); }}>Apri <ArrowRight /></Button>
-        </li>
-      ))}
-    </ul>
-  );
-}
-
-function Section({ title, count, children, defaultOpen = false }: { title: string; count?: number; children: React.ReactNode; defaultOpen?: boolean }) {
-  const [open, setOpen] = useState(defaultOpen);
-  return (
-    <Collapsible open={open} onOpenChange={setOpen} className="border-t pt-2">
-      <CollapsibleTrigger className="flex w-full items-center gap-2 py-1.5 text-sm font-semibold">
-        <ChevronDown className={cn("size-4 transition-transform", !open && "-rotate-90")} />
-        {title}{count ? <span className="text-muted-foreground">({count})</span> : null}
-      </CollapsibleTrigger>
-      <CollapsibleContent className="pt-2 pb-1">{open && children}</CollapsibleContent>
-    </Collapsible>
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="flex max-h-[90svh] flex-col sm:max-w-5xl">
+        <DialogHeader>
+          <DialogTitle>Dati {selection ? "del tratto selezionato" : "della misura"}</DialogTitle>
+          <DialogDescription>
+            {sel.length} letture{sel.length > 500 ? ", qui le ultime 500 (l'export le contiene tutte)" : ""}. Ogni riga è una lettura di un sensore: le colonne degli altri restano vuote.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="min-h-0 flex-1 overflow-auto rounded-md border">
+          <Table>
+            <TableHeader className="sticky top-0 bg-card">
+              <TableRow>{cols.map((c) => <TableHead key={c.key} className="tabular whitespace-nowrap">{c.head}</TableHead>)}</TableRow>
+            </TableHeader>
+            <TableBody>
+              {shown.length ? shown.map((r, i) => (
+                <TableRow key={i}>{cols.map((c) => <TableCell key={c.key} className="tabular">{c.key in r ? fmtCell(r[c.key]) : ""}</TableCell>)}</TableRow>
+              )) : (
+                <TableRow><TableCell colSpan={cols.length} className="text-muted-foreground">Ancora nessun dato.</TableCell></TableRow>
+              )}
+            </TableBody>
+          </Table>
+        </div>
+      </DialogContent>
+    </Dialog>
   );
 }
 
 export function ChartCard() {
-  const expId = useLab((s) => s.expId);
+  const rig = useLab((s) => s.rig);
   const visible = useLab((s) => s.visible);
   const selection = useLab((s) => s.selection);
   const rows = useLab((s) => s.rows);
   const running = useLab((s) => s.running);
-  const sessionId = useLab((s) => s.session?.id);
-  const nSent = useWorkbench((s) => (sessionId ? s.boxes.filter((b) => b.sessionId === sessionId).length : 0));
-  const exp = currentExp();
-  void expId;
+  const [table, setTable] = useState(false);
+  const views = viewsOf(rig);
+  const physical = views.filter((v) => !v.raw), raw = views.filter((v) => v.raw);
+  const map = hasMap(rig);
   const nSel = selection ? selectedRows().length : rows.length;
   const g = measureGroup();
   const doExport = (k: ExportKind) => void exportData(k);
+  const shownNames = views.filter((v) => visible.includes(v.id)).map((v) => v.sym).join(", ");
 
   return (
-    <Card className="flex flex-col gap-3 p-4">
+    <Card className="gap-3 p-4">
       <div className="flex flex-wrap items-center gap-2">
-        <div role="group" aria-label="Grafici da mostrare" className="flex flex-wrap gap-1">
-          {exp.views.map((v) => (
-            <Toggle key={v.id} size="sm" variant="outline" pressed={visible.includes(v.id)} onPressedChange={() => toggleView(v.id)}
-              className={cn("aria-pressed:border-primary aria-pressed:bg-primary aria-pressed:text-primary-foreground hover:aria-pressed:bg-primary/90 hover:aria-pressed:text-primary-foreground", v.raw && "italic")}>
-              {v.label}
-            </Toggle>
-          ))}
-        </div>
-        <div role="group" aria-label="Zoom sull'asse dei tempi" className="ml-auto flex gap-1">
-          <Tip label="Ingrandisci (anche: pizzico, Ctrl + rotella)"><Button size="icon-sm" variant="outline" onClick={() => g.zoomCenter(0.6)} aria-label="Ingrandisci"><ZoomIn /></Button></Tip>
-          <Tip label="Riduci"><Button size="icon-sm" variant="outline" onClick={() => g.zoomCenter(1 / 0.6)} aria-label="Riduci"><ZoomOut /></Button></Tip>
-          <Tip label="Zoom sulla selezione"><Button size="icon-sm" variant="outline" aria-label="Zoom sulla selezione" onClick={() => { if (!g.zoomToSelection()) toast("Prima seleziona un tratto trascinando su un grafico."); }}><Scan /></Button></Tip>
-          <Tip label="Mostra tutti i dati"><Button size="icon-sm" variant="outline" onClick={() => g.fitAll()} aria-label="Adatta"><Maximize2 /></Button></Tip>
+        <DropdownMenu>
+          <DropdownMenuTrigger render={<Button size="sm" variant="outline" className="max-w-full" />}>
+            <ChartLine /> <span className="truncate">Grafici: {shownNames}</span> <ChevronDown />
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="start" className="w-64">
+            <DropdownMenuGroup>
+              <DropdownMenuLabel>Grandezze</DropdownMenuLabel>
+              {physical.map((v) => (
+                <DropdownMenuCheckboxItem key={v.id} checked={visible.includes(v.id)} onCheckedChange={() => toggleView(v.id)} closeOnClick={false}>
+                  {v.yLabel}
+                </DropdownMenuCheckboxItem>
+              ))}
+            </DropdownMenuGroup>
+            {!!raw.length && (
+              <>
+                <DropdownMenuSeparator />
+                <DropdownMenuGroup>
+                  <DropdownMenuLabel>Dati grezzi dei sensori</DropdownMenuLabel>
+                  {raw.map((v) => (
+                    <DropdownMenuCheckboxItem key={v.id} checked={visible.includes(v.id)} onCheckedChange={() => toggleView(v.id)} closeOnClick={false}>
+                      {v.yLabel}
+                    </DropdownMenuCheckboxItem>
+                  ))}
+                </DropdownMenuGroup>
+              </>
+            )}
+          </DropdownMenuContent>
+        </DropdownMenu>
+        <div className="ml-auto flex items-center gap-1">
+          <div role="group" aria-label="Zoom sull'asse dei tempi" className="flex rounded-lg border">
+            <Tip label="Ingrandisci (anche: pizzico, Ctrl + rotella)"><Button size="icon-sm" variant="ghost" onClick={() => g.zoomCenter(0.6)} aria-label="Ingrandisci"><ZoomIn /></Button></Tip>
+            <Tip label="Riduci"><Button size="icon-sm" variant="ghost" onClick={() => g.zoomCenter(1 / 0.6)} aria-label="Riduci"><ZoomOut /></Button></Tip>
+            <Tip label="Zoom sulla selezione"><Button size="icon-sm" variant="ghost" aria-label="Zoom sulla selezione" onClick={() => { if (!g.zoomToSelection()) toast("Prima seleziona un tratto trascinando su un grafico."); }}><Scan /></Button></Tip>
+            <Tip label="Mostra tutti i dati"><Button size="icon-sm" variant="ghost" onClick={() => g.fitAll()} aria-label="Adatta"><Maximize2 /></Button></Tip>
+          </div>
+          <Tip label="Tabella dei dati"><Button size="icon-sm" variant="outline" aria-label="Tabella dei dati" disabled={!rows.length} onClick={() => setTable(true)}><Table2 /></Button></Tip>
+          <DropdownMenu>
+            <Tip label={selection ? "Esporta la selezione" : "Esporta tutta la misura"}>
+              <DropdownMenuTrigger render={<Button size="icon-sm" variant="outline" aria-label="Esporta" disabled={!rows.length} />}><Download /></DropdownMenuTrigger>
+            </Tip>
+            <DropdownMenuContent align="end" className="w-64">
+              <DropdownMenuGroup>
+                <DropdownMenuLabel>{selection ? "Esporta la selezione" : "Esporta tutta la misura"}</DropdownMenuLabel>
+                <DropdownMenuItem onClick={() => doExport("xlsx")}><FileSpreadsheet /> Excel (.xlsx)</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => doExport("csv-it")}><FileText /> CSV per Excel in italiano</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => doExport("csv")}><FileText /> CSV standard (Fogli Google, Python)</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => doExport("png")}><ImageIcon /> Immagine dei grafici (.png)</DropdownMenuItem>
+                {map && <DropdownMenuItem onClick={() => doExport("gpx")}><Route /> Traccia GPX</DropdownMenuItem>}
+                {map && <DropdownMenuItem onClick={() => doExport("geojson")}><MapPinned /> GeoJSON</DropdownMenuItem>}
+              </DropdownMenuGroup>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </div>
 
       <ChartStack />
 
-      <div className={cn("flex flex-wrap items-center gap-2 rounded-lg px-1 py-1 transition-colors", selection && !running && "bg-[var(--mz-sel)] px-2")}>
-        <p className="text-sm">
-          {!rows.length ? <>Collega e premi <b>Avvia</b>.</>
-            : selection ? <><b className="tabular">{fmtVal(selection[0], 2)} – {fmtVal(selection[1], 2)} s</b> · {nSel} punti</>
-              : <span className="text-muted-foreground">Trascina su un grafico per scegliere un tratto.</span>}
-        </p>
-        <div className="ml-auto flex flex-wrap items-center gap-2">
-          {selection && <Button size="sm" variant="ghost" onClick={clearSelection}><X /> Annulla</Button>}
-          <Button size="sm" disabled={!rows.length || running} onClick={() => void sendSelection()}>
-            <Send /> {selection ? "Invia il tratto a Elaborazione" : "Invia tutta la misura"}
-          </Button>
-          <DropdownMenu>
-            <DropdownMenuTrigger render={<Button size="sm" variant="outline" disabled={!rows.length} />}>
-              <Download /> {selection ? "Esporta selezione" : "Esporta tutto"} <ChevronDown />
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-64">
-              <DropdownMenuItem onClick={() => doExport("xlsx")}><FileSpreadsheet /> Excel (.xlsx)</DropdownMenuItem>
-              <DropdownMenuItem onClick={() => doExport("csv-it")}><FileText /> CSV per Excel in italiano</DropdownMenuItem>
-              <DropdownMenuItem onClick={() => doExport("csv")}><FileText /> CSV standard (Fogli Google, Python)</DropdownMenuItem>
-              <DropdownMenuItem onClick={() => doExport("png")}><ImageIcon /> Immagine dei grafici (.png)</DropdownMenuItem>
-              {exp.map && (
-                <>
-                  <DropdownMenuItem onClick={() => doExport("gpx")}><Route /> Traccia GPX (Strava, Google Earth…)</DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => doExport("geojson")}><MapPinned /> GeoJSON (QGIS, geojson.io)</DropdownMenuItem>
-                </>
-              )}
-            </DropdownMenuContent>
-          </DropdownMenu>
+      {!!rows.length && (
+        <div className={cn("flex flex-wrap items-center gap-2 rounded-lg px-1 transition-colors", selection && !running && "bg-[var(--mz-sel)] px-2 py-1")}>
+          <p className="text-sm">
+            {selection ? <><b className="tabular">{fmtVal(selection[0], 2)} – {fmtVal(selection[1], 2)} s</b> · {nSel} letture</>
+              : <span className="text-muted-foreground">Trascina su un grafico per scegliere un tratto · doppio clic per annullare</span>}
+          </p>
+          <div className="ml-auto flex items-center gap-2">
+            {selection && <Button size="sm" variant="ghost" onClick={clearSelection}><X /> Annulla</Button>}
+            <Button size="sm" variant={selection ? "default" : "outline"} disabled={running} onClick={() => void sendSelection()}>
+              <Send /> {selection ? "Invia il tratto a Elaborazione" : "Invia tutto a Elaborazione"}
+            </Button>
+          </div>
         </div>
-      </div>
-      <p className="-mt-1 text-xs text-muted-foreground">↔ trascina per scegliere un tratto · doppio clic per annullare · pizzico o Ctrl + rotella per lo zoom</p>
-
-      <Section title="Dati selezionati"><SelectionTable /></Section>
-      <Section title="Tratti inviati" count={nSent} defaultOpen><SentSegments /></Section>
+      )}
+      <DataDialog open={table} onOpenChange={setTable} />
     </Card>
   );
 }

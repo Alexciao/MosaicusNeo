@@ -15,7 +15,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Chart, ChartGroup } from "@/lib/mosaicus/chart.js";
 import { runModel } from "@/lib/mosaicus/fits.js";
 import { polyfit, formatMeasure } from "@/lib/mosaicus/analysis.js";
-import { QUANTITIES } from "@/lib/mosaicus/experiments";
+import { quantityOf } from "@/lib/sensors/quantities";
 import { useWorkbench, computeRows, colInfo, axisLabel, type Analysis, type Box } from "@/lib/workbench-store";
 import { confirm } from "@/lib/confirm";
 import { fmtNum } from "@/lib/prefs";
@@ -67,7 +67,7 @@ export function BoxCard({ box }: { box: Box }) {
   const y = useMemo(() => rows.map((r) => r[box.yKey]), [rows, box.yKey]);
   const cx = colInfo(box, box.xKey), cy = colInfo(box, box.yKey);
   const su = slopeUnit(cy.unit, cx.unit);
-  const meaning = box.xKey === "t" ? QUANTITIES[box.yKey]?.slope ?? null : null;
+  const meaning = box.xKey === "t" ? quantityOf(box.yKey)?.slope ?? null : null;
   const finiteX = useMemo(() => x.filter(Number.isFinite), [x]);
 
   // --- strumenti: a ogni cambio di strumento o di assi si riparte da capo
@@ -101,7 +101,7 @@ export function BoxCard({ box }: { box: Box }) {
     const T = order.map((i) => tt[i]), Y = order.map((i) => yy[i]);
     const fit = runModel(fitModel, T, Y, { x: cx.unit, y: cy.unit, xs: cx.sym, ys: cy.sym });
     if (fit.error) return { fit, T, phys: [] as PhysicsValue[], curve: null };
-    const q = box.xKey === "t" ? QUANTITIES[box.yKey] : null;
+    const q = box.xKey === "t" ? quantityOf(box.yKey) : null;
     const phys: PhysicsValue[] = (q?.physics?.[fitModel] || []).map((p) => { const [v, s] = p.calc(fit); return { label: p.label, unit: p.unit, value: v, sigma: s }; });
     const N = 300, X: number[] = [], Yc: number[] = [];
     for (let i = 0; i <= N; i++) { const t = fit.t1 + ((fit.t2 - fit.t1) * i) / N; X.push(t); Yc.push(fit.curve(t)); }
@@ -250,9 +250,9 @@ export function BoxCard({ box }: { box: Box }) {
   const setAxis = (ax: "x" | "y", key: string) => updateBox(box.id, ax === "x" ? { xKey: key } : { yKey: key });
 
   // negli assi solo grandezze fisiche: i dati tecnici del sensore restano fuori
-  const axisCols = [...box.columns.filter((c) => !QUANTITIES[c.key]?.raw || c.key === box.xKey || c.key === box.yKey), ...box.computed];
+  const axisCols = [...box.columns.filter((c) => !quantityOf(c.key)?.raw || c.key === box.xKey || c.key === box.yKey), ...box.computed];
   const axisItems = Object.fromEntries(axisCols.map((c) => [c.key, axisLabel(c)]));
-  const suggested = box.xKey === "t" ? QUANTITIES[box.yKey]?.models || [] : [];
+  const suggested = box.xKey === "t" ? quantityOf(box.yKey)?.models || [] : [];
 
   return (
     <Card ref={rootRef as any} className="scroll-mt-20 gap-0 p-0">

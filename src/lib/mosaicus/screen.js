@@ -1,4 +1,4 @@
-// Mosaicus — schermo da oscilloscopio (canvas): reticolo a divisioni, tracce luminose,
+// MosaicusNeo — schermo da oscilloscopio (canvas): reticolo a divisioni, tracce luminose,
 // etichette di scala. Usato per la forma d'onda e per lo spettro.
 
 import { canvasFont, rootScale, onStyleChange } from './style.js';

@@ -1,29 +1,38 @@
 "use client";
-// Mosaicus — pagina Misura: esperimento scelto, collegamento (Arduino, telefono, simulatore),
-// righe grezze → campioni → grandezze derivate, selezione, Quaderno delle misure, export.
+// MosaicusNeo — pagina Misura: il montaggio di sensori (da un esperimento pronto o libero), il
+// collegamento (Arduino via cavo o Bluetooth, simulatore), le letture grezze → grandezze
+// fisiche, la selezione, il Quaderno delle misure, l'export.
 //
-// Lo stato "da mostrare" sta nello store zustand; gli oggetti imperativi (collegamento,
-// gruppo di grafici su canvas, pannello dello strumento attivo) restano in variabili di modulo.
+// Lo stato "da mostrare" sta nello store zustand; gli oggetti imperativi (collegamento, gruppo
+// di grafici su canvas, pannello dello strumento attivo, sensori del dispositivo) restano in
+// variabili di modulo.
 
 import { create } from "zustand";
 import { toast } from "sonner";
-import { EXPERIMENTS, QUANTITIES, byId, defaultParams, type Experiment, type Params, type Row } from "@/lib/mosaicus/experiments";
+import type { LucideIcon } from "lucide-react";
+import { Wrench } from "lucide-react";
 import { ChartGroup } from "@/lib/mosaicus/chart.js";
 import { SerialLink, serialSupported } from "@/lib/mosaicus/serial.js";
-import { SimulatedLink } from "@/lib/mosaicus/simulator.js";
-import { PhoneLink } from "@/lib/mosaicus/phone.js";
+import { SimulatedLink, WARP } from "@/lib/sensors/simulator";
 import * as repo from "@/lib/cloud/repo";
 import { toCSV, toXLSX, download } from "@/lib/mosaicus/export.js";
 import { APP_VERSION, FIRMWARE_VERSION, cmpVersion } from "@/lib/version";
 import { prefs, fmtVal, stamp } from "@/lib/prefs";
 import { useWorkbench, type NewBox } from "@/lib/workbench-store";
 import { toGPX, toGeoJSON, type TrackPoint } from "@/lib/mosaicus/geo";
+import { SENSORS, pinName, type SensorType } from "@/lib/sensors/catalog";
+import {
+  resolveRig, validateRig, hasErrors, firmwareCommands, buildRows, alignRows, seriesOf, interpAt, tolerance,
+  makeSensor, usedPins, newId, sensorLabel, LEGACY, type Rig, type SensorInstance, type Resolved, type ResolvedQuantity,
+} from "@/lib/sensors/rig";
+import { PRESETS, INSTRUMENTS, presetById, instrumentById, presetSensors, type Preset, type Instrument } from "@/lib/sensors/presets";
+import type { Row, Tone } from "@/lib/sensors/types";
 
 // ---------------------------------------------------------------------------
 // Tipi
 // ---------------------------------------------------------------------------
 export interface Link {
-  kind: "arduino" | "telefono" | "simulatore";
+  kind: "arduino" | "simulatore";
   scenario?: string;
   scopeSignal?: string;
   open(): Promise<void>;
@@ -33,13 +42,13 @@ export interface Link {
   onClose(cb: () => void): void;
 }
 export interface Session { id?: number; name: string; created: number; source: string; fw: string | null }
-export interface SessionSummary { id: number; name: string; experiment: string; created: number; n: number; cloud?: boolean; dirty?: boolean }
+export interface SessionSummary { id: number; name: string; labTitle: string; created: number; n: number; cloud?: boolean; dirty?: boolean }
 export type StatusTone = "off" | "wait" | "on" | "err";
 export type Page = "misura" | "elab";
 export type GuideStep = "link" | "wait" | "start" | "stop" | "pick" | "send" | "go" | null;
 
 /** Pannello di uno strumento (oscilloscopio, synth): riceve le righe che lo riguardano. */
-export interface Instrument {
+export interface InstrumentPanel {
   onLine?: (line: string) => boolean;
   linkChanged?: () => void;
 }
@@ -51,11 +60,25 @@ export interface InstrumentApi {
   sendBox: (data: Omit<NewBox, "experiment" | "expTitle" | "sessionId" | "sessionName">, msg: string) => Promise<void>;
   setSimSignal: (sig: string) => void;
 }
+export interface View { id: string; label: string; key: string; yLabel: string; sym: string; line: boolean; raw: boolean; sensorId: string }
+export interface LabInfo {
+  kind: "preset" | "custom" | "instrument";
+  id: string;
+  title: string;
+  subtitle: string;
+  topic: string;
+  icon: LucideIcon;
+  tone: Tone;
+  preset?: Preset;
+  instrument?: Instrument;
+}
 
 interface LabState {
   page: Page;
-  expId: string;
-  params: Params;
+  labId: string;
+  rig: Rig;
+  modified: boolean;
+  customRigs: Rig[];
   linkKind: Link["kind"] | null;
   ready: boolean;
   fw: string | null;
@@ -74,14 +97,17 @@ interface LabState {
   lim: boolean;
   dragHint: boolean;
   labsOpen: boolean;
+  rigOpen: boolean;
 }
 
-const initialExp = () => byId(prefs.get("mosaicus.lastExp", serialSupported() ? "motion" : "synth")) ?? EXPERIMENTS[0];
+const EMPTY_RIG: Rig = { id: "empty", name: "", sensors: [] };
 
 export const useLab = create<LabState>(() => ({
   page: prefs.get<Page>("mosaicus.page", "misura") === "elab" ? "elab" : "misura",
-  expId: "motion",
-  params: {},
+  labId: "motion",
+  rig: EMPTY_RIG,
+  modified: false,
+  customRigs: [],
   linkKind: null,
   ready: false,
   fw: null,
@@ -100,18 +126,80 @@ export const useLab = create<LabState>(() => ({
   lim: prefs.get("mosaicus.lim", false),
   dragHint: false,
   labsOpen: false,
+  rigOpen: false,
 }));
 
 const get = useLab.getState;
 const set = useLab.setState;
-export const currentExp = (): Experiment => byId(get().expId) ?? EXPERIMENTS[0];
+
+// ---------------------------------------------------------------------------
+// Il lab corrente, il montaggio risolto, i grafici
+// ---------------------------------------------------------------------------
+export function labInfo(id = get().labId, customRigs = get().customRigs): LabInfo {
+  const p = presetById(id);
+  if (p) return { kind: "preset", id, title: p.title, subtitle: p.subtitle, topic: p.topic, icon: p.icon, tone: p.tone, preset: p };
+  const ins = instrumentById(id);
+  if (ins) return { kind: "instrument", id, title: ins.title, subtitle: ins.subtitle, topic: "Strumenti", icon: ins.icon, tone: ins.tone, instrument: ins };
+  const r = customRigs.find((x) => x.id === id);
+  return { kind: "custom", id, title: r?.name || "Montaggio libero", subtitle: r ? rigSummary(r) : "", topic: "I miei montaggi", icon: Wrench, tone: "saffron" };
+}
+export const rigSummary = (r: Rig) => r.sensors.length ? r.sensors.map(sensorLabel).join(" · ") : "nessun sensore";
+
+let resolvedCache: { rig: Rig; res: Resolved } | null = null;
+export function resolved(rig = get().rig): Resolved {
+  if (resolvedCache?.rig !== rig) resolvedCache = { rig, res: resolveRig(rig) };
+  return resolvedCache.res;
+}
+
+/** Grafici possibili: tutte le grandezze non nascoste del montaggio. */
+export function viewsOf(rig = get().rig): View[] {
+  const res = resolved(rig);
+  const multi = rig.sensors.length > 1;
+  return res.quantities.filter((q) => !q.hidden).map((q) => {
+    const s = rig.sensors.find((x) => x.id === q.sensorId)!;
+    return {
+      id: q.key, key: q.key, sym: q.sym, line: q.line, raw: q.raw, sensorId: q.sensorId,
+      label: q.raw ? `${q.sym} (grezzo)` : `${q.sym}(t)`,
+      yLabel: `${q.sym}${q.unit ? ` (${q.unit})` : ""}${multi && q.raw ? ` · ${sensorLabel(s)}` : ""}`,
+    };
+  });
+}
+export function readoutsOf(): ResolvedQuantity[] {
+  const res = resolved();
+  const info = labInfo();
+  const byKey = new Map(res.quantities.map((q) => [q.key, q]));
+  const fromPreset = (info.preset?.readouts ?? []).map((k) => byKey.get(k)).filter(Boolean) as ResolvedQuantity[];
+  if (fromPreset.length) {
+    // sensori aggiunti al preset: anche la loro prima grandezza
+    const extra = get().rig.sensors.filter((s) => !fromPreset.some((q) => q.sensorId === s.id))
+      .map((s) => res.quantities.find((q) => q.sensorId === s.id && q.primary)).filter(Boolean) as ResolvedQuantity[];
+    return [...fromPreset, ...extra].slice(0, 6);
+  }
+  return res.quantities.filter((q) => q.primary).slice(0, 6);
+}
+/** Colonne della tabella e dell'export: tempo e tutte le grandezze (anche quelle tecniche). */
+export function columnsOf(rig = get().rig) {
+  const res = resolved(rig);
+  const multi = rig.sensors.length > 1;
+  return [
+    { key: "t", head: "t (s)" },
+    ...res.quantities.map((q) => {
+      const s = rig.sensors.find((x) => x.id === q.sensorId)!;
+      return { key: q.key, head: `${q.sym}${q.unit ? ` (${q.unit})` : ""}${multi ? ` · ${sensorLabel(s)}` : ""}` };
+    }),
+  ];
+}
+export const rigHas = (types: SensorType[], rig = get().rig) => rig.sensors.some((s) => types.includes(s.type));
+export const needsArduino = (rig = get().rig) => rig.sensors.length > 0;
+export const hasMap = (rig = get().rig) => rigHas(["gps"], rig);
+export const simScenario = () => labInfo().preset?.sim ?? (hasMap() ? "walk" : "free");
 
 // ---------------------------------------------------------------------------
 // Oggetti imperativi
 // ---------------------------------------------------------------------------
 let link: Link | null = null;
 let raw: number[][] = [];
-let instrument: Instrument | null = null;
+let instrument: InstrumentPanel | null = null;
 let simSignal = "mic";
 let group: ChartGroup | null = null;
 
@@ -126,19 +214,19 @@ export function measureGroup(): ChartGroup {
   return group;
 }
 
-export function registerInstrument(i: Instrument | null) { instrument = i; }
+export function registerInstrument(i: InstrumentPanel | null) { instrument = i; }
 
-export function instrumentApi(exp: Experiment): InstrumentApi {
+export function instrumentApi(ins: Instrument): InstrumentApi {
   return {
-    mode: exp.source === "arduino" ? "arduino" : "audio",
+    mode: ins.source === "arduino" ? "arduino" : "audio",
     ready: () => !!link && get().ready,
     async send(cmd) {
       if (!link) return;
-      if (link.kind === "simulatore") { link.scenario = exp.sim; link.scopeSignal = simSignal; }
+      if (link.kind === "simulatore") { link.scenario = ins.sim; link.scopeSignal = simSignal; }
       await link.write(cmd);
     },
     async sendBox(data, msg) {
-      await useWorkbench.getState().addBox({ experiment: exp.id, expTitle: exp.title, sessionId: null, sessionName: "", ...data } as NewBox);
+      await useWorkbench.getState().addBox({ experiment: ins.id, expTitle: ins.title, sessionId: null, sessionName: "", ...data } as NewBox);
       toast.success(msg, { duration: 6000, action: { label: "Vai a Elaborazione →", onClick: () => goElab() } });
     },
     setSimSignal(sig) { simSignal = sig; if (link?.kind === "simulatore") link.scopeSignal = sig; },
@@ -146,7 +234,7 @@ export function instrumentApi(exp: Experiment): InstrumentApi {
 }
 
 // ---------------------------------------------------------------------------
-// Pagine
+// Pagine e preferenze del dispositivo
 // ---------------------------------------------------------------------------
 export function showPage(page: Page) {
   set({ page });
@@ -162,63 +250,150 @@ export function setLim(on: boolean) {
 }
 
 // ---------------------------------------------------------------------------
-// Esperimenti
+// Scelta del lab e montaggio
 // ---------------------------------------------------------------------------
-export function selectExperiment(id: string, { keepData = false } = {}) {
+const rigKey = (id: string) => `mosaicus.rig.${id}`;
+
+function loadRig(id: string): { rig: Rig; modified: boolean } {
+  const p = presetById(id);
+  if (p) {
+    const base = presetSensors(p);
+    const saved = prefs.get<SensorInstance[] | null>(rigKey(id), null);
+    return { rig: { id, name: p.title, sensors: saved ?? base }, modified: !!saved };
+  }
+  const custom = get().customRigs.find((r) => r.id === id);
+  return { rig: custom ?? { id, name: "Montaggio libero", sensors: [] }, modified: false };
+}
+
+function defaultVisible(rig: Rig): string[] {
+  const views = viewsOf(rig);
+  const p = presetById(rig.id);
+  const fromPreset = (p?.visible ?? []).filter((k) => views.some((v) => v.id === k));
+  if (fromPreset.length) return fromPreset;
+  // una vista per sensore (la prima grandezza), al massimo tre
+  return rig.sensors.map((s) => views.find((v) => v.sensorId === s.id && !v.raw)?.id).filter(Boolean).slice(0, 3) as string[];
+}
+
+function applyRig(rig: Rig, modified: boolean, { keepData = false } = {}) {
+  const views = viewsOf(rig);
+  const saved = prefs.get<string[] | null>(`mosaicus.visible.${rig.id}`, null);
+  let visible = [...new Set(saved ?? defaultVisible(rig))].filter((v) => views.some((w) => w.id === v));
+  if (!visible.length && views[0]) visible = [views[0].id];
+  const viewId = visible.includes(get().viewId ?? "") ? get().viewId : visible[0] ?? null;
+  set({ rig, modified, visible, viewId });
+  void keepData;
+  recompute();
+  if (link?.kind === "simulatore") { link.scenario = simScenario(); if (get().ready) setStatus(simStatus(), "on"); }
+}
+
+export function selectLab(id: string, { keepData = false } = {}) {
   if (get().running) { toast("Ferma la misura prima di cambiare lab."); return; }
-  // generatore e strumento musicale sono confluiti nel synth
   if (id === "generator" || id === "theremin") id = "synth";
-  let exp = byId(id);
-  if (!exp || exp.hidden) exp = byId(serialSupported() ? "motion" : "synth")!;
-  prefs.set("mosaicus.lastExp", exp.id);
-  const params = { ...defaultParams(exp), ...prefs.get<Params>(`mosaicus.params.${exp.id}`, {}) };
-  const saved = prefs.get<string[] | null>(`mosaicus.visible.${exp.id}`, null);
-  let visible = (saved || exp.defaultVisible || (exp.views[0] ? [exp.views[0].id] : [])).filter((v) => exp!.views.some((w) => w.id === v));
-  if (!visible.length && exp.views[0]) visible = [exp.views[0].id];
+  const known = presetById(id) || instrumentById(id) || get().customRigs.some((r) => r.id === id);
+  if (!known) id = serialSupported() ? "motion" : "synth";
+  prefs.set("mosaicus.lastLab", id);
   if (!keepData) raw = [];
   set({
-    expId: exp.id, params, visible, viewId: visible[0] ?? null, selection: null, sent: false, dragHint: false, labsOpen: false,
+    labId: id, selection: null, sent: false, dragHint: false, labsOpen: false,
     ...(keepData ? {} : { session: null, sessionName: "", rows: [], nRaw: 0 }),
   });
   measureGroup().setSelection(null); measureGroup().fitAll();
-  if (!keepData) recompute();
-  // se il dispositivo collegato non è quello giusto per questo esperimento, lo scollego
-  const needPhone = exp.source === "phone";
-  if (exp.source !== "audio" && link && link.kind !== "simulatore" && (link.kind === "telefono") !== needPhone) {
-    void link.close();
-    toast(needPhone ? "Questo esperimento usa i sensori del telefono: ho scollegato Arduino." : "Questo esperimento usa Arduino: ho disattivato i sensori del telefono.");
+  if (instrumentById(id)) { set({ rig: EMPTY_RIG, modified: false, visible: [], viewId: null }); return; }
+  const { rig, modified } = loadRig(id);
+  applyRig(rig, modified, { keepData });
+}
+
+/** Modifica del montaggio: per un preset diventa una sua versione personale, per un montaggio libero si salva. */
+function commitRig(rig: Rig) {
+  if (get().running) { toast("Ferma la misura prima di cambiare i sensori."); return false; }
+  const p = presetById(rig.id);
+  if (p) prefs.set(rigKey(rig.id), rig.sensors);
+  else {
+    const list = get().customRigs.map((r) => (r.id === rig.id ? rig : r));
+    set({ customRigs: list });
+    prefs.set("mosaicus.rigs", list);
   }
-  if (link?.kind === "simulatore" && get().ready) setStatus(simStatus(), "on");
+  applyRig(rig, !!p, { keepData: true });
+  return true;
 }
 
-/** Parametri del lab corrente riletti dalle preferenze (es. arrivate da un altro dispositivo). */
+export function updateSensor(id: string, patch: Partial<SensorInstance>) {
+  const rig = get().rig;
+  commitRig({ ...rig, sensors: rig.sensors.map((s) => (s.id === id ? { ...s, ...patch, ...(patch.options ? { options: { ...s.options, ...patch.options } } : {}) } : s)) });
+}
+export function addSensor(type: SensorType) {
+  const rig = get().rig;
+  const taken = new Set(usedPins(rig).keys());
+  const s = makeSensor(type, taken);
+  if (commitRig({ ...rig, sensors: [...rig.sensors, s] })) {
+    // la sua prima grandezza compare subito tra i grafici
+    const first = viewsOf().find((v) => v.sensorId === s.id && !v.raw);
+    if (first && !get().visible.includes(first.id)) { const visible = [...get().visible, first.id]; set({ visible }); prefs.set(`mosaicus.visible.${rig.id}`, visible); }
+  }
+}
+export function removeSensor(id: string) {
+  const rig = get().rig;
+  commitRig({ ...rig, sensors: rig.sensors.filter((s) => s.id !== id) });
+}
+export function moveSensor(id: string, dir: -1 | 1) {
+  const rig = get().rig, i = rig.sensors.findIndex((s) => s.id === id), j = i + dir;
+  if (i < 0 || j < 0 || j >= rig.sensors.length) return;
+  const sensors = [...rig.sensors];
+  [sensors[i], sensors[j]] = [sensors[j], sensors[i]];
+  commitRig({ ...rig, sensors });
+}
+export function resetPreset() {
+  const rig = get().rig;
+  const p = presetById(rig.id);
+  if (!p || get().running) return;
+  prefs.set(rigKey(rig.id), null);
+  prefs.set(`mosaicus.visible.${rig.id}`, null);
+  applyRig({ ...rig, sensors: presetSensors(p) }, false);
+}
+export function renameRig(name: string) {
+  const rig = get().rig;
+  if (presetById(rig.id)) return;
+  commitRig({ ...rig, name: name.trim() || "Montaggio libero" });
+}
+/** Nuovo montaggio libero (vuoto o copia del montaggio corrente). */
+export function newRig({ copy = false } = {}) {
+  if (get().running) { toast("Ferma la misura prima."); return; }
+  const cur = get().rig;
+  const rig: Rig = {
+    id: `rig-${newId()}`,
+    name: copy ? `${labInfo().title} (copia)` : "Nuovo montaggio",
+    sensors: copy ? cur.sensors.map((s) => ({ ...s, id: newId(), options: { ...s.options }, pins: { ...s.pins } })) : [],
+  };
+  const list = [...get().customRigs, rig];
+  set({ customRigs: list });
+  prefs.set("mosaicus.rigs", list);
+  selectLab(rig.id);
+  set({ rigOpen: true });
+  return rig;
+}
+export function deleteRig(id: string) {
+  const list = get().customRigs.filter((r) => r.id !== id);
+  set({ customRigs: list });
+  prefs.set("mosaicus.rigs", list);
+  prefs.set(`mosaicus.visible.${id}`, null);
+  if (get().labId === id) selectLab("motion");
+}
+
+/** Montaggi e versioni personali riletti dalle preferenze (es. arrivati da un altro dispositivo). */
 export function reloadParams() {
-  const exp = currentExp();
-  set({ params: { ...defaultParams(exp), ...prefs.get<Params>(`mosaicus.params.${exp.id}`, {}) } });
-  recompute();
-}
-
-export function setParam(key: string, value: number | string) {
-  const params = { ...get().params, [key]: value };
-  set({ params });
-  prefs.set(`mosaicus.params.${get().expId}`, params);
-  recompute();
-}
-export function resetParams() {
-  const params = defaultParams(currentExp());
-  set({ params });
-  prefs.set(`mosaicus.params.${get().expId}`, params);
-  recompute();
+  set({ customRigs: prefs.get<Rig[]>("mosaicus.rigs", []) });
+  if (get().running || instrumentById(get().labId)) return;
+  const { rig, modified } = loadRig(get().labId);
+  applyRig(rig, modified, { keepData: true });
 }
 
 export function toggleView(id: string) {
-  const { visible } = get();
-  const exp = currentExp();
+  const { visible, rig } = get();
   const on = visible.includes(id);
   if (on && visible.length === 1) { toast("Almeno un grafico deve restare visibile."); return; }
-  const order = exp.views.map((v) => v.id);
+  const order = viewsOf().map((v) => v.id);
   const next = on ? visible.filter((v) => v !== id) : [...visible, id].sort((a, b) => order.indexOf(a) - order.indexOf(b));
-  prefs.set(`mosaicus.visible.${exp.id}`, next);
+  prefs.set(`mosaicus.visible.${rig.id}`, next);
   set({ visible: next, viewId: on ? (get().viewId === id ? next[0] : get().viewId) : id });
 }
 
@@ -226,11 +401,8 @@ export function toggleView(id: string) {
 // Dati
 // ---------------------------------------------------------------------------
 export function recompute() {
-  const exp = currentExp();
-  if (!exp.parse || !exp.derive) { set({ rows: [], nRaw: raw.length }); return; }
-  const { params } = get();
-  const parsed = raw.map((f) => exp.parse!(f, params)).filter(Boolean) as Row[];
-  set({ rows: exp.derive(parsed, params), nRaw: raw.length });
+  const rig = get().rig;
+  set({ rows: buildRows(rig, resolved(rig), raw), nRaw: raw.length });
 }
 
 let pending = false;
@@ -253,41 +425,45 @@ export function clearSelection() { measureGroup().setSelection(null, true); }
 // ---------------------------------------------------------------------------
 function setStatus(text: string, tone: StatusTone) { set({ status: { text, tone } }); }
 const simStatus = () => {
-  const e = currentExp();
-  return `Simulatore · ${e.title.toLowerCase()}${e.simNote ? ` · ${e.simNote}` : ""}`;
+  const warp = WARP[simScenario()];
+  return `Simulatore pronto${warp ? ` · tempo ×${warp}` : ""}`;
 };
 
-export async function connect(kind: "device" | "sim") {
-  const exp = currentExp();
-  const l = (kind === "sim" ? new SimulatedLink() : exp.source === "phone" ? new PhoneLink() : new SerialLink()) as unknown as Link;
-  if (kind === "sim") { l.scenario = exp.sim; l.scopeSignal = simSignal; }
+export async function connect(kind: "arduino" | "sim") {
+  const l = (kind === "sim" ? new SimulatedLink() : new SerialLink()) as unknown as Link;
+  if (kind === "sim") { l.scenario = simScenario(); l.scopeSignal = simSignal; }
   l.onLine(handleLine);
   l.onClose(() => {
     if (link !== l) return;
     const wasRunning = get().running;
     link = null;
-    set({ linkKind: null, ready: false, running: false });
-    stopKeepAlive();
+    set({ linkKind: null, ready: false });
     setStatus("Nessun dispositivo", "off");
     instrument?.linkChanged?.();
-    if (wasRunning) { toast.warning("Dispositivo scollegato durante la misura: salvo i dati raccolti."); void autosave(); }
+    if (wasRunning) {
+      set({ running: false });
+      stopKeepAlive();
+      toast.warning("Arduino scollegato durante la misura: salvo i dati raccolti.");
+      void autosave();
+    }
   });
   try {
     await l.open();
   } catch (err) {
     const e = err as Error;
-    if (e?.name !== "NotFoundError") toast.error(l.kind === "telefono" ? `Sensori non disponibili: ${e.message}` : `Impossibile aprire la porta: ${e.message}`);
+    if (e?.name !== "NotFoundError") toast.error(`Impossibile aprire la porta: ${e.message}`);
     return;
   }
   link = l;
   set({ linkKind: l.kind, ready: false });
-  setStatus(kind === "sim" ? "Simulatore: avvio…" : l.kind === "telefono" ? "Telefono: avvio…" : "Arduino: attendo il firmware…", "wait");
-  // L'Uno si riavvia quando si apre la porta: diamo tempo al bootloader, poi chiediamo l'identità.
-  setTimeout(() => { if (link === l && !get().ready) void l.write("ID?"); }, 2200);
+  setStatus(kind === "sim" ? "Simulatore: avvio…" : "Arduino: attendo il firmware…", "wait");
+  // l'Uno si riavvia quando si apre la porta USB: tempo al bootloader, poi chiedo l'identità
+  // (via Bluetooth non si riavvia: la risposta arriva subito)
+  setTimeout(() => { if (link === l && !get().ready) void l.write("ID?"); }, kind === "sim" ? 600 : 2200);
   setTimeout(() => {
     if (link === l && !get().ready) {
       setStatus("Firmware non trovato", "err");
-      toast.error("Arduino risponde, ma non con il firmware Mosaicus. Caricalo con l'IDE di Arduino (pulsante «Guida» in alto).", { duration: 8000 });
+      toast.error("Arduino risponde, ma non con il firmware MosaicusNeo. Caricalo con l'IDE di Arduino (pulsante «Guida» in alto).", { duration: 8000 });
     }
   }, 5000);
 }
@@ -295,6 +471,17 @@ export async function connect(kind: "device" | "sim") {
 export async function disconnect() {
   if (get().running) await stop();
   await link?.close();
+}
+
+// risposte attese dal firmware (#ACK…/#ERR…), per mandare la configurazione un comando alla volta
+let waiter: { match: (l: string) => boolean; resolve: (l: string | null) => void } | null = null;
+function request(cmd: string, match: (l: string) => boolean, ms = 2000) {
+  return new Promise<string | null>((resolve) => {
+    const timer = setTimeout(() => { if (waiter?.resolve === done) waiter = null; resolve(null); }, ms);
+    const done = (l: string | null) => { clearTimeout(timer); resolve(l); };
+    waiter = { match, resolve: done };
+    void link!.write(cmd);
+  });
 }
 
 const logBuf: string[] = [];
@@ -308,6 +495,7 @@ function logSerial(line: string) {
 
 function handleLine(line: string) {
   logSerial(line);
+  if (waiter && waiter.match(line)) { const w = waiter; waiter = null; w.resolve(line); return; }
   const kind = link?.kind;
   if (line.startsWith("#MOSAICUS")) {
     const fw = line.split(",")[1] ?? null;
@@ -315,32 +503,40 @@ function handleLine(line: string) {
     if (kind === "arduino" && fw && cmpVersion(fw, FIRMWARE_VERSION) < 0) {
       toast.warning(`Su Arduino c'è il firmware v${fw}: aggiornalo alla v${FIRMWARE_VERSION} (scaricalo dalla «Guida» e caricalo con l'IDE di Arduino).`, { duration: 10000 });
     }
-    setStatus(kind === "simulatore" ? simStatus() : kind === "telefono" ? "Sensori del telefono pronti" : `Arduino pronto · firmware ${fw}`, "on");
+    setStatus(kind === "simulatore" ? simStatus() : `Arduino pronto · firmware ${fw}`, "on");
     return;
   }
-  if (line === "#BT,SETUP") { toast.info("Configuro l'HC-06: nome «Mosaicus», 115200 baud…"); return; }
+  if (line === "#BT,SETUP") { toast.info("Configuro l'HC-06: nome «MosaicusNeo», 115200 baud…"); return; }
   if (line === "#ACK,BT,SETUP") {
-    toast.success("HC-06 configurato. Ora associa «Mosaicus» nelle impostazioni Bluetooth del telefono (PIN 1234). Se non compare, il LED dell'HC-06 lampeggiava? Riprova con il telefono lontano.", { duration: 12000 });
+    toast.success("HC-06 configurato. Ora associa «MosaicusNeo» nelle impostazioni Bluetooth del telefono (PIN 1234).", { duration: 12000 });
     return;
   }
   if (line.startsWith("#ERR")) {
     const what = line.slice(5);
-    const old = /SCOPE|DHT|GPS|BT/.test(what);
-    toast.error(kind === "telefono" ? `Telefono: ${what}`
-      : old ? `Il firmware su Arduino è vecchio per questo lab: carica mosaicus_firmware.ino v${FIRMWARE_VERSION} con l'IDE di Arduino.`
-        : `Arduino non ha capito il comando: ${what}`, { duration: 8000 });
-    if (old && get().running) void stop();
+    toast.error(/SCOPE|BT|CFG|START/.test(what)
+      ? `Il firmware su Arduino è vecchio: carica mosaicusneo_firmware.ino v${FIRMWARE_VERSION} con l'IDE di Arduino.`
+      : `Arduino non ha capito il comando: ${what}`, { duration: 8000 });
     return;
   }
   if (line.startsWith("#")) return;
   if (instrument?.onLine?.(line)) return;
   if (!get().running) return;
-  const exp = currentExp();
-  if (line[0] === exp.lineType && line[1] === ",") {
-    // un sensore può mancare (es. telefono senza giroscopio): basta che il tempo sia valido
+  if (line.startsWith("D,")) {
     const f = line.slice(2).split(",").map((v) => (v === "nan" ? NaN : Number(v)));
-    if (Number.isFinite(f[0])) { raw.push(f); scheduleRecompute(); }
+    if (Number.isFinite(f[0]) && Number.isFinite(f[1])) { raw.push(f); scheduleRecompute(); }
   }
+}
+
+const CFG_ERR: Record<string, string> = {
+  PIN: "pin non valido", ANALOGICO: "serve un pin analogico (A0…A5)", DOPPIO: "pin già usato da un altro sensore",
+  GPS: "c'è già un GPS", SLOT: "troppi sensori", TIPO: "tipo di sensore sconosciuto", ARGOMENTI: "comando incompleto",
+};
+
+/** Si può premere Avvia? (montaggio valido e, se servono, Arduino o simulatore pronti) */
+export function canStart(st = get()) {
+  if (st.running || !st.rig.sensors.length) return false;
+  if (hasErrors(validateRig(st.rig))) return false;
+  return !!st.linkKind && st.ready;
 }
 
 // ---------------------------------------------------------------------------
@@ -348,15 +544,34 @@ function handleLine(line: string) {
 // ---------------------------------------------------------------------------
 export async function start() {
   const st = get();
-  if (!st.ready || !link) return;
-  const exp = currentExp();
+  const rig = st.rig, res = resolved(rig);
+  const issues = validateRig(rig);
+  if (hasErrors(issues)) { toast.error(issues.find((i) => i.level === "error")!.text); set({ rigOpen: true }); return; }
+  if (!canStart()) return;
+  if (link) {
+    if (link.kind === "simulatore") link.scenario = simScenario();
+    for (const cmd of firmwareCommands(rig, res)) {
+      const reply = await request(cmd, (l) => l.startsWith("#ACK,CFG") || l.startsWith("#ERR"));
+      if (!reply) { toast.error("Arduino non risponde alla configurazione. Scollega e ricollega."); return; }
+      if (reply.startsWith("#ERR")) {
+        const parts = reply.split(",");
+        if (parts[1] !== "CFG") { toast.error(`Il firmware su Arduino è vecchio: serve la v${FIRMWARE_VERSION} per i montaggi di sensori. Scaricala dalla «Guida».`, { duration: 10000 }); return; }
+        const s = res.byCode.get(Number(parts[2]));
+        toast.error(`${s ? sensorLabel(s) : "Sensore"}: ${CFG_ERR[parts[3]] ?? parts[3]}.`);
+        return;
+      }
+    }
+  }
+  const exp = labInfo();
   raw = [];
   measureGroup().setSelection(null); measureGroup().fitAll();
   const name = st.sessionName.trim() || `${exp.title} ${new Date().toLocaleString("it-IT", { dateStyle: "short", timeStyle: "short" })}`;
-  set({ session: { name, created: Date.now(), source: link.kind, fw: st.fw }, sessionName: name, sent: false, running: true, selection: null, dragHint: false });
+  set({ session: { name, created: Date.now(), source: link?.kind ?? "arduino", fw: st.fw }, sessionName: name, sent: false, running: true, selection: null, dragHint: false });
   recompute();
-  if (link.kind === "simulatore") link.scenario = exp.sim;
-  if (exp.command) await link.write(exp.command(st.params));
+  if (link) {
+    const ok = await request("START", (l) => l.startsWith("#ACK,START") || l.startsWith("#ERR,START"));
+    if (!ok || ok.startsWith("#ERR")) { set({ running: false }); toast.error("Arduino non è partito: controlla i sensori e riprova."); return; }
+  }
   startKeepAlive();
 }
 
@@ -364,11 +579,13 @@ export async function stop() {
   if (!get().running) return;
   set({ running: false });
   stopKeepAlive();
-  try {
-    await link?.write("STOP");
-    // con il GPS acceso la SoftwareSerial può far perdere qualche carattere del comando: lo ripeto
-    if (currentExp().lineType === "G") { await new Promise((r) => setTimeout(r, 250)); await link?.write("STOP"); }
-  } catch { /* scollegato */ }
+  {
+    try {
+      await link?.write("STOP");
+      // con il GPS acceso la SoftwareSerial può far perdere qualche carattere: lo ripeto
+      if (rigHas(["gps"])) { await new Promise((r) => setTimeout(r, 250)); await link?.write("STOP"); }
+    } catch { /* scollegato */ }
+  }
   recompute();
   await autosave();
   showDragHint();
@@ -384,10 +601,9 @@ async function requestWakeLock() {
   try {
     const wl = (navigator as Navigator & { wakeLock?: { request: (t: "screen") => Promise<{ release: () => Promise<void> }> } }).wakeLock;
     if (wl && document.visibilityState === "visible") wakeLock = await wl.request("screen");
-  } catch { /* non supportato o negato: pazienza */ }
+  } catch { /* non supportato o negato */ }
 }
 function onVisibility() { if (document.visibilityState === "visible" && get().running && !wakeLock) void requestWakeLock(); }
-
 function startKeepAlive() {
   void requestWakeLock();
   document.addEventListener("visibilitychange", onVisibility);
@@ -409,8 +625,7 @@ export async function bluetoothSetup() {
 }
 
 function showDragHint() {
-  const { rows, selection, running } = get();
-  if (!rows.length || selection || running || currentExp().kind) return;
+  if (!get().rows.length || get().selection || get().running) return;
   const n = prefs.get("mosaicus.hint.drag", 0);
   if (n >= 3) return;
   prefs.set("mosaicus.hint.drag", n + 1);
@@ -426,14 +641,17 @@ export async function autosave(quiet = false) {
   if (!raw.length || !st.session) return;
   const rec = {
     ...(st.session.id ? { id: st.session.id } : {}),
+    format: 2,
     name: st.sessionName.trim() || st.session.name,
-    experiment: st.expId, created: st.session.created, source: st.session.source, fw: st.session.fw,
-    params: { ...st.params }, raw, app: APP_VERSION,
+    experiment: st.labId, labTitle: labInfo().title,
+    rig: { id: st.rig.id, name: st.rig.name, sensors: st.rig.sensors },
+    created: st.session.created, source: st.session.source, fw: st.session.fw,
+    raw, app: APP_VERSION,
   };
   try {
     const id = (await repo.save("sessions", rec)).id;
     set({ session: { ...st.session, id: st.session.id ?? id } });
-    if (!quiet) toast.success(`Misura salvata nel Quaderno (${raw.length} punti).`);
+    if (!quiet) toast.success(`Misura salvata nel Quaderno (${raw.length} letture).`);
     await refreshSessions();
   } catch (err) {
     toast.error(`Salvataggio non riuscito: ${(err as Error).message}`);
@@ -443,11 +661,15 @@ export async function autosave(quiet = false) {
 export function setSessionName(name: string) { set({ sessionName: name }); }
 export async function commitSessionName() { if (get().session?.id && !get().running) await autosave(true); }
 
+/** Origine delle posizioni = posizione attuale (primo sensore a ultrasuoni). */
 export function zeroPosition() {
-  const valid = get().rows.filter((r) => r.ok && Number.isFinite(r.d)).slice(-10).map((r) => r.d as number).sort((a, b) => a - b);
+  const s = get().rig.sensors.find((x) => x.type === "sonar");
+  if (!s) return;
+  const dKey = resolved().keyOf.get(s.id)?.get("d");
+  const valid = get().rows.filter((r) => r._s === s.id && Number.isFinite(r[dKey!] as number)).slice(-10).map((r) => r[dKey!] as number).sort((a, b) => a - b);
   if (!valid.length) { toast("Nessuna distanza valida da usare come origine."); return; }
   const med = valid[valid.length >> 1];
-  setParam("origin", Math.round(med * 1000) / 1000);
+  updateSensor(s.id, { options: { origin: Math.round(med * 1000) / 1000 } });
   toast.success(`Origine impostata a ${fmtVal(med, 3)} m dal sensore.`);
 }
 
@@ -457,26 +679,35 @@ export function zeroPosition() {
 export async function sendSelection() {
   const st = get();
   if (st.running) { toast("Ferma la misura prima di salvare un tratto."); return; }
-  const exp = currentExp();
-  const rows = selectedRows().filter((r) => r.ok !== false);
-  if (rows.length < 3) { toast("Il tratto contiene troppo pochi punti validi."); return; }
-  if (!get().session?.id) await autosave(true);
-  // in Elaborazione vanno solo le grandezze fisiche, non i dati tecnici del sensore; le colonne vuote restano fuori
-  const keys = exp.columns.map((c) => c.key).filter((k) => k !== "ok" && !QUANTITIES[k]?.raw && rows.some((r) => Number.isFinite(r[k] as number)));
-  const columns = keys.map((k) => ({ key: k, sym: QUANTITIES[k]?.sym ?? k, unit: QUANTITIES[k]?.unit ?? "", name: QUANTITIES[k]?.name ?? k }));
-  const view = exp.views.find((v) => v.id === st.viewId);
-  const yView = view && !view.raw ? view : exp.views.find((v) => !v.raw)!;
-  const t1 = rows[0].t, t2 = rows[rows.length - 1].t;
+  const rig = st.rig, res = resolved(rig);
+  const [t1s, t2s] = st.selection ?? [-Infinity, Infinity];
+  // grandezze fisiche (non i dati tecnici) con almeno un valore nel tratto
+  const inSel = st.rows.filter((r) => r.t >= t1s && r.t <= t2s);
+  const keys = res.quantities.filter((q) => !q.raw && inSel.some((r) => Number.isFinite(r[q.key] as number))).map((q) => q.key);
+  if (!keys.length) { toast("Il tratto non contiene dati validi."); return; }
+  // tempi del sensore del grafico attivo; le grandezze degli altri sensori vengono interpolate
+  const view = viewsOf().find((v) => v.id === st.viewId && !v.raw);
+  const baseSensor = view?.sensorId ?? res.quantities.find((q) => q.key === keys[0])!.sensorId;
+  const own = new Set(res.quantities.filter((q) => q.sensorId === baseSensor).map((q) => q.key));
+  const aligned = alignRows(st.rows, baseSensor, keys, own, tolerance(rig)).filter((r) => r.t >= t1s && r.t <= t2s && keys.some((k) => own.has(k) && Number.isFinite(r[k] as number)));
+  if (aligned.length < 3) { toast("Il tratto contiene troppo pochi punti validi."); return; }
+  if (!st.session?.id) await autosave(true);
+  const byKey = new Map(res.quantities.map((q) => [q.key, q]));
+  const columns = [{ key: "t", sym: "t", unit: "s", name: "tempo" }, ...keys.map((k) => ({ key: k, sym: byKey.get(k)!.sym, unit: byKey.get(k)!.unit, name: byKey.get(k)!.name }))];
+  const t1 = aligned[0].t, t2 = aligned[aligned.length - 1].t;
+  const exp = labInfo();
   const session = get().session;
+  const yKey = view && keys.includes(view.key) ? view.key : keys.find((k) => own.has(k)) ?? keys[0];
   await useWorkbench.getState().addBox({
     title: `${exp.title} · ${fmtVal(t1, 2)}–${fmtVal(t2, 2)} s`,
     experiment: exp.id, expTitle: exp.title,
     sessionId: session?.id ?? null, sessionName: st.sessionName.trim() || session?.name || "",
-    t1, t2, columns, yKey: keys.includes(yView.key) ? yView.key : keys.find((k) => k !== "t")!, xKey: "t",
-    rows: rows.map((r) => Object.fromEntries(keys.map((k) => [k, Number.isFinite(r[k] as number) ? (r[k] as number) : NaN]))),
+    t1, t2, columns, yKey, xKey: "t",
+    rows: aligned.map((r) => Object.fromEntries(["t", ...keys].map((k) => [k, Number.isFinite(r[k] as number) ? (r[k] as number) : NaN]))),
   });
   set({ sent: true });
-  toast.success(`Tratto inviato (${rows.length} punti).`, { duration: 6000, action: { label: "Vai a Elaborazione →", onClick: () => goElab() } });
+  const mixed = rig.sensors.length > 1 && keys.some((k) => !own.has(k));
+  toast.success(`Tratto inviato (${aligned.length} punti).${mixed ? " Le grandezze degli altri sensori sono interpolate sui tempi di questo." : ""}`, { duration: 6000, action: { label: "Vai a Elaborazione →", onClick: () => goElab() } });
 }
 
 // ---------------------------------------------------------------------------
@@ -484,22 +715,36 @@ export async function sendSelection() {
 // ---------------------------------------------------------------------------
 export type ExportKind = "xlsx" | "csv-it" | "csv" | "png" | "gpx" | "geojson";
 
-/** Punti con una posizione valida, con le grandezze da portare nei file geografici. */
-export function trackPoints(rows: Row[]): TrackPoint[] {
-  return rows.filter((r) => Number.isFinite(r.lat as number) && Number.isFinite(r.lon as number)).map((r) => ({
-    lat: r.lat as number, lon: r.lon as number, ele: r.alt as number, time: r.time as number, t: r.t,
-    values: Object.fromEntries(["T", "RH", "Td", "speed", "s", "sats", "hdop"].filter((k) => k in r).map((k) => [k, r[k] as number])),
+/** Punti con una posizione valida, con le grandezze degli altri sensori al loro istante. */
+export function trackPoints(rows: Row[], rig = get().rig): TrackPoint[] {
+  const res = resolved(rig);
+  const geo = rig.sensors.find((s) => s.type === "gps");
+  if (!geo) return [];
+  const k = res.keyOf.get(geo.id)!;
+  const latK = k.get("lat")!, lonK = k.get("lon")!, altK = k.get("alt"), spK = k.get("speed"), sK = k.get("s");
+  const tol = tolerance(rig);
+  const others = res.quantities.filter((q) => q.sensorId !== geo.id && !q.raw && !q.hidden);
+  const series = new Map(others.map((q) => [q.key, seriesOf(rows, q.key)]));
+  return rows.filter((r) => r._s === geo.id && Number.isFinite(r[latK] as number) && Number.isFinite(r[lonK] as number)).map((r) => ({
+    lat: r[latK] as number, lon: r[lonK] as number, ele: altK ? (r[altK] as number) : undefined, time: r.time as number, t: r.t,
+    values: {
+      ...(spK ? { speed: r[spK] as number } : {}), ...(sK ? { s: r[sK] as number } : {}),
+      ...Object.fromEntries(others.map((q) => [q.key, interpAt(series.get(q.key)!, r.t, tol)])),
+    },
   }));
 }
+
 export async function exportData(kind: ExportKind) {
   const st = get();
   if (!st.rows.length) { toast("Non ci sono dati da esportare."); return; }
-  const exp = currentExp();
-  const cols = exp.columns;
-  const headers = cols.map((c) => c.head);
-  const rows = selectedRows().map((r) => cols.map((c) => r[c.key]));
+  const exp = labInfo();
+  const cols = columnsOf();
+  const multi = st.rig.sensors.length > 1;
+  const headers = [...cols.map((c) => c.head), ...(multi ? ["sensore"] : [])];
+  const sensorName = new Map(st.rig.sensors.map((s) => [s.id, sensorLabel(s)]));
+  const rows = selectedRows().map((r) => [...cols.map((c) => r[c.key]), ...(multi ? [sensorName.get(String(r._s)) ?? ""] : [])]);
   const part = st.selection ? `_${fmtVal(st.selection[0], 2)}-${fmtVal(st.selection[1], 2)}s`.replace(/,/g, ".") : "";
-  const base = `mosaicus_${exp.id}_${stamp(new Date(st.session?.created ?? Date.now()))}${part}`;
+  const base = `mosaicusneo_${exp.id}_${stamp(new Date(st.session?.created ?? Date.now()))}${part}`;
   if (kind === "csv-it") return download(toCSV(headers, rows, { it: true }), `${base}_excel.csv`);
   if (kind === "csv") return download(toCSV(headers, rows, { it: false }), `${base}.csv`);
   if (kind === "png") return download(await stackPNG(), `${base}_grafici.png`);
@@ -513,15 +758,19 @@ export async function exportData(kind: ExportKind) {
   }
   const source = st.session?.source;
   const info = [
-    ["Mosaicus", `v${APP_VERSION}`],
-    ["Lab", `${exp.title} — ${exp.subtitle}`],
+    ["MosaicusNeo", `v${APP_VERSION}`],
+    ["Lab", `${exp.title}${exp.subtitle ? ` — ${exp.subtitle}` : ""}`],
     ["Nome della misura", st.sessionName || st.session?.name || ""],
     ["Data", new Date(st.session?.created ?? Date.now()).toLocaleString("it-IT")],
-    ["Sorgente", source === "simulatore" ? "simulatore" : source === "telefono" ? "sensori del telefono" : `Arduino (firmware ${st.session?.fw ?? "?"})`],
+    ["Sorgente", source === "simulatore" ? "simulatore" : `Arduino (firmware ${st.session?.fw ?? "?"})`],
     ["Tratto esportato", st.selection ? `${st.selection[0]} s – ${st.selection[1]} s` : "tutta la misura"],
     [],
-    ["Parametro", "Valore", "Unità"],
-    ...exp.params.map((p) => [p.label, p.type === "select" ? p.options?.find((o) => o[0] === st.params[p.key])?.[1] : st.params[p.key], p.unit || ""]),
+    ["Sensore", "Tipo", "Pin", "Intervallo (ms)", "Opzioni"],
+    ...st.rig.sensors.map((s) => {
+      const def = SENSORS[s.type];
+      return [sensorLabel(s), def.title, def.pins.map((p) => `${p.role}: ${pinName(s.pins[p.key])}`).join("; "), s.interval,
+        def.options.map((o) => `${o.label}: ${o.type === "select" ? o.options?.find((x) => x[0] === s.options[o.key])?.[1] : s.options[o.key]}${o.unit ? ` ${o.unit}` : ""}`).join("; ")];
+    }),
   ];
   download(toXLSX([{ name: "Dati", rows: [headers, ...rows] }, { name: "Info", rows: info }]), `${base}.xlsx`);
 }
@@ -549,29 +798,48 @@ function stackPNG(): Promise<Blob> {
 export async function refreshSessions() {
   try {
     const list = (await repo.all("sessions")).filter(repo.visible)
-      .map((s) => ({ id: s.id!, name: String(s.name), experiment: String(s.experiment), created: Number(s.created), n: (s.raw as unknown[] | undefined)?.length ?? 0, cloud: !!s.owner, dirty: !!s.dirty }))
+      .map((s) => ({
+        id: s.id!, name: String(s.name), created: Number(s.created), n: (s.raw as unknown[] | undefined)?.length ?? 0, cloud: !!s.owner, dirty: !!s.dirty,
+        labTitle: String(s.labTitle ?? labInfo(String(s.experiment)).title),
+      }))
       .sort((a, b) => b.created - a.created);
     set({ sessions: list });
   } catch { set({ sessions: [] }); }
 }
 
+interface StoredSession {
+  id: number; format?: number; name: string; created: number; source: string; fw: string | null;
+  experiment: string; rig?: Rig; raw: number[][]; params?: Record<string, number | string>;
+}
+
 export async function openSession(id: number) {
   if (get().running) { toast("Ferma la misura prima di aprire una misura del quaderno."); return; }
-  const s = (await repo.get("sessions", id)) as (Record<string, never> & { id: number; experiment: string; raw: number[][]; params: Params; name: string; created: number; source: string; fw: string | null }) | undefined;
+  const s = (await repo.get("sessions", id)) as unknown as StoredSession | undefined;
   if (!s) return;
+  const labId = s.experiment;
+  let rig: Rig, data: number[][];
+  if (s.format === 2 && s.rig) {
+    rig = { ...s.rig, id: s.rig.id || labId };
+    data = s.raw;
+  } else {
+    // misura salvata prima del sistema a sensori: la converto
+    const lg = LEGACY[s.experiment];
+    if (!lg) { toast.error("Questa misura viene da un lab che non esiste più."); return; }
+    const preset = presetById(labId);
+    const sensors = lg.rig(s.params ?? {}).sensors.map((x, i) => ({ ...x, id: preset ? `${labId}-${x.type}` : `${x.type}-${i}` }));
+    rig = { id: labId, name: preset?.title ?? labId, sensors };
+    data = s.raw.flatMap(lg.convert);
+  }
   showPage("misura");
-  selectExperiment(s.experiment, { keepData: true });
-  const exp = currentExp();
-  raw = s.raw;
-  set({
-    params: { ...defaultParams(exp), ...s.params },
-    session: { id: s.id, name: s.name, created: s.created, source: s.source, fw: s.fw },
-    sessionName: s.name, selection: null,
-  });
+  selectLab(presetById(labId) || get().customRigs.some((r) => r.id === labId) ? labId : "motion", { keepData: true });
+  raw = data;
+  const modified = !!presetById(rig.id) && JSON.stringify(rig.sensors) !== JSON.stringify(presetSensors(presetById(rig.id)!));
+  applyRig(rig, modified, { keepData: true });
+  set({ session: { id: s.id, name: s.name, created: s.created, source: s.source, fw: s.fw }, sessionName: s.name, selection: null });
   measureGroup().setSelection(null); measureGroup().fitAll();
   recompute();
   showDragHint();
-  toast(`Aperta «${s.name}». Se cambi i parametri, i dati vengono ricalcolati.`);
+  toast(`Aperta «${s.name}». Se cambi le opzioni dei sensori, i dati vengono ricalcolati.`);
 }
 
 export async function removeSession(id: number) {
@@ -585,8 +853,7 @@ export async function removeSession(id: number) {
 // Percorso guidato: qual è il prossimo gesto
 // ---------------------------------------------------------------------------
 export function guideStep(st: LabState): GuideStep {
-  const exp = byId(st.expId);
-  if (!exp || exp.kind || exp.source === "audio") return null;
+  if (instrumentById(st.labId) || !st.rig.sensors.length) return null;
   if (!st.linkKind) return "link";
   if (!st.ready) return "wait";
   if (st.running) return "stop";
@@ -603,7 +870,10 @@ export async function boot() {
   if (booted) return;
   booted = true;
   setLim(get().lim);
-  selectExperiment(initialExp().id);
+  set({ customRigs: prefs.get<Rig[]>("mosaicus.rigs", []) });
+  selectLab(prefs.get("mosaicus.lastLab", prefs.get("mosaicus.lastExp", serialSupported() ? "motion" : "synth")));
   await Promise.all([useWorkbench.getState().load(), refreshSessions()]);
   window.addEventListener("beforeunload", (e) => { if (get().running) { e.preventDefault(); e.returnValue = ""; } });
 }
+
+export { PRESETS, INSTRUMENTS };

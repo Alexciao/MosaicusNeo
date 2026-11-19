@@ -1,4 +1,4 @@
-// Mosaicus — motore audio condiviso (Web Audio API).
+// MosaicusNeo — motore audio condiviso (Web Audio API).
 //
 // Un solo AudioContext per tutta l'app. Tutto ciò che l'app suona (generatore, strumento,
 // suoni di esempio) passa da un'uscita comune ("master") e da un analizzatore "monitor":

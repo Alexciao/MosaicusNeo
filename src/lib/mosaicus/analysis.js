@@ -1,4 +1,4 @@
-// Mosaicus — analisi numerica (nessuna dipendenza esterna)
+// MosaicusNeo — analisi numerica (nessuna dipendenza esterna)
 // Minimi quadrati polinomiali con incertezze, derivate per regressione locale,
 // fit esponenziale (legge di Newton del raffreddamento) con Levenberg–Marquardt.
 

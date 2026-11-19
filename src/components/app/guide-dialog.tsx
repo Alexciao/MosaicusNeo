@@ -8,7 +8,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { APP_VERSION, FIRMWARE_URL, FIRMWARE_VERSION } from "@/lib/version";
 
 const MEASURE = [
-  ["Scegli il lab", "Nell'elenco a sinistra (sul telefono: «Lab», nella barra in basso)."],
+  ["Scegli il lab", "Un esperimento pronto o un tuo montaggio, nell'elenco a sinistra (sul telefono: «Lab», nella barra in basso). Nella scheda «Sensori» scegli sensori e pin, in «Collegamenti» vedi come collegarli."],
   ["Collega", "Arduino con il cavo → «Collega Arduino». Il telefono → «Attiva sensori». Senza niente → «Simulatore»."],
   ["Avvia e ferma", "«Avvia», guarda i punti arrivare, poi «Ferma». La misura si salva da sola nel Quaderno."],
   ["Scegli un tratto", "Trascina sul grafico: il tratto si colora. Pizzico o Ctrl + rotella per lo zoom, doppio clic per annullare."],
@@ -23,10 +23,10 @@ const ANALYSE = [
 ];
 
 const FIELD = [
-  ["Collega i moduli", "GPS VMA430: TX → D4. HC-06: TXD → D0, RXD ← D1 con il partitore 1 kΩ / 2 kΩ. DHT11: DATA → D2. Tutti a 5 V e GND (schema nel lab «Mappa della temperatura»)."],
-  ["Configura l'HC-06 (una volta)", "Arduino al computer con il cavo, apri il lab «Mappa della temperatura», «Collega Arduino» e poi «Configura HC-06». Mentre carichi il firmware dall'IDE stacca il filo TXD dell'HC-06."],
-  ["Associa il telefono", "Android, impostazioni Bluetooth: associa «Mosaicus» (PIN 1234). Alimenta Arduino con un power bank."],
-  ["Misura camminando", "Chrome su Android → lab «Mappa della temperatura» → «Collega via Bluetooth» → scegli Mosaicus → «Avvia». Lo schermo resta acceso; il Quaderno si salva ogni 30 s."],
+  ["Collega i moduli", "GPS VMA430: TX → D4. HC-06: TXD → D0, RXD ← D1 con il partitore 1 kΩ / 2 kΩ. DHT11: DATA → D2. Tutti a 5 V e GND (i pin si possono cambiare nella scheda «Sensori»; schema in «Collegamenti»)."],
+  ["Configura l'HC-06 (una volta)", "Arduino al computer con il cavo, «Collega Arduino», poi nella scheda «Collegamenti» → «Configura HC-06». Mentre carichi il firmware dall'IDE stacca il filo TXD dell'HC-06."],
+  ["Associa il telefono", "Android, impostazioni Bluetooth: associa «MosaicusNeo» (PIN 1234). Alimenta Arduino con un power bank."],
+  ["Misura camminando", "Chrome su Android → lab «Mappa della temperatura» → «Collega via Bluetooth» → scegli MosaicusNeo → «Avvia». Lo schermo resta acceso; il Quaderno si salva ogni 30 s."],
   ["Analizza o esporta", "Mappa colorata e grafici subito. Poi Excel, CSV, GPX (Strava, Google Earth) o GeoJSON (QGIS), oppure «Invia a Elaborazione» per i fit, per esempio T in funzione dell'altitudine."],
 ];
 
@@ -50,7 +50,7 @@ export function GuideDialog({ trigger }: { trigger: React.ReactElement }) {
       <DialogTrigger render={trigger} />
       <DialogContent className="max-h-[90svh] overflow-y-auto sm:max-w-xl">
         <DialogHeader>
-          <DialogTitle>Come si usa Mosaicus</DialogTitle>
+          <DialogTitle>Come si usa MosaicusNeo</DialogTitle>
           <DialogDescription>Micro-laboratorio di fisica: Arduino, sensori del telefono, suono. Funziona anche senza rete.</DialogDescription>
         </DialogHeader>
         <Tabs value={tab} onValueChange={(v) => setTab(String(v))}>
@@ -70,7 +70,7 @@ export function GuideDialog({ trigger }: { trigger: React.ReactElement }) {
             <ul className="flex flex-col gap-2.5 text-sm">
               <li className="flex gap-2.5"><Laptop className="mt-0.5 size-4 shrink-0 text-muted-foreground" /><span><b>Computer</b> · Chrome o Edge: servono per parlare con Arduino (Web Serial).</span></li>
               <li className="flex gap-2.5"><Smartphone className="mt-0.5 size-4 shrink-0 text-muted-foreground" /><span><b>Telefono</b> · Chrome o Safari: usa i sensori del telefono, senza Arduino. Si può installare come app.</span></li>
-              <li className="flex gap-2.5"><Cpu className="mt-0.5 size-4 shrink-0 text-muted-foreground" /><span><b>Arduino Uno</b> · con il firmware Mosaicus, da caricare una volta con l&apos;IDE di Arduino.</span></li>
+              <li className="flex gap-2.5"><Cpu className="mt-0.5 size-4 shrink-0 text-muted-foreground" /><span><b>Arduino Uno</b> · con il firmware MosaicusNeo, da caricare una volta con l&apos;IDE di Arduino.</span></li>
               <li className="flex gap-2.5"><Presentation className="mt-0.5 size-4 shrink-0 text-muted-foreground" /><span><b>LIM</b> · il pulsante con la lavagna ingrandisce testi e grafici.</span></li>
             </ul>
             <div className="rounded-lg border bg-muted/50 p-3">
@@ -79,8 +79,8 @@ export function GuideDialog({ trigger }: { trigger: React.ReactElement }) {
                 Uno solo per tutti i lab: termistore (A0), HC-SR04 (pin 12 e 11), DHT11/DHT22 (pin 2), GPS (pin 4), Bluetooth HC-06 (pin 0 e 1), oscilloscopio (A0).
                 Aprilo con l&apos;IDE di Arduino, scegli la scheda «Arduino Uno» e premi «Carica».
               </p>
-              <Button render={<a href={FIRMWARE_URL} download="mosaicus_firmware.ino" />} size="sm">
-                <Download /> Scarica mosaicus_firmware.ino
+              <Button render={<a href={FIRMWARE_URL} download="mosaicusneo_firmware.ino" />} size="sm">
+                <Download /> Scarica mosaicusneo_firmware.ino
               </Button>
             </div>
             <div className="rounded-lg border p-3 text-sm">
@@ -89,7 +89,7 @@ export function GuideDialog({ trigger }: { trigger: React.ReactElement }) {
             </div>
             <p className="text-xs text-muted-foreground">
               Il microfono serve solo a misurare il suono: l&apos;audio non viene registrato né inviato. Le misure restano in questo browser.
-              Mosaicus v{APP_VERSION} · software libero con licenza MIT · © 2026 Ermes Ferdinando Rosi ·{" "}
+              MosaicusNeo v{APP_VERSION} · basato su Mosaicus (© 2026 Ermes Ferdinando Rosi) · software libero con licenza MIT ·{" "}
               <a className="underline" href="https://github.com/Alexciao/MosaicusNeo" target="_blank" rel="noopener">codice sorgente</a>
             </p>
           </TabsContent>

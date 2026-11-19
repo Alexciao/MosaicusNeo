@@ -1,4 +1,4 @@
-// Mosaicus — stile condiviso dei disegni su canvas.
+// MosaicusNeo — stile condiviso dei disegni su canvas.
 //
 // I grafici leggono colori e dimensioni dalle variabili CSS della radice (--mz-*), così
 // seguono il tema chiaro/scuro e la modalità LIM. Qui: il carattere da usare sul canvas

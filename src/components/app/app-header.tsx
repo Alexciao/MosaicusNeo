@@ -5,7 +5,7 @@ import { BookOpen, ChartLine, FlaskConical, Monitor, Moon, Presentation, Sun } f
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import {
-  DropdownMenu, DropdownMenuContent, DropdownMenuGroup, DropdownMenuLabel, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuTrigger,
+  DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMenuGroup, DropdownMenuLabel, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuSeparator, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useLab, showPage, setLim, type Page } from "@/lib/lab-store";
 import { useWorkbench } from "@/lib/workbench-store";
@@ -41,18 +41,19 @@ export function NavTabs({ className }: { className?: string }) {
   );
 }
 
-function ThemeMenu() {
+function AppearanceMenu() {
   const { theme = "system", resolvedTheme, setTheme } = useTheme();
+  const lim = useLab((s) => s.lim);
   const Icon = resolvedTheme === "dark" ? Moon : Sun;
   return (
     <DropdownMenu>
       <Tooltip>
-        <TooltipTrigger render={<DropdownMenuTrigger render={<Button variant="ghost" size="icon" aria-label="Tema" />} />}>
+        <TooltipTrigger render={<DropdownMenuTrigger render={<Button variant="ghost" size="icon" aria-label="Aspetto" />} />}>
           <Icon />
         </TooltipTrigger>
-        <TooltipContent>Tema</TooltipContent>
+        <TooltipContent>Aspetto</TooltipContent>
       </Tooltip>
-      <DropdownMenuContent align="end" className="w-40">
+      <DropdownMenuContent align="end" className="w-56">
         <DropdownMenuGroup>
           <DropdownMenuLabel>Tema</DropdownMenuLabel>
           <DropdownMenuRadioGroup value={theme} onValueChange={(v) => setTheme(String(v))}>
@@ -61,20 +62,23 @@ function ThemeMenu() {
             <DropdownMenuRadioItem closeOnClick value="system"><Monitor /> Sistema</DropdownMenuRadioItem>
           </DropdownMenuRadioGroup>
         </DropdownMenuGroup>
+        <DropdownMenuSeparator />
+        <DropdownMenuCheckboxItem checked={lim} onCheckedChange={(v) => setLim(!!v)}>
+          <Presentation /> Modalità LIM
+        </DropdownMenuCheckboxItem>
       </DropdownMenuContent>
     </DropdownMenu>
   );
 }
 
 export function AppHeader() {
-  const lim = useLab((s) => s.lim);
   return (
     <header className="sticky top-0 z-40 border-b bg-background/85 backdrop-blur-md supports-[backdrop-filter]:bg-background/70">
       <div className="mx-auto flex h-14 w-full max-w-[1600px] items-center gap-3 px-4">
         <div className="flex min-w-0 items-center gap-2.5">
           <img src="/icons/icon.svg" alt="" width={28} height={28} className="rounded-md" />
           <div className="flex min-w-0 items-baseline gap-2">
-            <h1 className="text-[0.95rem] font-semibold tracking-tight">Mosaicus</h1>
+            <h1 className="text-[0.95rem] font-semibold tracking-tight">Mosaicus<span className="text-primary">Neo</span></h1>
             <span className="hidden text-xs text-muted-foreground sm:inline">v{APP_VERSION}</span>
           </div>
         </div>
@@ -83,16 +87,7 @@ export function AppHeader() {
         <div className="ml-auto flex items-center gap-1">
           <div className="mr-1 hidden lg:flex"><ConnectionControls /></div>
           <GuideDialog trigger={<Button variant="ghost" size="sm"><BookOpen /> <span className="hidden sm:inline">Guida</span></Button>} />
-          <Tooltip>
-            <TooltipTrigger render={
-              <Button variant="ghost" size="icon" aria-pressed={lim} aria-label="Modalità LIM" onClick={() => setLim(!lim)}
-                className={cn(lim && "bg-primary/10 text-primary hover:bg-primary/15 hover:text-primary")} />
-            }>
-              <Presentation />
-            </TooltipTrigger>
-            <TooltipContent>{lim ? "Esci dalla modalità LIM" : "Modalità LIM: testi e grafici più grandi per la proiezione"}</TooltipContent>
-          </Tooltip>
-          <ThemeMenu />
+          <AppearanceMenu />
           <AccountMenu />
         </div>
       </div>

@@ -1,4 +1,4 @@
-// Mosaicus — geografia: dalle coordinate NMEA ai gradi, distanze, scala di colori, export GPX e GeoJSON.
+// MosaicusNeo — geografia: dalle coordinate NMEA ai gradi, distanze, scala di colori, export GPX e GeoJSON.
 
 /** NMEA "ggmm.mmmm" (gradi e primi, negativo a sud/ovest) → gradi decimali. */
 export function nmeaToDeg(v: number) {
@@ -50,7 +50,7 @@ export function toGPX(name: string, pts: TrackPoint[]) {
       "</trkpt>";
   }).join("\n");
   return `<?xml version="1.0" encoding="UTF-8"?>
-<gpx version="1.1" creator="Mosaicus" xmlns="http://www.topografix.com/GPX/1/1"
+<gpx version="1.1" creator="MosaicusNeo" xmlns="http://www.topografix.com/GPX/1/1"
   xmlns:gpxtpx="http://www.garmin.com/xmlschemas/TrackPointExtension/v1"
   xmlns:mosaicus="https://github.com/Alexciao/MosaicusNeo/gpx">
   <metadata><name>${esc(name)}</name></metadata>
