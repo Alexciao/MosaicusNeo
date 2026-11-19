@@ -66,7 +66,7 @@
         bt     modulo Bluetooth configurato (0 nessuno, 1 HC-06, 2 BLE) · link: U USB, B Bluetooth
     BT,SETUP                                    #BT,SETUP … #ACK,BT,SETUP
         configura l'HC-06 (collegati via USB, HC-06 non associato): nome «MosaicusNeo», 115200 baud.
-        Se il modulo risponde, Arduino lo ricorda (EEPROM): in attesa dell'app il display lo dice.
+        Se il modulo risponde, Arduino lo ricorda (EEPROM): in attesa dell'app il display mostra «USB/BT».
         Nessuna risposta: #BT,NOREPLY prima dell'#ACK (fili TXD/RXD, o un telefono collegato).
     BT,SETUP,BLE                                #BT,SETUP … #ACK,BT,SETUP,BLE
         come sopra per i moduli Bluetooth Low Energy (HM-10, AT-09 / BT05, HC-08): nome
@@ -550,11 +550,13 @@ void screenTexts(char *bar, char *big, char *small) {
   switch (state) {
     case ST_WAIT:
       if (mode == RUN) { strcpy_P(bar, PSTR("APP PERSA")); strcpy_P(big, linkBt ? PSTR("BT?") : PSTR("USB?")); strcpy_P(small, PSTR("ricollega")); }
-      else if (btKind) {
-        // modulo Bluetooth configurato: si può collegare il telefono
-        strcpy_P(bar, PSTR("ATTESA BT")); strcpy_P(big, PSTR("APP"));
-        strcpy_P(small, btKind == 1 ? PSTR("PIN 1234") : PSTR("BLE pronto"));
-      } else { strcpy_P(bar, PSTR("ATTESA")); strcpy_P(big, PSTR("APP")); strcpy_P(small, PSTR("Collega ~")); }
+      else {
+        // in attesa: come collegarsi (il cavo sempre, il Bluetooth se il modulo ha risposto a
+        // BT,SETUP) e la versione del firmware: «USB v1.3» oppure «USB/BT 1.3»
+        strcpy_P(bar, PSTR("ATTESA")); strcpy_P(big, PSTR("APP"));
+        strcpy_P(small, btKind ? PSTR("USB/BT ") : PSTR("USB v"));
+        strncat(small, FW_VERSION, 4);
+      }
       break;
     case ST_IDLE: strcpy_P(bar, PSTR("COLLEGATO")); strcpy_P(big, PSTR("OK")); strcpy_P(small, linkBt ? PSTR("BT ~ Avvia") : PSTR("~ Avvia")); break;
     case ST_CFG: {
