@@ -10,6 +10,7 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
+  metadataBase: new URL("https://mosaicusneo.alexcorazza.com"),
   title: "MosaicusNeo · micro-laboratorio di fisica",
   description:
     "Esperimenti di fisica con Arduino e con i sensori del telefono: grafici in tempo reale, oscilloscopio, synth, analisi dei dati, esportazione in Excel. Funziona anche offline.",
