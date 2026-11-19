@@ -35,6 +35,8 @@ export interface SensorDef {
   /** quanti se ne possono mettere in un montaggio */
   max: number;
   quantities(o: Options): QView[];
+  /** nomi dei valori grezzi inviati dal firmware (riga D,<slot>,<t>,…), per l'export grezzo */
+  rawFields: string[];
   parse(v: number[], o: Options): Rec | null;
   derive?(recs: Rec[], o: Options): void;
   fwOpt?(o: Options): number;
@@ -88,6 +90,7 @@ function trackDistance(recs: Rec[]) {
 // Sensori collegati ad Arduino
 // ---------------------------------------------------------------------------
 const ntc: SensorDef = {
+  rawFields: ["adc"],
   type: "ntc", title: "Termistore NTC", short: "NTC", measures: "temperatura",
   description: "Resistenza che cambia con la temperatura, in un partitore con una resistenza fissa. Economico, veloce, da immergere.",
   icon: Thermometer, tone: "rose", fw: "NTC",
@@ -117,6 +120,7 @@ const ntc: SensorDef = {
 };
 
 const dht: SensorDef = {
+  rawFields: ["byte0", "byte1", "byte2", "byte3", "error"],
   type: "dht", title: "DHT11 / DHT22", short: "DHT", measures: "temperatura e umidità",
   description: "Temperatura e umidità relativa in un solo sensore digitale. Lento (una lettura al secondo) ma preciso a sufficienza; ne ricava anche il punto di rugiada.",
   icon: Droplets, tone: "sky", fw: "DHT",
@@ -147,6 +151,7 @@ const dht: SensorDef = {
 };
 
 const sonar: SensorDef = {
+  rawFields: ["echo_us"],
   type: "sonar", title: "Ultrasuoni HC-SR04", short: "HC-SR04", measures: "posizione, velocità, accelerazione",
   description: "Misura la distanza dal tempo di volo di un impulso di ultrasuoni (2 cm – 4 m). Da qui posizione, velocità e accelerazione.",
   icon: MoveHorizontal, tone: "sky", fw: "SONAR",
@@ -196,6 +201,7 @@ const sonar: SensorDef = {
 };
 
 const gps: SensorDef = {
+  rawFields: ["fix", "lat_nmea", "lon_nmea", "alt_m", "sats", "hdop", "speed_knots", "utc_hhmmss", "date_ddmmyy"],
   type: "gps", title: "GPS (NEO-6M / NEO-7M)", short: "GPS", measures: "posizione, altitudine, velocità",
   description: "Modulo GPS seriale, come il Velleman VMA430 / Whadda WPI430 (u-blox NEO-7M, 9600 baud). All'aperto, con il cielo libero.",
   icon: Satellite, tone: "lime", fw: "GPS",
@@ -225,6 +231,7 @@ const gps: SensorDef = {
 };
 
 const analog: SensorDef = {
+  rawFields: ["adc"],
   type: "analog", title: "Tensione analogica", short: "Analogico", measures: "tensione (0–5 V) o una grandezza tarata",
   description: "Qualunque segnale tra 0 e 5 V: potenziometro, sensore di pressione o di forza, uscita analogica di un modulo. Con la taratura lineare diventa la grandezza che vuoi.",
   icon: Activity, tone: "saffron", fw: "ANA",
@@ -252,6 +259,7 @@ const analog: SensorDef = {
 };
 
 const ldr: SensorDef = {
+  rawFields: ["adc"],
   type: "ldr", title: "Fotoresistenza (luce)", short: "LDR", measures: "luminosità relativa",
   description: "Una fotoresistenza in partitore: più luce, meno resistenza. Dà una luminosità relativa (0–100 %), utile per ombre, lampade, sfarfallio.",
   icon: Sun, tone: "saffron", fw: "ANA",

@@ -26,8 +26,10 @@ function Item({ id, title, subtitle, icon: Icon, tone, onPicked, badge, menu }: 
     <li className="group/item relative">
       <button type="button" disabled={running && !active} aria-current={active ? "true" : undefined}
         onClick={() => { selectLab(id); onPicked?.(); }}
-        className={cn("flex w-full items-center gap-3 rounded-lg px-2 py-2 text-left transition-colors disabled:cursor-not-allowed disabled:opacity-50",
-          menu && "pr-9", active ? "bg-brand/8 ring-1 ring-brand/30" : "hover:bg-muted")}>
+        className={cn(
+          // bordo sempre di 1 px (trasparente se non attivo) e niente contorno del browser: lo spessore non cambia mai
+          "flex w-full items-center gap-3 rounded-lg px-2 py-2 text-left ring-1 ring-transparent ring-inset outline-none transition-[background-color,box-shadow] duration-150 ease-out disabled:cursor-not-allowed disabled:opacity-50 focus-visible:ring-ring",
+          menu && "pr-9", active ? "bg-brand/8 ring-brand/30" : "hover:bg-muted")}>
         <span className={cn("grid size-9 shrink-0 place-items-center rounded-lg text-tone-ink", toneBg[tone])}><Icon className="size-[1.15rem]" /></span>
         <span className="min-w-0 flex-1">
           <span className={cn("flex items-center gap-1.5 truncate text-sm font-semibold", active && "text-brand")}>
@@ -54,7 +56,7 @@ function RigMenu({ rig }: { rig: Rig }) {
       <DropdownMenu>
         <DropdownMenuTrigger render={
           <Button size="icon-xs" variant="ghost" aria-label={`Azioni per «${rig.name}»`}
-            className="text-muted-foreground opacity-60 group-hover/item:opacity-100 focus-visible:opacity-100 aria-expanded:opacity-100" />
+            className="text-muted-foreground opacity-60 group-hover/item:opacity-100 focus-visible:opacity-100 aria-expanded:opacity-100 pointer-coarse:opacity-100" />
         }>
           <Ellipsis />
         </DropdownMenuTrigger>

@@ -2,7 +2,7 @@
 
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useTheme } from "next-themes";
-import { ArrowRight, ChartLine, Check, ChevronDown, Download, Plus, FileSpreadsheet, FileText, Image as ImageIcon, MapPinned, Maximize2, Route, Scan, Table2, X, ZoomIn, ZoomOut } from "lucide-react";
+import { ArrowRight, Binary, ChartLine, Check, ChevronDown, Download, Plus, FileSpreadsheet, FileText, Image as ImageIcon, MapPinned, Maximize2, Route, Scan, Table2, X, ZoomIn, ZoomOut } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -93,6 +93,13 @@ function ChartStack() {
   );
 }
 
+/** Letture nell'intervallo [a, b] (senza creare array: si ricalcola a ogni lettura). */
+function countIn(rows: { t: number }[], [a, b]: [number, number]) {
+  let n = 0;
+  for (const r of rows) if (r.t >= a && r.t <= b) n++;
+  return n;
+}
+
 /** Tabella dei dati (selezione o tutta la misura), in una finestra. */
 function DataDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (o: boolean) => void }) {
   const rows = useLab((s) => s.rows);
@@ -133,13 +140,13 @@ export function ChartCard() {
   const rig = useLab((s) => s.rig);
   const visible = useLab((s) => s.visible);
   const selection = useLab((s) => s.selection);
-  const rows = useLab((s) => s.rows);
+  const hasRows = useLab((s) => s.rows.length > 0);
+  const nSel = useLab((s) => (s.selection ? countIn(s.rows, s.selection) : s.rows.length));
   const running = useLab((s) => s.running);
   const [table, setTable] = useState(false);
   const views = viewsOf(rig);
   const physical = views.filter((v) => !v.raw), raw = views.filter((v) => v.raw);
   const map = hasMap(rig);
-  const nSel = selection ? selectedRows().length : rows.length;
   const g = measureGroup();
   const doExport = (k: ExportKind) => void exportData(k);
   const sentId = useLab(sentBoxId);
@@ -184,10 +191,10 @@ export function ChartCard() {
             <Tip label="Zoom sulla selezione"><Button size="icon-sm" variant="ghost" aria-label="Zoom sulla selezione" onClick={() => { if (!g.zoomToSelection()) toast("Prima seleziona un tratto trascinando su un grafico."); }}><Scan /></Button></Tip>
             <Tip label="Mostra tutti i dati"><Button size="icon-sm" variant="ghost" onClick={() => g.fitAll()} aria-label="Adatta"><Maximize2 /></Button></Tip>
           </div>
-          <Tip label="Tabella dei dati"><Button size="icon-sm" variant="outline" aria-label="Tabella dei dati" disabled={!rows.length} onClick={() => setTable(true)}><Table2 /></Button></Tip>
+          <Tip label="Tabella dei dati"><Button size="icon-sm" variant="outline" aria-label="Tabella dei dati" disabled={!hasRows} onClick={() => setTable(true)}><Table2 /></Button></Tip>
           <DropdownMenu>
             <Tip label={selection ? "Esporta la selezione" : "Esporta tutta la misura"}>
-              <DropdownMenuTrigger render={<Button size="icon-sm" variant="outline" aria-label="Esporta" disabled={!rows.length} />}><Download /></DropdownMenuTrigger>
+              <DropdownMenuTrigger render={<Button size="icon-sm" variant="outline" aria-label="Esporta" disabled={!hasRows} />}><Download /></DropdownMenuTrigger>
             </Tip>
             <DropdownMenuContent align="end" className="w-64">
               <DropdownMenuGroup>
@@ -199,6 +206,12 @@ export function ChartCard() {
                 {map && <DropdownMenuItem onClick={() => doExport("gpx")}><Route /> Traccia GPX</DropdownMenuItem>}
                 {map && <DropdownMenuItem onClick={() => doExport("geojson")}><MapPinned /> GeoJSON</DropdownMenuItem>}
               </DropdownMenuGroup>
+              <DropdownMenuSeparator />
+              <DropdownMenuGroup>
+                <DropdownMenuLabel className="flex flex-col gap-0.5">Dati grezzi di Arduino<span className="font-normal text-muted-foreground">per script: una riga per lettura, valori non convertiti</span></DropdownMenuLabel>
+                <DropdownMenuItem onClick={() => doExport("raw-csv")}><Binary /> CSV grezzo (.csv)</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => doExport("raw-xlsx")}><Binary /> Excel grezzo (.xlsx)</DropdownMenuItem>
+              </DropdownMenuGroup>
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
@@ -206,7 +219,7 @@ export function ChartCard() {
 
       <ChartStack />
 
-      {!!rows.length && (
+      {hasRows && (
         <div className={cn("flex flex-wrap items-center gap-2 rounded-lg px-1 transition-colors", selection && !running && "bg-[var(--mz-sel)] px-2 py-1")}>
           <p className="text-sm">
             {selection ? <><b className="tabular">{fmtVal(selection[0], 2)} – {fmtVal(selection[1], 2)} s</b> · {nSel} letture</>
@@ -234,7 +247,7 @@ export function ChartCard() {
           </div>
         </div>
       )}
-      <DataDialog open={table} onOpenChange={setTable} />
+      {table && <DataDialog open onOpenChange={setTable} />}
     </Card>
   );
 }

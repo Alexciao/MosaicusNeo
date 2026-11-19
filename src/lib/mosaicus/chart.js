@@ -12,7 +12,8 @@
 
 const PAD = { l: 64, r: 18, t: 14, b: 46 };
 const PAD_COMPACT_B = 10;
-import { canvasFont, rootScale, onStyleChange } from './style.js';
+import { canvasFont, rootScale, onStyleChange, canvasDpr, lowPower } from './style.js';
+import { fixed, upTo } from './numfmt.js';
 
 // =====================================================================
 export class ChartGroup {
@@ -26,24 +27,32 @@ export class ChartGroup {
     this.onSelect = onSelect;
     this.onActivate = onActivate;
     this._dead = false;
-    const loop = () => {
+    this._raf = 0;
+    // Disegno su richiesta: un fotogramma si chiede solo quando qualcosa è cambiato
+    // (prima ogni gruppo girava a 60 fps anche da fermo o nascosto).
+    this._frame = () => {
+      this._raf = 0;
       if (this._dead) return;
       for (const c of this.charts) if (c._dirty) c.draw();
-      this._raf = requestAnimationFrame(loop);
     };
-    this._raf = requestAnimationFrame(loop);
     this._offStyle = onStyleChange(() => this.refreshStyle());
   }
-  add(chart) { this.charts.push(chart); chart.group = this; return chart; }
+  add(chart) { this.charts.push(chart); chart.group = this; this._ext = null; chart.invalidate(); return chart; }
   remove(chart) { chart.destroy(); this.charts = this.charts.filter((c) => c !== chart); this.invalidate(); }
-  clear() { for (const c of this.charts) c.destroy(); this.charts = []; }
+  clear() { for (const c of this.charts) c.destroy(); this.charts = []; this._ext = null; }
   /** Ferma il ciclo di disegno: da chiamare quando il gruppo non serve più. */
-  destroy() { this.clear(); this._dead = true; cancelAnimationFrame(this._raf); this._offStyle?.(); }
+  destroy() { this.clear(); this._dead = true; if (this._raf) cancelAnimationFrame(this._raf); this._offStyle?.(); }
+  /** Chiede un fotogramma (uno solo, anche se lo chiedono più grafici). */
+  schedule() { if (!this._raf && !this._dead) this._raf = requestAnimationFrame(this._frame); }
   invalidate() { for (const c of this.charts) c.invalidate(); }
   refreshStyle() { for (const c of this.charts) c.refreshStyle(); }
 
   /** Estensione dei tempi di tutti i dati (con lo 0 incluso, come in partenza). */
   dataExtent() {
+    if (this._ext) return this._ext;
+    return (this._ext = this._computeExtent());
+  }
+  _computeExtent() {
     let x0 = Infinity, x1 = -Infinity;
     for (const c of this.charts) for (const s of c.series) for (const x of s.x) {
       if (isFinite(x)) { if (x < x0) x0 = x; if (x > x1) x1 = x; }
@@ -85,7 +94,11 @@ export class ChartGroup {
     this.selection = sel; this.invalidate();
     if (notify && this.onSelect) this.onSelect(sel);
   }
-  setHover(t) { this.hoverT = t; this.invalidate(); }
+  setHover(t) {
+    if (t === this.hoverT) return;
+    this.hoverT = t;
+    for (const c of this.charts) c.invalidateHover();
+  }
 }
 
 // =====================================================================
@@ -112,6 +125,10 @@ export class Chart {
     this._bounds = null;
     this._dirty = true;
     this._css = getComputedStyle(document.documentElement);
+    this._colors = new Map();
+    this._base = document.createElement('canvas');   // dati, griglia, etichette: ridisegnati solo se cambiano
+    this._bctx = this._base.getContext('2d');
+    this._baseDirty = true;
     this.refreshStyle(false);
 
     this._ro = new ResizeObserver(() => this.resize());
@@ -139,26 +156,36 @@ export class Chart {
   refreshStyle(redraw = true) {
     const k = rootScale();
     this.k = k;
+    this.lite = lowPower();   // LIM: punti quadrati (molto più veloci dei cerchi)
+    this._colors?.clear();
     this.pad = { l: PAD.l * k, r: PAD.r * k, t: PAD.t * k, b: (this.compact ? PAD_COMPACT_B : PAD.b) * k };
     if (redraw) this.resize();
   }
 
-  color(name) { return this._css.getPropertyValue(name).trim() || '#333'; }
+  color(name) {
+    let v = this._colors.get(name);
+    if (v === undefined) { v = this._css.getPropertyValue(name).trim() || '#333'; this._colors.set(name, v); }
+    return v;
+  }
 
   resize() {
     const r = this.c.getBoundingClientRect();
-    const dpr = window.devicePixelRatio || 1;
-    this.c.width = Math.max(1, Math.round(r.width * dpr));
-    this.c.height = Math.max(1, Math.round(r.height * dpr));
+    const dpr = canvasDpr();
+    const W = Math.max(1, Math.round(r.width * dpr)), H = Math.max(1, Math.round(r.height * dpr));
+    if (this.c.width !== W || this.c.height !== H) {
+      this.c.width = this._base.width = W;
+      this.c.height = this._base.height = H;
+    }
     this.w = r.width; this.h = r.height; this.dpr = dpr;
     this.invalidate();
   }
 
-  invalidate() { if (!this._dead) this._dirty = true; }
+  invalidate() { if (!this._dead) { this._dirty = true; this._baseDirty = true; this.group?.schedule(); } }
+  invalidateHover() { if (!this._dead) { this._dirty = true; this.group?.schedule(); } }
 
   setData({ series, xLabel, yLabel }) {
     this.series = series; this.xLabel = xLabel; this.yLabel = yLabel;
-    this.group ? this.group.invalidate() : this.invalidate();
+    if (this.group) { this.group._ext = null; this.group.invalidate(); } else this.invalidate();
   }
   setFit(fit) { this.fit = fit; this.invalidate(); }
   setOverlays(list) { this.overlays = list || []; this.invalidate(); }
@@ -210,7 +237,19 @@ export class Chart {
   draw() {
     this._dirty = false;
     if (this._dead || !this.w) return;
+    if (this._baseDirty) { this._baseDirty = false; this._drawBase(); }
     const g = this.ctx, dpr = this.dpr, k = this.k;
+    g.setTransform(1, 0, 0, 1, 0, 0);
+    g.globalCompositeOperation = 'copy';
+    g.drawImage(this._base, 0, 0);
+    g.globalCompositeOperation = 'source-over';
+    g.setTransform(dpr, 0, 0, dpr, 0, 0);
+    this._drawHover(g, k);
+  }
+
+  /** Strato di base: sfondo, selezione, griglia, etichette, dati, fit, disegni. */
+  _drawBase() {
+    const g = this._bctx, dpr = this.dpr, k = this.k;
     g.setTransform(dpr, 0, 0, dpr, 0, 0);
     g.clearRect(0, 0, this.w, this.h);
     g.fillStyle = this.color('--mz-chart-bg');
@@ -282,12 +321,24 @@ export class Chart {
         g.stroke();
       }
       if (s.mode !== 'line') {
-        const visible = s.x.filter((x) => x >= b.x0 && x <= b.x1).length;
+        let visible = 0;
+        for (let i = 0; i < s.x.length; i++) if (s.x[i] >= b.x0 && s.x[i] <= b.x1) visible++;
         const r = (visible > 1500 ? 1.4 : 2.6) * Math.sqrt(k);
-        for (let i = 0; i < s.x.length; i++) {
-          if (!isFinite(s.y[i]) || !isFinite(s.x[i]) || s.x[i] < b.x0 || s.x[i] > b.x1) continue;
-          g.beginPath(); g.arc(this.sx(s.x[i]), this.sy(s.y[i]), r, 0, 2 * Math.PI); g.fill();
+        // un solo percorso per tutti i punti: un fill invece di migliaia
+        g.beginPath();
+        if (visible > 4000 || this.lite) {
+          for (let i = 0; i < s.x.length; i++) {
+            if (!isFinite(s.y[i]) || !isFinite(s.x[i]) || s.x[i] < b.x0 || s.x[i] > b.x1) continue;
+            g.rect(this.sx(s.x[i]) - r, this.sy(s.y[i]) - r, 2 * r, 2 * r);
+          }
+        } else {
+          for (let i = 0; i < s.x.length; i++) {
+            if (!isFinite(s.y[i]) || !isFinite(s.x[i]) || s.x[i] < b.x0 || s.x[i] > b.x1) continue;
+            const X = this.sx(s.x[i]), Y = this.sy(s.y[i]);
+            g.moveTo(X + r, Y); g.arc(X, Y, r, 0, 2 * Math.PI);
+          }
         }
+        g.fill();
       }
     }
     if (this.fit) {
@@ -297,6 +348,16 @@ export class Chart {
       g.stroke(); g.setLineDash([]);
     }
     this._drawOverlays(g, b, k, top, bottom);
+    g.restore();
+  }
+
+  /** Strato del mirino: linea all'istante del puntatore e lettura del punto più vicino. */
+  _drawHover(g, k) {
+    const b = this._bounds; if (!b) return;
+    const top = this.pad.t, bottom = this.h - this.pad.b;
+    const font = `500 ${12 * k}px ${canvasFont()}`;
+    g.save();
+    g.beginPath(); g.rect(this.pad.l, top, this.plotW(), bottom - top); g.clip();
     // mirino condiviso: linea verticale all'istante sotto il puntatore
     const ht = this.group?.hoverT;
     if (ht != null && ht >= b.x0 && ht <= b.x1) {
@@ -310,12 +371,7 @@ export class Chart {
     // lettura del punto più vicino all'istante del mirino (su tutti i grafici)
     if (ht != null && this.series[0]) {
       const s = this.series[0];
-      let best = -1, bd = Infinity;
-      for (let i = 0; i < s.x.length; i++) {
-        if (!isFinite(s.y[i])) continue;
-        const d = Math.abs(s.x[i] - ht);
-        if (d < bd) { bd = d; best = i; }
-      }
+      const best = nearestSorted(s.x, s.y, ht);
       if (best >= 0 && Math.abs(this.sx(s.x[best]) - this.sx(ht)) < 30 * k) {
         const X = this.sx(s.x[best]), Y = this.sy(s.y[best]);
         g.strokeStyle = this.color('--mz-ink'); g.lineWidth = 1.5;
@@ -538,11 +594,28 @@ export function niceTicks(lo, hi, maxTicks) {
 }
 function tickLabel(v, step) {
   const d = Math.max(0, -Math.floor(Math.log10(step)) + (step / Math.pow(10, Math.floor(Math.log10(step))) === 2.5 ? 1 : 0));
-  return v.toLocaleString('it-IT', { minimumFractionDigits: d, maximumFractionDigits: d });
+  return fixed(v, Math.min(d, 20));
 }
 function fmtNum(x) {
   if (!isFinite(x)) return '—';
   const a = Math.abs(x);
-  const d = a >= 100 ? 1 : a >= 10 ? 2 : 3;
-  return x.toLocaleString('it-IT', { maximumFractionDigits: d });
+  return upTo(x, a >= 100 ? 1 : a >= 10 ? 2 : 3);
+}
+/** Indice del valore valido più vicino a t in un vettore di tempi crescenti (lineare se non ordinato). */
+function nearestSorted(xs, ys, t) {
+  const n = xs.length; if (!n) return -1;
+  let lo = 0, hi = n - 1;
+  if (xs[0] <= xs[hi]) {
+    while (hi - lo > 1) { const m = (lo + hi) >> 1; if (xs[m] <= t) lo = m; else hi = m; }
+    let best = Math.abs(xs[lo] - t) <= Math.abs(xs[hi] - t) ? lo : hi;
+    if (isFinite(ys[best])) return best;
+    for (let d = 1; d < n; d++) {          // salta eventuali buchi
+      if (best - d >= 0 && isFinite(ys[best - d])) return best - d;
+      if (best + d < n && isFinite(ys[best + d])) return best + d;
+    }
+    return -1;
+  }
+  let best = -1, bd = Infinity;
+  for (let i = 0; i < n; i++) { if (!isFinite(ys[i])) continue; const d = Math.abs(xs[i] - t); if (d < bd) { bd = d; best = i; } }
+  return best;
 }

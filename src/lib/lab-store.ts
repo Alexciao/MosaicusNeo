@@ -45,9 +45,16 @@ export interface Link {
   onClose(cb: () => void): void;
 }
 export interface Session { id?: number; name: string; created: number; source: string; fw: string | null }
-export interface SessionSummary { id: number; name: string; labTitle: string; created: number; n: number; cloud?: boolean; dirty?: boolean }
+export interface SessionSummary {
+  id: number; name: string; labId: string; labTitle: string; created: number; n: number;
+  /** durata in secondi (dal primo all'ultimo dato) */
+  duration: number;
+  /** sensori del montaggio (nomi brevi) */
+  sensors: string[];
+  source: string; cloud?: boolean; dirty?: boolean;
+}
 export type StatusTone = "off" | "wait" | "on" | "err";
-export type Page = "misura" | "elab";
+export type Page = "misura" | "quaderno" | "elab";
 export type GuideStep = "link" | "wait" | "start" | "stop" | "pick" | "send" | "go" | null;
 
 /** Pannello di uno strumento (oscilloscopio, synth): riceve le righe che lo riguardano. */
@@ -111,7 +118,7 @@ interface LabState {
 const EMPTY_RIG: Rig = { id: "empty", name: "", sensors: [] };
 
 export const useLab = create<LabState>(() => ({
-  page: prefs.get<Page>("mosaicus.page", "misura") === "elab" ? "elab" : "misura",
+  page: (["misura", "quaderno", "elab"] as const).find((p) => p === prefs.get<Page>("mosaicus.page", "misura")) ?? "misura",
   labId: "motion",
   rig: EMPTY_RIG,
   modified: false,
@@ -247,10 +254,20 @@ export function instrumentApi(ins: Instrument): InstrumentApi {
 // ---------------------------------------------------------------------------
 // Pagine e preferenze del dispositivo
 // ---------------------------------------------------------------------------
-export function showPage(page: Page) {
+const scrollOf: Partial<Record<Page, number>> = {};
+/** Cambia pagina; ognuna ritrova il punto in cui la si era lasciata. */
+export function showPage(page: Page, { restoreScroll = true } = {}) {
+  const from = get().page;
+  if (from === page) return;
+  scrollOf[from] = window.scrollY;
   set({ page });
   prefs.set("mosaicus.page", page);
-  window.scrollTo({ top: 0 });
+  if (restoreScroll) requestAnimationFrame(() => window.scrollTo({ top: scrollOf[page] ?? 0 }));
+}
+/** Logo: torna alla pagina iniziale (Misura, in cima). */
+export function goHome() {
+  showPage("misura", { restoreScroll: false });
+  window.scrollTo({ top: 0, behavior: "smooth" });
 }
 /** Apre la guida a un capitolo (es. dal messaggio "firmware vecchio" o dalla sezione Bluetooth). */
 export function openGuide(chapter = "start") { set({ guide: chapter }); }
@@ -260,7 +277,7 @@ export function closeGuide() { set({ guide: null }); }
 export function goElab(boxId?: number) {
   const id = boxId ?? get().lastSent?.boxId;
   set({ sent: false });
-  showPage("elab");
+  showPage("elab", { restoreScroll: id == null });
   if (id != null) useWorkbench.getState().focus(id);
 }
 
@@ -273,6 +290,24 @@ export function selectionKey(st = get()) {
 export function sentBoxId(st = get()): number | null {
   if (!st.lastSent || st.lastSent.key !== selectionKey(st)) return null;
   return useWorkbench.getState().boxes.some((b) => b.id === st.lastSent!.boxId) ? st.lastSent.boxId : null;
+}
+
+/**
+ * Prima visita da una lavagna (schermo grande, touch, processore modesto): propone la modalità LIM,
+ * che oltre a ingrandire i testi alleggerisce i grafici. Una volta sola.
+ */
+function suggestLim() {
+  if (get().lim || prefs.get("mosaicus.limSuggested", false)) return;
+  const nav = navigator as Navigator & { deviceMemory?: number };
+  const weak = (nav.hardwareConcurrency || 8) <= 4 || (nav.deviceMemory ?? 8) <= 2;
+  const board = matchMedia("(pointer: coarse)").matches && Math.max(screen.width, screen.height) >= 1600;
+  if (!weak || !board) return;
+  prefs.set("mosaicus.limSuggested", true);
+  toast("Sembra una lavagna interattiva", {
+    description: "La modalità LIM ingrandisce i testi e alleggerisce i grafici.",
+    duration: 12000,
+    action: { label: "Attiva", onClick: () => setLim(true) },
+  });
 }
 
 export function setLim(on: boolean) {
@@ -472,7 +507,9 @@ let pending = false;
 function scheduleRecompute() {
   if (pending) return;
   pending = true;
-  setTimeout(() => { pending = false; recompute(); }, 120);
+  // più dati = ricostruzione più costosa: si diradano gli aggiornamenti (120 ms … 1 s)
+  const delay = Math.min(1000, Math.max(get().lim ? 300 : 120, raw.length / (get().lim ? 20 : 40)));
+  setTimeout(() => { pending = false; recompute(); }, delay);
 }
 
 export function selectedRows() {
@@ -798,7 +835,37 @@ export async function sendSelection({ open = true } = {}) {
 // ---------------------------------------------------------------------------
 // Export
 // ---------------------------------------------------------------------------
-export type ExportKind = "xlsx" | "csv-it" | "csv" | "png" | "gpx" | "geojson";
+export type ExportKind = "xlsx" | "csv-it" | "csv" | "png" | "gpx" | "geojson" | "raw-csv" | "raw-xlsx";
+
+/**
+ * Letture grezze così come le ha mandate Arduino (conteggi ADC, µs di eco, byte del DHT, campi NMEA),
+ * una riga per lettura, con nomi di colonna semplici: pensate per script (Python, R, MATLAB…).
+ */
+function rawTable(sel: [number, number] | null) {
+  const { rig } = get();
+  const res = resolved(rig);
+  const [a, b] = sel ?? [-Infinity, Infinity];
+  const fields: string[] = [];
+  for (const s of rig.sensors) for (const f of SENSORS[s.type].rawFields) if (!fields.includes(f)) fields.push(f);
+  const headers = ["t_s", "t_ms", "sensor", "type", "slot", ...fields];
+  const per = new Map<string, (string | number)[][]>();
+  const rows: (string | number)[][] = [];
+  for (const f of raw) {
+    const s = res.byCode.get(f[0]);
+    const t = f[1] / 1000;
+    if (!s || t < a || t > b) continue;
+    const names = SENSORS[s.type].rawFields;
+    rows.push([t, f[1], sensorLabel(s), s.type, f[0], ...fields.map((k) => { const i = names.indexOf(k); return i >= 0 ? f[2 + i] : ""; })]);
+    if (!per.has(s.id)) per.set(s.id, []);
+    per.get(s.id)!.push([t, f[1], ...names.map((_, i) => f[2 + i])]);
+  }
+  rows.sort((x, y) => (x[1] as number) - (y[1] as number));
+  const sheets = rig.sensors.filter((s) => per.has(s.id)).map((s) => ({
+    name: sensorLabel(s).replace(/[\/?*[\]:]/g, " ").slice(0, 28),
+    rows: [["t_s", "t_ms", ...SENSORS[s.type].rawFields], ...per.get(s.id)!],
+  }));
+  return { headers, rows, sheets };
+}
 
 /** Punti con una posizione valida, con le grandezze degli altri sensori al loro istante. */
 export function trackPoints(rows: Row[], rig = get().rig): TrackPoint[] {
@@ -833,6 +900,13 @@ export async function exportData(kind: ExportKind) {
   if (kind === "csv-it") return download(toCSV(headers, rows, { it: true }), `${base}_excel.csv`);
   if (kind === "csv") return download(toCSV(headers, rows, { it: false }), `${base}.csv`);
   if (kind === "png") return download(await stackPNG(), `${base}_grafici.png`);
+  if (kind === "raw-csv" || kind === "raw-xlsx") {
+    const t = rawTable(st.selection);
+    if (!t.rows.length) { toast("Non ci sono letture grezze da esportare."); return; }
+    return kind === "raw-csv"
+      ? download(toCSV(t.headers, t.rows, { it: false }), `${base}_grezzi.csv`)
+      : download(toXLSX([{ name: "Grezzi", rows: [t.headers, ...t.rows] }, ...(t.sheets.length > 1 ? t.sheets : [])]), `${base}_grezzi.xlsx`);
+  }
   if (kind === "gpx" || kind === "geojson") {
     const pts = trackPoints(selectedRows());
     if (!pts.length) { toast("Nessun punto con la posizione GPS da esportare."); return; }
@@ -857,7 +931,8 @@ export async function exportData(kind: ExportKind) {
         def.options.map((o) => `${o.label}: ${o.type === "select" ? o.options?.find((x) => x[0] === s.options[o.key])?.[1] : s.options[o.key]}${o.unit ? ` ${o.unit}` : ""}`).join("; ")];
     }),
   ];
-  download(toXLSX([{ name: "Dati", rows: [headers, ...rows] }, { name: "Info", rows: info }]), `${base}.xlsx`);
+  const rawT = rawTable(st.selection);
+  download(toXLSX([{ name: "Dati", rows: [headers, ...rows] }, { name: "Info", rows: info }, ...(rawT.rows.length ? [{ name: "Grezzi", rows: [rawT.headers, ...rawT.rows] }] : [])]), `${base}.xlsx`);
 }
 
 /** Un'unica immagine con tutti i grafici impilati, come si vedono a schermo. */
@@ -883,10 +958,20 @@ function stackPNG(): Promise<Blob> {
 export async function refreshSessions() {
   try {
     const list = (await repo.all("sessions")).filter(repo.visible)
-      .map((s) => ({
-        id: s.id!, name: String(s.name), created: Number(s.created), n: (s.raw as unknown[] | undefined)?.length ?? 0, cloud: !!s.owner, dirty: !!s.dirty,
-        labTitle: String(s.labTitle ?? labInfo(String(s.experiment)).title),
-      }))
+      .map((s): SessionSummary => {
+        const data = (s.raw as number[][] | undefined) ?? [];
+        // formato 2: [slot, t_ms, …]; misure vecchie: il tempo è il primo campo
+        const tOf = (f?: number[]) => (f ? (s.format === 2 ? f[1] / 1000 : f[0]) : NaN);
+        const duration = data.length > 1 ? tOf(data[data.length - 1]) - tOf(data[0]) : 0;
+        const rig = s.rig as Rig | undefined;
+        return {
+          id: s.id!, name: String(s.name), created: Number(s.created), n: data.length, cloud: !!s.owner, dirty: !!s.dirty,
+          labId: String(s.experiment), labTitle: String(s.labTitle ?? labInfo(String(s.experiment)).title),
+          duration: Number.isFinite(duration) ? Math.max(0, duration) : 0,
+          sensors: rig?.sensors?.map((x) => SENSORS[x.type]?.short ?? x.type) ?? [],
+          source: String(s.source ?? "arduino"),
+        };
+      })
       .sort((a, b) => b.created - a.created);
     set({ sessions: list });
   } catch { set({ sessions: [] }); }
@@ -897,10 +982,14 @@ interface StoredSession {
   experiment: string; rig?: Rig; raw: number[][]; params?: Record<string, number | string>;
 }
 
-export async function openSession(id: number) {
-  if (get().running) { toast("Ferma la misura prima di aprire una misura del quaderno."); return; }
+/**
+ * Carica una misura del Quaderno nella pagina Misura.
+ * quiet: senza messaggi né pagina (per inviarla a Elaborazione o esportarla dal Quaderno).
+ */
+export async function openSession(id: number, { quiet = false } = {}): Promise<boolean> {
+  if (get().running) { toast("Ferma la misura in corso prima di aprire una misura del Quaderno."); return false; }
   const s = (await repo.get("sessions", id)) as unknown as StoredSession | undefined;
-  if (!s) return;
+  if (!s) return false;
   const labId = s.experiment;
   let rig: Rig, data: number[][];
   if (s.format === 2 && s.rig) {
@@ -909,13 +998,13 @@ export async function openSession(id: number) {
   } else {
     // misura salvata prima del sistema a sensori: la converto
     const lg = LEGACY[s.experiment];
-    if (!lg) { toast.error("Questa misura viene da un lab che non esiste più."); return; }
+    if (!lg) { toast.error("Questa misura viene da un lab che non esiste più."); return false; }
     const preset = presetById(labId);
     const sensors = lg.rig(s.params ?? {}).sensors.map((x, i) => ({ ...x, id: preset ? `${labId}-${x.type}` : `${x.type}-${i}` }));
     rig = { id: labId, name: preset?.title ?? labId, sensors };
     data = s.raw.flatMap(lg.convert);
   }
-  showPage("misura");
+  if (!quiet) showPage("misura");
   selectLab(presetById(labId) || get().customRigs.some((r) => r.id === labId) ? labId : "motion", { keepData: true });
   raw = data;
   const modified = !!presetById(rig.id) && JSON.stringify(rig.sensors) !== JSON.stringify(presetSensors(presetById(rig.id)!));
@@ -923,8 +1012,32 @@ export async function openSession(id: number) {
   set({ session: { id: s.id, name: s.name, created: s.created, source: s.source, fw: s.fw }, sessionName: s.name, selection: null });
   measureGroup().setSelection(null); measureGroup().fitAll();
   recompute();
+  if (quiet) return true;
   showDragHint();
   toast(`Aperta «${s.name}». Se cambi le opzioni dei sensori, i dati vengono ricalcolati.`);
+  return true;
+}
+
+/** Tutta la misura del Quaderno in Elaborazione (o il suo riquadro, se c'è già). */
+export async function sendSessionToElab(id: number) {
+  if (!(await openSession(id, { quiet: true }))) return;
+  await sendSelection({ open: true });
+}
+
+/** Esporta una misura del Quaderno senza aprirla a mano. */
+export async function exportSession(id: number, kind: ExportKind) {
+  if (!(await openSession(id, { quiet: true }))) return;
+  await exportData(kind);
+}
+
+export async function renameSession(id: number, name: string) {
+  const clean = name.trim();
+  if (!clean) return;
+  const rec = await repo.get("sessions", id);
+  if (!rec) return;
+  await repo.save("sessions", { ...rec, name: clean });
+  if (get().session?.id === id) set({ sessionName: clean, session: { ...get().session!, name: clean } });
+  await refreshSessions();
 }
 
 export async function removeSession(id: number) {
@@ -955,6 +1068,7 @@ export async function boot() {
   if (booted) return;
   booted = true;
   setLim(get().lim);
+  suggestLim();
   set({ customRigs: prefs.get<Rig[]>("mosaicus.rigs", []) });
   selectLab(prefs.get("mosaicus.lastLab", prefs.get("mosaicus.lastExp", serialSupported() ? "motion" : "synth")));
   await Promise.all([useWorkbench.getState().load(), refreshSessions()]);

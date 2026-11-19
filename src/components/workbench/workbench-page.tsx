@@ -32,7 +32,7 @@ export function WorkbenchPage() {
         <Card className="flex flex-col items-center gap-3 p-10 text-center">
           <span className="grid size-14 place-items-center rounded-2xl bg-tone-lime text-tone-ink"><ChartLine className="size-7" /></span>
           <h3 className="text-lg font-semibold">Qui arrivano i tratti che salvi</h3>
-          <p className="max-w-md text-sm text-muted-foreground">In <b>Misura</b>: trascina su un grafico per scegliere un tratto, poi <b>Invia a Elaborazione</b>. Anche l&apos;oscilloscopio può inviare forme d&apos;onda e spettri.</p>
+          <p className="max-w-md text-sm text-muted-foreground">In <b>Misura</b>: trascina su un grafico per scegliere un tratto, poi <b>Analizza il tratto</b>. Dal <b>Quaderno</b> puoi mandare anche misure intere. Anche l&apos;oscilloscopio può inviare forme d&apos;onda e spettri.</p>
           <Button variant="outline" onClick={() => showPage("misura")}><ArrowLeft /> Vai a Misura</Button>
         </Card>
       )}

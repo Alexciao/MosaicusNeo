@@ -159,6 +159,16 @@
 html.lim {
   font-size: 20px;
 }
+/* LIM su lavagne lente: niente transizioni né animazioni (ogni fotogramma risparmiato conta),
+   scorrimento senza inerzia simulata */
+html.lim *,
+html.lim *::before,
+html.lim *::after {
+  transition-duration: 0s !important;
+  animation-duration: 0s !important;
+  animation-iteration-count: 1 !important;
+  scroll-behavior: auto !important;
+}
 
 @layer base {
   * {

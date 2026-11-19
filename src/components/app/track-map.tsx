@@ -36,7 +36,9 @@ export function TrackMap({ points, label, unit, highlight, follow, onPick, class
 
   // creazione della mappa
   useEffect(() => {
-    const m = L.map(el.current!, { zoomControl: true, attributionControl: true, preferCanvas: true }).setView([42.5, 12.5], 5);
+    // in modalità LIM (lavagne lente) niente animazioni di zoom e dissolvenze delle mattonelle
+    const lite = document.documentElement.classList.contains("lim");
+    const m = L.map(el.current!, { zoomControl: true, attributionControl: true, preferCanvas: true, zoomAnimation: !lite, fadeAnimation: !lite, markerZoomAnimation: !lite }).setView([42.5, 12.5], 5);
     L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
       maxZoom: 19, className: "mz-tiles",
       attribution: '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a>',

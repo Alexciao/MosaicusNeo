@@ -143,16 +143,26 @@ export function firmwareCommands(rig: Rig, res: Resolved): string[] {
 // Dati
 // ---------------------------------------------------------------------------
 /** raw: [codice, t_ms, valori…] → righe (una per lettura) con le grandezze fisiche. */
+// Lettura grezza → record interpretato, per montaggio risolto: durante una misura le righe si
+// ricostruiscono più volte al secondo e così ogni lettura si interpreta una volta sola.
+const parsed = new WeakMap<Resolved, WeakMap<number[], Rec | null>>();
+
 export function buildRows(rig: Rig, res: Resolved, raw: number[][]): Row[] {
   const per = new Map<string, Rec[]>();
   for (const s of rig.sensors) per.set(s.id, []);
+  let memo = parsed.get(res);
+  if (!memo) parsed.set(res, (memo = new WeakMap()));
   for (const f of raw) {
     const s = res.byCode.get(f[0]);
     if (!s || !Number.isFinite(f[1])) continue;
-    const r = SENSORS[s.type].parse(f.slice(2), s.options);
+    let r = memo.get(f);
+    if (r === undefined) {
+      r = SENSORS[s.type].parse(f.slice(2), s.options) ?? null;
+      if (r) r.t = f[1] / 1000;
+      memo.set(f, r);
+    }
     if (!r) continue;
-    r.t = f[1] / 1000;
-    per.get(s.id)!.push(r);
+    per.get(s.id)!.push({ ...r });   // copia: derive() aggiunge campi (velocità, …)
   }
   const rows: Row[] = [];
   for (const s of rig.sensors) {
@@ -170,7 +180,8 @@ export function buildRows(rig: Rig, res: Resolved, raw: number[][]): Row[] {
       rows.push(row);
     }
   }
-  return rows.sort((a, b) => a.t - b.t);
+  // con un solo sensore le righe sono già in ordine
+  return rig.sensors.length > 1 ? rows.sort((a, b) => a.t - b.t) : rows;
 }
 
 /** Serie (t, valore) di una grandezza, solo con i valori validi. */

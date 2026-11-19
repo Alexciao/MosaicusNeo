@@ -1,11 +1,11 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Bluetooth, CloudCheck, CloudUpload, FolderOpen, Trash } from "lucide-react";
+import { ArrowRight, BookOpen, Bluetooth, CloudCheck, CloudUpload, FolderOpen, Trash } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { useLab, labInfo, needsArduino, openSession, removeSession, bluetoothSetup } from "@/lib/lab-store";
+import { useLab, labInfo, needsArduino, openSession, removeSession, bluetoothSetup, showPage } from "@/lib/lab-store";
 import { useCloud } from "@/lib/cloud/sync";
 import { confirm } from "@/lib/confirm";
 import { prefs } from "@/lib/prefs";
@@ -67,9 +67,12 @@ function Notebook() {
   const signedIn = useCloud((s) => !!s.user);
   if (sessions == null) return <p className="text-sm text-muted-foreground">Carico…</p>;
   if (!sessions.length) return <p className="text-sm text-muted-foreground">Ancora nessuna misura. Le misure si salvano qui da sole quando premi «Ferma».</p>;
+  const recent = sessions.slice(0, 5);
   return (
+    <div className="flex flex-col gap-2">
+    <p className="text-xs text-muted-foreground">Le ultime misure. Tutte le altre, con ricerca e filtri, sono nella pagina Quaderno.</p>
     <ul className="flex flex-col gap-1.5">
-      {sessions.map((s) => (
+      {recent.map((s) => (
         <li key={s.id} className={cn("flex items-center gap-2 rounded-lg border px-3 py-2", current === s.id && "border-brand/30 bg-brand/5")}>
           <div className="min-w-0 flex-1">
             <b className="flex items-center gap-1.5 truncate text-sm">
@@ -92,6 +95,10 @@ function Notebook() {
         </li>
       ))}
     </ul>
+    <Button variant="outline" size="sm" className="self-start" onClick={() => showPage("quaderno")}>
+      <BookOpen /> Apri il Quaderno{sessions.length > recent.length ? ` (${sessions.length})` : ""} <ArrowRight />
+    </Button>
+    </div>
   );
 }
 

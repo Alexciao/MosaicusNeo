@@ -9,7 +9,7 @@
 import { audioSupported, monitorAnalyser, readSamples, sampleRate } from "./audio.js";
 import { noteFreq, snapToScale, SCALES as SCALES_JS, NOTE_IT, synth, findTrigger, TIMBRES } from "./dsp.js";
 import { Screen } from "./screen.js";
-import { canvasFont, rootScale } from "./style.js";
+import { canvasFont, rootScale, canvasDpr } from "./style.js";
 import {
   SY, WAVES, save, retimbre, classicTail, ensureVoices, noteOn, noteOff, glideTo, voices, voice2, fullCoefs, notify, onGeneratorChange,
 } from "./synth-engine.js";
@@ -176,7 +176,7 @@ export function createSynthController(api: InstrumentApi & { toast: (m: string) 
   // ---------------- disegno ----------------
   function drawRibbon() {
     if (!rib) return;
-    const r = rib.getBoundingClientRect(), dpr = window.devicePixelRatio || 1;
+    const r = rib.getBoundingClientRect(), dpr = canvasDpr();
     if (!r.width) return;
     rib.width = Math.round(r.width * dpr); rib.height = Math.round(r.height * dpr);
     const g = rib.getContext("2d")!; g.setTransform(dpr, 0, 0, dpr, 0, 0);

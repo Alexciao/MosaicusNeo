@@ -1,3 +1,4 @@
+import { fixed, upTo } from "@/lib/mosaicus/numfmt.js";
 // Preferenze locali (localStorage): piccole comodità per chi usa questo browser.
 type PrefListener = (key: string) => void;
 const listeners = new Set<PrefListener>();
@@ -23,14 +24,12 @@ export const prefs = {
   },
 };
 
-export const fmtVal = (v: number, digits: number) =>
-  Number.isFinite(v) ? v.toLocaleString("it-IT", { minimumFractionDigits: digits, maximumFractionDigits: digits }) : "—";
+export const fmtVal = (v: number, digits: number) => (Number.isFinite(v) ? fixed(v, digits) : "—");
 
-export const fmtNum = (v: number, d = 3) =>
-  Number.isFinite(v) ? v.toLocaleString("it-IT", { maximumFractionDigits: d }) : "—";
+export const fmtNum = (v: number, d = 3) => (Number.isFinite(v) ? upTo(v, d) : "—");
 
 export const fmtCell = (v: unknown) =>
-  typeof v === "boolean" ? (v ? "✓" : "✗") : typeof v === "number" && Number.isFinite(v) ? (+v.toPrecision(6)).toLocaleString("it-IT", { maximumFractionDigits: 6 }) : "—";
+  typeof v === "boolean" ? (v ? "✓" : "✗") : typeof v === "number" && Number.isFinite(v) ? upTo(+v.toPrecision(6), 6) : "—";
 
 export const stamp = (d = new Date()) => {
   const p = (n: number) => String(n).padStart(2, "0");

@@ -1,7 +1,8 @@
+import { upTo } from './numfmt.js';
 // MosaicusNeo — schermo da oscilloscopio (canvas): reticolo a divisioni, tracce luminose,
 // etichette di scala. Usato per la forma d'onda e per lo spettro.
 
-import { canvasFont, rootScale, onStyleChange } from './style.js';
+import { canvasFont, rootScale, onStyleChange, canvasDpr } from './style.js';
 
 export class Screen {
   constructor(canvas, { divX = 10, divY = 8 } = {}) {
@@ -14,7 +15,7 @@ export class Screen {
   }
   destroy() { this._ro.disconnect(); this._offStyle(); }
   resize() {
-    const r = this.c.getBoundingClientRect(), dpr = window.devicePixelRatio || 1;
+    const r = this.c.getBoundingClientRect(), dpr = canvasDpr();
     this.c.width = Math.max(1, Math.round(r.width * dpr)); this.c.height = Math.max(1, Math.round(r.height * dpr));
     this.w = r.width; this.h = r.height; this.dpr = dpr;
     if (this.last) this.draw(this.last);
@@ -108,4 +109,4 @@ export function niceDiv(span, div) {
   return (n <= 1 ? 1 : n <= 2 ? 2 : n <= 5 ? 5 : 10) * mag;
 }
 
-export const fmtIt = (v, d = 2) => (isFinite(v) ? v.toLocaleString('it-IT', { maximumFractionDigits: d }) : '—');
+export const fmtIt = (v, d = 2) => (isFinite(v) ? upTo(v, d) : '—');

@@ -1,3 +1,4 @@
+import { fixed, upTo } from './numfmt.js';
 // MosaicusNeo — analisi numerica (nessuna dipendenza esterna)
 // Minimi quadrati polinomiali con incertezze, derivate per regressione locale,
 // fit esponenziale (legge di Newton del raffreddamento) con Levenberg–Marquardt.
@@ -207,7 +208,7 @@ export function formatMeasure(value, err, unit = '', locale = 'it-IT') {
   const q = Math.pow(10, exp);
   const v = Math.round(value / q) * q;
   const e = Math.round(err / q) * q;
-  const f = (x) => x.toLocaleString(locale, { minimumFractionDigits: decimals, maximumFractionDigits: decimals });
+  const f = (x) => fixed(x, decimals, locale);
   return `(${f(v)} ± ${f(e)})${unit ? ' ' + unit : ''}`;
 }
 
@@ -216,5 +217,5 @@ export function fmt(x, sig = 4, locale = 'it-IT') {
   if (x === 0) return '0';
   const mag = Math.floor(Math.log10(Math.abs(x)));
   const decimals = Math.max(0, sig - 1 - mag);
-  return x.toLocaleString(locale, { maximumFractionDigits: Math.min(decimals, 10), minimumFractionDigits: 0 });
+  return upTo(x, Math.min(decimals, 10), locale);
 }

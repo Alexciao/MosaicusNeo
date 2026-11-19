@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { ChartLine, FlaskConical, LayoutGrid, Square, Volume2 } from "lucide-react";
+import { BookOpen, ChartLine, FlaskConical, LayoutGrid, Square, Volume2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useLab, boot, showPage, selectLab } from "@/lib/lab-store";
 import { useWorkbench } from "@/lib/workbench-store";
@@ -13,6 +13,7 @@ import { MeasurePage } from "./measure-page";
 import { ConfirmHost } from "./confirm-host";
 import { GuideDialog } from "./guide-dialog";
 import { WorkbenchPage } from "@/components/workbench/workbench-page";
+import { NotebookPage } from "@/components/notebook/notebook-page";
 import { startCloud } from "@/lib/cloud/sync";
 
 /** Barra in basso sul telefono: Lab apre l'elenco, Misura e Elaborazione cambiano pagina. */
@@ -29,6 +30,7 @@ function MobileNav() {
     <nav aria-label="Navigazione" className="fixed inset-x-0 bottom-0 z-40 flex border-t bg-card pb-[env(safe-area-inset-bottom)] md:hidden">
       {item(false, "Lab", LayoutGrid, () => { showPage("misura"); useLab.setState({ labsOpen: true }); })}
       {item(page === "misura", "Misura", FlaskConical, () => showPage("misura"))}
+      {item(page === "quaderno", "Quaderno", BookOpen, () => showPage("quaderno"))}
       {item(page === "elab", "Elaborazione", ChartLine, () => showPage("elab"), n)}
     </nav>
   );
@@ -55,6 +57,10 @@ function GenChip() {
 
 export function MosaicusApp() {
   const page = useLab((s) => s.page);
+  // Le due pagine restano montate (si nasconde quella non attiva): cambiare pagina è istantaneo
+  // e i grafici non si ricostruiscono. Elaborazione si monta alla prima visita.
+  const [seen, setSeen] = useState<Record<string, boolean>>({ [page]: true });
+  if (!seen[page]) setSeen({ ...seen, [page]: true });
   useEffect(() => {
     startCloud();
     void boot();
@@ -65,7 +71,11 @@ export function MosaicusApp() {
   return (
     <div className="flex min-h-svh flex-col pb-16 md:pb-0">
       <AppHeader />
-      <main className="flex-1">{page === "elab" ? <WorkbenchPage /> : <MeasurePage />}</main>
+      <main className="flex-1">
+        <div hidden={page !== "misura"}><MeasurePage /></div>
+        {seen.quaderno && <div hidden={page !== "quaderno"}><NotebookPage /></div>}
+        {seen.elab && <div hidden={page !== "elab"}><WorkbenchPage /></div>}
+      </main>
       <footer className="hidden px-4 py-6 text-center text-xs text-muted-foreground md:block">
         MosaicusNeo · basato su Mosaicus di Ermes Ferdinando Rosi · software libero con licenza MIT ·{" "}
         <a className="underline" href="https://github.com/Alexciao/MosaicusNeo" target="_blank" rel="noopener">codice sorgente</a>
