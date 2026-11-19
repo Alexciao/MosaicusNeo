@@ -442,9 +442,9 @@ function Analysis() {
       <div className="grid gap-2 sm:grid-cols-2">
         {[
           ["Tratto", "Trascina per scegliere i dati. Statistiche del tratto: media ± errore della media (s/√n), deviazione standard s, minimo e massimo, variazione Δy e rapporto medio Δy/Δx (es. velocità media)."],
-          ["Retta a occhio", "Sposta le due maniglie finché la retta passa tra i punti (⬆⬇ contano i punti sopra e sotto), poi tocca due punti della retta per leggere Δy/Δx. «E il computer?» la confronta con la retta dei minimi quadrati."],
+          ["Retta a occhio", "Sposta le due maniglie finché la retta passa tra i punti (⬆⬇ contano i punti sopra e sotto), poi tocca due punti della retta per leggere Δy/Δx. «Confronta con i minimi quadrati» la confronta con la retta dei minimi quadrati."],
           ["Tangente", "Tocca un punto della curva: pendenza in quel punto, es. la velocità istantanea."],
-          ["Fit", "Scegli un modello (retta, parabola, esponenziale, sinusoide smorzata…): parametri con incertezza e significato fisico. «Il modello è giusto?» mostra i residui. «Confronta tutti i modelli»: tabella con s, R² e giudizio sui residui; il migliore è evidenziato."],
+          ["Fit", "Scegli un modello (retta, parabola, esponenziale, sinusoide smorzata…): parametri con incertezza e significato fisico. «Verifica i residui» mostra i residui. «Confronta tutti i modelli»: tabella con s, R² e giudizio sui residui; il migliore è evidenziato."],
           ["Righello", "Su un'onda: metti le due linee su due creste e indica quanti periodi N ci sono tra loro. T = Δt/N, f = 1/T."],
           ["Foglio dei dati", "Tutti i valori. «Nuova colonna» calcola una grandezza da una formula (es. x^2, ln(T − 21), sqrt(L/g))."],
         ].map(([t, d]) => <div key={t} className="rounded-lg border p-3"><p className="font-semibold">{t}</p><p className="text-sm text-muted-foreground">{d}</p></div>)}

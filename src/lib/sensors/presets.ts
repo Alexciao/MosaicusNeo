@@ -64,7 +64,7 @@ export const PRESETS: Preset[] = [
     sensors: [{ type: "gps", interval: 2000 }, { type: "dht", interval: 2000 }],
     visible: ["T", "alt"], readouts: ["T", "RH", "sats", "s"],
     tips: [
-      { title: "Senza cavo: Bluetooth", tip: true, text: "Con un modulo HC-06 e un power bank, collega Arduino a un telefono Android da Chrome con «Collega via Bluetooth». Durante la misura lo schermo resta acceso e i dati vengono salvati nel Quaderno ogni 30 s." },
+      { title: "Misurare senza cavo", tip: true, text: "Attiva l'interruttore «Bluetooth» nella scheda «Collegamenti» e scegli il modulo (HC-06 o BLE): lo schema mostra come collegarlo. Alimenta Arduino con un power bank; durante la misura i dati vengono salvati nel Quaderno ogni 30 s." },
       { title: "Il primo fix", tip: true, text: "All'aperto il GPS trova i satelliti in un tempo tra 30 s e qualche minuto. I punti senza posizione restano in tabella ma non compaiono sulla mappa." },
     ],
   },
