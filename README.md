@@ -1,12 +1,14 @@
 # MosaicusNeo
 
+**App:** [mosaicusneo.alexcorazza.com](https://mosaicusneo.alexcorazza.com)
+
 Micro-laboratorio di fisica nel browser con **Arduino**: scegli i sensori che hai collegato, l'app ti mostra come collegarli, li legge tutti insieme con un unico firmware e li mette sugli stessi grafici. Poi analisi dei dati (retta a occhio, tangente, fit con incertezze e verifica dei residui, righello), mappa per le misure all'aperto, esportazione in Excel, CSV, GPX e GeoJSON. Funziona anche senza rete e si installa come app (PWA).
 
 MosaicusNeo nasce da [Mosaicus](https://ermesfrosi.it) di Ermes Ferdinando Rosi (licenza MIT): migrato a **Next.js + React + shadcn/ui**, ridisegnato, con un sistema a sensori modulare, il Bluetooth per lavorare sul campo e gli account facoltativi per ritrovare i dati su tutti i dispositivi.
 
 ## Sensori ed esperimenti
 
-Il cuore dell'app è il **montaggio**: fino a 6 sensori su un Arduino Uno, anche dello stesso tipo, ognuno sui pin che preferisci e con il suo ritmo di lettura. L'app controlla i pin (doppi, analogici, D0/D1 riservati alla seriale), mostra la mappa dei pin e uno schema per ogni sensore.
+Il cuore dell'app è il **progetto**: fino a 6 sensori su un Arduino Uno, anche dello stesso tipo, ognuno sui pin che preferisci e con il suo ritmo di lettura. L'app controlla i pin (doppi, analogici, D0/D1 riservati alla seriale), e genera la guida ai collegamenti. I componenti si aggiungono da un catalogo con ricerca, filtri e disegni dei moduli.
 
 | Sensore | Pin | Grandezze |
 |---|---|---|
@@ -21,17 +23,17 @@ Il cuore dell'app è il **montaggio**: fino a 6 sensori su un Arduino Uno, anche
 | Cella di carico + HX711 | DT + SCK | massa, forza |
 | Accelerometro MPU-6050 (GY-521) | SDA + SCL (I2C) | aₓ, aᵧ, a_z, \|a\|, velocità angolari |
 
-**Indicatori di stato** (facoltativi, fuori dai 6 posti dei sensori): display OLED 64×32 da 0,49" (I2C), LED RGB, cicalino attivo o passivo. Li comanda Arduino da solo: blu = in attesa dell'app o pronto, giallo = GPS o sensore in ricerca, rosso = problema, verde = sta misurando; il cicalino suona finché qualcosa non è pronto (1, 2 o 3 bip ogni 3 s) e tace quando la misura procede bene. Il display mostra lo stato e, durante la misura, il valore principale. Arduino li ricorda (EEPROM): appena acceso segnala subito «in attesa dell'app». Il GPS senza fix viene mostrato come «in ricerca», non come errore.
+**Display, LED e cicalino** (facoltativi, fuori dai 6 posti dei sensori): display OLED 64×32 da 0,49" (I2C), LED RGB, cicalino attivo o passivo. Li comanda Arduino da solo: blu = in attesa dell'app o pronto, giallo = GPS o sensore in ricerca, rosso = problema, verde = sta misurando; il cicalino suona finché qualcosa non è pronto (1, 2 o 3 bip ogni 3 s) e tace quando la misura procede bene. Il display mostra lo stato e, durante la misura, il valore principale. Arduino li ricorda (EEPROM): appena acceso segnala subito «in attesa dell'app». Il GPS senza fix viene mostrato come «in ricerca», non come errore.
 
-Gli schemi dei collegamenti si generano dai pin scelti, in due versioni: **realistico** (Arduino Uno, breadboard e moduli disegnati come sono, stile Tinkercad) e **schema** compatto.
+La guida ai collegamenti si genera dai pin scelti: schema **realistico** (Arduino Uno e moduli infilati in una breadboard con colonne e righe numerate) o **schema** compatto, Bluetooth facoltativo, occorrente e passi foro per foro.
 
-Gli **esperimenti pronti** sono montaggi già pensati per una lezione (Moto rettilineo, Moto armonico, Raffreddamento, Umidità e temperatura, Mappa della temperatura): si aprono e funzionano subito, e si possono modificare (le modifiche diventano una versione personale, ripristinabile). In **I miei montaggi** si compongono montaggi liberi. Gli **strumenti** (oscilloscopio audio, oscilloscopio elettrico su A0, synth) hanno un pannello proprio.
+Gli **esperimenti pronti** sono progetti già pensati per una lezione (Moto rettilineo, Moto armonico, Raffreddamento, Umidità e temperatura, Mappa della temperatura): si aprono e funzionano subito, e si possono modificare (le modifiche diventano una versione personale, ripristinabile). In **I miei progetti**, in cima alla barra, si compongono progetti propri. Gli **strumenti** (oscilloscopio audio, oscilloscopio elettrico su A0, synth) hanno un pannello proprio.
 
-Con più sensori a ritmi diversi ogni lettura conserva il suo istante; quando servono insieme (mappa, invio a Elaborazione) le grandezze degli altri sensori vengono interpolate sui tempi del sensore scelto. Ogni montaggio funziona anche con il **simulatore**, senza hardware.
+Con più sensori a ritmi diversi ogni lettura conserva il suo istante; quando servono insieme (mappa, invio a Elaborazione) le grandezze degli altri sensori vengono interpolate sui tempi del sensore scelto. Ogni progetto funziona anche con il **simulatore**, senza hardware.
 
 ## Firmware
 
-Un solo sketch: [`firmware/mosaicusneo_firmware/mosaicusneo_firmware.ino`](firmware/mosaicusneo_firmware/mosaicusneo_firmware.ino) (v1.2, nessuna libreria esterna: I2C e 1-Wire a software, 69 % della flash, 79 % della RAM), da caricare una volta con l'IDE di Arduino. L'app configura il montaggio con comandi seriali (115200 baud) e il firmware invia solo dati grezzi (conteggi ADC, tempi di volo, i byte del DHT, i campi NMEA del GPS): le conversioni avvengono nell'app, dove si vedono e si tarano.
+Un solo sketch: [`firmware/mosaicusneo_firmware/mosaicusneo_firmware.ino`](firmware/mosaicusneo_firmware/mosaicusneo_firmware.ino) (v1.2, nessuna libreria esterna: I2C e 1-Wire a software, 69 % della flash, 79 % della RAM), da caricare una volta con l'IDE di Arduino. L'app configura i sensori con comandi seriali (115200 baud) e il firmware invia solo dati grezzi (conteggi ADC, tempi di volo, i byte del DHT, i campi NMEA del GPS): le conversioni avvengono nell'app, dove si vedono e si tarano.
 
 ```
 CFG,CLEAR                                          → #ACK,CFG,CLEAR
@@ -56,7 +58,7 @@ Due tipi di modulo, collegati allo stesso modo (TXD → D0, RXD ← D1 tramite p
 | Computer | se associato prima | Chrome, Edge |
 | Configurazione | «Configura HC-06» (`BT,SETUP`), poi associa (PIN 1234) | «Configura modulo BLE» (`BT,SETUP,BLE`), nessuna associazione |
 
-La configurazione (nome «MosaicusNeo», 115200 baud) si fa una volta, con Arduino collegato via USB: scheda «Collegamenti» → «Senza cavo: Bluetooth». Mentre carichi lo sketch stacca il filo TXD da D0. Sul campo: power bank su Arduino, «Collega» (menu ▾ per scegliere il Bluetooth LE), «Avvia»; lo schermo resta acceso e il Quaderno si salva ogni 30 s.
+La configurazione (nome «MosaicusNeo», 115200 baud) si fa una volta, con Arduino collegato via USB: scheda «Collegamenti» → interruttore «Bluetooth» → «Configura». Mentre carichi lo sketch stacca il filo TXD da D0. Sul campo: power bank su Arduino, «Collega» (menu ▾ per scegliere il Bluetooth LE), «Avvia»; lo schermo resta acceso e il Quaderno si salva ogni 30 s.
 
 Safari non ha né Web Serial né Web Bluetooth: su iPhone e iPad serve un modulo BLE e il browser Bluefy.
 
@@ -66,7 +68,7 @@ Ogni misura finisce da sola nel **Quaderno** (pagina dedicata): ricerca, filtri 
 
 ## Account e cloud (facoltativi)
 
-Senza account tutto resta nel browser (IndexedDB) e l'app funziona offline. Con un account (email e password, via Supabase) misure, riquadri, montaggi e preferenze dei lab si sincronizzano tra i dispositivi: archivio *local-first*, vince la modifica più recente, le cancellazioni arrivano agli altri dispositivi, Row Level Security. Lo schema è in [`supabase/migrations`](supabase/migrations); per attivare il cloud servono le variabili di [`.env.example`](.env.example).
+Senza account tutto resta nel browser (IndexedDB) e l'app funziona offline. Con un account (email e password, via Supabase) misure, riquadri, progetti e preferenze dei lab si sincronizzano tra i dispositivi: archivio *local-first*, vince la modifica più recente, le cancellazioni arrivano agli altri dispositivi, Row Level Security. Lo schema è in [`supabase/migrations`](supabase/migrations); per attivare il cloud servono le variabili di [`.env.example`](.env.example).
 
 ## Sviluppo
 
@@ -80,12 +82,12 @@ npm run typecheck
 
 ```
 firmware/                       sketch Arduino (copiato in public/ a ogni build)
-src/lib/sensors/                catalogo dei sensori, montaggio, preset, grandezze, simulatore
+src/lib/sensors/                catalogo dei componenti, progetto, preset, grandezze, simulatore
 src/lib/lab-store.ts            pagina Misura: collegamento, protocollo, dati, sessioni, export
 src/lib/workbench-store.ts      riquadri di Elaborazione ed export Excel
 src/lib/cloud/                  account Supabase, archivio local-first, sincronizzazione
 src/lib/mosaicus/               motori: fit, DSP, grafici su canvas, formule, XLSX, seriale, audio
-src/components/app/             pagina Misura, editor del montaggio, schemi generati, guida, mappa
+src/components/app/             pagina Misura, editor dei componenti, guida ai collegamenti, guida, mappa
 src/components/workbench/       pagina Elaborazione
 src/components/instruments/     oscilloscopio e synth
 supabase/migrations/            schema del database
