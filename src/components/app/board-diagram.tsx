@@ -8,7 +8,9 @@
 // • l'elenco dei fili «da foro a foro» (BoardSteps), generato dalla stessa disposizione.
 // Si genera dai sensori e dai pin scelti.
 
-import { Fragment, useId } from "react";
+import { Fragment, useEffect, useId, useRef, useState } from "react";
+import { Tooltip, TooltipContent } from "@/components/ui/tooltip";
+import { cn } from "@/lib/utils";
 import { buildModules, type BtModule, type Mod } from "./rig-diagram";
 import { makeSensor, type SensorInstance } from "@/lib/sensors/rig";
 import type { SensorType } from "@/lib/sensors/catalog";
@@ -56,23 +58,22 @@ function ortho(pts: Pt[], r = 5) {
   return d;
 }
 
-// Al passaggio del mouse (o con un tocco lungo) ogni filo, puntale, piedino e resistenza dice che
-// cosa collega: <title> SVG, il suggerimento nativo del browser. Il filo sotto il mouse si ingrossa.
+// Ogni filo, puntale, piedino e resistenza dice che cosa collega (attributo data-tip): un solo
+// suggerimento in stile shadcn segue il mouse, o compare dove tocchi sul telefono. Il filo sotto il
+// mouse si ingrossa.
 function Wire({ d, color, dashed, title }: { d: string; color: string; dashed?: boolean; title?: string }) {
   return (
-    <g className="group/wire cursor-help">
-      {title && <title>{title}</title>}
+    <g className="group/wire cursor-help" data-tip={title} data-wire="">
       <path d={d} fill="none" stroke="transparent" strokeWidth={11} strokeLinecap="round" strokeLinejoin="round" pointerEvents="stroke" />
-      <path d={d} fill="none" stroke="#000" strokeOpacity={0.3} strokeWidth={5.4} strokeLinecap="round" strokeLinejoin="round" className="transition-[stroke-width] group-hover/wire:[stroke-width:8]" />
-      <path d={d} fill="none" stroke={color} strokeWidth={3.6} strokeLinecap="round" strokeLinejoin="round" strokeDasharray={dashed ? "7 4" : undefined} className="transition-[stroke-width] group-hover/wire:[stroke-width:5.6]" />
+      <path d={d} fill="none" stroke="#000" strokeOpacity={0.3} strokeWidth={5.4} strokeLinecap="round" strokeLinejoin="round" className="transition-[stroke-width] group-hover/wire:[stroke-width:8] group-data-[on]/wire:[stroke-width:8]" />
+      <path d={d} fill="none" stroke={color} strokeWidth={3.6} strokeLinecap="round" strokeLinejoin="round" strokeDasharray={dashed ? "7 4" : undefined} className="transition-[stroke-width] group-hover/wire:[stroke-width:5.6] group-data-[on]/wire:[stroke-width:5.6]" />
       {!dashed && <path d={d} fill="none" stroke="#fff" strokeOpacity={0.32} strokeWidth={1} strokeLinecap="round" strokeLinejoin="round" />}
     </g>
   );
 }
 /** Puntale del ponticello, infilato in un foro. */
 const End = ({ x, y, color, title }: { x: number; y: number; color: string; title?: string }) => (
-  <g className="cursor-help">
-    {title && <title>{title}</title>}
+  <g className="cursor-help" data-tip={title}>
     <rect x={x - 3} y={y - 3} width={6} height={6} rx={1.2} fill={color} stroke="#000" strokeOpacity={0.45} strokeWidth={0.8} />
     <rect x={x - 1.2} y={y - 1.2} width={2.4} height={2.4} fill="#e5e7eb" opacity={0.8} />
   </g>
@@ -86,8 +87,7 @@ function Resistor({ x1, y1, x2, y2, value, title }: { x1: number; y1: number; x2
   const len = Math.hypot(x2 - x1, y2 - y1), ang = (Math.atan2(y2 - y1, x2 - x1) * 180) / Math.PI;
   const bw = Math.min(18, len - 6);
   return (
-    <g transform={`translate(${x1} ${y1}) rotate(${ang})`} className={title ? "cursor-help" : undefined}>
-      {title && <title>{title}</title>}
+    <g transform={`translate(${x1} ${y1}) rotate(${ang})`} className={title ? "cursor-help" : undefined} data-tip={title}>
       <line x1={0} y1={0} x2={len} y2={0} stroke="#a1a1aa" strokeWidth={1.6} strokeLinecap="round" />
       <rect x={len / 2 - bw / 2} y={-3.8} width={bw} height={7.6} rx={3.4} fill="#e2cfa3" stroke="#a8916a" strokeWidth={0.6} />
       {BANDS[value].map((c, i) => <rect key={i} x={len / 2 - bw / 2 + 3.6 + i * 3.4} y={-3.6} width={1.8} height={7.2} fill={c} />)}
@@ -100,8 +100,7 @@ function Resistor({ x1, y1, x2, y2, value, title }: { x1: number; y1: number; x2
 function Part({ kind, x1, x2, y, title }: { kind: "ntc" | "ldr"; x1: number; x2: number; y: number; title?: string }) {
   const cx = (x1 + x2) / 2;
   return (
-    <g className={title ? "cursor-help" : undefined}>
-      {title && <title>{title}</title>}
+    <g className={title ? "cursor-help" : undefined} data-tip={title}>
       <line x1={x1} y1={y} x2={x2} y2={y} stroke="#a1a1aa" strokeWidth={1.6} strokeLinecap="round" />
       {kind === "ntc" ? (
         <g>
@@ -386,8 +385,7 @@ function ArduinoArt({ x, y, used, uid, tips }: { x: number; y: number; used: Map
     </g>
   );
   const pinHole = (cx: number, cy: number, c?: string, tip?: string[]) => (
-    <g className={tip ? "cursor-help" : undefined}>
-      {tip && <title>{tip.join("\n")}</title>}
+    <g className={tip ? "cursor-help" : undefined} data-tip={tip?.join("\n")}>
       <rect x={cx - 2.4} y={cy - 2.4} width={4.8} height={4.8} fill="#09090b" stroke="#3f3f46" strokeWidth={0.5} />
       {c && <rect x={cx - 2.4} y={cy - 2.4} width={4.8} height={4.8} fill={c} />}
     </g>
@@ -670,15 +668,62 @@ function layout(sensors: SensorInstance[], bt: BtModule) {
   return { W, H, bbX, bbTop, bbW, nCols, R, colX, AX, AY, placed, wires, ends, parts, used, tips, steps, count };
 }
 
+type TipState = { text: string; x: number; y: number } | null;
+
+/** Il suggerimento che segue il puntatore: un'ancora virtuale nel punto del mouse o del dito. */
+function FollowTip({ channelRef }: { channelRef: React.RefObject<(t: TipState) => void> }) {
+  const [tip, setTip] = useState<TipState>(null);
+  useEffect(() => {
+    channelRef.current = setTip;
+    // sul telefono si chiude scorrendo
+    const hide = () => setTip(null);
+    window.addEventListener("scroll", hide, true);
+    return () => { channelRef.current = () => {}; window.removeEventListener("scroll", hide, true); };
+  }, [channelRef]);
+  return (
+    <Tooltip open={!!tip} onOpenChange={(o) => { if (!o) setTip(null); }}>
+      <TooltipContent side="top" sideOffset={14} className="pointer-events-none max-w-72 whitespace-pre-line text-left"
+        anchor={tip ? { getBoundingClientRect: () => new DOMRect(tip.x, tip.y, 0, 0) } : undefined}>
+        {tip?.text}
+      </TooltipContent>
+    </Tooltip>
+  );
+}
+
 export function BoardDiagram({ sensors, bt = null, className }: { sensors: SensorInstance[]; bt?: BtModule; className?: string }) {
   const uid = useId().replace(/[^a-zA-Z0-9]/g, "");
+  const channel = useRef<(t: TipState) => void>(() => {});
+  const pointer = useRef("mouse");
   const L = layout(sensors, bt);
   if (!L) return null;
+  const tipAt = (e: React.PointerEvent | React.MouseEvent, keep = false) => {
+    const el = (e.target as Element).closest?.("[data-tip]");
+    // tocco: il filo scelto resta in evidenza (col mouse basta :hover)
+    if (pointer.current !== "mouse") {
+      const svg = e.currentTarget as SVGSVGElement;
+      svg.querySelectorAll("[data-on]").forEach((n) => n.removeAttribute("data-on"));
+      const wire = el?.closest("[data-wire]");
+      if (wire) { wire.setAttribute("data-on", ""); svg.setAttribute("data-focus", ""); } else svg.removeAttribute("data-focus");
+    }
+    if (el) channel.current({ text: el.getAttribute("data-tip") ?? "", x: e.clientX, y: e.clientY });
+    else if (!keep) channel.current(null);
+    return !!el;
+  };
   const { W, H, bbX, bbTop, bbW, nCols, R, colX, AX, AY, placed, wires, ends, parts, used, tips } = L;
   const gridX = colX(0) - P / 2, gridW = nCols * P;
   return (
-    <svg viewBox={`0 0 ${W} ${H}`} role="img" aria-label="Schema realistico dei collegamenti: Arduino, breadboard e sensori" className={className}
-      fontFamily="ui-sans-serif, system-ui, sans-serif">
+    <>
+    <FollowTip channelRef={channel} />
+    <svg viewBox={`0 0 ${W} ${H}`} role="img" aria-label="Schema realistico dei collegamenti: Arduino, breadboard e sensori"
+      // con un filo in evidenza (mouse sopra, o toccato) gli altri si scuriscono un po'
+      className={cn(className, "[&_g[data-wire]]:transition-[filter] [&:has(g[data-wire]:hover)_g[data-wire]:not(:hover)]:brightness-75 [&[data-focus]_g[data-wire]:not([data-on])]:brightness-75")}
+      fontFamily="ui-sans-serif, system-ui, sans-serif"
+      onPointerMove={(e) => { if (e.pointerType === "mouse") tipAt(e); }}
+      onPointerLeave={(e) => { if (e.pointerType === "mouse") channel.current(null); }}
+      onPointerDown={(e) => { pointer.current = e.pointerType; }}
+      // tocco: su un filo, un piedino o una resistenza mostra il suggerimento (e non apre lo schema
+      // a tutto schermo); altrove il tocco fa quello di sempre
+      onClick={(e) => { if (pointer.current !== "mouse" && tipAt(e)) { e.stopPropagation(); e.preventDefault(); } }}>
       <defs>
         <pattern id={`${uid}holes`} width={P} height={P} patternUnits="userSpaceOnUse" x={gridX} y={R.a - P / 2}>
           <rect x={P / 2 - 2.4} y={P / 2 - 2.4} width={4.8} height={4.8} rx={0.8} fill="#d4d4d8" />
@@ -726,8 +771,8 @@ export function BoardDiagram({ sensors, bt = null, className }: { sensors: Senso
         <g key={`m${mi}`}>
           <ModuleArt kind={p.m.kind} options={p.m.options} x={p.x} y={p.y} w={p.w} h={p.h} uid={uid} />
           {p.m.rows.map((r, ri) => (
-            <g key={ri} className="cursor-help">
-              <title>{`${p.m.title} · piedino ${r.label}: foro ${hole("e", p.pinCol[ri])} → ${typeof r.conn === "number" ? ardName(r.conn) : r.conn === "5V" ? "binario + (5V)" : "binario − (GND)"}${r.via === "divider" ? " attraverso il partitore" : ""}`}</title>
+            <g key={ri} className="cursor-help"
+              data-tip={`${p.m.title} · piedino ${r.label}: foro ${hole("e", p.pinCol[ri])} → ${typeof r.conn === "number" ? ardName(r.conn) : r.conn === "5V" ? "binario + (5V)" : "binario − (GND)"}${r.via === "divider" ? " attraverso il partitore" : ""}`}>
               <rect x={p.pinX[ri] - 1.8} y={R.e - 1} width={3.6} height={p.y - R.e + 3} fill="#d4a017" stroke="#92400e" strokeWidth={0.4} />
               <rect x={p.pinX[ri] - 3} y={p.y + 1} width={6} height={4} fill="#18181b" />
               <text transform={`translate(${p.pinX[ri] - 2} ${p.y + 7}) rotate(90)`} fontSize={5.2} fontWeight={700} fill="#ffffffe6">{r.label.split(" ")[0].replace(/[()]/g, "")}</text>
@@ -739,6 +784,7 @@ export function BoardDiagram({ sensors, bt = null, className }: { sensors: Senso
       {wires}
       {ends}
     </svg>
+    </>
   );
 }
 
