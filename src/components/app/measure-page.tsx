@@ -5,11 +5,10 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
-import { useLab, labInfo, needsArduino, hasMap } from "@/lib/lab-store";
+import { useLab, labInfo, needsArduino, hasMap, openGuide } from "@/lib/lab-store";
 import { SENSORS, pinName } from "@/lib/sensors/catalog";
 import { sensorLabel } from "@/lib/sensors/rig";
 import { audioSupported } from "@/lib/mosaicus/audio.js";
-import { serialSupported } from "@/lib/mosaicus/serial.js";
 import { cn } from "@/lib/utils";
 import { LabPicker } from "./lab-picker";
 import { RunCard } from "./run-card";
@@ -17,7 +16,7 @@ import { ChartCard } from "./chart-card";
 import { MapCard } from "./map-card";
 import { SidePanel } from "./side-panel";
 import { RigEditor } from "./rig-editor";
-import { ConnectionControls } from "./connection-controls";
+import { ConnectionControls, canReachArduino } from "./connection-controls";
 import { toneBg } from "./tone";
 import { ScopePanel } from "@/components/instruments/scope-panel";
 import { SynthPanel } from "@/components/instruments/synth-panel";
@@ -34,14 +33,15 @@ function SupportBanner() {
     );
   }
   const arduino = info.instrument ? info.instrument.source === "arduino" && !info.instrument.optionalLink : needsArduino(rig);
-  if (!arduino || serialSupported()) return null;
+  if (!arduino || canReachArduino()) return null;
   const ios = typeof navigator !== "undefined" && /iPhone|iPad|iPod/i.test(navigator.userAgent);
   return (
     <Alert><TriangleExclamationPoint /><AlertTitle>Questo browser non parla con Arduino</AlertTitle>
       <AlertDescription>
         {ios
-          ? "Su iPhone e iPad il browser non può collegarsi ad Arduino, né via cavo né via Bluetooth. Usa un computer con Chrome o Edge, oppure un telefono Android con Chrome e il modulo Bluetooth HC-06. Il simulatore funziona comunque."
-          : "Serve Chrome o Edge su computer, oppure Chrome su Android con il modulo Bluetooth HC-06 (Web Serial API). Il simulatore funziona comunque."}
+          ? "Safari non può collegarsi ad Arduino. Su iPhone e iPad apri MosaicusNeo nel browser gratuito Bluefy e usa un modulo Bluetooth LE (HM-10, AT-09, HC-08): vedi la «Guida». Il simulatore funziona comunque."
+          : "Serve Chrome o Edge (computer o Android). Su Android ci si collega anche via Bluetooth, con un modulo HC-06 o BLE. Il simulatore funziona comunque."}
+        <Button size="xs" variant="outline" className="mt-2" onClick={() => openGuide("field")}>Apri la guida</Button>
       </AlertDescription>
     </Alert>
   );

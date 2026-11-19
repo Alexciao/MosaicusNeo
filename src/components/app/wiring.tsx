@@ -139,12 +139,12 @@ function Analog({ p }: { p: P }) {
   );
 }
 
-function Hc06() {
+function Hc06({ p }: { p: P }) {
   return (
-    <svg viewBox="0 0 300 150" role="img" aria-label="HC-06: TXD a D0, RXD da D1 attraverso un partitore da 1 e 2 kilo-ohm, VCC a 5V, GND a GND">
+    <svg viewBox="0 0 300 150" role="img" aria-label={`${p.name ?? "HC-06"}: TXD a D0, RXD da D1 attraverso un partitore da 1 e 2 kilo-ohm, VCC a 5V, GND a GND`}>
       <Board x={4} y={6} w={96} h={138} label="Arduino" />
       <Pin x={92} y={46} end>5V</Pin><Pin x={92} y={68} end>GND</Pin><Pin x={92} y={94} end>D0 (RX)</Pin><Pin x={92} y={122} end>D1 (TX)</Pin>
-      <Board x={200} y={6} w={96} h={138} label="HC-06" fill="var(--tone-sky)" />
+      <Board x={200} y={6} w={96} h={138} label={p.name ?? "HC-06"} fill="var(--tone-sky)" />
       <Pin x={208} y={46}>VCC</Pin><Pin x={208} y={68}>GND</Pin><Pin x={208} y={94}>TXD</Pin><Pin x={208} y={122}>RXD (3,3 V)</Pin>
       <Wire d="M100 42H200" color={W5V} /><Wire d="M100 64H200" color={WGND} />
       <Wire d="M200 90H100" color={WBT} />

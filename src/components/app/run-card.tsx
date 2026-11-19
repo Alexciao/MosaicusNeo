@@ -1,17 +1,16 @@
 "use client";
 // La scheda della misura: il prossimo gesto (collega → avvia → ferma) e le letture in evidenza.
 
-import { Bluetooth, Cpu, Crosshair, LoaderCircle, Pencil, Play, Square, Usb } from "lucide-react";
+import { Cpu, Crosshair, LoaderCircle, Pencil, Play, Square } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { serialSupported } from "@/lib/mosaicus/serial.js";
 import {
   useLab, start, stop, zeroPosition, setSessionName, commitSessionName, readoutsOf, canStart, rigHas, guideStep, connect,
 } from "@/lib/lab-store";
 import { sensorLabel } from "@/lib/sensors/rig";
 import { fmtVal } from "@/lib/prefs";
 import { cn } from "@/lib/utils";
-import { isAndroid, connectLabel } from "./connection-controls";
+import { ConnectButton } from "./connection-controls";
 
 function Readouts() {
   const rows = useLab((s) => s.rows);
@@ -66,9 +65,7 @@ export function RunCard() {
         <div className="flex shrink-0 flex-wrap items-center gap-2">
           {step === "link" ? (
             <>
-              <Button size="lg" disabled={!serialSupported()} onClick={() => void connect("arduino")}>
-                {isAndroid() ? <Bluetooth /> : <Usb />} {connectLabel()}
-              </Button>
+              <ConnectButton size="lg" />
               <Button size="lg" variant="outline" onClick={() => void connect("sim")}><Cpu /> Simulatore</Button>
             </>
           ) : step === "wait" ? (

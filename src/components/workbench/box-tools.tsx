@@ -31,7 +31,7 @@ export function Why({ title, children }: { title: React.ReactNode; children: Rea
 
 export const Say = ({ children }: { children: React.ReactNode }) => <p className="text-sm">{children}</p>;
 export const CalcBox = ({ children }: { children: React.ReactNode }) => (
-  <div className="flex flex-col gap-1.5 rounded-lg border border-primary/20 bg-accent/40 px-3 py-2.5 text-sm tabular">{children}</div>
+  <div className="flex flex-col gap-1.5 rounded-lg border border-brand/25 bg-accent/40 px-3 py-2.5 text-sm tabular">{children}</div>
 );
 export const Frac = ({ top, bottom }: { top: React.ReactNode; bottom: React.ReactNode }) => (
   <span className="frac"><span>{top}</span><span>{bottom}</span></span>

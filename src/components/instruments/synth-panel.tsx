@@ -142,7 +142,7 @@ export function SynthPanel({ exp }: { exp: Instrument }) {
           <div className="flex flex-wrap gap-1.5">
             {INSTR.map((id) => <Button key={id} size="sm" variant={SY.preset === id ? "default" : "outline"} onClick={() => ctl.setPreset(id)}>{instrLabel(id)}</Button>)}
           </div>
-          {SY.preset === "libera" && <span className="text-xs font-medium text-primary">✎ forma libera</span>}
+          {SY.preset === "libera" && <span className="text-xs font-medium text-brand">✎ forma libera</span>}
         </div>
         <div className="flex flex-wrap items-center gap-3">
           <span className="text-sm text-muted-foreground">Inviluppo</span>

@@ -102,7 +102,7 @@ export function TrackMap({ points, label, unit, highlight, follow, onPick, class
         <LocateFixed />
       </Button>
       {range && (
-        <div className="absolute bottom-6 left-2.5 z-[500] rounded-md border bg-background/90 px-2.5 py-1.5 text-xs shadow-sm backdrop-blur">
+        <div className="absolute bottom-6 left-2.5 z-[500] rounded-md border bg-background/95 px-2.5 py-1.5 text-xs shadow-sm">
           <p className="mb-1 font-medium">{label}{unit ? ` (${unit})` : ""}</p>
           <div className="h-2 w-40 rounded-full" style={{ background: `linear-gradient(90deg, ${Array.from({ length: 8 }, (_, i) => heatColor(i / 7)).join(",")})` }} />
           <div className="mt-0.5 flex justify-between tabular text-muted-foreground"><span>{fmtNum(range[0], 1)}</span><span>{fmtNum(range[1], 1)}</span></div>

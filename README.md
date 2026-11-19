@@ -23,26 +23,32 @@ Con più sensori a ritmi diversi ogni lettura conserva il suo istante; quando se
 
 ## Firmware
 
-Un solo sketch: [`firmware/mosaicusneo_firmware/mosaicusneo_firmware.ino`](firmware/mosaicusneo_firmware/mosaicusneo_firmware.ino) (v1.0), da caricare una volta con l'IDE di Arduino. L'app configura il montaggio con comandi seriali (115200 baud) e il firmware invia solo dati grezzi (conteggi ADC, tempi di volo, i byte del DHT, i campi NMEA del GPS): le conversioni avvengono nell'app, dove si vedono e si tarano.
+Un solo sketch: [`firmware/mosaicusneo_firmware/mosaicusneo_firmware.ino`](firmware/mosaicusneo_firmware/mosaicusneo_firmware.ino) (v1.1), da caricare una volta con l'IDE di Arduino. L'app configura il montaggio con comandi seriali (115200 baud) e il firmware invia solo dati grezzi (conteggi ADC, tempi di volo, i byte del DHT, i campi NMEA del GPS): le conversioni avvengono nell'app, dove si vedono e si tarano.
 
 ```
 CFG,CLEAR                                          → #ACK,CFG,CLEAR
 CFG,ADD,<slot>,<NTC|ANA|DHT|SONAR|GPS>,<ms>,<pinA>,<pinB>,<opz>
                                                    → #ACK,CFG,ADD,<slot> | #ERR,CFG,<slot>,<motivo>
 START                                              → #ACK,START, poi D,<slot>,<t_ms>,<valori…>
-STOP · START,SCOPE,… (oscilloscopio) · BT,SETUP (HC-06) · ID?
+STOP · START,SCOPE,… (oscilloscopio) · BT,SETUP (HC-06) · BT,SETUP,BLE (HM-10, AT-09, HC-08) · ID?
 ```
 
 Pin come numeri (A0 = 14 … A5 = 19); tempi con risoluzione di 1 µs e orologio a 64 bit (nessun azzeramento dopo 71 minuti).
 
 ## Sul campo: Arduino + Bluetooth + telefono
 
-1. **HC-06**: TXD → D0, RXD ← D1 tramite partitore 1 kΩ/2 kΩ (3,3 V), in parallelo al cavo USB. Una volta sola, collegati via USB: «Collegamenti» → «Configura HC-06» (nome «MosaicusNeo», 115200 baud). Mentre carichi lo sketch stacca il filo TXD da D0.
-2. **Associa** «MosaicusNeo» nelle impostazioni Bluetooth di Android (PIN 1234); Arduino su un power bank.
-3. **Misura**: Chrome per Android (138 o successivo: Web Serial via Bluetooth RFCOMM) → «Collega via Bluetooth» → «Avvia». Lo schermo resta acceso e il Quaderno si salva ogni 30 s.
-4. **Analizza**: la mappa colora i punti con la grandezza scelta; esporta o invia a Elaborazione (es. fit di T in funzione dell'altitudine).
+Due tipi di modulo, collegati allo stesso modo (TXD → D0, RXD ← D1 tramite partitore 1 kΩ/2 kΩ, in parallelo al cavo USB) e con lo stesso protocollo del cavo:
 
-iPhone e iPad non possono collegarsi ad Arduino (Safari non ha Web Serial).
+| | HC-06 (Bluetooth classico) | BLE: HM-10, AT-09 / BT05, HC-08 |
+|---|---|---|
+| Android | Chrome 138+ (Web Serial su RFCOMM) | Chrome (Web Bluetooth) |
+| iPhone / iPad | no (iOS non espone il Bluetooth seriale classico) | sì, nel browser Bluefy (Web Bluetooth) |
+| Computer | se associato prima | Chrome, Edge |
+| Configurazione | «Configura HC-06» (`BT,SETUP`), poi associa (PIN 1234) | «Configura modulo BLE» (`BT,SETUP,BLE`), nessuna associazione |
+
+La configurazione (nome «MosaicusNeo», 115200 baud) si fa una volta, con Arduino collegato via USB: scheda «Collegamenti» → «Senza cavo: Bluetooth». Mentre carichi lo sketch stacca il filo TXD da D0. Sul campo: power bank su Arduino, «Collega» (menu ▾ per scegliere il Bluetooth LE), «Avvia»; lo schermo resta acceso e il Quaderno si salva ogni 30 s.
+
+Safari non ha né Web Serial né Web Bluetooth: su iPhone e iPad serve un modulo BLE e il browser Bluefy.
 
 ## Account e cloud (facoltativi)
 
@@ -65,7 +71,7 @@ src/lib/lab-store.ts            pagina Misura: collegamento, protocollo, dati, s
 src/lib/workbench-store.ts      riquadri di Elaborazione ed export Excel
 src/lib/cloud/                  account Supabase, archivio local-first, sincronizzazione
 src/lib/mosaicus/               motori: fit, DSP, grafici su canvas, formule, XLSX, seriale, audio
-src/components/app/             pagina Misura, editor del montaggio, schemi, mappa
+src/components/app/             pagina Misura, editor del montaggio, schemi generati, guida, mappa
 src/components/workbench/       pagina Elaborazione
 src/components/instruments/     oscilloscopio e synth
 supabase/migrations/            schema del database

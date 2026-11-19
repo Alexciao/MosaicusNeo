@@ -19,10 +19,10 @@ function Item({ id, title, subtitle, icon: Icon, tone, onPicked, badge }: { id: 
       <button type="button" disabled={running && !active} aria-current={active ? "true" : undefined}
         onClick={() => { selectLab(id); onPicked?.(); }}
         className={cn("group flex w-full items-center gap-3 rounded-lg px-2 py-2 text-left transition-colors disabled:cursor-not-allowed disabled:opacity-50",
-          active ? "bg-primary/8 ring-1 ring-primary/25" : "hover:bg-muted")}>
+          active ? "bg-brand/8 ring-1 ring-brand/30" : "hover:bg-muted")}>
         <span className={cn("grid size-9 shrink-0 place-items-center rounded-lg text-tone-ink", toneBg[tone])}><Icon className="size-[1.15rem]" /></span>
         <span className="min-w-0 flex-1">
-          <span className={cn("flex items-center gap-1.5 truncate text-sm font-semibold", active && "text-primary")}>
+          <span className={cn("flex items-center gap-1.5 truncate text-sm font-semibold", active && "text-brand")}>
             <span className="truncate">{title}</span>
             {badge && <span className="shrink-0 rounded bg-muted px-1 text-[0.6rem] font-medium text-muted-foreground">{badge}</span>}
           </span>

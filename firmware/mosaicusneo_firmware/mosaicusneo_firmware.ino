@@ -40,6 +40,9 @@
                                                 #ACK,START,SCOPE,<dt_us>
                                                 W,<trig>,<dt_us>,<a0>,…,<a(n-1)>   (oscilloscopio su A0)
     BT,SETUP                                    #BT,SETUP … #ACK,BT,SETUP
+    BT,SETUP,BLE                                #BT,SETUP … #ACK,BT,SETUP,BLE
+        come sopra per i moduli Bluetooth Low Energy (HM-10, AT-09 / BT05, HC-08): nome
+        «MosaicusNeo», 115200 baud. Comandi diversi da quelli dell'HC-06: non vanno scambiati.
         configura l'HC-06 (collegati via USB, HC-06 non associato): nome «MosaicusNeo», 115200 baud
     (comando sconosciuto)                       #ERR,<testo>
 
@@ -51,7 +54,7 @@
 
 #include <SoftwareSerial.h>
 
-const char *FW_VERSION = "1.0";
+const char *FW_VERSION = "1.1";
 
 const uint8_t MAX_SLOTS = 6;
 const uint8_t ADC_SAMPLES = 16;                 // sovracampionamento per ridurre il rumore
@@ -469,6 +472,33 @@ void startScope(char *args) {
 // L'HC-06 esce dalla fabbrica a 9600 baud: lo si porta a 115200 con i comandi AT, che accetta
 // solo quando nessun telefono è associato. I moduli con il firmware classico vogliono i comandi
 // senza a capo, quelli più recenti con \r\n: si mandano entrambe le forme.
+// Moduli BLE (HM-10, AT-09 / BT05, HC-08, JDY): anche loro escono dalla fabbrica a 9600 baud.
+//  • HM-10 originale: comandi senza a capo, AT+BAUD4 = 115200, attivo dopo AT+RESET
+//  • AT-09 / BT05 / MLT-BT05: gli stessi numeri, ma vogliono \r\n
+//  • HC-08: AT+BAUD=115200 (subito attivo: per questo va per ultimo)
+// Attenzione: AT+BAUD8 dell'HC-06 su un HM-10 vorrebbe dire 230400 baud. Per questo i due
+// gruppi di comandi sono separati.
+void btSetupBle() {
+  Serial.println(F("#BT,SETUP"));
+  Serial.flush();
+  Serial.end();
+  Serial.begin(9600);
+  delay(300);
+  Serial.print(F("AT+NAMEMosaicusNeo")); delay(800);      // HM-10 (nome: al massimo 12 caratteri)
+  Serial.print(F("AT+BAUD4")); delay(800);
+  Serial.print(F("AT+NAMEMosaicusNeo\r\n")); delay(800); // AT-09 / BT05
+  Serial.print(F("AT+BAUD4\r\n")); delay(800);
+  Serial.print(F("AT+NAME=MosaicusNeo")); delay(800);     // HC-08
+  Serial.print(F("AT+BAUD=115200")); delay(800);
+  Serial.print(F("AT+RESET")); delay(400);                // HM-10: la nuova velocità vale dopo il riavvio
+  Serial.print(F("AT+RESET\r\n")); delay(1200);
+  Serial.flush();
+  Serial.end();
+  Serial.begin(115200);
+  delay(100);
+  Serial.println(F("#ACK,BT,SETUP,BLE"));
+}
+
 void btSetup() {
   Serial.println(F("#BT,SETUP"));
   Serial.flush();
@@ -499,6 +529,7 @@ void handleCommand(char *cmd) {
   else if (strncmp(cmd, "CFG,ADD,", 8) == 0) { if (mode == RUN) stopAll(); cfgAdd(cmd + 8); }
   else if (strncmp(cmd, "START,SCOPE,", 12) == 0) startScope(cmd + 12);
   else if (strcmp(cmd, "BT,SETUP") == 0) { if (mode != IDLE) stopAll(); btSetup(); }
+  else if (strcmp(cmd, "BT,SETUP,BLE") == 0) { if (mode != IDLE) stopAll(); btSetupBle(); }
   else if (cmdLen > 0) { Serial.print(F("#ERR,")); Serial.println(cmd); }
 }
 

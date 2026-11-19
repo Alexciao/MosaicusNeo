@@ -5,14 +5,15 @@ import { Bluetooth, CloudCheck, CloudUpload, FolderOpen, Trash } from "lucide-re
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { SENSORS, pinName } from "@/lib/sensors/catalog";
 import { useLab, labInfo, needsArduino, openSession, removeSession, bluetoothSetup } from "@/lib/lab-store";
 import { useCloud } from "@/lib/cloud/sync";
 import { confirm } from "@/lib/confirm";
 import { prefs } from "@/lib/prefs";
 import { cn } from "@/lib/utils";
-import { PinMap, WiringBlocks } from "./wiring";
+import { WiringBlocks } from "./wiring";
+import { RigDiagram, WiringSteps } from "./rig-diagram";
 import { RigEditor } from "./rig-editor";
+import { Segmented } from "@/components/instruments/scope-panel";
 
 /** Collegamenti del montaggio: mappa dei pin, uno schema per sensore, Bluetooth facoltativo. */
 function RigWiring() {
@@ -21,24 +22,36 @@ function RigWiring() {
   const linkKind = useLab((s) => s.linkKind);
   const ready = useLab((s) => s.ready);
   const running = useLab((s) => s.running);
+  const transport = useLab((s) => s.transport);
+  const [bt, setBtState] = useState<"hc06" | "ble">(() => prefs.get("mosaicus.btModule", "hc06"));
+  const setBt = (v: "hc06" | "ble") => { setBtState(v); prefs.set("mosaicus.btModule", v); };
   const info = labInfo(labId);
-  const blocks = rig.sensors.flatMap((s) => {
-    const def = SENSORS[s.type];
-    const pins = Object.fromEntries(def.pins.map((p) => [p.key, pinName(s.pins[p.key])]));
-    return def.wiring(pins, s.options).map((b) => ({ ...b, title: rig.sensors.length > 1 ? `${b.title} · ${s.label?.trim() || def.short}` : b.title }));
-  });
   return (
     <div className="flex flex-col gap-3">
-      <PinMap rig={rig} />
-      <WiringBlocks blocks={[...blocks, ...(info.preset?.tips ?? [])]} />
+      {!!rig.sensors.length && (
+        <div className="rounded-lg border p-3">
+          <h4 className="mb-2 text-sm font-semibold">Schema del montaggio</h4>
+          <RigDiagram sensors={rig.sensors} className="h-auto w-full max-w-xl text-foreground [&_text]:fill-current" />
+          <p className="mt-2 text-xs text-muted-foreground">Rosso = 5V, nero = GND, un colore per sensore. Collega con Arduino scollegato dal computer. Tutti i GND insieme.</p>
+        </div>
+      )}
+      <WiringSteps sensors={rig.sensors} />
+      {!!info.preset?.tips?.length && <WiringBlocks blocks={info.preset.tips} />}
       {needsArduino(rig) && (
         <details className="rounded-lg border p-3">
-          <summary className="flex cursor-pointer items-center gap-1.5 text-sm font-semibold"><Bluetooth className="size-4" /> Senza cavo: Bluetooth HC-06 (facoltativo)</summary>
-          <div className="pt-2">
-            <WiringBlocks blocks={[{ title: "HC-06", schematic: "hc06", text: "Con un power bank su Arduino e l'HC-06, il telefono Android si collega senza cavo: Chrome → «Collega via Bluetooth». Una volta sola, collegati via USB: «Configura HC-06» (nome «MosaicusNeo», 115200 baud), poi associa «MosaicusNeo» nelle impostazioni Bluetooth (PIN 1234). Mentre carichi il firmware, stacca il filo TXD da D0." }]} />
-            {linkKind === "arduino" && ready && (
-              <Button size="sm" variant="outline" className="mt-2" disabled={running} onClick={() => void bluetoothSetup()}>
-                <Bluetooth /> Configura HC-06
+          <summary className="flex cursor-pointer items-center gap-1.5 text-sm font-semibold"><Bluetooth className="size-4" /> Senza cavo: Bluetooth (facoltativo)</summary>
+          <div className="flex flex-col gap-3 pt-3">
+            <p className="text-xs text-muted-foreground">Due tipi di modulo, collegati allo stesso modo su D0/D1 (con il partitore sul pin RXD). Il protocollo è lo stesso del cavo. Mentre carichi il firmware dall&apos;IDE, stacca il filo TXD del modulo da D0.</p>
+            <Segmented label="Tipo di modulo" value={bt} onChange={setBt} items={[["hc06", "HC-06 (classico)"], ["ble", "BLE (HM-10, AT-09, HC-08)"]]} />
+            <WiringBlocks blocks={[{
+              title: bt === "ble" ? "Modulo BLE" : "HC-06", schematic: "hc06", pins: { name: bt === "ble" ? "HM-10 / AT-09" : "HC-06" },
+              text: bt === "ble"
+                ? "Bluetooth Low Energy: funziona con Chrome su computer e Android, e su iPhone/iPad con il browser gratuito Bluefy. Una volta sola, con il cavo USB: «Configura modulo BLE» (nome «MosaicusNeo», 115200 baud). Poi «Collega» → menu ▾ → «Bluetooth LE»: non serve associarlo prima."
+                : "Bluetooth classico: funziona con Chrome su Android (non su iPhone). Una volta sola, con il cavo USB: «Configura HC-06» (nome «MosaicusNeo», 115200 baud). Poi associa «MosaicusNeo» nelle impostazioni Bluetooth di Android (PIN 1234) e in Chrome «Collega via Bluetooth».",
+            }]} />
+            {linkKind === "arduino" && ready && transport === "serial" && (
+              <Button size="sm" variant="outline" className="self-start" disabled={running} onClick={() => void bluetoothSetup(bt)}>
+                <Bluetooth /> {bt === "ble" ? "Configura modulo BLE" : "Configura HC-06"}
               </Button>
             )}
           </div>
@@ -57,7 +70,7 @@ function Notebook() {
   return (
     <ul className="flex flex-col gap-1.5">
       {sessions.map((s) => (
-        <li key={s.id} className={cn("flex items-center gap-2 rounded-lg border px-3 py-2", current === s.id && "border-primary/30 bg-primary/5")}>
+        <li key={s.id} className={cn("flex items-center gap-2 rounded-lg border px-3 py-2", current === s.id && "border-brand/30 bg-brand/5")}>
           <div className="min-w-0 flex-1">
             <b className="flex items-center gap-1.5 truncate text-sm">
               <span className="truncate">{s.name}</span>

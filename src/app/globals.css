@@ -57,8 +57,8 @@
   --card-foreground: #09090b;
   --popover: #ffffff;
   --popover-foreground: #09090b;
-  --primary: #0b5d50;
-  --primary-foreground: #ffffff;
+  --primary: #b5e61d;
+  --primary-foreground: #1a2e05;
   --secondary: #f4f4f5;
   --secondary-foreground: #18181b;
   --muted: #f4f4f5;
@@ -68,10 +68,10 @@
   --destructive: #dc2626;
   --border: #e4e4e7;
   --input: #e4e4e7;
-  --ring: #0b5d50;
+  --ring: #84cc16;
   --radius: 0.625rem;
 
-  --brand: #0b5d50;
+  --brand: #4d7c0f;
   --brand-foreground: #ffffff;
   --lime: #c6f432;
   --lime-foreground: #052e26;
@@ -81,7 +81,7 @@
   --tone-sky: #e0f2fe;
   --tone-rose: #ffe4e6;
   --tone-saffron: #fef3c7;
-  --tone-ink: #0b5d50;
+  --tone-ink: #3f6212;
 
   /* canvas: grafici, oscilloscopio */
   --mz-chart-bg: #ffffff;
@@ -90,13 +90,13 @@
   --mz-muted: #71717a;
   --mz-axis: #d4d4d8;
   --mz-ink: #18181b;
-  --mz-accent: #0b5d50;
+  --mz-accent: #4d7c0f;
   --mz-fit: #db2777;
   --mz-raw: rgba(24, 24, 27, 0.4);
-  --mz-sel: rgba(14, 116, 144, 0.1);
+  --mz-sel: rgba(181, 230, 29, 0.2);
   --mz-tip-bg: #18181b;
   --mz-tip-ink: #ffffff;
-  --mz-green: #0b5d50;
+  --mz-green: #65a30d;
   --mz-rosa: #f472b6;
   --mz-rosa-d: #db2777;
   --mz-screen: #0c1f1b;
@@ -114,8 +114,8 @@
   --card-foreground: #fafafa;
   --popover: #18181b;
   --popover-foreground: #fafafa;
-  --primary: #5eead4;
-  --primary-foreground: #042f2a;
+  --primary: #c6f432;
+  --primary-foreground: #1a2e05;
   --secondary: #27272a;
   --secondary-foreground: #fafafa;
   --muted: #1c1c1f;
@@ -125,10 +125,10 @@
   --destructive: #f87171;
   --border: rgba(255, 255, 255, 0.09);
   --input: rgba(255, 255, 255, 0.13);
-  --ring: #5eead4;
+  --ring: #c6f432;
 
-  --brand: #5eead4;
-  --brand-foreground: #042f2a;
+  --brand: #c6f432;
+  --brand-foreground: #1a2e05;
   --success: #4ade80;
   --warning: #fbbf24;
   --tone-lime: rgba(163, 230, 53, 0.12);
@@ -143,13 +143,13 @@
   --mz-muted: #a1a1aa;
   --mz-axis: rgba(255, 255, 255, 0.18);
   --mz-ink: #fafafa;
-  --mz-accent: #5eead4;
-  --mz-fit: #f472b6;
+  --mz-accent: rgba(255, 255, 255, 0.85);
+  --mz-fit: #c6f432;
   --mz-raw: rgba(255, 255, 255, 0.35);
-  --mz-sel: rgba(94, 234, 212, 0.1);
-  --mz-tip-bg: #fafafa;
-  --mz-tip-ink: #09090b;
-  --mz-green: #5eead4;
+  --mz-sel: rgba(198, 244, 50, 0.12);
+  --mz-tip-bg: #c6f432;
+  --mz-tip-ink: #1a2e05;
+  --mz-green: #c6f432;
   --mz-rosa: #f472b6;
   --mz-rosa-d: #f9a8d4;
   --mz-screen: #050d0b;

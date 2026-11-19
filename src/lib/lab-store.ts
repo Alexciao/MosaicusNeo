@@ -13,6 +13,7 @@ import type { LucideIcon } from "lucide-react";
 import { Wrench } from "lucide-react";
 import { ChartGroup } from "@/lib/mosaicus/chart.js";
 import { SerialLink, serialSupported } from "@/lib/mosaicus/serial.js";
+import { BleLink } from "@/lib/mosaicus/ble";
 import { SimulatedLink, WARP } from "@/lib/sensors/simulator";
 import * as repo from "@/lib/cloud/repo";
 import { toCSV, toXLSX, download } from "@/lib/mosaicus/export.js";
@@ -33,6 +34,8 @@ import type { Row, Tone } from "@/lib/sensors/types";
 // ---------------------------------------------------------------------------
 export interface Link {
   kind: "arduino" | "simulatore";
+  /** come arriva Arduino: cavo/Bluetooth classico (Web Serial) o Bluetooth LE */
+  transport?: "serial" | "ble";
   scenario?: string;
   scopeSignal?: string;
   open(): Promise<void>;
@@ -80,6 +83,7 @@ interface LabState {
   modified: boolean;
   customRigs: Rig[];
   linkKind: Link["kind"] | null;
+  transport: "serial" | "ble" | null;
   ready: boolean;
   fw: string | null;
   running: boolean;
@@ -98,6 +102,8 @@ interface LabState {
   dragHint: boolean;
   labsOpen: boolean;
   rigOpen: boolean;
+  /** capitolo della guida aperto (null = guida chiusa) */
+  guide: string | null;
 }
 
 const EMPTY_RIG: Rig = { id: "empty", name: "", sensors: [] };
@@ -109,6 +115,7 @@ export const useLab = create<LabState>(() => ({
   modified: false,
   customRigs: [],
   linkKind: null,
+  transport: null,
   ready: false,
   fw: null,
   running: false,
@@ -127,6 +134,7 @@ export const useLab = create<LabState>(() => ({
   dragHint: false,
   labsOpen: false,
   rigOpen: false,
+  guide: null,
 }));
 
 const get = useLab.getState;
@@ -241,6 +249,10 @@ export function showPage(page: Page) {
   prefs.set("mosaicus.page", page);
   window.scrollTo({ top: 0 });
 }
+/** Apre la guida a un capitolo (es. dal messaggio "firmware vecchio" o dalla sezione Bluetooth). */
+export function openGuide(chapter = "start") { set({ guide: chapter }); }
+export function closeGuide() { set({ guide: null }); }
+
 export function goElab() { set({ sent: false }); showPage("elab"); }
 
 export function setLim(on: boolean) {
@@ -371,6 +383,16 @@ export function newRig({ copy = false } = {}) {
   set({ rigOpen: true });
   return rig;
 }
+/** Nuovo montaggio libero con questi sensori (dalla guida). */
+export function createRigFrom(types: SensorType[], name = "Montaggio dalla guida") {
+  const rig = newRig();
+  if (!rig) return;
+  const taken = new Set<number>();
+  const sensors = types.map((t) => { const s = makeSensor(t, taken); return s; });
+  commitRig({ ...get().rig, name, sensors });
+  set({ visible: defaultVisible(get().rig) });
+}
+
 export function deleteRig(id: string) {
   const list = get().customRigs.filter((r) => r.id !== id);
   set({ customRigs: list });
@@ -429,15 +451,16 @@ const simStatus = () => {
   return `Simulatore pronto${warp ? ` · tempo ×${warp}` : ""}`;
 };
 
-export async function connect(kind: "arduino" | "sim") {
-  const l = (kind === "sim" ? new SimulatedLink() : new SerialLink()) as unknown as Link;
+/** arduino = Web Serial (cavo USB, o HC-06 su Android); ble = modulo Bluetooth LE; sim = simulatore */
+export async function connect(kind: "arduino" | "ble" | "sim") {
+  const l = (kind === "sim" ? new SimulatedLink() : kind === "ble" ? new BleLink() : new SerialLink()) as unknown as Link;
   if (kind === "sim") { l.scenario = simScenario(); l.scopeSignal = simSignal; }
   l.onLine(handleLine);
   l.onClose(() => {
     if (link !== l) return;
     const wasRunning = get().running;
     link = null;
-    set({ linkKind: null, ready: false });
+    set({ linkKind: null, transport: null, ready: false });
     setStatus("Nessun dispositivo", "off");
     instrument?.linkChanged?.();
     if (wasRunning) {
@@ -451,19 +474,20 @@ export async function connect(kind: "arduino" | "sim") {
     await l.open();
   } catch (err) {
     const e = err as Error;
-    if (e?.name !== "NotFoundError") toast.error(`Impossibile aprire la porta: ${e.message}`);
+    if (e?.name !== "NotFoundError") toast.error(kind === "ble" ? `Bluetooth LE: ${e.message}` : `Impossibile aprire la porta: ${e.message}`);
     return;
   }
   link = l;
-  set({ linkKind: l.kind, ready: false });
+  set({ linkKind: l.kind, transport: kind === "sim" ? null : kind === "ble" ? "ble" : "serial", ready: false });
   setStatus(kind === "sim" ? "Simulatore: avvio…" : "Arduino: attendo il firmware…", "wait");
   // l'Uno si riavvia quando si apre la porta USB: tempo al bootloader, poi chiedo l'identità
-  // (via Bluetooth non si riavvia: la risposta arriva subito)
-  setTimeout(() => { if (link === l && !get().ready) void l.write("ID?"); }, kind === "sim" ? 600 : 2200);
+  // (via Bluetooth non si riavvia: la risposta arriva subito; lo chiedo due volte per sicurezza)
+  setTimeout(() => { if (link === l && !get().ready) void l.write("ID?"); }, kind === "sim" ? 600 : kind === "ble" ? 400 : 2200);
+  if (kind === "ble") setTimeout(() => { if (link === l && !get().ready) void l.write("ID?"); }, 1800);
   setTimeout(() => {
     if (link === l && !get().ready) {
       setStatus("Firmware non trovato", "err");
-      toast.error("Arduino risponde, ma non con il firmware MosaicusNeo. Caricalo con l'IDE di Arduino (pulsante «Guida» in alto).", { duration: 8000 });
+      toast.error("Arduino risponde, ma non con il firmware MosaicusNeo. Caricalo con l'IDE di Arduino.", { duration: 10000, action: { label: "Come si fa", onClick: () => openGuide("firmware") } });
     }
   }, 5000);
 }
@@ -501,12 +525,16 @@ function handleLine(line: string) {
     const fw = line.split(",")[1] ?? null;
     set({ ready: true, fw });
     if (kind === "arduino" && fw && cmpVersion(fw, FIRMWARE_VERSION) < 0) {
-      toast.warning(`Su Arduino c'è il firmware v${fw}: aggiornalo alla v${FIRMWARE_VERSION} (scaricalo dalla «Guida» e caricalo con l'IDE di Arduino).`, { duration: 10000 });
+      toast.warning(`Su Arduino c'è il firmware v${fw}: aggiornalo alla v${FIRMWARE_VERSION}.`, { duration: 10000, action: { label: "Come si fa", onClick: () => openGuide("firmware") } });
     }
-    setStatus(kind === "simulatore" ? simStatus() : `Arduino pronto · firmware ${fw}`, "on");
+    setStatus(kind === "simulatore" ? simStatus() : `Arduino pronto${link?.transport === "ble" ? " (Bluetooth LE)" : ""} · firmware ${fw}`, "on");
     return;
   }
-  if (line === "#BT,SETUP") { toast.info("Configuro l'HC-06: nome «MosaicusNeo», 115200 baud…"); return; }
+  if (line === "#BT,SETUP") { toast.info("Configuro il modulo Bluetooth: nome «MosaicusNeo», 115200 baud…"); return; }
+  if (line === "#ACK,BT,SETUP,BLE") {
+    toast.success("Modulo BLE configurato. Ora scollega il cavo, alimenta Arduino e scegli «Bluetooth LE» → «MosaicusNeo» (su iPhone, nel browser Bluefy). Se il nome non compare, cerca HMSoft, BT05 o HC-08.", { duration: 14000 });
+    return;
+  }
   if (line === "#ACK,BT,SETUP") {
     toast.success("HC-06 configurato. Ora associa «MosaicusNeo» nelle impostazioni Bluetooth del telefono (PIN 1234).", { duration: 12000 });
     return;
@@ -617,11 +645,14 @@ function stopKeepAlive() {
   if (autosaveTimer) { clearInterval(autosaveTimer); autosaveTimer = null; }
 }
 
-/** Configura l'HC-06 (nome e 115200 baud): solo con Arduino collegato via cavo USB. */
-export async function bluetoothSetup() {
-  if (!link || !get().ready) { toast("Prima collega Arduino con il cavo USB."); return; }
-  if (get().running) { toast("Ferma la misura prima di configurare l'HC-06."); return; }
-  await link.write("BT,SETUP");
+/** Configura il modulo Bluetooth (nome e 115200 baud): solo con Arduino collegato via cavo USB. */
+export async function bluetoothSetup(module: "hc06" | "ble" = "hc06") {
+  if (!link || !get().ready || link.transport !== "serial") { toast("Prima collega Arduino con il cavo USB."); return; }
+  if (get().running) { toast("Ferma la misura prima di configurare il modulo."); return; }
+  if (get().fw && cmpVersion(get().fw!, module === "ble" ? "1.1" : "0.4") < 0) {
+    toast.error(`Il firmware su Arduino è vecchio: per configurare il modulo serve la v${FIRMWARE_VERSION}.`); return;
+  }
+  await link.write(module === "ble" ? "BT,SETUP,BLE" : "BT,SETUP");
 }
 
 function showDragHint() {

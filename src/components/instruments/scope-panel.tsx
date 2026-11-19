@@ -85,7 +85,7 @@ export function ScopePanel({ exp }: { exp: Instrument }) {
           {[...EXAMPLES, ["beats", "Battimenti 440 + 443 Hz"] as [string, string]].map(([id, l]) => (
             <Button key={id} size="sm" variant={S.example === id && !S.paused ? "default" : "outline"} onClick={() => engine.playExample(id)}>{l}</Button>
           ))}
-          {genOn && <span className="text-xs font-medium text-primary">＋ Synth acceso</span>}
+          {genOn && <span className="text-xs font-medium text-brand">＋ Synth acceso</span>}
         </Card>
       )}
 

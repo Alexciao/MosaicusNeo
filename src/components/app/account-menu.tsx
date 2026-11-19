@@ -157,7 +157,7 @@ export function AccountMenu() {
     <>
       <DropdownMenu>
         <DropdownMenuTrigger render={<Button variant="ghost" size="sm" aria-label="Account" className="gap-1.5" />}>
-          <span className="grid size-6 place-items-center rounded-full bg-primary/10 text-xs font-semibold text-primary uppercase">{user.email?.[0] ?? <UserRound className="size-3.5" />}</span>
+          <span className="grid size-6 place-items-center rounded-full bg-brand/10 text-xs font-semibold text-brand uppercase">{user.email?.[0] ?? <UserRound className="size-3.5" />}</span>
           <Icon className={cn("size-4 text-muted-foreground", status === "syncing" && "animate-spin", status === "error" && "text-destructive")} />
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="w-72">

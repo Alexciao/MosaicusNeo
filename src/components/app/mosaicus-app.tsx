@@ -11,6 +11,7 @@ import { cn } from "@/lib/utils";
 import { AppHeader } from "./app-header";
 import { MeasurePage } from "./measure-page";
 import { ConfirmHost } from "./confirm-host";
+import { GuideDialog } from "./guide-dialog";
 import { WorkbenchPage } from "@/components/workbench/workbench-page";
 import { startCloud } from "@/lib/cloud/sync";
 
@@ -25,7 +26,7 @@ function MobileNav() {
     </button>
   );
   return (
-    <nav aria-label="Navigazione" className="fixed inset-x-0 bottom-0 z-40 flex border-t bg-card/95 pb-[env(safe-area-inset-bottom)] backdrop-blur md:hidden">
+    <nav aria-label="Navigazione" className="fixed inset-x-0 bottom-0 z-40 flex border-t bg-card pb-[env(safe-area-inset-bottom)] md:hidden">
       {item(false, "Lab", LayoutGrid, () => { showPage("misura"); useLab.setState({ labsOpen: true }); })}
       {item(page === "misura", "Misura", FlaskConical, () => showPage("misura"))}
       {item(page === "elab", "Elaborazione", ChartLine, () => showPage("elab"), n)}
@@ -72,6 +73,7 @@ export function MosaicusApp() {
       <MobileNav />
       <GenChip />
       <ConfirmHost />
+      <GuideDialog />
     </div>
   );
 }

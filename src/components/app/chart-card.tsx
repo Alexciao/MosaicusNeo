@@ -75,7 +75,7 @@ function ChartStack() {
       {visible.map((id, i) => {
         const v = viewsOf(rig).find((w) => w.id === id);
         return (
-          <div key={`${rig.id}-${id}`} className={cn("relative min-h-0 flex-1 border-l-[3px] transition-colors", id === viewId && visible.length > 1 ? "border-l-primary" : "border-l-transparent", i > 0 && "border-t")}
+          <div key={`${rig.id}-${id}`} className={cn("relative min-h-0 flex-1 border-l-[3px] transition-colors", id === viewId && visible.length > 1 ? "border-l-brand" : "border-l-transparent", i > 0 && "border-t")}
             style={{ flexGrow: i === visible.length - 1 ? 1.25 : 1 }}>
             <canvas ref={(el) => { if (el) canvases.current.set(id, el); else canvases.current.delete(id); }}
               aria-label={`Grafico ${v?.label ?? id}`} className="absolute inset-0 size-full touch-none" style={{ cursor: "crosshair" }} />

@@ -1,7 +1,7 @@
 "use client";
 
 import { useTheme } from "next-themes";
-import { BookOpen, ChartLine, FlaskConical, Monitor, Moon, Presentation, Sun } from "lucide-react";
+import { ChartLine, FlaskConical, Monitor, Moon, Presentation, Sun } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import {
@@ -11,7 +11,7 @@ import { useLab, showPage, setLim, type Page } from "@/lib/lab-store";
 import { useWorkbench } from "@/lib/workbench-store";
 import { cn } from "@/lib/utils";
 import { ConnectionControls } from "./connection-controls";
-import { GuideDialog } from "./guide-dialog";
+import { GuideButton } from "./guide-dialog";
 import { AccountMenu } from "./account-menu";
 import { APP_VERSION } from "@/lib/version";
 
@@ -30,7 +30,7 @@ export function NavTabs({ className }: { className?: string }) {
     >
       <Icon className="size-4" />
       {label}
-      {!!badge && <span className="rounded-full bg-primary/10 px-1.5 text-xs font-semibold text-primary tabular">{badge}</span>}
+      {!!badge && <span className="rounded-full bg-brand/10 px-1.5 text-xs font-semibold text-brand tabular">{badge}</span>}
     </button>
   );
   return (
@@ -73,12 +73,12 @@ function AppearanceMenu() {
 
 export function AppHeader() {
   return (
-    <header className="sticky top-0 z-40 border-b bg-background/85 backdrop-blur-md supports-[backdrop-filter]:bg-background/70">
+    <header className="sticky top-0 z-40 border-b bg-background">
       <div className="mx-auto flex h-14 w-full max-w-[1600px] items-center gap-3 px-4">
         <div className="flex min-w-0 items-center gap-2.5">
           <img src="/icons/icon.svg" alt="" width={28} height={28} className="rounded-md" />
           <div className="flex min-w-0 items-baseline gap-2">
-            <h1 className="text-[0.95rem] font-semibold tracking-tight">Mosaicus<span className="text-primary">Neo</span></h1>
+            <h1 className="text-[0.95rem] font-semibold tracking-tight">Mosaicus<span className="text-brand">Neo</span></h1>
             <span className="hidden text-xs text-muted-foreground sm:inline">v{APP_VERSION}</span>
           </div>
         </div>
@@ -86,7 +86,7 @@ export function AppHeader() {
         <NavTabs className="hidden md:flex" />
         <div className="ml-auto flex items-center gap-1">
           <div className="mr-1 hidden lg:flex"><ConnectionControls /></div>
-          <GuideDialog trigger={<Button variant="ghost" size="sm"><BookOpen /> <span className="hidden sm:inline">Guida</span></Button>} />
+          <GuideButton />
           <AppearanceMenu />
           <AccountMenu />
         </div>
