@@ -58,20 +58,39 @@ function Chip({ i }: { i: LiveIssue }) {
 // ---------------------------------------------------------------------------
 const FW_NAME: Record<string, string> = { ntc: "NTC", analog: "ANA", ldr: "ANA", dht: "DHT", sonar: "SONAR", gps: "GPS", ds18b20: "DS18", gate: "GATE", hx711: "HX711", imu: "IMU" };
 const SMALL_ERR: Record<string, string> = { gps: "fili GPS?", ntc: "sonda?", ds18b20: "fili 4,7k?", imu: "fili SDA?", hx711: "fili DT?" };
+const SMALL_ERR_SHORT: Record<string, string> = { ds18b20: "4,7k?", imu: "SDA?", hx711: "DT?" };
+
+const CFG_WHY = ["?", "pin errato", "pin A0-A5", "pin doppio", "1 solo GPS", "tipo?", "comando?"];
+interface MirrorCtx { running: boolean; slotType?: string; cfgType?: string; same: number; ord: number; sats: string; elapsed: number; lines: [string, string]; tick: number }
 
 /** Gli stessi testi che compone il firmware (screenTexts in mosaicusneo_firmware.ino). */
-function screenTexts(d: DeviceStatus, o: { running: boolean; slotType?: string; sats: string; elapsed: number; lines: [string, string]; tick: number }) {
+function screenTexts(d: DeviceStatus, o: MirrorCtx) {
   const spin = "-\\|/"[Math.floor(o.tick / 2.4) % 4];
   let bar = "", big = "", small = "", sp = spin;
+  const count = (pre: string) => `${pre} ${d.k}/${d.n}`;
+  const num = o.same > 1 ? `#${o.ord} ` : "";
   switch (d.st) {
-    case "W": if (o.running) { bar = "APP PERSA"; big = "BT?"; small = "ricollega"; } else { bar = "ATTESA"; big = "APP"; small = "Collega ~"; } break;
-    case "I": bar = "COLLEGATO"; big = "OK"; small = "~ Avvia"; break;
-    case "O": bar = "OSCILLOSC."; big = "SCOPE"; small = "segnale A0"; break;
-    case "S":
-      if (o.slotType === "gps") { bar = "CERCO GPS"; big = `${o.sats.slice(0, 2) || "0"} sat`; small = "all'aperto"; }
-      else { bar = "NO ECO"; big = "SONAR"; small = "bersaglio?"; }
+    case "W":
+      if (o.running) { bar = "APP PERSA"; big = d.link === "B" ? "BT?" : "USB?"; small = "ricollega"; }
+      else if (d.bt) { bar = "ATTESA BT"; big = "APP"; small = d.bt === 1 ? "PIN 1234" : "BLE pronto"; }
+      else { bar = "ATTESA"; big = "APP"; small = "Collega ~"; }
       break;
-    case "E": bar = "PROBLEMA"; big = (FW_NAME[o.slotType ?? ""] ?? "?").slice(0, 5); small = SMALL_ERR[o.slotType ?? ""] ?? "fili?"; break;
+    case "I": bar = "COLLEGATO"; big = "OK"; small = d.link === "B" ? "BT ~ Avvia" : "~ Avvia"; break;
+    case "O": bar = "OSCILLOSC."; big = "SCOPE"; small = "segnale A0"; break;
+    case "C": bar = "CONFIG"; big = d.slot < 0 ? "OUT" : FW_NAME[o.cfgType ?? ""] ?? "?"; small = CFG_WHY[d.issue] ?? "?"; break;
+    case "S":
+    case "E": {
+      const t = o.slotType ?? "";
+      if (d.issue === 1 && t === "gps") { bar = d.n > 1 ? count("CERCO") : "CERCO GPS"; big = `${o.sats.slice(0, 2) || "0"} sat`; small = "all'aperto"; }
+      else if (d.issue === 1) {
+        bar = d.n > 1 ? count("CERCO") : t === "sonar" ? "NO ECO" : "ATTENDO"; big = FW_NAME[t] ?? "?";
+        small = num + (t === "sonar" ? (o.same > 1 ? "eco?" : "bersaglio?") : "attendo");
+      } else {
+        bar = d.n > 1 ? count("PROBL") : "PROBLEMA"; big = FW_NAME[t] ?? "?";
+        small = num + (o.same > 1 ? SMALL_ERR_SHORT[t] ?? SMALL_ERR[t] ?? "fili?" : SMALL_ERR[t] ?? "fili?");
+      }
+      break;
+    }
     case "T": {
       const s = Math.floor(o.elapsed), m = Math.floor(s / 60);
       bar = m > 99 ? `REC ${Math.floor(m / 60)}h` : `REC ${m}:${String(s % 60).padStart(2, "0")}`;
@@ -117,10 +136,11 @@ const LED: Record<DeviceStatus["st"], { color: string; blink: number; text: stri
   I: { color: "#3b82f6", blink: 0, text: "blu: collegato, pronto" },
   S: { color: "#eab308", blink: 125, text: "giallo lampeggiante: in ricerca" },
   E: { color: "#ef4444", blink: 125, text: "rosso lampeggiante: problema" },
+  C: { color: "#ef4444", blink: 125, text: "rosso lampeggiante: configurazione rifiutata" },
   T: { color: "#22c55e", blink: 0, text: "verde: sta misurando" },
   O: { color: "#06b6d4", blink: 0, text: "azzurro: oscilloscopio" },
 };
-const BEEPS: Record<DeviceStatus["st"], number> = { W: 1, I: 1, S: 2, E: 3, T: 0, O: 0 };
+const BEEPS: Record<DeviceStatus["st"], number> = { W: 1, I: 1, S: 2, E: 3, T: 0, O: 0, C: 3 };
 
 /** Ciò che mostrano in questo momento il display, il LED e il cicalino di Arduino. */
 export function DeviceMirror() {
@@ -144,7 +164,17 @@ export function DeviceMirror() {
   }
   // eslint-disable-next-line react-hooks/purity -- orologio del display, aggiornato dal tick
   const elapsed = running && created ? (Date.now() - created) / 1000 : 0;
-  const txt = screenTexts(device, { running, slotType: slotSensor?.type, sats, elapsed, lines, tick });
+  // come il firmware: «#2» se ci sono più sensori dello stesso tipo (in ordine di slot)
+  let same = 0, ord = 0;
+  if (slotSensor) {
+    const fw = SENSORS[slotSensor.type].fw;
+    for (const [code, x] of [...res.byCode.entries()].sort((p, q) => p[0] - q[0])) {
+      if (SENSORS[x.type].fw !== fw) continue;
+      same++;
+      if (code <= device.slot) ord = same;
+    }
+  }
+  const txt = screenTexts(device, { running, slotType: slotSensor?.type, cfgType: device.st === "C" ? slotSensor?.type : undefined, same, ord, sats, elapsed, lines, tick });
   const led = LED[device.st];
   const ms = tick * (lim ? 500 : 125);
   const ledOn = !led.blink || Math.floor(ms / led.blink) % 2 === 0;

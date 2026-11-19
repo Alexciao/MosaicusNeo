@@ -22,6 +22,7 @@
     App -> Arduino                              Arduino -> App
     ID?                                         #MOSAICUS,<versione>,READY
     PING                                        (niente: dice ad Arduino che l'app è collegata)
+    LINK,<U|B>                                  (niente: l'app è collegata via USB o via Bluetooth)
     CFG,CLEAR                                   #ACK,CFG,CLEAR
     CFG,ADD,<slot>,<tipo>,<ms>,<pinA>,<pinB>,<opz>
                                                 #ACK,CFG,ADD,<slot>   oppure   #ERR,CFG,<slot>,<motivo>
@@ -54,12 +55,19 @@
     OUT,SAVE                                    #ACK,OUT,SAVE   (gli indicatori restano anche dopo lo spegnimento)
     OUT,L,<1|2>,<testo>                         (righe del display durante la misura: valore grande e riga piccola)
     OUT,TEST                                    #ACK,OUT,TEST   (prova: colori, bip, scritta)
-                                                #ST,<stato>,<slot>,<problema>   a ogni cambio di stato
+                                                #ST,<stato>,<slot>,<problema>,<k>,<n>,<bt>,<link>   a ogni cambio
         stato  W attesa dell'app · I pronto · S in ricerca (GPS, eco) · E errore di un sensore ·
-               T misura in corso e tutto a posto · O oscilloscopio
+               T misura in corso e tutto a posto · O oscilloscopio ·
+               C configurazione rifiutata (slot -1 = display, LED o cicalino; problema = motivo:
+                 1 pin, 2 non analogico, 3 pin doppio, 4 secondo GPS, 5 tipo, 6 comando)
         problema 0 nessuno · 1 in ricerca · 2 errore
+        k/n    con più sensori in difficoltà il display li mostra a turno: k = quello mostrato
+               (da 1), n = quanti sono. LED e cicalino seguono sempre il più grave.
+        bt     modulo Bluetooth configurato (0 nessuno, 1 HC-06, 2 BLE) · link: U USB, B Bluetooth
     BT,SETUP                                    #BT,SETUP … #ACK,BT,SETUP
-        configura l'HC-06 (collegati via USB, HC-06 non associato): nome «MosaicusNeo», 115200 baud
+        configura l'HC-06 (collegati via USB, HC-06 non associato): nome «MosaicusNeo», 115200 baud.
+        Se il modulo risponde, Arduino lo ricorda (EEPROM): in attesa dell'app il display lo dice.
+        Nessuna risposta: #BT,NOREPLY prima dell'#ACK (fili TXD/RXD, o un telefono collegato).
     BT,SETUP,BLE                                #BT,SETUP … #ACK,BT,SETUP,BLE
         come sopra per i moduli Bluetooth Low Energy (HM-10, AT-09 / BT05, HC-08): nome
         «MosaicusNeo», 115200 baud. Comandi diversi da quelli dell'HC-06: non vanno scambiati.
@@ -74,7 +82,7 @@
 #include <SoftwareSerial.h>
 #include <EEPROM.h>
 
-const char *FW_VERSION = "1.2";
+const char *FW_VERSION = "1.3";
 
 const uint8_t MAX_SLOTS = 6;
 const uint8_t ADC_SAMPLES = 16;                 // sovracampionamento per ridurre il rumore
@@ -99,6 +107,16 @@ struct Out { uint8_t type; uint8_t p[3]; uint8_t opt; };
 const uint8_t MAX_OUTS = 3;
 Out outs[MAX_OUTS];
 char appBig[6] = "", appSmall[11] = "";
+
+// Bluetooth: il modulo non si vede da Arduino (sta in parallelo al cavo su D0/D1). Lo si scopre
+// quando risponde ai comandi AT di BT,SETUP e lo si ricorda in EEPROM (byte 20-21).
+uint8_t btKind = 0;             // 0 nessuno, 1 HC-06, 2 BLE
+bool linkBt = false;            // l'app ha detto di essere collegata via Bluetooth (LINK,B)
+
+// configurazione rifiutata: resta segnalata finché l'app non rimanda la configurazione
+bool cfgBad = false;
+int8_t cfgBadSlot = -1;
+uint8_t cfgBadWhy = 0, cfgBadType = 0, cfgPendingType = 0, outBad = 0;
 
 // prototipi espliciti (l'IDE li genererebbe da solo, ma senza i valori di default)
 bool pinTaken(uint8_t pin, uint8_t except, bool i2c = false);
@@ -473,11 +491,11 @@ uint16_t hashStr(const char *s, uint16_t h) { while (*s) h = h * 31 + (uint8_t)*
 // =====================================================================================
 // Stato: lo decide Arduino da solo, così gli indicatori funzionano anche lontano dal telefono
 // =====================================================================================
-enum St : uint8_t { ST_WAIT, ST_IDLE, ST_SEARCH, ST_ERR, ST_TRACK, ST_SCOPE };
-const char ST_CODE[] PROGMEM = "WISETO";
+enum St : uint8_t { ST_WAIT, ST_IDLE, ST_SEARCH, ST_ERR, ST_TRACK, ST_SCOPE, ST_CFG };
+const char ST_CODE[] PROGMEM = "WISETOC";
 St state = ST_WAIT, shownState = (St)255;
-int8_t stSlot = -1;
-uint8_t stIssue = 0;
+int8_t stSlot = -1, shownSlot = -2;
+uint8_t stIssue = 0, stK = 0, stN = 0, shownK = 255;
 unsigned long stTick = 0, stCycle = 0;
 uint8_t buzzBeeps = 0;          // bip ancora da fare in questo giro
 unsigned long buzzOffAt = 0;
@@ -485,16 +503,35 @@ bool buzzOn = false;
 
 bool linkOk() { return pinged ? (millis() - lastCmdMs < 6000) : (lastCmdMs != 0); }
 
+// Lo stato segue il problema più grave (LED e cicalino); se i sensori in difficoltà sono più
+// d'uno, il display li mostra a turno, prima gli errori e poi quelli in ricerca.
 void computeState() {
-  stSlot = -1; stIssue = 0;
+  stSlot = -1; stIssue = 0; stK = 0; stN = 0;
   if (mode == SCOPE) { state = ST_SCOPE; return; }
   if (!linkOk()) { state = ST_WAIT; return; }
+  if (cfgBad || outBad) { state = ST_CFG; stSlot = cfgBad ? cfgBadSlot : -1; stIssue = cfgBad ? cfgBadWhy : outBad; return; }
   if (mode == IDLE) { state = ST_IDLE; return; }
-  for (uint8_t i = 0; i < MAX_SLOTS; i++) {
-    if (slots[i].type == S_NONE) continue;
-    if (slots[i].issue > stIssue) { stIssue = slots[i].issue; stSlot = i; }
-  }
-  state = stIssue == 2 ? ST_ERR : stIssue == 1 ? ST_SEARCH : ST_TRACK;
+  uint8_t list[MAX_SLOTS];
+  for (uint8_t lvl = 2; lvl >= 1; lvl--)
+    for (uint8_t i = 0; i < MAX_SLOTS; i++)
+      if (slots[i].type != S_NONE && slots[i].issue == lvl) list[stN++] = i;
+  if (!stN) { state = ST_TRACK; return; }
+  state = slots[list[0]].issue == 2 ? ST_ERR : ST_SEARCH;
+  uint8_t k = (millis() / 2500) % stN;
+  stSlot = list[k]; stK = k + 1; stIssue = slots[stSlot].issue;
+}
+
+// quanti sensori dello stesso tipo ci sono, e che numero ha questo (da 1): «DHT #2»
+uint8_t sameType(uint8_t slot, uint8_t &ord) {
+  uint8_t n = 0; ord = 0;
+  for (uint8_t i = 0; i < MAX_SLOTS; i++) if (slots[i].type == slots[slot].type) { n++; if (i <= slot) ord = n; }
+  return n;
+}
+// "PROBL 1/2": prefisso (PROGMEM) e contatore
+void barCount(char *bar, const char *pre) {
+  strcpy_P(bar, pre);
+  uint8_t n = strlen(bar);
+  bar[n++] = ' '; bar[n++] = '0' + stK; bar[n++] = '/'; bar[n++] = '0' + stN; bar[n] = 0;
 }
 
 const char TYPE_NAMES[] PROGMEM = "?    NTC  ANA  DHT  SONARGPS  DS18 GATE HX711IMU  ";
@@ -512,32 +549,55 @@ void screenTexts(char *bar, char *big, char *small) {
   big[0] = small[0] = 0;
   switch (state) {
     case ST_WAIT:
-      if (mode == RUN) { strcpy_P(bar, PSTR("APP PERSA")); strcpy_P(big, PSTR("BT?")); strcpy_P(small, PSTR("ricollega")); }
-      else { strcpy_P(bar, PSTR("ATTESA")); strcpy_P(big, PSTR("APP")); strcpy_P(small, PSTR("Collega ~")); }
+      if (mode == RUN) { strcpy_P(bar, PSTR("APP PERSA")); strcpy_P(big, linkBt ? PSTR("BT?") : PSTR("USB?")); strcpy_P(small, PSTR("ricollega")); }
+      else if (btKind) {
+        // modulo Bluetooth configurato: si può collegare il telefono
+        strcpy_P(bar, PSTR("ATTESA BT")); strcpy_P(big, PSTR("APP"));
+        strcpy_P(small, btKind == 1 ? PSTR("PIN 1234") : PSTR("BLE pronto"));
+      } else { strcpy_P(bar, PSTR("ATTESA")); strcpy_P(big, PSTR("APP")); strcpy_P(small, PSTR("Collega ~")); }
       break;
-    case ST_IDLE: strcpy_P(bar, PSTR("COLLEGATO")); strcpy_P(big, PSTR("OK")); strcpy_P(small, PSTR("~ Avvia")); break;
+    case ST_IDLE: strcpy_P(bar, PSTR("COLLEGATO")); strcpy_P(big, PSTR("OK")); strcpy_P(small, linkBt ? PSTR("BT ~ Avvia") : PSTR("~ Avvia")); break;
+    case ST_CFG: {
+      static const char WHY[] PROGMEM = "?         pin erratopin A0-A5 pin doppio1 solo GPStipo?     comando?  ";
+      strcpy_P(bar, PSTR("CONFIG"));
+      if (cfgBad) { if (cfgBadType) typeName(cfgBadType, big); else strcpy_P(big, PSTR("?")); }
+      else strcpy_P(big, PSTR("OUT"));
+      uint8_t w = stIssue > 6 ? 0 : stIssue;
+      for (uint8_t k = 0; k < 10; k++) small[k] = pgm_read_byte(&WHY[w * 10 + k]);
+      small[10] = 0;
+      for (int8_t k = 9; k >= 0 && small[k] == ' '; k--) small[k] = 0;
+      break;
+    }
     case ST_SCOPE: strcpy_P(bar, PSTR("OSCILLOSC.")); strcpy_P(big, PSTR("SCOPE")); strcpy_P(small, PSTR("segnale A0")); break;
-    case ST_SEARCH: {
+    case ST_SEARCH:
+    case ST_ERR: {
+      // il testo segue il sensore mostrato in questo turno (lo stato segue il più grave)
       const Slot &s = slots[stSlot];
-      if (s.type == S_GPS) {
-        strcpy_P(bar, PSTR("CERCO GPS"));
+      uint8_t ord, same = sameType(stSlot, ord);
+      char *q = small;
+      if (same > 1) { *q++ = '#'; *q++ = '0' + ord; *q++ = ' '; }
+      if (stIssue == 1 && s.type == S_GPS) {
+        if (stN > 1) barCount(bar, PSTR("CERCO")); else strcpy_P(bar, PSTR("CERCO GPS"));
         uint8_t n = 0; while (gSats[n] && n < 2) { big[n] = gSats[n]; n++; }
         if (!n) big[n++] = '0';
         strcpy_P(big + n, PSTR(" sat"));
         strcpy_P(small, PSTR("all'aperto"));
-      } else { strcpy_P(bar, PSTR("NO ECO")); strcpy_P(big, PSTR("SONAR")); strcpy_P(small, PSTR("bersaglio?")); }
-      break;
-    }
-    case ST_ERR: {
-      const Slot &s = slots[stSlot];
-      strcpy_P(bar, PSTR("PROBLEMA")); typeName(s.type, big);
-      switch (s.type) {
-        case S_GPS: strcpy_P(small, PSTR("fili GPS?")); break;
-        case S_NTC: strcpy_P(small, PSTR("sonda?")); break;
-        case S_DS18: strcpy_P(small, PSTR("fili 4,7k?")); break;
-        case S_IMU: strcpy_P(small, PSTR("fili SDA?")); break;
-        case S_HX711: strcpy_P(small, PSTR("fili DT?")); break;
-        default: strcpy_P(small, PSTR("fili?"));
+      } else if (stIssue == 1) {
+        if (stN > 1) barCount(bar, PSTR("CERCO")); else strcpy_P(bar, s.type == S_SONAR ? PSTR("NO ECO") : PSTR("ATTENDO"));
+        typeName(s.type, big);
+        strcpy_P(q, s.type == S_SONAR ? (same > 1 ? PSTR("eco?") : PSTR("bersaglio?")) : PSTR("attendo"));
+      } else {
+        if (stN > 1) barCount(bar, PSTR("PROBL")); else strcpy_P(bar, PSTR("PROBLEMA"));
+        typeName(s.type, big);
+        // con il numero davanti c'è spazio solo per un suggerimento corto
+        switch (s.type) {
+          case S_GPS: strcpy_P(q, PSTR("fili GPS?")); break;
+          case S_NTC: strcpy_P(q, PSTR("sonda?")); break;
+          case S_DS18: strcpy_P(q, same > 1 ? PSTR("4,7k?") : PSTR("fili 4,7k?")); break;
+          case S_IMU: strcpy_P(q, same > 1 ? PSTR("SDA?") : PSTR("fili SDA?")); break;
+          case S_HX711: strcpy_P(q, same > 1 ? PSTR("DT?") : PSTR("fili DT?")); break;
+          default: strcpy_P(q, PSTR("fili?"));
+        }
       }
       break;
     }
@@ -604,20 +664,24 @@ void statusTick() {
   stTick = now;
   St before = state;
   computeState();
-  if (state != shownState) {
+  if (state != shownState || stSlot != shownSlot || stK != shownK) {
     Serial.print(F("#ST,")); Serial.print((char)pgm_read_byte(&ST_CODE[state])); Serial.print(',');
-    Serial.print(stSlot); Serial.print(','); Serial.println(stIssue);
-    if (state == ST_TRACK && before != ST_TRACK && shownState != (St)255) chirp(2, 60);
-    shownState = state;
-    stCycle = now;                              // il nuovo stato si sente subito
+    Serial.print(stSlot); Serial.print(','); Serial.print(stIssue); Serial.print(',');
+    Serial.print(stK); Serial.print(','); Serial.print(stN); Serial.print(',');
+    Serial.print(btKind); Serial.print(','); Serial.println(linkBt ? 'B' : 'U');
+    if (state != shownState) {
+      if (state == ST_TRACK && before != ST_TRACK && shownState != (St)255) chirp(2, 60);
+      stCycle = now;                            // il nuovo stato si sente subito
+    }
+    shownState = state; shownSlot = stSlot; shownK = stK;
   }
   // giro di 3 s: 1 bip = attesa / pronto ma fermo, 2 = in ricerca, 3 = problema
-  uint8_t beeps = state == ST_WAIT || state == ST_IDLE ? 1 : state == ST_SEARCH ? 2 : state == ST_ERR ? 3 : 0;
+  uint8_t beeps = state == ST_WAIT || state == ST_IDLE ? 1 : state == ST_SEARCH ? 2 : state == ST_ERR || state == ST_CFG ? 3 : 0;
   unsigned long ph = (now - stCycle) % 3000;
   bool beepNow = ph < beeps * 200UL && (ph % 200) < 90;
   bool blink = (now / 500) % 2, fast = (now / 125) % 2;
   uint8_t col = state == ST_WAIT ? (blink ? 4 : 0) : state == ST_IDLE ? 4 : state == ST_SEARCH ? (fast ? 3 : 0)
-              : state == ST_ERR ? (fast ? 1 : 0) : state == ST_TRACK ? 2 : 6;
+              : state == ST_ERR || state == ST_CFG ? (fast ? 1 : 0) : state == ST_TRACK ? 2 : 6;
   for (uint8_t i = 0; i < MAX_OUTS; i++) {
     const Out &o = outs[i];
     if (o.type == O_RGB) rgbSet(o, col);
@@ -645,6 +709,7 @@ void outApply(uint8_t i) {
   if (o.type == O_OLED) { oledIdx = i; oledBegin(o); }
 }
 void outsClear() {
+  outBad = 0;
   outsOff();
   if (oledIdx >= 0) { i2cBus(outs[oledIdx].p[0], outs[oledIdx].p[1]); oledCmd(0xAE); }
   for (uint8_t i = 0; i < MAX_OUTS; i++) outs[i].type = O_NONE;
@@ -654,19 +719,19 @@ void outAdd(char *args) {
   char *f[5]; uint8_t n = 0;
   f[n++] = args;
   for (char *p = args; *p && n < 5; p++) if (*p == ',') { *p = '\0'; f[n++] = p + 1; }
-  if (n < 5) { Serial.println(F("#ERR,OUT,ARGOMENTI")); return; }
+  if (n < 5) { outBad = 6; Serial.println(F("#ERR,OUT,ARGOMENTI")); return; }
   uint8_t t = strcmp(f[0], "OLED") == 0 ? O_OLED : strcmp(f[0], "RGB") == 0 ? O_RGB : strcmp(f[0], "BUZ") == 0 ? O_BUZ : O_NONE;
-  if (t == O_NONE) { Serial.println(F("#ERR,OUT,TIPO")); return; }
+  if (t == O_NONE) { outBad = 5; Serial.println(F("#ERR,OUT,TIPO")); return; }
   uint8_t np = t == O_RGB ? 3 : t == O_OLED ? 2 : 1;
   uint8_t pins[3];
   for (uint8_t k = 0; k < 3; k++) pins[k] = (uint8_t)atoi(f[1 + k]);
   for (uint8_t k = 0; k < np; k++) {
-    if (pins[k] < 2 || pins[k] > 19) { Serial.println(F("#ERR,OUT,PIN")); return; }
-    if (!outPinFree(pins[k], t == O_OLED)) { Serial.println(F("#ERR,OUT,DOPPIO")); return; }
+    if (pins[k] < 2 || pins[k] > 19) { outBad = 1; Serial.println(F("#ERR,OUT,PIN")); return; }
+    if (!outPinFree(pins[k], t == O_OLED)) { outBad = 3; Serial.println(F("#ERR,OUT,DOPPIO")); return; }
   }
   int8_t slot = -1;
   for (uint8_t i = 0; i < MAX_OUTS; i++) if (outs[i].type == t || (slot < 0 && outs[i].type == O_NONE)) slot = i;
-  if (slot < 0) { Serial.println(F("#ERR,OUT,PIENO")); return; }
+  if (slot < 0) { outBad = 6; Serial.println(F("#ERR,OUT,PIENO")); return; }
   Out &o = outs[slot];
   o.type = t; o.p[0] = pins[0]; o.p[1] = pins[1]; o.p[2] = pins[2]; o.opt = (uint8_t)atoi(f[4]);
   outApply(slot);
@@ -874,7 +939,8 @@ bool outPinFree(uint8_t p, bool i2c) {
   return !pinTaken(p, 255, i2c);
 }
 
-void cfgError(int slot, const __FlashStringHelper *why) {
+void cfgError(int slot, const __FlashStringHelper *why, uint8_t code) {
+  cfgBad = true; cfgBadSlot = slot; cfgBadWhy = code; cfgBadType = cfgPendingType;
   Serial.print(F("#ERR,CFG,"));
   Serial.print(slot);
   Serial.print(',');
@@ -890,6 +956,7 @@ void cfgClear() {
   gpsStop();
   gateDetach();
   for (uint8_t i = 0; i < MAX_SLOTS; i++) slots[i].type = S_NONE;
+  cfgBad = false;
   ledFree = outPinFree(13, false);
   led(false);
   Serial.println(F("#ACK,CFG,CLEAR"));
@@ -899,11 +966,12 @@ void cfgAdd(char *args) {
   // args: "<slot>,<tipo>,<ms>,<pinA>,<pinB>,<opz>"
   char *f[6];
   uint8_t n = 0;
+  cfgPendingType = S_NONE;
   f[n++] = args;
   for (char *p = args; *p && n < 6; p++) if (*p == ',') { *p = '\0'; f[n++] = p + 1; }
-  if (n < 6) { cfgError(-1, F("ARGOMENTI")); return; }
+  if (n < 6) { cfgError(-1, F("ARGOMENTI"), 6); return; }
   int slot = atoi(f[0]);
-  if (slot < 0 || slot >= MAX_SLOTS) { cfgError(slot, F("SLOT")); return; }
+  if (slot < 0 || slot >= MAX_SLOTS) { cfgError(slot, F("SLOT"), 6); return; }
   uint8_t type = S_NONE;
   if (strcmp(f[1], "NTC") == 0) type = S_NTC;
   else if (strcmp(f[1], "ANA") == 0) type = S_ANA;
@@ -914,13 +982,14 @@ void cfgAdd(char *args) {
   else if (strcmp(f[1], "GATE") == 0) type = S_GATE;
   else if (strcmp(f[1], "HX711") == 0) type = S_HX711;
   else if (strcmp(f[1], "IMU") == 0) type = S_IMU;
-  if (type == S_NONE) { cfgError(slot, F("TIPO")); return; }
+  if (type == S_NONE) { cfgError(slot, F("TIPO"), 5); return; }
+  cfgPendingType = type;
   long ms = atol(f[2]);
   uint8_t a = (uint8_t)atoi(f[3]), b = (uint8_t)atoi(f[4]), opt = (uint8_t)atoi(f[5]);
   bool two = twoPins(type), i2c = type == S_IMU;
-  if (!pinOk(a) || (two && (!pinOk(b) || a == b))) { cfgError(slot, F("PIN")); return; }
-  if ((type == S_NTC || type == S_ANA) && !isAnalog(a)) { cfgError(slot, F("ANALOGICO")); return; }
-  if (pinTaken(a, slot, i2c) || (two && pinTaken(b, slot, i2c))) { cfgError(slot, F("DOPPIO")); return; }
+  if (!pinOk(a) || (two && (!pinOk(b) || a == b))) { cfgError(slot, F("PIN"), 1); return; }
+  if ((type == S_NTC || type == S_ANA) && !isAnalog(a)) { cfgError(slot, F("ANALOGICO"), 2); return; }
+  if (pinTaken(a, slot, i2c) || (two && pinTaken(b, slot, i2c))) { cfgError(slot, F("DOPPIO"), 3); return; }
   if (!outPinFree(a, i2c) || (two && !outPinFree(b, i2c))) {
     // un indicatore usa già quel pin (escluso lo slot stesso: outPinFree controlla anche gli slot)
     bool clash = false;
@@ -930,9 +999,9 @@ void cfgAdd(char *args) {
       uint8_t np = o.type == O_RGB ? 3 : o.type == O_OLED ? 2 : 1;
       for (uint8_t k = 0; k < np; k++) if (o.p[k] == a || (two && o.p[k] == b)) clash = true;
     }
-    if (clash) { cfgError(slot, F("DOPPIO")); return; }
+    if (clash) { cfgError(slot, F("DOPPIO"), 3); return; }
   }
-  if (type == S_GPS && gpsSlot >= 0 && gpsSlot != slot) { cfgError(slot, F("GPS")); return; }
+  if (type == S_GPS && gpsSlot >= 0 && gpsSlot != slot) { cfgError(slot, F("GPS"), 4); return; }
   // intervalli minimi: oltre, il sensore non ce la fa
   long minMs = type == S_DHT ? (opt == 22 ? 2000 : 1000) : type == S_GPS ? 1000 : type == S_SONAR ? 30
              : type == S_DS18 ? 1000 : type == S_HX711 ? 100 : type == S_IMU ? 10 : 5;
@@ -1156,45 +1225,66 @@ void startScope(char *args) {
 //  • HC-08: AT+BAUD=115200 (subito attivo: per questo va per ultimo)
 // Attenzione: AT+BAUD8 dell'HC-06 su un HM-10 vorrebbe dire 230400 baud. Per questo i due
 // gruppi di comandi sono separati.
-void btSetupBle() {
-  Serial.println(F("#BT,SETUP"));
+// Mentre si aspetta, si ascolta: un «OK» (anche «OKsetname», «OK115200»…) vuol dire che il
+// modulo c'è e i fili TXD/RXD sono giusti.
+bool btSaw = false;
+void btListen(unsigned int ms) {
+  unsigned long t = millis();
+  char prev = 0;
+  while (millis() - t < ms) {
+    while (Serial.available()) { char c = Serial.read(); if (prev == 'O' && c == 'K') btSaw = true; prev = c; }
+  }
+}
+// già configurato a 115200? (in attesa, non associato, risponde «OK» ad «AT»)
+void btProbe() {
+  btSaw = false;
   Serial.flush();
-  Serial.end();
-  Serial.begin(9600);
-  delay(300);
-  Serial.print(F("AT+NAMEMosaicusNeo")); delay(800);      // HM-10 (nome: al massimo 12 caratteri)
-  Serial.print(F("AT+BAUD4")); delay(800);
-  Serial.print(F("AT+NAMEMosaicusNeo\r\n")); delay(800); // AT-09 / BT05
-  Serial.print(F("AT+BAUD4\r\n")); delay(800);
-  Serial.print(F("AT+NAME=MosaicusNeo")); delay(800);     // HC-08
-  Serial.print(F("AT+BAUD=115200")); delay(800);
-  Serial.print(F("AT+RESET")); delay(400);                // HM-10: la nuova velocità vale dopo il riavvio
-  Serial.print(F("AT+RESET\r\n")); delay(1200);
+  while (Serial.available()) Serial.read();
+  Serial.print(F("AT")); btListen(500);
+  Serial.print(F("AT\r\n")); btListen(500);
+}
+void btDone(uint8_t kind) {
   Serial.flush();
   Serial.end();
   Serial.begin(115200);
   delay(100);
+  if (btSaw) { btKind = kind; EEPROM.update(20, 'B'); EEPROM.update(21, kind); }
+  else Serial.println(F("#BT,NOREPLY"));
+}
+
+void btSetupBle() {
+  Serial.println(F("#BT,SETUP"));
+  btProbe();
+  Serial.end();
+  Serial.begin(9600);
+  delay(300);
+  Serial.print(F("AT+NAMEMosaicusNeo")); btListen(800);      // HM-10 (nome: al massimo 12 caratteri)
+  Serial.print(F("AT+BAUD4")); btListen(800);
+  Serial.print(F("AT+NAMEMosaicusNeo\r\n")); btListen(800); // AT-09 / BT05
+  Serial.print(F("AT+BAUD4\r\n")); btListen(800);
+  Serial.print(F("AT+NAME=MosaicusNeo")); btListen(800);     // HC-08
+  Serial.print(F("AT+BAUD=115200")); btListen(800);
+  Serial.print(F("AT+RESET")); btListen(400);                // HM-10: la nuova velocità vale dopo il riavvio
+  Serial.print(F("AT+RESET\r\n")); btListen(1200);
+  btDone(2);
   Serial.println(F("#ACK,BT,SETUP,BLE"));
 }
 
 void btSetup() {
   Serial.println(F("#BT,SETUP"));
-  Serial.flush();
+  btProbe();
   Serial.end();
   Serial.begin(9600);
   delay(300);
   Serial.print(F("AT+NAMEMosaicus"));
-  delay(1200);
+  btListen(1200);
   Serial.print(F("AT+BAUD8"));          // 8 = 115200 baud
-  delay(1200);
+  btListen(1200);
   Serial.print(F("AT+NAME=MosaicusNeo\r\n"));
-  delay(800);
+  btListen(800);
   Serial.print(F("AT+BAUD8\r\n"));
-  delay(800);
-  Serial.flush();
-  Serial.end();
-  Serial.begin(115200);
-  delay(100);
+  btListen(800);
+  btDone(1);
   Serial.println(F("#ACK,BT,SETUP"));
 }
 
@@ -1213,6 +1303,7 @@ void handleCommand(char *cmd) {
   lastCmdMs = millis();
   if (lastCmdMs == 0) lastCmdMs = 1;
   if (strcmp(cmd, "PING") == 0) { pinged = true; return; }
+  if (strncmp(cmd, "LINK,", 5) == 0) { linkBt = cmd[5] == 'B'; return; }
   if (strcmp(cmd, "ID?") == 0) sendHello();
   else if (strcmp(cmd, "STOP") == 0) stopAll();
   else if (strcmp(cmd, "START") == 0) startRun();
@@ -1249,6 +1340,7 @@ void setup() {
   digitalWrite(LED_BUILTIN, LOW);
   for (uint8_t i = 0; i < MAX_SLOTS; i++) slots[i].type = S_NONE;
   outsLoad();                    // gli indicatori salvati segnalano subito «in attesa dell'app»
+  if (EEPROM.read(20) == 'B') { btKind = EEPROM.read(21); if (btKind > 2) btKind = 0; }
   ledFree = outPinFree(13, false);
   delay(50);
   sendHello();

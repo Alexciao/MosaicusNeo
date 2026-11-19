@@ -501,9 +501,12 @@ function Field() {
 function Outputs() {
   const rows: [string, string, string, string, string][] = [
     ["Acceso, l'app non è collegata", "ATTESA · APP", "#3b82f6", "blu, lampeggia", "1 bip ogni 3 s"],
-    ["Collegato, fermo", "COLLEGATO · OK", "#3b82f6", "blu fisso", "1 bip ogni 3 s"],
+    ["Come sopra, con un modulo Bluetooth configurato", "ATTESA BT · PIN 1234 (HC-06) o BLE pronto", "#3b82f6", "blu, lampeggia", "1 bip ogni 3 s"],
+    ["Collegato, fermo", "COLLEGATO · OK (via Bluetooth: «BT»)", "#3b82f6", "blu fisso", "1 bip ogni 3 s"],
+    ["Un componente è stato rifiutato", "CONFIG · DHT · pin doppio", "#ef4444", "rosso, lampeggia veloce", "3 bip ogni 3 s"],
     ["Misura avviata, GPS in ricerca", "CERCO GPS · 3 sat", "#eab308", "giallo, lampeggia", "2 bip ogni 3 s"],
     ["Un sensore non risponde", "PROBLEMA · DHT", "#ef4444", "rosso, lampeggia veloce", "3 bip ogni 3 s"],
+    ["Più sensori in difficoltà", "PROBL 1/2 · DHT · #2 fili?", "#ef4444", "segue il più grave", "segue il più grave"],
     ["Sta misurando, tutto a posto", "REC 1:23 · 23.4°", "#22c55e", "verde fisso", "silenzio (un «bip-bip» quando ci arriva)"],
   ];
   return (
@@ -527,6 +530,14 @@ function Outputs() {
       <Note><B>Finché il cicalino suona, qualcosa non è pronto.</B> Quando tace, Arduino sta misurando regolarmente.</Note>
       <H>GPS in ricerca</H>
       <P>Appena acceso, o al chiuso, il GPS cerca i satelliti: giallo, 2 bip, e sul display il numero di satelliti visti. All&apos;aperto il fix arriva in 30 secondi o qualche minuto. Se dal GPS non arriva alcun dato, controlla i fili: rosso, 3 bip, «fili GPS?».</P>
+      <H>Più sensori, configurazione e Bluetooth</H>
+      <ul className="list-disc space-y-1 pl-5 text-sm text-muted-foreground">
+        <li>Se più sensori hanno un problema, il display li mostra a turno ogni 2,5 secondi, prima gli errori e poi quelli in ricerca: «PROBL 1/2», «PROBL 2/2». LED e cicalino seguono sempre il più grave.</li>
+        <li>Con due sensori dello stesso tipo, il display indica quale con il numero: «#2» è il secondo DHT nell&apos;elenco dei componenti.</li>
+        <li>Se Arduino rifiuta un componente (pin doppio, pin non analogico, secondo GPS), il display mostra «CONFIG» con il motivo finché non correggi i pin e riavvii la misura.</li>
+        <li>Dopo «Configura» nel passo Bluetooth, Arduino ricorda il modulo: in attesa dell&apos;app il display mostra «ATTESA BT». Se il modulo non risponde, l&apos;app lo segnala: controlla TXD e RXD.</li>
+      </ul>
+      <Note>Queste funzioni richiedono il firmware v{FIRMWARE_VERSION}.</Note>
       <H>Dettagli</H>
       <ul className="list-disc space-y-1 pl-5 text-sm text-muted-foreground">
         <li>Arduino memorizza gli indicatori: alle accensioni successive mostra subito «in attesa dell&apos;app», anche prima di collegare il telefono.</li>
