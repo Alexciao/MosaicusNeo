@@ -211,32 +211,38 @@ export function ComponentPicker({ open, onOpenChange }: { open: boolean; onOpenC
   );
   return (
     <Dialog open={open} onOpenChange={change}>
-      <DialogContent className="flex h-[min(46rem,90svh)] max-h-[90svh] flex-col gap-3 sm:max-w-2xl">
-        <DialogHeader>
-          <DialogTitle>Aggiungi un componente</DialogTitle>
-          <DialogDescription>Sensori, display, LED e cicalino. I pin si scelgono dopo l&apos;aggiunta.</DialogDescription>
-        </DialogHeader>
-        <div className="relative">
-          <Search className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" />
-          <Input autoFocus={!isPhoneWidth()} value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Cerca: temperatura, distanza, display…" aria-label="Cerca un componente" className="h-9 pr-8 pl-8" />
-          {query && (
-            <button type="button" aria-label="Cancella la ricerca" onClick={() => setQuery("")} className="absolute top-1/2 right-2 -translate-y-1/2 rounded p-0.5 text-muted-foreground hover:text-foreground"><X className="size-4" /></button>
-          )}
-        </div>
-        <div className="-mx-1 flex shrink-0 gap-1.5 overflow-x-auto px-1 pb-1 [scrollbar-width:none] sm:flex-wrap" role="group" aria-label="Filtra per tipo">
-          {chip("all", "Tutti")}
-          {TAGS.map(([id, label]) => chip(id, label))}
-        </div>
-        <div className="-mx-1 min-h-0 flex-1 overflow-y-auto px-1">
-          {list.length ? (
-            <div className="grid gap-2 sm:grid-cols-2">
-              {list.map((t) => { const [d, why] = state(t); return <PickerCard key={t} type={t} count={count(t)} disabled={d} why={why} onPick={() => pick(t)} />; })}
+      {/* un solo contenitore che scorre (con l'intestazione fissa in alto): su iPhone gli elenchi
+          annidati in una finestra fissa non sempre scorrono, e qui si scorre anche dalla ricerca */}
+      <DialogContent className="flex max-h-[90dvh] flex-col gap-0 overflow-hidden p-0 sm:h-[min(46rem,90dvh)] sm:max-w-2xl">
+        <div className="min-h-0 flex-1 touch-pan-y overflow-y-auto overscroll-contain">
+          <div className="sticky top-0 z-10 flex flex-col gap-3 border-b bg-popover px-4 pt-4 pb-3">
+            <DialogHeader className="pr-8">
+              <DialogTitle>Aggiungi un componente</DialogTitle>
+              <DialogDescription>Sensori, display, LED e cicalino. I pin si scelgono dopo l&apos;aggiunta.</DialogDescription>
+            </DialogHeader>
+            <div className="relative">
+              <Search className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" />
+              <Input autoFocus={!isPhoneWidth()} value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Cerca: temperatura, distanza, display…" aria-label="Cerca un componente" className="h-9 pr-8 pl-8" />
+              {query && (
+                <button type="button" aria-label="Cancella la ricerca" onClick={() => setQuery("")} className="absolute top-1/2 right-2 -translate-y-1/2 rounded p-0.5 text-muted-foreground hover:text-foreground"><X className="size-4" /></button>
+              )}
             </div>
-          ) : (
-            <p className="py-10 text-center text-sm text-muted-foreground">Nessun componente{q ? <> per «{query.trim()}»</> : null}{tag !== "all" ? " in questa categoria" : ""}.</p>
-          )}
+            <div className="-mx-1 flex gap-1.5 overflow-x-auto px-1 pb-0.5 [scrollbar-width:none] sm:flex-wrap" role="group" aria-label="Filtra per tipo">
+              {chip("all", "Tutti")}
+              {TAGS.map(([id, label]) => chip(id, label))}
+            </div>
+          </div>
+          <div className="p-4">
+            {list.length ? (
+              <div className="grid gap-2 sm:grid-cols-2">
+                {list.map((t) => { const [d, why] = state(t); return <PickerCard key={t} type={t} count={count(t)} disabled={d} why={why} onPick={() => pick(t)} />; })}
+              </div>
+            ) : (
+              <p className="py-10 text-center text-sm text-muted-foreground">Nessun componente{q ? <> per «{query.trim()}»</> : null}{tag !== "all" ? " in questa categoria" : ""}.</p>
+            )}
+            <p className="mt-3 text-xs text-muted-foreground">Massimo {MAX_ARDUINO} sensori, ognuno con il suo intervallo. Display, LED e cicalino non contano.</p>
+          </div>
         </div>
-        <p className="text-xs text-muted-foreground">Massimo {MAX_ARDUINO} sensori, ognuno con il suo intervallo. Display, LED e cicalino non contano.</p>
       </DialogContent>
     </Dialog>
   );
