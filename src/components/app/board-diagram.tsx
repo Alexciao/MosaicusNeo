@@ -308,7 +308,7 @@ export function ModuleArt({ kind, options, x, y, w, h, uid }: { kind: string; op
 }
 
 /** Disegnino di un componente, per il catalogo e l'elenco del montaggio. */
-export function ComponentThumb({ type, options, className }: { type: SensorType; options?: Record<string, number | string>; className?: string }) {
+export function ComponentThumb({ type, options, className }: { type: SensorType | "hc06" | "ble"; options?: Record<string, number | string>; className?: string }) {
   const uid = useId().replace(/[^a-zA-Z0-9]/g, "");
   if (ON_BOARD.has(type)) {
     return (
@@ -330,7 +330,7 @@ export function ComponentThumb({ type, options, className }: { type: SensorType;
     );
   }
   const [w, h] = SIZE[type] ?? [56, 56];
-  const mod = buildModules([{ ...makeSensor(type), ...(options ? { options } : {}) }], null)[0];
+  const mod = type === "hc06" || type === "ble" ? buildModules([], type)[0] : buildModules([{ ...makeSensor(type), ...(options ? { options } : {}) }], null)[0];
   const n = mod?.rows.length ?? 0;
   const pad = 5, side = Math.max(w, h - 4) + pad * 2;
   const x0 = (side - w) / 2;
@@ -458,12 +458,12 @@ function ArduinoArt({ x, y, used, uid }: { x: number; y: number; used: Map<strin
 // La disposizione: dove va ogni modulo, ogni filo, e l'elenco «da foro a foro»
 // ---------------------------------------------------------------------------
 export interface StepWire { color: string; from: string; to: string; part?: string; dashed?: boolean }
-export interface StepGroup { title: string; color: string; place: string; wires: StepWire[] }
+export interface StepGroup { title: string; color: string; place: string; wires: StepWire[]; mod?: Mod }
 
 interface Placed { m: Mod; x: number; y: number; w: number; h: number; pinX: number[]; pinCol: number[]; onBoard: boolean }
 
 const hole = (row: RowKey, col: number) => `${row}${col + 1}`;
-const ardName = (pin: number) => (pin >= 14 ? `A${pin - 14}` : pin === 0 ? "D0 (RX←0)" : pin === 1 ? "D1 (TX→1)" : `D${pin}`);
+export const ardName = (pin: number) => (pin >= 14 ? `A${pin - 14}` : pin === 0 ? "D0 (RX←0)" : pin === 1 ? "D1 (TX→1)" : `D${pin}`);
 
 function layout(sensors: SensorInstance[], bt: BtModule) {
   const mods = buildModules(sensors, bt);
@@ -532,6 +532,7 @@ function layout(sensors: SensorInstance[], bt: BtModule) {
 
   const wires: React.ReactNode[] = [], ends: React.ReactNode[] = [], parts: React.ReactNode[] = [];
   const steps: StepGroup[] = [];
+  const count = { red: 0, black: 0, signal: 0 };
 
   // --- alimentazione: Arduino → binari in basso, ponticelli ai binari in alto
   const v5 = ardPin("5V"), gnd = ardPin("GND");
@@ -543,7 +544,7 @@ function layout(sensors: SensorInstance[], bt: BtModule) {
   for (const [k, xx, yy, c] of [["e5", colX(3), R.p2, RED], ["eg", colX(2), R.n2, BLK], ["b5a", colX(0), R.p2, RED], ["b5b", colX(0), R.p1, RED], ["bga", colX(1), R.n2, BLK], ["bgb", colX(1), R.n1, BLK]] as const)
     ends.push(<End key={k} x={xx} y={yy} color={c} />);
   steps.push({
-    title: "Alimentazione", color: RED, place: "Prima i binari: quelli rossi (+) portano i 5V, quelli blu (−) il GND.",
+    title: "Alimentazione", color: RED, place: "Porta 5V e GND sui binari: il binario rosso (+) è il 5V, quello blu (−) è il GND.",
     wires: [
       { color: RED, from: "5V di Arduino", to: "binario + in basso" },
       { color: BLK, from: "GND di Arduino", to: "binario − in basso" },
@@ -557,7 +558,7 @@ function layout(sensors: SensorInstance[], bt: BtModule) {
 
   // --- moduli e componenti
   placed.forEach((p, mi) => {
-    const g: StepGroup = { title: p.m.title, color: p.m.color, place: "", wires: [] };
+    const g: StepGroup = { title: p.m.title, color: p.m.color, place: "", wires: [], mod: p.m };
     groupOf.set(mi, g);
     steps.push(g);
     if (p.onBoard) {
@@ -623,7 +624,8 @@ function layout(sensors: SensorInstance[], bt: BtModule) {
     groupOf.get(s.mi)!.wires.push({ color: s.color, from: hole("a", s.col), to: ardName(s.pin), dashed: s.dashed, part: s.dashed ? "facoltativo" : undefined });
   }
 
-  return { W, H, bbX, bbTop, bbW, nCols, R, colX, AX, AY, placed, wires, ends, parts, used, steps };
+  for (const g of steps) for (const w of g.wires) if (!w.part) { if (w.color === RED) count.red++; else if (w.color === BLK) count.black++; else count.signal++; }
+  return { W, H, bbX, bbTop, bbW, nCols, R, colX, AX, AY, placed, wires, ends, parts, used, steps, count };
 }
 
 export function BoardDiagram({ sensors, bt = null, className }: { sensors: SensorInstance[]; bt?: BtModule; className?: string }) {
@@ -697,35 +699,8 @@ export function BoardDiagram({ sensors, bt = null, className }: { sensors: Senso
   );
 }
 
-/** I fili uno per uno, con i fori della breadboard: per rifare lo schema sul banco. */
-export function BoardSteps({ sensors, bt = null }: { sensors: SensorInstance[]; bt?: BtModule }) {
+/** La disposizione sulla breadboard senza il disegno: gruppi di fili «da foro a foro», quanti ponticelli, quante colonne. */
+export function boardPlan(sensors: SensorInstance[], bt: BtModule = null) {
   const L = layout(sensors, bt);
-  if (!L) return null;
-  return (
-    <ol className="flex flex-col gap-2.5 text-xs">
-      {L.steps.map((g, i) => (
-        <li key={i} className="rounded-lg border p-2.5">
-          <p className="flex items-center gap-2 text-sm font-semibold">
-            <span className="grid size-5 shrink-0 place-items-center rounded-full text-[0.65rem] font-bold text-white" style={{ background: g.color }}>{i + 1}</span>
-            {g.title}
-          </p>
-          <p className="mt-1 text-muted-foreground">{g.place}</p>
-          {!!g.wires.length && (
-            <ul className="mt-1.5 grid gap-x-4 gap-y-1 sm:grid-cols-2">
-              {g.wires.map((w, k) => (
-                <li key={k} className="flex items-center gap-2">
-                  <span className="h-1 w-4 shrink-0 rounded-full"
-                    style={w.dashed ? { backgroundImage: `repeating-linear-gradient(90deg, ${w.color} 0 4px, transparent 4px 6px)` } : { background: w.color }} />
-                  <span className="font-mono font-semibold">{w.from}</span>
-                  <span className="text-muted-foreground">→</span>
-                  <span className="font-mono font-semibold">{w.to}</span>
-                  {w.part && <span className="text-muted-foreground">({w.part})</span>}
-                </li>
-              ))}
-            </ul>
-          )}
-        </li>
-      ))}
-    </ol>
-  );
+  return L ? { groups: L.steps, count: L.count, nCols: L.nCols } : null;
 }

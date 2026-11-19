@@ -22,8 +22,7 @@ import { detectDevice, bluetoothAvailable, DEVICE_LABEL, OS_LABEL, BROWSER_LABEL
 import { APP_VERSION, FIRMWARE_URL, FIRMWARE_VERSION } from "@/lib/version";
 import { cn } from "@/lib/utils";
 import { Segmented } from "@/components/instruments/scope-panel";
-import { WiringSteps, type BtModule } from "./rig-diagram";
-import { WiringDiagram } from "./wiring-diagram";
+import { WiringGuide } from "./wiring-diagram";
 
 // ---------------------------------------------------------------------------
 // Mattoncini del testo
@@ -355,23 +354,11 @@ function Wiring() {
   const mine = rig.sensors.length > 0;
   const [mode, setMode] = useState<"rig" | "pick">(mine ? "rig" : "pick");
   const [picked, setPicked] = useState<SensorType[]>(mine ? [...new Set(rig.sensors.map((s) => s.type))] : ["dht"]);
-  const [bt, setBt] = useState<"none" | "hc06" | "ble">("none");
   const sensors = mode === "rig" && mine ? rig.sensors : (() => { const taken = new Set<number>(); return picked.map((t) => makeSensor(t, taken)); })();
-  const btMod: BtModule = bt === "none" ? null : bt;
   return (
     <>
-      <P>Lo schema qui sotto si genera da solo per i sensori che ti servono, con i pin giusti. Le stesse istruzioni sono sempre nella scheda «Collegamenti» dell&apos;esperimento.</P>
-      <div className="flex flex-wrap items-center gap-2">
-        {mine && <Segmented label="Quali sensori" value={mode} onChange={setMode} items={[["rig", "Il mio montaggio"], ["pick", "Scegli i sensori"]]} />}
-        <Select value={bt} onValueChange={(v) => v && setBt(v as typeof bt)} items={{ none: "Senza Bluetooth", hc06: "Con Bluetooth HC-06", ble: "Con Bluetooth LE (HM-10…)" }}>
-          <SelectTrigger size="sm" className="w-56"><SelectValue /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="none">Senza Bluetooth</SelectItem>
-            <SelectItem value="hc06">Con Bluetooth HC-06</SelectItem>
-            <SelectItem value="ble">Con Bluetooth LE (HM-10…)</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
+      <P>Schema, occorrente e passi si generano dai componenti e dai pin scelti. La stessa guida è nella scheda «Collegamenti» di ogni esperimento.</P>
+      {mine && <Segmented label="Quali componenti" value={mode} onChange={setMode} items={[["rig", "Progetto aperto"], ["pick", "Scegli i componenti"]]} />}
       {(mode === "pick" || !mine) && (
         <div className="grid gap-1.5 sm:grid-cols-2">
           {COMPONENTS.map((t) => (
@@ -382,27 +369,18 @@ function Wiring() {
           ))}
         </div>
       )}
-      {sensors.length || btMod ? (
-        <>
-          <WiringDiagram sensors={sensors} bt={btMod} />
-          <p className="-mt-2 text-xs text-muted-foreground">Tratteggiato = facoltativo. I pin si cambiano nella scheda «Sensori» dell&apos;esperimento.</p>
-          <H>Passo passo</H>
-          <Note>Prima di collegare: <B>stacca Arduino dal computer</B>. Ricontrolla i fili, poi ricollega.</Note>
-          <WiringSteps sensors={sensors} bt={btMod} />
-          <H>Regole d&apos;oro</H>
-          <ul className="list-disc space-y-1 pl-5 text-sm text-muted-foreground">
-            <li>Tutti i GND devono essere collegati insieme (al GND di Arduino).</li>
-            <li>Usa i fili rossi per i 5V e neri per GND: si ritrovano gli errori a colpo d&apos;occhio.</li>
-            <li>Sulla breadboard le cinque buche di una stessa colonna sono collegate tra loro; le due righe lunghe ai bordi sono i «binari» per 5V e GND.</li>
-            <li>Mai più di 5 V su un pin, mai la rete elettrica. D0 e D1 servono al cavo USB e al Bluetooth.</li>
-          </ul>
-          {mode === "pick" && !!picked.length && (
-            <Button variant="outline" className="self-start" onClick={() => { createRigFrom(picked); closeGuide(); }}>
-              <Wrench /> Crea un montaggio con questi sensori
-            </Button>
-          )}
-        </>
-      ) : <P>Scegli almeno un sensore.</P>}
+      <WiringGuide sensors={sensors} />
+      {mode === "pick" && !!picked.length && (
+        <Button variant="outline" className="self-start" onClick={() => { createRigFrom(picked); closeGuide(); }}>
+          <Wrench /> Crea un progetto con questi componenti
+        </Button>
+      )}
+      <H>Come funziona la breadboard</H>
+      <ul className="list-disc space-y-1 pl-5 text-sm text-muted-foreground">
+        <li>I cinque fori di una colonna (a–e, oppure f–j) sono collegati tra loro. Il solco centrale li separa.</li>
+        <li>I binari lungo i bordi corrono per tutta la lunghezza: rosso (+) per il 5V, blu (−) per il GND.</li>
+        <li>D0 e D1 servono al cavo USB e al Bluetooth: non usarli per i sensori.</li>
+      </ul>
     </>
   );
 }

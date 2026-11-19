@@ -1,9 +1,10 @@
 "use client";
-// Elenco a sinistra: esperimenti pronti (per argomento), i miei montaggi di sensori, strumenti.
+// Elenco a sinistra: i miei progetti, gli esperimenti pronti (per argomento), gli strumenti.
+// Ogni sezione si chiude e si riapre; lo stato resta salvato.
 
 import { useState } from "react";
 import type { LucideIcon } from "lucide-react";
-import { Copy, Ellipsis, Pencil, Plus, Trash, Wrench } from "lucide-react";
+import { ChevronDown, Copy, Ellipsis, Pencil, Plus, Trash, Wrench } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
@@ -13,6 +14,8 @@ import { useLab, selectLab, newRig, rigSummary, renameRigById, duplicateRig, del
 import type { Rig } from "@/lib/sensors/rig";
 import type { Tone } from "@/lib/sensors/types";
 import { confirm } from "@/lib/confirm";
+import { prefs } from "@/lib/prefs";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { cn } from "@/lib/utils";
 import { toneBg } from "./tone";
 
@@ -44,7 +47,7 @@ function Item({ id, title, subtitle, icon: Icon, tone, onPicked, badge, menu }: 
   );
 }
 
-/** Menu «⋯» di un montaggio libero: rinomina, duplica, elimina. */
+/** Menu «⋯» di un progetto: rinomina, duplica, elimina. */
 function RigMenu({ rig }: { rig: Rig }) {
   const running = useLab((s) => s.running);
   const isOpen = useLab((s) => s.labId === rig.id);
@@ -65,16 +68,16 @@ function RigMenu({ rig }: { rig: Rig }) {
           <DropdownMenuItem disabled={running} onClick={() => duplicateRig(rig.id)}><Copy /> Duplica</DropdownMenuItem>
           <DropdownMenuSeparator />
           <DropdownMenuItem variant="destructive" disabled={busy}
-            onClick={async () => { if (await confirm({ title: `Eliminare il montaggio «${rig.name}»?`, description: "Le misure già fatte restano nel Quaderno.", action: "Elimina", destructive: true })) deleteRig(rig.id); }}>
+            onClick={async () => { if (await confirm({ title: `Eliminare «${rig.name}»?`, description: "Le misure restano nel Quaderno.", action: "Elimina", destructive: true })) deleteRig(rig.id); }}>
             <Trash /> Elimina
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
       <Dialog open={renaming} onOpenChange={setRenaming}>
         <DialogContent className="sm:max-w-sm">
-          <DialogHeader><DialogTitle>Rinomina il montaggio</DialogTitle></DialogHeader>
+          <DialogHeader><DialogTitle>Rinomina il progetto</DialogTitle></DialogHeader>
           <form onSubmit={(e) => { e.preventDefault(); renameRigById(rig.id, name); setRenaming(false); }} className="flex flex-col gap-4">
-            <Input autoFocus value={name} onChange={(e) => setName(e.target.value)} aria-label="Nome del montaggio" />
+            <Input autoFocus value={name} onChange={(e) => setName(e.target.value)} aria-label="Nome del progetto" />
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => setRenaming(false)}>Annulla</Button>
               <Button type="submit">Salva</Button>
@@ -86,40 +89,50 @@ function RigMenu({ rig }: { rig: Rig }) {
   );
 }
 
-const Heading = ({ children }: { children: React.ReactNode }) => (
-  <h3 className="mb-1.5 px-2 text-[0.7rem] font-semibold tracking-wider text-muted-foreground uppercase">{children}</h3>
-);
+function Section({ id, title, children, defaultOpen = true }: { id: string; title: string; children: React.ReactNode; defaultOpen?: boolean }) {
+  const key = `mosaicus.side.${id}`;
+  const [open, setOpenState] = useState(() => prefs.get<boolean>(key, defaultOpen));
+  const setOpen = (o: boolean) => { setOpenState(o); prefs.set(key, o); };
+  return (
+    <Collapsible open={open} onOpenChange={setOpen}>
+      <CollapsibleTrigger className="group/sec flex w-full items-center gap-1 rounded-md px-2 py-1 text-[0.7rem] font-semibold tracking-wider text-muted-foreground uppercase outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/60">
+        <span className="flex-1 text-left">{title}</span>
+        <ChevronDown className={cn("size-3.5 transition-transform duration-200", !open && "-rotate-90")} />
+      </CollapsibleTrigger>
+      <CollapsibleContent><div className="pt-1">{children}</div></CollapsibleContent>
+    </Collapsible>
+  );
+}
 
 export function LabPicker({ onPicked }: { onPicked?: () => void }) {
   const customRigs = useLab((s) => s.customRigs);
   const running = useLab((s) => s.running);
   return (
-    <nav aria-label="Lab" className="flex flex-col gap-4">
+    <nav aria-label="Lab" className="flex flex-col gap-3">
+      <Section id="projects" title="I miei progetti">
+        {!!customRigs.length && (
+          <ul className="flex flex-col gap-0.5">
+            {customRigs.map((r) => (
+              <Item key={r.id} id={r.id} title={r.name} subtitle={rigSummary(r)} icon={Wrench} tone="saffron" onPicked={onPicked} menu={<RigMenu rig={r} />} />
+            ))}
+          </ul>
+        )}
+        <Button variant="ghost" size="sm" className="mt-0.5 w-full justify-start text-muted-foreground" disabled={running} onClick={() => { newRig(); onPicked?.(); }}>
+          <Plus /> Nuovo progetto
+        </Button>
+      </Section>
       {PRESET_TOPICS.map((topic) => {
         const list = PRESETS.filter((p) => p.topic === topic);
         if (!list.length) return null;
         return (
-          <div key={topic}>
-            <Heading>{topic}</Heading>
+          <Section key={topic} id={`topic-${topic}`} title={topic}>
             <ul className="flex flex-col gap-0.5">{list.map((p) => <Item key={p.id} {...p} onPicked={onPicked} />)}</ul>
-          </div>
+          </Section>
         );
       })}
-      <div>
-        <Heading>I miei montaggi</Heading>
-        <ul className="flex flex-col gap-0.5">
-          {customRigs.map((r) => (
-            <Item key={r.id} id={r.id} title={r.name} subtitle={rigSummary(r)} icon={Wrench} tone="saffron" onPicked={onPicked} menu={<RigMenu rig={r} />} />
-          ))}
-        </ul>
-        <Button variant="ghost" size="sm" className="mt-1 w-full justify-start text-muted-foreground" disabled={running} onClick={() => { newRig(); onPicked?.(); }}>
-          <Plus /> Nuovo montaggio di sensori
-        </Button>
-      </div>
-      <div>
-        <Heading>Strumenti</Heading>
+      <Section id="tools" title="Strumenti">
         <ul className="flex flex-col gap-0.5">{INSTRUMENTS.map((i) => <Item key={i.id} {...i} onPicked={onPicked} />)}</ul>
-      </div>
+      </Section>
     </nav>
   );
 }
