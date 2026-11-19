@@ -120,48 +120,48 @@ function DeviceChecks({ d }: { d: DeviceInfo }) {
   const mobile = d.os === "android" || d.os === "ios";
 
   const usb: [CheckState, string] = mobile
-    ? ["na", d.os === "android" ? "Sul telefono il browser non può usare il cavo verso Arduino: si usa il Bluetooth." : "iPhone e iPad non permettono il cavo verso Arduino: si usa un modulo Bluetooth LE."]
+    ? ["na", d.os === "android" ? "Il browser del telefono non usa il cavo verso Arduino: collegati via Bluetooth." : "iPhone e iPad non permettono il cavo verso Arduino: serve un modulo Bluetooth LE."]
     : d.serial ? ["ok", "Puoi collegare Arduino con il cavo USB."]
-    : ["no", chromium ? "Il collegamento seriale è disattivato in questo browser: aggiorna Chrome o Edge." : `${BROWSER_LABEL[d.browser]} non permette di parlare con Arduino: apri questa pagina in Chrome o Edge.`];
+    : ["no", chromium ? "Collegamento seriale disattivato in questo browser: aggiorna Chrome o Edge." : `${BROWSER_LABEL[d.browser]} non comunica con Arduino: apri questa pagina in Chrome o Edge.`];
 
   const ble: [CheckState, string] = d.bluetooth
-    ? btOn === false ? ["warn", "Il browser lo supporta, ma il Bluetooth è spento o assente: accendilo nelle impostazioni."] : ["ok", "Puoi collegarti a un modulo Bluetooth LE (HM-10, AT-09, HC-08)."]
-    : d.os === "ios" ? ["no", "Safari e gli altri browser di iPhone non danno il Bluetooth alle pagine web: installa il browser gratuito Bluefy (App Store) e apri lì MosaicusNeo."]
-    : ["no", chromium ? "Bluetooth web non disponibile qui (su Linux va attivato in chrome://flags)." : `${BROWSER_LABEL[d.browser]} non ha il Bluetooth per le pagine web: usa Chrome o Edge.`];
+    ? btOn === false ? ["warn", "Supportato, ma il Bluetooth è spento o assente: attivalo nelle impostazioni."] : ["ok", "Puoi collegarti a un modulo Bluetooth LE (HM-10, AT-09, HC-08)."]
+    : d.os === "ios" ? ["no", "I browser di iPhone non danno il Bluetooth alle pagine web: installa Bluefy (gratuito, App Store) e apri lì MosaicusNeo."]
+    : ["no", chromium ? "Bluetooth web non disponibile (su Linux va attivato in chrome://flags)." : `${BROWSER_LABEL[d.browser]} non supporta il Bluetooth web: usa Chrome o Edge.`];
 
-  const hc06: [CheckState, string] = d.os === "ios" ? ["no", "L'HC-06 usa il Bluetooth classico, che iPhone e iPad non aprono alle app: serve un modulo BLE."]
-    : d.os === "android" ? (d.serial ? ["ok", "Puoi usare l'HC-06: associalo prima nelle impostazioni Bluetooth (PIN 1234)."] : ["no", d.browser === "chrome" ? `Serve Chrome 138 o più recente (qui: ${d.version ?? "?"}): aggiornalo dal Play Store.` : "Serve Chrome per Android, versione 138 o più recente."])
-    : d.serial ? ["warn", "Sul computer funziona solo se l'HC-06 è già associato nelle impostazioni Bluetooth del sistema; il BLE è più semplice."] : ["no", "Serve Chrome o Edge."];
+  const hc06: [CheckState, string] = d.os === "ios" ? ["no", "L'HC-06 usa il Bluetooth classico, che iPhone e iPad non supportano: serve un modulo BLE."]
+    : d.os === "android" ? (d.serial ? ["ok", "Puoi usare l'HC-06: associalo prima nelle impostazioni Bluetooth (PIN 1234)."] : ["no", d.browser === "chrome" ? `Serve Chrome 138 o successivo (qui: ${d.version ?? "?"}): aggiornalo dal Play Store.` : "Serve Chrome per Android 138 o successivo."])
+    : d.serial ? ["warn", "Funziona solo se l'HC-06 è già associato nelle impostazioni Bluetooth del sistema. Un modulo BLE è più semplice."] : ["no", "Serve Chrome o Edge."];
 
   return (
     <ul className="divide-y rounded-lg border px-3">
       <CheckRow state={usb[0]} title="Cavo USB">{usb[1]}</CheckRow>
       <CheckRow state={ble[0]} title="Bluetooth LE">{ble[1]}</CheckRow>
       <CheckRow state={hc06[0]} title="Bluetooth HC-06">{hc06[1]}</CheckRow>
-      <CheckRow state={d.secure ? "ok" : "no"} title="Connessione sicura">{d.secure ? "La pagina è in https: il browser permette USB e Bluetooth." : "Apri l'app dal suo indirizzo https: senza, il browser blocca USB e Bluetooth."}</CheckRow>
-      <CheckRow state={d.standalone ? "ok" : "na"} title="Come app, anche offline">
-        {d.standalone ? "MosaicusNeo è installata: si apre anche senza rete." : d.os === "ios" ? "Facoltativo: Condividi → «Aggiungi alla schermata Home»." : "Facoltativo: menu del browser → «Installa MosaicusNeo». Funziona anche senza rete."}
+      <CheckRow state={d.secure ? "ok" : "no"} title="Connessione sicura">{d.secure ? "Pagina in https: USB e Bluetooth consentiti." : "Apri l'app dal suo indirizzo https: senza, il browser blocca USB e Bluetooth."}</CheckRow>
+      <CheckRow state={d.standalone ? "ok" : "na"} title="Installata come app">
+        {d.standalone ? "Si apre anche senza rete." : d.os === "ios" ? "Facoltativo: Condividi → «Aggiungi alla schermata Home»." : "Facoltativo: menu del browser → «Installa MosaicusNeo». Poi si apre anche senza rete."}
       </CheckRow>
     </ul>
   );
 }
 
 function PortHint({ os }: { os: string | null }) {
-  if (os === "windows") return <>In alto, nel menu a tendina: <B>Arduino Uno</B> e la porta <B>COM3, COM4…</B> (quella che compare quando colleghi il cavo).</>;
-  if (os === "mac") return <>In alto, nel menu a tendina: <B>Arduino Uno</B> e la porta <B>/dev/cu.usbmodem…</B> (o <B>/dev/cu.wchusbserial…</B> per i cloni).</>;
-  if (os === "linux") return <>In alto: <B>Arduino Uno</B> e <B>/dev/ttyACM0</B> (o <B>/dev/ttyUSB0</B>). Se non hai i permessi: <code className="rounded bg-muted px-1">sudo usermod -aG dialout $USER</code>, poi esci e rientra.</>;
-  if (os === "chromeos") return <>Sul Chromebook usa l&apos;<B>Arduino Cloud Editor</B> (con il suo plugin): scegli <B>Arduino Uno</B> e la porta che compare.</>;
-  return <>In alto, nel menu a tendina: <B>Arduino Uno</B> e la porta (Windows: COM3, COM4…; Mac: /dev/cu.usbmodem…; Linux: /dev/ttyACM0).</>;
+  if (os === "windows") return <>Nel menu in alto: <B>Arduino Uno</B> e la porta <B>COM3, COM4…</B> che compare quando colleghi il cavo.</>;
+  if (os === "mac") return <>Nel menu in alto: <B>Arduino Uno</B> e la porta <B>/dev/cu.usbmodem…</B> (cloni: <B>/dev/cu.wchusbserial…</B>).</>;
+  if (os === "linux") return <>Nel menu in alto: <B>Arduino Uno</B> e <B>/dev/ttyACM0</B> (o <B>/dev/ttyUSB0</B>). Senza permessi: <code className="rounded bg-muted px-1">sudo usermod -aG dialout $USER</code>, poi esci e rientra.</>;
+  if (os === "chromeos") return <>Usa l&apos;<B>Arduino Cloud Editor</B> con il suo plugin: scegli <B>Arduino Uno</B> e la porta che compare.</>;
+  return <>Nel menu in alto: <B>Arduino Uno</B> e la porta (Windows: COM3, COM4…; Mac: /dev/cu.usbmodem…; Linux: /dev/ttyACM0).</>;
 }
 
 function ConnectHow() {
   const dev = useDev();
   return (
     <>
-      {dev === "pc" && <>«Collega Arduino» e scegli la porta USB; con un modulo BLE: menu ▾ → «Bluetooth LE».</>}
-      {(dev === "android" || dev === "board") && <>«Collega» → «Bluetooth» (HC-06, già associato) o menu ▾ → «Bluetooth LE».</>}
-      {dev === "ios" && <>In Bluefy: «Collega» → menu ▾ → «Bluetooth LE» → «MosaicusNeo».</>}
-      {" "}Aspetta <B>Arduino pronto</B>. Senza hardware: «Simulatore».
+      {dev === "pc" && <>«Collega Arduino» e scegli la porta USB. Con un modulo BLE: menu ▾ → «Bluetooth LE».</>}
+      {(dev === "android" || dev === "board") && <>HC-06 già associato: «Collega via Bluetooth». Modulo BLE: menu ▾ → «Bluetooth LE».</>}
+      {dev === "ios" && <>In Bluefy: «Collega via Bluetooth LE» → «MosaicusNeo».</>}
+      {" "}Attendi <B>Arduino pronto</B>. Senza hardware: «Simulatore».
     </>
   );
 }
@@ -172,40 +172,40 @@ function DevicePath() {
   const os = DETECTED?.device === "pc" ? DETECTED.os : null;
   if (dev === "pc") return (
     <Steps items={[
-      ["Usa Chrome o Edge", "Firefox e Safari non possono parlare con Arduino."],
-      ["Carica il firmware su Arduino", <>Una volta sola: <ChapterLink id="firmware">Caricare il firmware</ChapterLink>.</>],
-      ["Collega i sensori", <>Schema generato per i tuoi sensori: <ChapterLink id="wiring">Collegare i sensori</ChapterLink>.</>],
-      ["Collega Arduino con il cavo USB", <>«Collega Arduino» → scegli la porta{os === "windows" ? " (COM3, COM4…)" : os === "mac" ? " (/dev/cu.usbmodem…)" : os === "linux" ? " (/dev/ttyACM0)" : ""} → aspetta «Arduino pronto».</>],
-      ["Misura e analizza", <>«Avvia», «Ferma», poi trascina sul grafico e «Analizza il tratto». Vedi <ChapterLink id="measure">Misurare</ChapterLink>.</>],
+      ["Usa Chrome o Edge", "Firefox e Safari non comunicano con Arduino."],
+      ["Carica il firmware", <>Una volta sola: <ChapterLink id="firmware">Caricare il firmware</ChapterLink>.</>],
+      ["Collega i componenti", <>Segui lo schema: <ChapterLink id="wiring">Collegare i componenti</ChapterLink>.</>],
+      ["Collega Arduino con il cavo USB", <>«Collega Arduino» → scegli la porta{os === "windows" ? " (COM3, COM4…)" : os === "mac" ? " (/dev/cu.usbmodem…)" : os === "linux" ? " (/dev/ttyACM0)" : ""} → attendi «Arduino pronto».</>],
+      ["Misura e analizza", <>«Avvia», «Ferma», seleziona un tratto sul grafico e «Analizza il tratto». Vedi <ChapterLink id="measure">Misurare</ChapterLink>.</>],
     ]} />
   );
   if (dev === "android") return (
     <Steps items={[
-      ["Prima, da un computer: carica il firmware", <>Il telefono non può programmare Arduino. Una volta sola, da un PC: <ChapterLink id="firmware">Caricare il firmware</ChapterLink>.</>],
-      ["Aggiungi un modulo Bluetooth", <>HC-06 (classico) o BLE (HM-10, AT-09, HC-08): si collegano allo stesso modo. Schema in <ChapterLink id="wiring">Collegare i sensori</ChapterLink> → «Con Bluetooth».</>],
-      ["Configura il modulo (dal computer, una volta)", <>Arduino via USB, scheda «Collegamenti» → «Senza cavo: Bluetooth» → «Configura». Vedi <ChapterLink id="field">Sul campo e Bluetooth</ChapterLink>.</>],
-      ["Sul telefono: Chrome", "HC-06: associa «MosaicusNeo» nelle impostazioni Bluetooth (PIN 1234), poi «Collega via Bluetooth». BLE: «Collega» → menu ▾ → «Bluetooth LE»."],
-      ["Power bank su Arduino, poi misura", "Lo schermo resta acceso durante la misura; il Quaderno si salva ogni 30 secondi."],
+      ["Da un computer: carica il firmware", <>Il telefono non programma Arduino. Una volta sola: <ChapterLink id="firmware">Caricare il firmware</ChapterLink>.</>],
+      ["Aggiungi un modulo Bluetooth", <>HC-06 o BLE (HM-10, AT-09, HC-08). In «Collegamenti» attiva <B>Bluetooth</B>: lo schema lo include.</>],
+      ["Dal computer: configura il modulo", <>Una volta sola, con Arduino via USB: <ChapterLink id="field">Sul campo e Bluetooth</ChapterLink>.</>],
+      ["Sul telefono, in Chrome: collega", "HC-06: associa «MosaicusNeo» nelle impostazioni Bluetooth (PIN 1234), poi «Collega via Bluetooth». BLE: menu ▾ → «Bluetooth LE»."],
+      ["Alimenta Arduino con un power bank e misura", "Lo schermo resta acceso durante la misura. Il Quaderno si salva ogni 30 s."],
     ]} />
   );
   if (dev === "ios") return (
     <>
-      <Note kind="warn">Su iPhone e iPad servono un modulo <B>Bluetooth LE</B> (HM-10, AT-09/BT05, HC-08) e il browser gratuito <B>Bluefy</B>. Il cavo e l&apos;HC-06 non funzionano: è un limite di iOS, non dell&apos;app.</Note>
+      <Note kind="warn">Su iPhone e iPad servono un modulo <B>Bluetooth LE</B> (HM-10, AT-09/BT05, HC-08) e il browser gratuito <B>Bluefy</B>. Cavo e HC-06 non funzionano: è un limite di iOS.</Note>
       <Steps items={[
-        ["Prima, da un computer: carica il firmware", <>Una volta sola: <ChapterLink id="firmware">Caricare il firmware</ChapterLink>.</>],
-        ["Collega il modulo BLE", <>Schema in <ChapterLink id="wiring">Collegare i sensori</ChapterLink> → «Con Bluetooth LE».</>],
-        ["Configura il modulo (dal computer, una volta)", "Arduino via USB: «Collegamenti» → «Senza cavo: Bluetooth» → BLE → «Configura modulo BLE»."],
-        ["Installa Bluefy e apri MosaicusNeo lì", "Dall'App Store. Poi scrivi l'indirizzo dell'app nella barra di Bluefy."],
-        ["Collega e misura", "«Collega» → menu ▾ → «Bluetooth LE» → «MosaicusNeo». Arduino alimentato da un power bank."],
+        ["Da un computer: carica il firmware", <>Una volta sola: <ChapterLink id="firmware">Caricare il firmware</ChapterLink>.</>],
+        ["Collega il modulo BLE", <>In «Collegamenti» attiva <B>Bluetooth</B> e scegli <B>BLE</B>: lo schema lo include.</>],
+        ["Dal computer: configura il modulo", <>Una volta sola, con Arduino via USB: <ChapterLink id="field">Sul campo e Bluetooth</ChapterLink>.</>],
+        ["Installa Bluefy e apri MosaicusNeo", "Dall'App Store. Scrivi l'indirizzo dell'app nella barra di Bluefy."],
+        ["Collega e misura", "Arduino sul power bank, poi «Collega via Bluetooth LE» → «MosaicusNeo»."],
       ]} />
     </>
   );
   return (
     <Steps items={[
-      ["Attiva la modalità LIM", <>Testi grandi e grafici più leggeri, pensati per le lavagne lente. <button type="button" className="font-medium text-brand underline underline-offset-2" onClick={() => setLim(true)}>Attivala ora</button> (o dal menu Aspetto, in alto).</>],
-      ["Scegli come avere i dati", "Le lavagne Android non usano il cavo verso Arduino. Tre strade: un modulo Bluetooth (come un telefono Android, con Chrome); oppure misura dal computer della classe e proietta quello; oppure accedi con lo stesso account: le misure fatte altrove compaiono nel Quaderno."],
-      ["Con il Bluetooth", <>Firmware e configurazione del modulo si fanno una volta da un computer: <ChapterLink id="field">Sul campo e Bluetooth</ChapterLink>. Poi «Collega» → Bluetooth.</>],
-      ["Per mostrare e discutere", "Quaderno → «Analizza»: i tratti vanno in Elaborazione, dove fit e tangenti si usano con le dita (trascina, tocca)."],
+      ["Attiva la modalità LIM", <>Testi grandi e grafici più leggeri per le lavagne lente. <button type="button" className="font-medium text-brand underline underline-offset-2" onClick={() => setLim(true)}>Attivala ora</button> (anche dal menu Aspetto, in alto).</>],
+      ["Scegli da dove arrivano i dati", "La lavagna non usa il cavo verso Arduino. Puoi: usare un modulo Bluetooth (come su Android, con Chrome); misurare dal computer di classe e proiettarlo; accedere con lo stesso account e aprire dal Quaderno le misure fatte altrove."],
+      ["Con il Bluetooth", <>Firmware e configurazione del modulo si fanno una volta da un computer: <ChapterLink id="field">Sul campo e Bluetooth</ChapterLink>.</>],
+      ["Per discutere i dati in classe", "Quaderno → «Analizza»: in Elaborazione fit e tangenti si usano anche al tocco."],
     ]} />
   );
 }
@@ -219,7 +219,7 @@ function ShareLink() {
   };
   return (
     <div className="flex flex-wrap items-center gap-2 rounded-lg border bg-muted/40 p-3 text-sm">
-      <span className="min-w-0 flex-1">Userai un altro dispositivo? Apri lì questo indirizzo: <B>{url.replace(/^https?:\/\//, "")}</B></span>
+      <span className="min-w-0 flex-1">Sull&apos;altro dispositivo apri questo indirizzo: <B>{url.replace(/^https?:\/\//, "")}</B></span>
       <Button size="sm" variant="outline" onClick={() => void share()}>{canShare ? <Share2 /> : <Copy />} {canShare ? "Condividi il link" : "Copia il link"}</Button>
     </div>
   );
@@ -235,7 +235,7 @@ function StartDevice() {
         <H>Il tuo percorso: {DEVICE_LABEL[dev].toLowerCase()}</H>
         <ChapterLink id="device">Controlla il dispositivo →</ChapterLink>
       </div>
-      {!okHere && <Note kind="warn">Su questo dispositivo manca qualcosa per collegarsi ad Arduino: il capitolo <ChapterLink id="device">Il tuo dispositivo</ChapterLink> dice che cosa e come rimediare.</Note>}
+      {!okHere && <Note kind="warn">Questo dispositivo non può ancora collegarsi ad Arduino. Cosa manca e come rimediare: <ChapterLink id="device">Il tuo dispositivo</ChapterLink>.</Note>}
       <OtherDeviceNote />
       <DevicePath />
     </>
@@ -262,8 +262,8 @@ function YourDevice() {
       )}
       <H>Che cosa funziona qui</H>
       {d ? <DeviceChecks d={d} /> : <P>Non riesco a riconoscere il dispositivo.</P>}
-      <H>Con che cosa misurerai?</H>
-      <P>Le istruzioni seguono il dispositivo scelto qui (anche dal menu in alto, in ogni capitolo). Se leggi la guida dal computer ma misurerai con il telefono, scegli il telefono.</P>
+      <H>Con quale dispositivo misuri</H>
+      <P>Le istruzioni della guida seguono questa scelta (modificabile anche dal menu in alto). Se leggi dal computer ma misuri con il telefono, scegli il telefono.</P>
       <div className="grid gap-2 sm:grid-cols-2">
         {DEVICES.map((x) => {
           const XIcon = DEVICE_ICON[x];
@@ -280,7 +280,7 @@ function YourDevice() {
       <H>Il tuo percorso: {DEVICE_LABEL[dev].toLowerCase()}</H>
       <DevicePath />
       {d && dev !== d.device && <ShareLink />}
-      <H>Tutti i dispositivi a confronto</H>
+      <H>Confronto dei dispositivi</H>
       <div className="overflow-x-auto rounded-lg border">
         <table className="w-full text-sm">
           <thead className="bg-muted/50 text-left"><tr><th className="p-2">Dispositivo</th><th className="p-2">Cavo USB</th><th className="p-2">Bluetooth</th></tr></thead>
@@ -288,7 +288,7 @@ function YourDevice() {
             {([
               ["pc", "Computer (Chrome, Edge)", "sì", "BLE sì; HC-06 se già associato"],
               ["android", "Android (Chrome)", "—", "HC-06 e BLE"],
-              ["ios", "iPhone, iPad", "—", "solo BLE, nel browser gratuito Bluefy"],
+              ["ios", "iPhone, iPad", "—", "solo BLE, nel browser Bluefy"],
               ["board", "Lavagna Android", "—", "come Android (Chrome)"],
             ] as const).map(([k, a, b, c]) => (
               <tr key={k} className={cn("border-t", k === dev && "bg-brand/5")}><td className="p-2 text-foreground">{a}</td><td className="p-2">{b}</td><td className="p-2">{c}</td></tr>
@@ -303,22 +303,22 @@ function YourDevice() {
 function Start() {
   return (
     <>
-      <P>MosaicusNeo trasforma un Arduino e qualche sensore in un laboratorio di fisica: misura, mostra i grafici in tempo reale, salva tutto e aiuta ad analizzare i dati. Funziona nel browser, anche senza rete.</P>
+      <P>MosaicusNeo legge i sensori collegati ad Arduino, mostra i grafici in tempo reale, salva le misure e le analizza. Funziona nel browser, anche senza rete.</P>
       <H>Che cosa serve</H>
       <ul className="grid gap-2 text-sm sm:grid-cols-2">
-        <li className="rounded-lg border p-3"><B>Arduino Uno</B> (o un clone, es. Elegoo UNO R3) con il suo cavo USB.</li>
-        <li className="rounded-lg border p-3"><B>I sensori</B> del tuo esperimento, una breadboard e qualche filo (jumper).</li>
-        <li className="rounded-lg border p-3"><B>Un computer</B> con Chrome o Edge, per caricare il firmware la prima volta e per misurare via cavo.</li>
-        <li className="rounded-lg border p-3"><B>Facoltativo</B>: un modulo Bluetooth e un power bank per misurare senza cavo, con il telefono.</li>
+        <li className="rounded-lg border p-3"><B>Arduino Uno</B> o un clone (es. Elegoo UNO R3), con il cavo USB.</li>
+        <li className="rounded-lg border p-3"><B>I componenti</B> dell&apos;esperimento, una breadboard e cavetti jumper.</li>
+        <li className="rounded-lg border p-3"><B>Un computer</B> con Chrome o Edge: serve per caricare il firmware e per misurare via cavo.</li>
+        <li className="rounded-lg border p-3"><B>Facoltativo</B>: modulo Bluetooth e power bank, per misurare senza cavo con il telefono.</li>
       </ul>
       <StartDevice />
-      <H>Il giro completo, in breve</H>
+      <H>I passaggi</H>
       <ol className="grid gap-2 text-sm sm:grid-cols-5">
-        {[["1", "Firmware", "una volta sola"], ["2", "Esperimento", "elenco a sinistra"], ["3", "Collegamenti", "schema generato"], ["4", "Misura", "Avvia → Ferma"], ["5", "Analisi", "Quaderno → Elaborazione"]].map(([n, t, d]) => (
+        {[["1", "Firmware", "una volta sola"], ["2", "Esperimento", "elenco a sinistra"], ["3", "Collegamenti", "segui lo schema"], ["4", "Misura", "Avvia → Ferma"], ["5", "Analisi", "Elaborazione"]].map(([n, t, d]) => (
           <li key={n} className="rounded-lg border p-2.5"><span className="text-xs font-bold text-brand">{n}</span><p className="font-semibold">{t}</p><p className="text-xs text-muted-foreground">{d}</p></li>
         ))}
       </ol>
-      <Note>Non hai ancora l&apos;hardware? Premi <B>Simulatore</B>: un Arduino finto produce dati realistici per ogni esperimento.</Note>
+      <Note>Senza hardware premi <B>Simulatore</B>: genera dati realistici per ogni esperimento.</Note>
     </>
   );
 }
@@ -328,23 +328,23 @@ function Firmware() {
   const os = DETECTED?.device === "pc" ? DETECTED.os : null;
   return (
     <>
-      <P>Il firmware è il programma che gira su Arduino. Ce n&apos;è uno solo per tutti gli esperimenti: si carica una volta, poi è l&apos;app a dirgli quali sensori leggere.</P>
-      {dev !== "pc" && <Note kind="warn">Il firmware si carica <B>da un computer</B> (Windows, Mac, Linux o Chromebook) con il cavo USB: {DEVICE_LABEL[dev].toLowerCase()} non può programmare Arduino. Dopo, misuri con {dev === "board" ? "la lavagna" : "il telefono"} via Bluetooth.</Note>}
+      <P>Il firmware è il programma che gira su Arduino. È uno solo per tutti gli esperimenti: lo carichi una volta, poi l&apos;app gli indica quali componenti leggere.</P>
+      {dev !== "pc" && <Note kind="warn">Il firmware si carica <B>da un computer</B> (Windows, Mac, Linux o Chromebook) con il cavo USB: {DEVICE_LABEL[dev].toLowerCase()} non programma Arduino. Poi misuri con {dev === "board" ? "la lavagna" : "il telefono"} via Bluetooth.</Note>}
       {DETECTED && DETECTED.device !== "pc" && <ShareLink />}
       <div className="flex flex-wrap items-center gap-3 rounded-lg border bg-muted/40 p-3">
         <Button render={<a href={FIRMWARE_URL} download="mosaicusneo_firmware.ino" />}><Download /> Scarica il firmware v{FIRMWARE_VERSION}</Button>
         <span className="text-xs text-muted-foreground">mosaicusneo_firmware.ino · nessuna libreria da installare</span>
       </div>
       <Steps items={[
-        ["Installa l'IDE di Arduino", <>Dal sito arduino.cc → Software → «Arduino IDE 2» per il tuo sistema. Su un Chromebook o un computer della scuola senza permessi puoi usare l&apos;Arduino Cloud Editor.</>],
-        ["Apri il file scaricato", <>Doppio clic su <B>mosaicusneo_firmware.ino</B>. L&apos;IDE chiede di metterlo in una cartella con lo stesso nome: rispondi <B>OK</B>.</>],
-        ["Collega Arduino con il cavo USB", "Si accende il LED «ON». Se hai un modulo Bluetooth su D0, stacca ora il filo TXD del modulo."],
+        ["Installa Arduino IDE 2", <>Da arduino.cc → Software. Su Chromebook o su computer senza permessi di installazione usa l&apos;Arduino Cloud Editor.</>],
+        ["Apri il file scaricato", <>Apri <B>mosaicusneo_firmware.ino</B>. Se l&apos;IDE chiede di spostarlo in una cartella con lo stesso nome, conferma con <B>OK</B>.</>],
+        ["Collega Arduino con il cavo USB", "Si accende il LED «ON». Se c'è un modulo Bluetooth su D0, stacca ora il suo filo TXD."],
         ["Scegli scheda e porta", <PortHint key="port" os={os} />],
-        ["Premi «Carica» (la freccia →)", <>Dopo qualche secondo in basso compare <B>Caricamento completato</B>. I LED TX/RX lampeggiano durante il caricamento.</>],
-        ["Controlla in MosaicusNeo", <>Chiudi l&apos;IDE (o il suo Monitor seriale), torna qui e premi <B>Collega Arduino</B>: scegli la porta. Lo stato diventa <B>Arduino pronto · firmware {FIRMWARE_VERSION}</B>.</>],
+        ["Premi «Carica» (freccia →)", <>I LED TX/RX lampeggiano; dopo qualche secondo compare <B>Caricamento completato</B>.</>],
+        ["Verifica in MosaicusNeo", <>Chiudi l&apos;IDE, premi <B>Collega Arduino</B> e scegli la porta. Lo stato diventa <B>Arduino pronto · firmware {FIRMWARE_VERSION}</B>.</>],
       ]} />
-      <Note>Clone con chip CH340 e la porta non compare? Installa il driver CH340 (cerca «CH340 driver» con il nome del tuo sistema), poi ricollega il cavo.</Note>
-      <Note kind="warn">Una porta seriale può essere aperta da un programma alla volta: se l&apos;IDE di Arduino ha il Monitor seriale aperto, MosaicusNeo non si collega (e viceversa).</Note>
+      <Note>Clone con chip CH340 e nessuna porta? Installa il driver CH340 per il tuo sistema e ricollega il cavo.</Note>
+      <Note kind="warn">La porta seriale si apre da un solo programma alla volta: con il Monitor seriale dell&apos;IDE aperto, MosaicusNeo non si collega, e viceversa.</Note>
     </>
   );
 }
@@ -357,7 +357,7 @@ function Wiring() {
   const sensors = mode === "rig" && mine ? rig.sensors : (() => { const taken = new Set<number>(); return picked.map((t) => makeSensor(t, taken)); })();
   return (
     <>
-      <P>Schema, occorrente e passi si generano dai componenti e dai pin scelti. La stessa guida è nella scheda «Collegamenti» di ogni esperimento.</P>
+      <P>Schema, materiale e passi dipendono dai componenti e dai pin scelti. La stessa guida è nella scheda «Collegamenti». Per il modulo Bluetooth attiva <B>Bluetooth</B> sopra lo schema.</P>
       {mine && <Segmented label="Quali componenti" value={mode} onChange={setMode} items={[["rig", "Progetto aperto"], ["pick", "Scegli i componenti"]]} />}
       {(mode === "pick" || !mine) && (
         <div className="grid gap-1.5 sm:grid-cols-2">

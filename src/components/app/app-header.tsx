@@ -68,7 +68,7 @@ function AppearanceMenu() {
           <Presentation className="mt-0.5" />
           <span className="flex flex-col">
             Modalità LIM
-            <span className="text-xs text-muted-foreground">Testi grandi, grafici più leggeri: per lavagne e PC lenti</span>
+            <span className="text-xs text-muted-foreground">Testi più grandi, grafici più leggeri. Per LIM e PC lenti.</span>
           </span>
         </DropdownMenuCheckboxItem>
       </DropdownMenuContent>

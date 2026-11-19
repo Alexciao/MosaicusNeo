@@ -114,7 +114,7 @@ function DataDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (o: b
         <DialogHeader>
           <DialogTitle>Dati {selection ? "del tratto selezionato" : "della misura"}</DialogTitle>
           <DialogDescription>
-            {sel.length} letture{sel.length > 500 ? ", qui le ultime 500 (l'export le contiene tutte)" : ""}. Ogni riga è una lettura di un sensore: le colonne degli altri restano vuote.
+            {sel.length} letture{sel.length > 500 ? " · qui le ultime 500, l'export le contiene tutte" : ""}. Ogni riga è la lettura di un solo sensore: le altre colonne restano vuote.
           </DialogDescription>
         </DialogHeader>
         <div className="min-h-0 flex-1 overflow-auto rounded-md border">
@@ -186,9 +186,9 @@ export function ChartCard() {
         </DropdownMenu>
         <div className="ml-auto flex items-center gap-1">
           <div role="group" aria-label="Zoom sull'asse dei tempi" className="flex rounded-lg border">
-            <Tip label="Ingrandisci (anche: pizzico, Ctrl + rotella)"><Button size="icon-sm" variant="ghost" onClick={() => g.zoomCenter(0.6)} aria-label="Ingrandisci"><ZoomIn /></Button></Tip>
+            <Tip label="Ingrandisci · anche pizzico o Ctrl + rotella"><Button size="icon-sm" variant="ghost" onClick={() => g.zoomCenter(0.6)} aria-label="Ingrandisci"><ZoomIn /></Button></Tip>
             <Tip label="Riduci"><Button size="icon-sm" variant="ghost" onClick={() => g.zoomCenter(1 / 0.6)} aria-label="Riduci"><ZoomOut /></Button></Tip>
-            <Tip label="Zoom sulla selezione"><Button size="icon-sm" variant="ghost" aria-label="Zoom sulla selezione" onClick={() => { if (!g.zoomToSelection()) toast("Prima seleziona un tratto trascinando su un grafico."); }}><Scan /></Button></Tip>
+            <Tip label="Zoom sulla selezione"><Button size="icon-sm" variant="ghost" aria-label="Zoom sulla selezione" onClick={() => { if (!g.zoomToSelection()) toast("Nessun tratto selezionato. Trascina su un grafico per sceglierne uno."); }}><Scan /></Button></Tip>
             <Tip label="Mostra tutti i dati"><Button size="icon-sm" variant="ghost" onClick={() => g.fitAll()} aria-label="Adatta"><Maximize2 /></Button></Tip>
           </div>
           <Tip label="Tabella dei dati"><Button size="icon-sm" variant="outline" aria-label="Tabella dei dati" disabled={!hasRows} onClick={() => setTable(true)}><Table2 /></Button></Tip>
@@ -208,7 +208,7 @@ export function ChartCard() {
               </DropdownMenuGroup>
               <DropdownMenuSeparator />
               <DropdownMenuGroup>
-                <DropdownMenuLabel className="flex flex-col gap-0.5">Dati grezzi di Arduino<span className="font-normal text-muted-foreground">per script: una riga per lettura, valori non convertiti</span></DropdownMenuLabel>
+                <DropdownMenuLabel className="flex flex-col gap-0.5">Dati grezzi di Arduino<span className="font-normal text-muted-foreground">Una riga per lettura, valori non convertiti</span></DropdownMenuLabel>
                 <DropdownMenuItem onClick={() => doExport("raw-csv")}><Binary /> CSV grezzo (.csv)</DropdownMenuItem>
                 <DropdownMenuItem onClick={() => doExport("raw-xlsx")}><Binary /> Excel grezzo (.xlsx)</DropdownMenuItem>
               </DropdownMenuGroup>
@@ -236,7 +236,7 @@ export function ChartCard() {
                 <Button size="sm" variant={selection ? "default" : "outline"} disabled={running} className="rounded-r-none" onClick={() => void sendSelection()}>
                   {selection ? "Analizza il tratto" : "Analizza tutta la misura"} <ArrowRight />
                 </Button>
-                <Tip label="Aggiungi a Elaborazione senza aprirla (per mandare più tratti)">
+                <Tip label="Aggiungi a Elaborazione e resta qui">
                   <Button size="icon-sm" variant={selection ? "default" : "outline"} disabled={running} aria-label="Aggiungi a Elaborazione senza aprirla"
                     className={cn("rounded-l-none", selection ? "border-l border-l-primary-foreground/15" : "border-l-0")} onClick={() => void sendSelection({ open: false })}>
                     <Plus />

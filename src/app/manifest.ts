@@ -7,7 +7,7 @@ export default function manifest(): MetadataRoute.Manifest {
     name: "MosaicusNeo · micro-laboratorio di fisica",
     short_name: "MosaicusNeo",
     description:
-      "Esperimenti di fisica con Arduino e con i sensori del telefono: grafici in tempo reale, analisi dei dati ed esportazione in Excel. Funziona offline.",
+      "Esperimenti di fisica con Arduino e con i sensori del telefono: grafici in tempo reale, analisi dei dati, esportazione in Excel. Funziona anche offline.",
     lang: "it",
     start_url: "/",
     scope: "/",

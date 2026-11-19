@@ -30,7 +30,7 @@ function Notebook() {
   const sessions = useLab((s) => s.sessions);
   const current = useLab((s) => s.session?.id);
   const signedIn = useCloud((s) => !!s.user);
-  if (sessions == null) return <p className="text-sm text-muted-foreground">Carico…</p>;
+  if (sessions == null) return <p className="text-sm text-muted-foreground">Caricamento…</p>;
   if (!sessions.length) return <p className="text-sm text-muted-foreground">Nessuna misura. Premi «Avvia» e poi «Ferma»: la misura si salva qui.</p>;
   const recent = sessions.slice(0, 5);
   return (

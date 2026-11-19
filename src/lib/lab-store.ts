@@ -169,9 +169,9 @@ export function labInfo(id = get().labId, customRigs = get().customRigs): LabInf
   const ins = instrumentById(id);
   if (ins) return { kind: "instrument", id, title: ins.title, subtitle: ins.subtitle, topic: "Strumenti", icon: ins.icon, tone: ins.tone, instrument: ins };
   const r = customRigs.find((x) => x.id === id);
-  return { kind: "custom", id, title: r?.name || "Montaggio libero", subtitle: r ? rigSummary(r) : "", topic: "I miei montaggi", icon: Wrench, tone: "saffron" };
+  return { kind: "custom", id, title: r?.name || "Nuovo progetto", subtitle: r ? rigSummary(r) : "", topic: "I miei progetti", icon: Wrench, tone: "saffron" };
 }
-export const rigSummary = (r: Rig) => r.sensors.length ? r.sensors.map(sensorLabel).join(" · ") : "nessun sensore";
+export const rigSummary = (r: Rig) => r.sensors.length ? r.sensors.map(sensorLabel).join(" · ") : "nessun componente";
 
 let resolvedCache: { rig: Rig; res: Resolved } | null = null;
 export function resolved(rig = get().rig): Resolved {
@@ -327,7 +327,7 @@ function suggestLim() {
   const board = matchMedia("(pointer: coarse)").matches && Math.max(screen.width, screen.height) >= 1600;
   if (!weak || !board) return;
   prefs.set("mosaicus.limSuggested", true);
-  toast("Sembra una lavagna interattiva", {
+  toast("Lavagna interattiva rilevata", {
     description: "La modalità LIM ingrandisce i testi e alleggerisce i grafici.",
     duration: 12000,
     action: { label: "Attiva", onClick: () => setLim(true) },
@@ -353,7 +353,7 @@ function loadRig(id: string): { rig: Rig; modified: boolean } {
     return { rig: { id, name: p.title, sensors: saved ?? base }, modified: !!saved };
   }
   const custom = get().customRigs.find((r) => r.id === id);
-  return { rig: custom ?? { id, name: "Montaggio libero", sensors: [] }, modified: false };
+  return { rig: custom ?? { id, name: "Nuovo progetto", sensors: [] }, modified: false };
 }
 
 function defaultVisible(rig: Rig): string[] {
@@ -378,7 +378,7 @@ function applyRig(rig: Rig, modified: boolean, { keepData = false } = {}) {
 }
 
 export function selectLab(id: string, { keepData = false } = {}) {
-  if (get().running) { toast("Ferma la misura prima di cambiare lab."); return; }
+  if (get().running) { toast("Ferma la misura prima di cambiare esperimento."); return; }
   if (id === "generator" || id === "theremin") id = "synth";
   const known = presetById(id) || instrumentById(id) || get().customRigs.some((r) => r.id === id);
   if (!known) id = serialSupported() ? "motion" : "synth";
@@ -396,7 +396,7 @@ export function selectLab(id: string, { keepData = false } = {}) {
 
 /** Modifica del montaggio: per un preset diventa una sua versione personale, per un montaggio libero si salva. */
 function commitRig(rig: Rig) {
-  if (get().running) { toast("Ferma la misura prima di cambiare i sensori."); return false; }
+  if (get().running) { toast("Ferma la misura prima di cambiare i componenti."); return false; }
   const p = presetById(rig.id);
   if (p) prefs.set(rigKey(rig.id), rig.sensors);
   else {
@@ -444,7 +444,7 @@ export function resetPreset() {
 export function renameRig(name: string) {
   const rig = get().rig;
   if (presetById(rig.id)) return;
-  commitRig({ ...rig, name: name.trim() || "Montaggio libero" });
+  commitRig({ ...rig, name: name.trim() || "Nuovo progetto" });
 }
 /** Nuovo montaggio libero (vuoto o copia del montaggio corrente). */
 export function newRig({ copy = false } = {}) {
@@ -452,7 +452,7 @@ export function newRig({ copy = false } = {}) {
   const cur = get().rig;
   const rig: Rig = {
     id: `rig-${newId()}`,
-    name: copy ? `${labInfo().title} (copia)` : "Nuovo montaggio",
+    name: copy ? `${labInfo().title} (copia)` : "Nuovo progetto",
     sensors: copy ? cur.sensors.map((s) => ({ ...s, id: newId(), options: { ...s.options }, pins: { ...s.pins } })) : [],
   };
   const list = [...get().customRigs, rig];
@@ -463,7 +463,7 @@ export function newRig({ copy = false } = {}) {
   return rig;
 }
 /** Nuovo montaggio libero con questi sensori (dalla guida). */
-export function createRigFrom(types: SensorType[], name = "Montaggio dalla guida") {
+export function createRigFrom(types: SensorType[], name = "Progetto dalla guida") {
   const rig = newRig();
   if (!rig) return;
   const taken = new Set<number>();
@@ -474,7 +474,7 @@ export function createRigFrom(types: SensorType[], name = "Montaggio dalla guida
 
 /** Rinomina un montaggio libero qualsiasi (anche non aperto). */
 export function renameRigById(id: string, name: string) {
-  const clean = name.trim() || "Montaggio libero";
+  const clean = name.trim() || "Nuovo progetto";
   if (get().labId === id) { renameRig(clean); return; }
   const list = get().customRigs.map((r) => (r.id === id ? { ...r, name: clean } : r));
   set({ customRigs: list });
@@ -493,7 +493,7 @@ export function duplicateRig(id: string) {
 }
 
 export function deleteRig(id: string) {
-  if (get().running && get().labId === id) { toast("Ferma la misura prima di eliminare il montaggio."); return; }
+  if (get().running && get().labId === id) { toast("Ferma la misura prima di eliminare il progetto."); return; }
   const list = get().customRigs.filter((r) => r.id !== id);
   set({ customRigs: list });
   prefs.set("mosaicus.rigs", list);
@@ -569,7 +569,7 @@ export async function connect(kind: "arduino" | "ble" | "sim") {
     if (wasRunning) {
       set({ running: false });
       stopKeepAlive();
-      toast.warning("Arduino scollegato durante la misura: salvo i dati raccolti.");
+      toast.warning("Arduino scollegato durante la misura. I dati raccolti sono stati salvati.");
       void autosave();
     }
   });
@@ -582,7 +582,7 @@ export async function connect(kind: "arduino" | "ble" | "sim") {
   }
   link = l;
   set({ linkKind: l.kind, transport: kind === "sim" ? null : kind === "ble" ? "ble" : "serial", ready: false });
-  setStatus(kind === "sim" ? "Simulatore: avvio…" : "Arduino: attendo il firmware…", "wait");
+  setStatus(kind === "sim" ? "Avvio del simulatore…" : "In attesa del firmware…", "wait");
   // l'Uno si riavvia quando si apre la porta USB: tempo al bootloader, poi chiedo l'identità
   // (via Bluetooth non si riavvia: la risposta arriva subito; lo chiedo due volte per sicurezza)
   setTimeout(() => { if (link === l && !get().ready) void l.write("ID?"); }, kind === "sim" ? 600 : kind === "ble" ? 400 : 2200);
@@ -590,7 +590,7 @@ export async function connect(kind: "arduino" | "ble" | "sim") {
   setTimeout(() => {
     if (link === l && !get().ready) {
       setStatus("Firmware non trovato", "err");
-      toast.error("Arduino risponde, ma non con il firmware MosaicusNeo. Caricalo con l'IDE di Arduino.", { duration: 10000, action: { label: "Come si fa", onClick: () => openGuide("firmware") } });
+      toast.error("Arduino risponde, ma non ha il firmware MosaicusNeo. Caricalo con l'IDE di Arduino.", { duration: 10000, action: { label: "Come si fa", onClick: () => openGuide("firmware") } });
     }
   }, 5000);
 }
@@ -634,20 +634,20 @@ function handleLine(line: string) {
     setStatus(kind === "simulatore" ? simStatus() : `Arduino pronto${link?.transport === "ble" ? " (Bluetooth LE)" : ""} · firmware ${fw}`, "on");
     return;
   }
-  if (line === "#BT,SETUP") { toast.info("Configuro il modulo Bluetooth: nome «MosaicusNeo», 115200 baud…"); return; }
+  if (line === "#BT,SETUP") { toast.info("Configurazione del modulo Bluetooth: nome «MosaicusNeo», 115200 baud…"); return; }
   if (line === "#ACK,BT,SETUP,BLE") {
-    toast.success("Modulo BLE configurato. Ora scollega il cavo, alimenta Arduino e scegli «Bluetooth LE» → «MosaicusNeo» (su iPhone, nel browser Bluefy). Se il nome non compare, cerca HMSoft, BT05 o HC-08.", { duration: 14000 });
+    toast.success("Modulo BLE configurato: ora si chiama «MosaicusNeo». Scollega il cavo, alimenta Arduino e scegli «Bluetooth LE» → «MosaicusNeo» (su iPhone usa il browser Bluefy). Se il nome non compare, cerca HMSoft, BT05 o HC-08.", { duration: 14000 });
     return;
   }
   if (line === "#ACK,BT,SETUP") {
-    toast.success("HC-06 configurato. Ora associa «MosaicusNeo» nelle impostazioni Bluetooth del telefono (PIN 1234).", { duration: 12000 });
+    toast.success("Modulo HC-06 configurato: ora si chiama «MosaicusNeo». Associalo nelle impostazioni Bluetooth del telefono (PIN 1234).", { duration: 12000 });
     return;
   }
   if (line.startsWith("#ERR")) {
     const what = line.slice(5);
     toast.error(/SCOPE|BT|CFG|START/.test(what)
-      ? `Il firmware su Arduino è vecchio: carica mosaicusneo_firmware.ino v${FIRMWARE_VERSION} con l'IDE di Arduino.`
-      : `Arduino non ha capito il comando: ${what}`, { duration: 8000 });
+      ? `Firmware non aggiornato: carica mosaicusneo_firmware.ino v${FIRMWARE_VERSION} con l'IDE di Arduino.`
+      : `Comando non riconosciuto da Arduino: ${what}`, { duration: 8000 });
     return;
   }
   if (line.startsWith("#ST,")) {
@@ -717,20 +717,20 @@ export async function testOutputs() {
   if (!link || !st.ready) { toast("Prima collega Arduino."); return; }
   if (st.running) { toast("Ferma la misura prima della prova."); return; }
   if (link.kind !== "simulatore" && (!st.fw || cmpVersion(st.fw, "1.2") < 0)) {
-    toast.error("Gli indicatori di stato richiedono il firmware v1.2: ricaricalo dalla Guida.", { action: { label: "Come si fa", onClick: () => openGuide("firmware") } }); return;
+    toast.error("Display, LED e cicalino richiedono il firmware v1.2. Aggiornalo seguendo la «Guida».", { action: { label: "Come si fa", onClick: () => openGuide("firmware") } }); return;
   }
   for (const cmd of firmwareCommands(st.rig, resolved(st.rig), { outputs: true }).filter((c) => c.startsWith("OUT"))) {
     const r = await request(cmd, (l) => l.startsWith("#ACK,OUT") || l.startsWith("#ERR"));
-    if (!r || r.startsWith("#ERR")) { toast.error(`Arduino non ha accettato gli indicatori${r ? `: ${OUT_ERR[r.split(",")[2]] ?? r}` : ""}.`); return; }
+    if (!r || r.startsWith("#ERR")) { toast.error(`Arduino ha rifiutato display, LED e cicalino${r ? `: ${OUT_ERR[r.split(",")[2]] ?? r}` : ""}.`); return; }
   }
   const ok = await request("OUT,TEST", (l) => l.startsWith("#ACK,OUT,TEST"), 6000);
-  toast[ok ? "success" : "error"](ok ? "Prova fatta: il LED ha cambiato colore, il cicalino ha suonato, il display ha scritto «CIAO»?" : "Arduino non ha risposto alla prova.");
+  toast[ok ? "success" : "error"](ok ? "Prova inviata. Controlla: il LED cambia colore, il cicalino suona, il display mostra «CIAO»." : "Arduino non ha risposto alla prova.");
 }
-const OUT_ERR: Record<string, string> = { PIN: "pin non valido", DOPPIO: "pin già usato", TIPO: "tipo sconosciuto", PIENO: "troppi indicatori", ARGOMENTI: "comando incompleto" };
+const OUT_ERR: Record<string, string> = { PIN: "pin non valido", DOPPIO: "pin già usato", TIPO: "tipo sconosciuto", PIENO: "troppi componenti di uscita", ARGOMENTI: "comando incompleto" };
 
 const CFG_ERR: Record<string, string> = {
-  PIN: "pin non valido", ANALOGICO: "serve un pin analogico (A0…A5)", DOPPIO: "pin già usato da un altro sensore",
-  GPS: "c'è già un GPS", SLOT: "troppi sensori", TIPO: "tipo di sensore sconosciuto", ARGOMENTI: "comando incompleto",
+  PIN: "pin non valido", ANALOGICO: "serve un pin analogico (A0…A5)", DOPPIO: "pin già usato da un altro componente",
+  GPS: "c'è già un GPS", SLOT: "troppi componenti", TIPO: "tipo di sensore sconosciuto", ARGOMENTI: "comando incompleto",
 };
 
 /** Si può premere Avvia? (montaggio valido e, se servono, Arduino o simulatore pronti) */
@@ -755,19 +755,19 @@ export async function start() {
     const need = firmwareNeeded(rig);
     if (!sim && st.fw && cmpVersion(st.fw, need) < 0) {
       const what = rig.sensors.filter((s) => SENSORS[s.type].since).map(sensorLabel).join(", ");
-      toast.error(`${what}: serve il firmware v${need} (su Arduino c'è la v${st.fw}). Ricaricalo: è un minuto.`, { duration: 12000, action: { label: "Come si fa", onClick: () => openGuide("firmware") } });
+      toast.error(`${what}: serve il firmware v${need} (su Arduino c'è la v${st.fw}). Aggiornalo con l'IDE di Arduino.`, { duration: 12000, action: { label: "Come si fa", onClick: () => openGuide("firmware") } });
       return;
     }
     const outputs = sim || (!!st.fw && cmpVersion(st.fw, "1.2") >= 0);
     for (const cmd of firmwareCommands(rig, res, { outputs })) {
       const reply = await request(cmd, (l) => l.startsWith("#ACK,CFG") || l.startsWith("#ACK,OUT") || l.startsWith("#ERR"));
-      if (!reply) { toast.error("Arduino non risponde alla configurazione. Scollega e ricollega."); return; }
+      if (!reply) { toast.error("Arduino non risponde alla configurazione. Scollegalo e ricollegalo."); return; }
       if (reply.startsWith("#ERR")) {
         const parts = reply.split(",");
-        if (parts[1] === "OUT") { toast.error(`Indicatori di stato: ${OUT_ERR[parts[2]] ?? parts[2]}.`); return; }
-        if (parts[1] !== "CFG") { toast.error(`Il firmware su Arduino è vecchio: serve la v${FIRMWARE_VERSION} per i montaggi di sensori. Scaricala dalla «Guida».`, { duration: 10000 }); return; }
+        if (parts[1] === "OUT") { toast.error(`Display, LED e cicalino: ${OUT_ERR[parts[2]] ?? parts[2]}.`); return; }
+        if (parts[1] !== "CFG") { toast.error(`Firmware non aggiornato: per configurare i componenti serve la v${FIRMWARE_VERSION}. Trovi i passaggi nella «Guida».`, { duration: 10000 }); return; }
         const s = res.byCode.get(Number(parts[2]));
-        toast.error(`${s ? sensorLabel(s) : "Sensore"}: ${CFG_ERR[parts[3]] ?? parts[3]}.`);
+        toast.error(`${s ? sensorLabel(s) : "Componente"}: ${CFG_ERR[parts[3]] ?? parts[3]}.`);
         return;
       }
     }
@@ -780,7 +780,7 @@ export async function start() {
   recompute();
   if (link) {
     const ok = await request("START", (l) => l.startsWith("#ACK,START") || l.startsWith("#ERR,START"));
-    if (!ok || ok.startsWith("#ERR")) { set({ running: false }); toast.error("Arduino non è partito: controlla i sensori e riprova."); return; }
+    if (!ok || ok.startsWith("#ERR")) { set({ running: false }); toast.error("La misura non è partita. Controlla i collegamenti dei componenti e riprova."); return; }
   }
   startKeepAlive();
   startOledFeed();
@@ -834,7 +834,7 @@ export async function bluetoothSetup(module: "hc06" | "ble" = "hc06") {
   if (!link || !get().ready || link.transport !== "serial") { toast("Prima collega Arduino con il cavo USB."); return; }
   if (get().running) { toast("Ferma la misura prima di configurare il modulo."); return; }
   if (get().fw && cmpVersion(get().fw!, module === "ble" ? "1.1" : "0.4") < 0) {
-    toast.error(`Il firmware su Arduino è vecchio: per configurare il modulo serve la v${FIRMWARE_VERSION}.`); return;
+    toast.error(`Firmware non aggiornato: per configurare il modulo serve la v${FIRMWARE_VERSION}.`); return;
   }
   await link.write(module === "ble" ? "BT,SETUP,BLE" : "BT,SETUP");
 }
@@ -866,7 +866,7 @@ export async function autosave(quiet = false) {
   try {
     const id = (await repo.save("sessions", rec)).id;
     set({ session: { ...st.session, id: st.session.id ?? id } });
-    if (!quiet) toast.success(`Misura salvata nel Quaderno (${raw.length} letture).`);
+    if (!quiet) toast.success(`Misura salvata nel Quaderno · ${raw.length} letture.`);
     await refreshSessions();
   } catch (err) {
     toast.error(`Salvataggio non riuscito: ${(err as Error).message}`);
@@ -882,7 +882,7 @@ export function zeroPosition() {
   if (!s) return;
   const dKey = resolved().keyOf.get(s.id)?.get("d");
   const valid = get().rows.filter((r) => r._s === s.id && Number.isFinite(r[dKey!] as number)).slice(-10).map((r) => r[dKey!] as number).sort((a, b) => a - b);
-  if (!valid.length) { toast("Nessuna distanza valida da usare come origine."); return; }
+  if (!valid.length) { toast("Nessuna distanza valida: impossibile fissare l'origine."); return; }
   const med = valid[valid.length >> 1];
   updateSensor(s.id, { options: { origin: Math.round(med * 1000) / 1000 } });
   toast.success(`Origine impostata a ${fmtVal(med, 3)} m dal sensore.`);
@@ -899,20 +899,20 @@ export async function sendSelection({ open = true } = {}) {
   const st = get();
   if (st.running) { toast("Ferma la misura prima di salvare un tratto."); return; }
   const already = sentBoxId(st);
-  if (already != null) { if (open) goElab(already); else toast("Questo tratto è già in Elaborazione.", { action: { label: "Apri", onClick: () => goElab(already) } }); return; }
+  if (already != null) { if (open) goElab(already); else toast("Tratto già in Elaborazione.", { action: { label: "Apri", onClick: () => goElab(already) } }); return; }
   const key = selectionKey(st);
   const rig = st.rig, res = resolved(rig);
   const [t1s, t2s] = st.selection ?? [-Infinity, Infinity];
   // grandezze fisiche (non i dati tecnici) con almeno un valore nel tratto
   const inSel = st.rows.filter((r) => r.t >= t1s && r.t <= t2s);
   const keys = res.quantities.filter((q) => !q.raw && inSel.some((r) => Number.isFinite(r[q.key] as number))).map((q) => q.key);
-  if (!keys.length) { toast("Il tratto non contiene dati validi."); return; }
+  if (!keys.length) { toast("Il tratto non contiene dati validi. Selezionane un altro."); return; }
   // tempi del sensore del grafico attivo; le grandezze degli altri sensori vengono interpolate
   const view = viewsOf().find((v) => v.id === st.viewId && !v.raw);
   const baseSensor = view?.sensorId ?? res.quantities.find((q) => q.key === keys[0])!.sensorId;
   const own = new Set(res.quantities.filter((q) => q.sensorId === baseSensor).map((q) => q.key));
   const aligned = alignRows(st.rows, baseSensor, keys, own, tolerance(rig)).filter((r) => r.t >= t1s && r.t <= t2s && keys.some((k) => own.has(k) && Number.isFinite(r[k] as number)));
-  if (aligned.length < 3) { toast("Il tratto contiene troppo pochi punti validi."); return; }
+  if (aligned.length < 3) { toast("Servono almeno 3 punti validi. Seleziona un tratto più lungo."); return; }
   if (!st.session?.id) await autosave(true);
   const byKey = new Map(res.quantities.map((q) => [q.key, q]));
   const columns = [{ key: "t", sym: "t", unit: "s", name: "tempo" }, ...keys.map((k) => ({ key: k, sym: byKey.get(k)!.sym, unit: byKey.get(k)!.unit, name: byKey.get(k)!.name }))];
@@ -929,12 +929,12 @@ export async function sendSelection({ open = true } = {}) {
   });
   set({ sent: true, lastSent: { key, boxId: box.id } });
   const mixed = inputsOf(rig).length > 1 && keys.some((k) => !own.has(k));
-  const note = mixed ? " Le grandezze degli altri sensori sono interpolate sui tempi di questo." : "";
+  const note = mixed ? " I valori degli altri componenti sono interpolati sugli stessi istanti." : "";
   if (open) {
     goElab(box.id);
     if (mixed) toast(note.trim(), { duration: 6000 });
   } else {
-    toast.success(`Tratto aggiunto a Elaborazione (${aligned.length} punti).${note}`, { duration: 6000, action: { label: "Apri", onClick: () => goElab(box.id) } });
+    toast.success(`Tratto aggiunto in Elaborazione · ${aligned.length} punti.${note}`, { duration: 6000, action: { label: "Apri", onClick: () => goElab(box.id) } });
   }
 }
 
@@ -994,7 +994,7 @@ export function trackPoints(rows: Row[], rig = get().rig): TrackPoint[] {
 
 export async function exportData(kind: ExportKind) {
   const st = get();
-  if (!st.rows.length) { toast("Non ci sono dati da esportare."); return; }
+  if (!st.rows.length) { toast("Nessun dato da esportare."); return; }
   const exp = labInfo();
   const cols = columnsOf();
   const multi = inputsOf(st.rig).length > 1;
@@ -1008,14 +1008,14 @@ export async function exportData(kind: ExportKind) {
   if (kind === "png") return download(await stackPNG(), `${base}_grafici.png`);
   if (kind === "raw-csv" || kind === "raw-xlsx") {
     const t = rawTable(st.selection);
-    if (!t.rows.length) { toast("Non ci sono letture grezze da esportare."); return; }
+    if (!t.rows.length) { toast("Nessuna lettura grezza da esportare."); return; }
     return kind === "raw-csv"
       ? download(toCSV(t.headers, t.rows, { it: false }), `${base}_grezzi.csv`)
       : download(toXLSX([{ name: "Grezzi", rows: [t.headers, ...t.rows] }, ...(t.sheets.length > 1 ? t.sheets : [])]), `${base}_grezzi.xlsx`);
   }
   if (kind === "gpx" || kind === "geojson") {
     const pts = trackPoints(selectedRows());
-    if (!pts.length) { toast("Nessun punto con la posizione GPS da esportare."); return; }
+    if (!pts.length) { toast("Nessun punto con posizione GPS da esportare."); return; }
     const name = st.sessionName || exp.title;
     return kind === "gpx"
       ? download(toGPX(name, pts), `${base}.gpx`, "application/gpx+xml")
@@ -1024,13 +1024,13 @@ export async function exportData(kind: ExportKind) {
   const source = st.session?.source;
   const info = [
     ["MosaicusNeo", `v${APP_VERSION}`],
-    ["Lab", `${exp.title}${exp.subtitle ? ` — ${exp.subtitle}` : ""}`],
+    ["Esperimento", `${exp.title}${exp.subtitle ? ` — ${exp.subtitle}` : ""}`],
     ["Nome della misura", st.sessionName || st.session?.name || ""],
     ["Data", new Date(st.session?.created ?? Date.now()).toLocaleString("it-IT")],
     ["Sorgente", source === "simulatore" ? "simulatore" : `Arduino (firmware ${st.session?.fw ?? "?"})`],
     ["Tratto esportato", st.selection ? `${st.selection[0]} s – ${st.selection[1]} s` : "tutta la misura"],
     [],
-    ["Sensore", "Tipo", "Pin", "Intervallo (ms)", "Opzioni"],
+    ["Componente", "Tipo", "Pin", "Intervallo (ms)", "Opzioni"],
     ...st.rig.sensors.map((s) => {
       const def = SENSORS[s.type];
       return [sensorLabel(s), def.title, def.pins.map((p) => `${p.role}: ${pinName(s.pins[p.key])}`).join("; "), s.interval,
@@ -1093,7 +1093,7 @@ interface StoredSession {
  * quiet: senza messaggi né pagina (per inviarla a Elaborazione o esportarla dal Quaderno).
  */
 export async function openSession(id: number, { quiet = false } = {}): Promise<boolean> {
-  if (get().running) { toast("Ferma la misura in corso prima di aprire una misura del Quaderno."); return false; }
+  if (get().running) { toast("Ferma la misura prima di aprirne un'altra dal Quaderno."); return false; }
   const s = (await repo.get("sessions", id)) as unknown as StoredSession | undefined;
   if (!s) return false;
   const labId = s.experiment;
@@ -1104,7 +1104,7 @@ export async function openSession(id: number, { quiet = false } = {}): Promise<b
   } else {
     // misura salvata prima del sistema a sensori: la converto
     const lg = LEGACY[s.experiment];
-    if (!lg) { toast.error("Questa misura viene da un lab che non esiste più."); return false; }
+    if (!lg) { toast.error("Impossibile aprire la misura: il suo esperimento o progetto non esiste più."); return false; }
     const preset = presetById(labId);
     const sensors = lg.rig(s.params ?? {}).sensors.map((x, i) => ({ ...x, id: preset ? `${labId}-${x.type}` : `${x.type}-${i}` }));
     rig = { id: labId, name: preset?.title ?? labId, sensors };
@@ -1120,7 +1120,7 @@ export async function openSession(id: number, { quiet = false } = {}): Promise<b
   recompute();
   if (quiet) return true;
   showDragHint();
-  toast(`Aperta «${s.name}». Se cambi le opzioni dei sensori, i dati vengono ricalcolati.`);
+  toast(`Aperta «${s.name}». Se cambi le opzioni dei componenti, i dati vengono ricalcolati.`);
   return true;
 }
 

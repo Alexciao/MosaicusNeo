@@ -81,7 +81,7 @@ export function MapCard() {
           {!!vals.length && <Stat label={`${q.sym} min · medio · max`} value={`${fmtNum(Math.min(...vals), 1)} · ${fmtNum(vals.reduce((x, y) => x + y, 0) / vals.length, 1)} · ${fmtNum(Math.max(...vals), 1)} ${q.unit}`} />}
         </div>
       )}
-      <p className="text-xs text-muted-foreground">Tocca un punto per i suoi valori · trascina su un grafico per evidenziare un tratto · le mappe servono la rete, i dati no.</p>
+      <p className="text-xs text-muted-foreground">Tocca un punto per i suoi valori · trascina su un grafico per evidenziare un tratto · le mappe richiedono internet, la misura no.</p>
     </Card>
   );
 }

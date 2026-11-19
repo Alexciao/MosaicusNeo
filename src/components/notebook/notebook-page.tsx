@@ -93,7 +93,7 @@ export function NotebookPage() {
         <div>
           <h2 className="text-xl font-bold tracking-tight">Quaderno</h2>
           <p className="text-sm text-muted-foreground">
-            Ogni misura si salva qui da sola quando premi <b>Ferma</b>. Riaprila in Misura per rivederla, oppure mandala dritta a Elaborazione.
+            Le misure si salvano qui quando premi «Ferma».
           </p>
         </div>
         <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
@@ -121,13 +121,13 @@ export function NotebookPage() {
         )}
       </Card>
 
-      {sessions == null && <p className="px-1 text-sm text-muted-foreground">Carico…</p>}
+      {sessions == null && <p className="px-1 text-sm text-muted-foreground">Caricamento…</p>}
 
       {sessions?.length === 0 && (
         <Card className="flex flex-col items-center gap-3 p-10 text-center">
           <span className="grid size-14 place-items-center rounded-2xl bg-tone-sky text-tone-ink"><BookOpen className="size-7" /></span>
-          <h3 className="text-lg font-semibold">Il Quaderno è ancora vuoto</h3>
-          <p className="max-w-md text-sm text-muted-foreground">Fai una misura in <b>Misura</b>: quando premi <b>Ferma</b> finisce qui, con data, sensori e tutte le letture.</p>
+          <h3 className="text-lg font-semibold">Nessuna misura salvata</h3>
+          <p className="max-w-md text-sm text-muted-foreground">Avvia una misura e premi «Ferma»: la trovi qui con data, sensori e letture.</p>
           <Button variant="outline" onClick={() => showPage("misura")}><FlaskConical /> Vai a Misura</Button>
         </Card>
       )}
@@ -203,7 +203,7 @@ function SessionRow({ s, showDate }: { s: SessionSummary; showDate: boolean }) {
             <DropdownMenuSeparator />
             <DropdownMenuItem variant="destructive" disabled={running && current}
               onClick={async () => {
-                if (await confirm({ title: `Eliminare «${s.name}»?`, description: "La misura sparisce dal Quaderno. I tratti già in Elaborazione restano.", action: "Elimina", destructive: true })) await removeSession(s.id);
+                if (await confirm({ title: `Eliminare «${s.name}»?`, description: "I tratti già in Elaborazione restano.", action: "Elimina", destructive: true })) await removeSession(s.id);
               }}>
               <Trash /> Elimina
             </DropdownMenuItem>

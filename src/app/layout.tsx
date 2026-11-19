@@ -12,7 +12,7 @@ const inter = Inter({
 export const metadata: Metadata = {
   title: "MosaicusNeo · micro-laboratorio di fisica",
   description:
-    "Esperimenti di fisica con Arduino e con i sensori del telefono: grafici in tempo reale, oscilloscopio, synth, analisi dei dati ed esportazione in Excel. Funziona anche senza rete.",
+    "Esperimenti di fisica con Arduino e con i sensori del telefono: grafici in tempo reale, oscilloscopio, synth, analisi dei dati, esportazione in Excel. Funziona anche offline.",
   applicationName: "MosaicusNeo",
   appleWebApp: { capable: true, title: "MosaicusNeo", statusBarStyle: "black-translucent" },
 };
