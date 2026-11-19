@@ -36,7 +36,7 @@ export function GlideNav({ label, value, items, className, size = "md" }: {
   }, [value, ids]);
 
   return (
-    <nav ref={navRef} aria-label={label} className={cn("relative isolate flex items-center gap-0.5 rounded-lg bg-muted p-0.5", className)}>
+    <nav ref={navRef} aria-label={label} className={cn("relative isolate flex shrink-0 items-center gap-0.5 rounded-lg bg-muted p-0.5", className)}>
       <span ref={pillRef} aria-hidden
         className="pointer-events-none absolute top-0.5 bottom-0.5 left-0 -z-10 rounded-md bg-background shadow-sm ring-1 ring-border will-change-transform data-ready:transition-[transform,width] data-ready:duration-250 data-ready:ease-(--ease-drawer) motion-reduce:transition-none dark:bg-secondary" />
       {items.map((it) => (

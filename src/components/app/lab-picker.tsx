@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { PRESETS, PRESET_TOPICS, INSTRUMENTS } from "@/lib/sensors/presets";
+import { PRESETS, PRESET_TOPICS, COLLAPSED_TOPICS, INSTRUMENTS } from "@/lib/sensors/presets";
 import { useLab, selectLab, newRig, rigSummary, renameRigById, duplicateRig, deleteRig } from "@/lib/lab-store";
 import type { Rig } from "@/lib/sensors/rig";
 import type { Tone } from "@/lib/sensors/types";
@@ -125,7 +125,7 @@ export function LabPicker({ onPicked }: { onPicked?: () => void }) {
         const list = PRESETS.filter((p) => p.topic === topic);
         if (!list.length) return null;
         return (
-          <Section key={topic} id={`topic-${topic}`} title={topic}>
+          <Section key={topic} id={`topic-${topic}`} title={topic === "Telefono" ? "Telefono, senza Arduino" : topic} defaultOpen={!COLLAPSED_TOPICS.includes(topic)}>
             <ul className="flex flex-col gap-0.5">{list.map((p) => <Item key={p.id} {...p} onPicked={onPicked} />)}</ul>
           </Section>
         );

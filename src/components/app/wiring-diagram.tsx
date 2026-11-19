@@ -12,7 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import type { SensorInstance } from "@/lib/sensors/rig";
-import type { SensorType } from "@/lib/sensors/catalog";
+import { SENSORS, type SensorType } from "@/lib/sensors/catalog";
 import { useLab, bluetoothSetup } from "@/lib/lab-store";
 import { prefs, isPhoneWidth } from "@/lib/prefs";
 import { cn } from "@/lib/utils";
@@ -177,7 +177,8 @@ function Steps({ sensors, bt, style }: { sensors: SensorInstance[]; bt: BtModule
 // ---------------------------------------------------------------------------
 // La guida completa
 // ---------------------------------------------------------------------------
-export function WiringGuide({ sensors }: { sensors: SensorInstance[] }) {
+export function WiringGuide({ sensors: all }: { sensors: SensorInstance[] }) {
+  const sensors = all.filter((s) => !SENSORS[s.type].phone);     // il telefono non si collega
   const [style, setStyleState] = useState<Style>(() => prefs.get<Style>("mosaicus.diagram", isPhoneWidth() ? "schema" : "real"));
   const setStyle = (s: Style) => { setStyleState(s); prefs.set("mosaicus.diagram", s); };
   const btOn = useBt((s) => s.on), btKind = useBt((s) => s.kind);

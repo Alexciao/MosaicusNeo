@@ -1,9 +1,9 @@
 "use client";
 
-import { Bluetooth, BluetoothSearching, Cable, ChevronDown, Cpu, Unplug, Usb } from "lucide-react";
+import { Bluetooth, BluetoothSearching, Cable, ChevronDown, Cpu, Smartphone, Unplug, Usb } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { useLab, connect, disconnect, labInfo, needsArduino, type StatusTone } from "@/lib/lab-store";
+import { useLab, connect, disconnect, labInfo, needsArduino, needsPhone, type StatusTone } from "@/lib/lab-store";
 import { serialSupported } from "@/lib/mosaicus/serial.js";
 import { bleSupported } from "@/lib/mosaicus/ble";
 import { cn } from "@/lib/utils";
@@ -72,24 +72,30 @@ export function ConnectButton({ size = "sm" }: { size?: "sm" | "lg" }) {
   );
 }
 
-/** Collegamento ad Arduino (o al simulatore): solo se il lab ne ha bisogno. */
+/** Sensori del telefono: il permesso si chiede con questo clic (iPhone). */
+export function PhoneButton({ size = "sm" }: { size?: "sm" | "lg" }) {
+  return <Button size={size} onClick={() => void connect("phone")}><Smartphone /> Attiva i sensori</Button>;
+}
+
+/** Collegamento ad Arduino, ai sensori del telefono o al simulatore: solo se il lab ne ha bisogno. */
 export function ConnectionControls({ className }: { className?: string }) {
   const labId = useLab((s) => s.labId);
   const rig = useLab((s) => s.rig);
   const linkKind = useLab((s) => s.linkKind);
   const info = labInfo(labId);
+  const phone = !info.instrument && needsPhone(rig);
   const arduino = info.instrument ? info.instrument.source === "arduino" : needsArduino(rig);
-  if (!arduino) return null;
+  if (!arduino && !phone) return null;
   return (
     <div className={cn("flex min-w-0 items-center gap-1.5", className)}>
       <StatusPill className="max-w-64" />
       {linkKind ? (
         <Button variant="outline" size="sm" onClick={() => void disconnect()}>
-          <Unplug /> Scollega
+          <Unplug /> {linkKind === "telefono" ? "Disattiva" : "Scollega"}
         </Button>
       ) : (
         <>
-          <ConnectButton />
+          {phone ? <PhoneButton /> : <ConnectButton />}
           <Button variant="outline" size="sm" onClick={() => void connect("sim")}>
             <Cpu /> Simulatore
           </Button>

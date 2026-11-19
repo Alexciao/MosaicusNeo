@@ -361,7 +361,7 @@ function Wiring() {
       {mine && <Segmented label="Quali componenti" value={mode} onChange={setMode} items={[["rig", "Progetto aperto"], ["pick", "Scegli i componenti"]]} />}
       {(mode === "pick" || !mine) && (
         <div className="grid gap-1.5 sm:grid-cols-2">
-          {COMPONENTS.map((t) => (
+          {COMPONENTS.filter((t) => !SENSORS[t].phone).map((t) => (
             <label key={t} className="flex items-center gap-2 rounded-md border px-2.5 py-2 text-sm">
               <Checkbox checked={picked.includes(t)} onCheckedChange={(v) => setPicked((p) => (v ? [...p, t] : p.filter((x) => x !== t)))} />
               <span><B>{SENSORS[t].title}</B> <span className="text-muted-foreground">· {SENSORS[t].measures}</span></span>
@@ -429,6 +429,8 @@ function Rigs() {
         ["Scegli il ritmo", "«Una lettura ogni … ms». Limiti: DHT almeno 1000 ms, GPS una lettura al secondo, sonar fino a 30 ms."],
         ["Regola le opzioni", "Taratura, verso positivo, modello del DHT… Le meno usate sono in «Opzioni avanzate»."],
       ]} />
+      <H>Sensori del telefono</H>
+      <P>Senza Arduino si possono usare l&apos;accelerometro, il giroscopio e il microfono del telefono: esperimenti nella sezione «Telefono, senza Arduino» in fondo all&apos;elenco, oppure categoria «Telefono, senza Arduino» in «Aggiungi un componente». Apri l&apos;app sul telefono (Chrome su Android, Safari su iPhone) e premi <B>Attiva i sensori</B>; su iPhone conferma il permesso. Non si mescolano con i componenti di Arduino nello stesso progetto.</P>
       <Note>Con un errore nei componenti (pin doppio, troppi sensori…) «Avvia» resta disattivato; il messaggio indica come correggerlo.</Note>
     </>
   );

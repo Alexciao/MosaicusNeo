@@ -11,6 +11,8 @@ import { confirm } from "@/lib/confirm";
 import { cn } from "@/lib/utils";
 import { WiringBlocks } from "./wiring";
 import { WiringGuide } from "./wiring-diagram";
+import { SENSORS } from "@/lib/sensors/catalog";
+import { isPhoneRig } from "@/lib/sensors/rig";
 import { RigEditor } from "./rig-editor";
 
 /** Collegamenti del progetto: schema, occorrente e passi; i consigli dell'esperimento in fondo. */
@@ -18,9 +20,15 @@ function RigWiring() {
   const rig = useLab((s) => s.rig);
   const labId = useLab((s) => s.labId);
   const info = labInfo(labId);
+  // sensori del telefono: niente da collegare, solo come si usano
+  if (isPhoneRig(rig)) {
+    const blocks = rig.sensors.flatMap((s) => SENSORS[s.type].wiring({}, s.options));
+    const seen = new Set<string>();
+    return <WiringBlocks blocks={[...blocks.filter((b) => !seen.has(b.title) && seen.add(b.title)), ...(info.preset?.tips ?? [])]} />;
+  }
   return (
     <div className="flex flex-col gap-4">
-      <WiringGuide sensors={rig.sensors} />
+      <WiringGuide sensors={rig.sensors.filter((s) => !SENSORS[s.type].phone)} />
       {!!info.preset?.tips?.length && <WiringBlocks blocks={info.preset.tips} />}
     </div>
   );
