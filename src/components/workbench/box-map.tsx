@@ -26,7 +26,7 @@ export function BoxMap({ box, rows, selection }: { box: Box; rows: Record<string
     <Collapsible open={open} onOpenChange={setOpen} className="border-t">
       <CollapsibleTrigger className="flex w-full items-center gap-2 px-4 py-3 text-sm font-semibold">
         <ChevronDown className={cn("size-4 transition-transform", !open && "-rotate-90")} /> Mappa
-        <span className="font-normal text-muted-foreground">· colore = {cy.sym}{cy.unit ? ` (${cy.unit})` : ""}, l&apos;asse verticale del grafico</span>
+        <span className="font-normal text-muted-foreground">· colore: {cy.sym}{cy.unit ? ` (${cy.unit})` : ""}, come l&apos;asse verticale</span>
       </CollapsibleTrigger>
       <CollapsibleContent className="px-4 pb-4">
         {open && <TrackMap className="h-[clamp(260px,44vh,480px)]" points={points} label={cy.sym} unit={cy.unit}

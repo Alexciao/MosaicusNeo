@@ -100,6 +100,6 @@ export function compile(src, columns) {
 
   if (!toks.length) throw new Error('scrivi una formula');
   const fn = expr();
-  if (p < toks.length) throw new Error(`c'è qualcosa in più alla fine: «${toks.slice(p).map((k) => k.v ?? k.t).join(' ')}»`);
+  if (p < toks.length) throw new Error(`testo in più alla fine: «${toks.slice(p).map((k) => k.v ?? k.t).join(' ')}»`);
   return { fn: (row) => { const v = fn(row); return isFinite(v) ? v : NaN; }, vars: [...used] };
 }

@@ -109,7 +109,7 @@ export function createSynthController(api: InstrumentApi & { toast: (m: string) 
     if (!window.isSecureContext) { api.toast("Il sensore di inclinazione funziona solo da una pagina sicura (https)."); return false; }
     const DOE = DeviceOrientationEvent as any;
     if (typeof DOE.requestPermission === "function") {
-      try { if ((await DOE.requestPermission()) !== "granted") { api.toast("Permesso per i sensori negato."); return false; } } catch { return false; }
+      try { if ((await DOE.requestPermission()) !== "granted") { api.toast("Accesso ai sensori di movimento negato: consentilo nelle impostazioni del browser."); return false; } } catch { return false; }
     }
     window.addEventListener("deviceorientation", onTilt); L.tiltOn = true;
     return true;
@@ -143,7 +143,7 @@ export function createSynthController(api: InstrumentApi & { toast: (m: string) 
     if (L.playing || L.acq || L.tiltOn) { await stopHand(); noteOff(); paint(); return; }
     if (SY.mode === "tilt") { if (!(await startTilt())) return; L.playing = true; setU(L.u ?? 0.5, true); }
     if (SY.mode === "sonar") {
-      if (!api.ready()) { api.toast("Prima collega Arduino (o il simulatore) con i pulsanti in alto."); return; }
+      if (!api.ready()) { api.toast("Collega prima Arduino o il «Simulatore»."); return; }
       L.acq = true; L.dBuf = []; L.playing = true; // un HC-SR04 con TRIG su D12 ed ECHO su D11, letto ogni 30 ms
       await api.send("CFG,CLEAR"); await api.send("CFG,ADD,0,SONAR,30,12,11,0"); await api.send("START"); noteOn(SY.f);
     }

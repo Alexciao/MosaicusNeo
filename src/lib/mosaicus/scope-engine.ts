@@ -118,7 +118,7 @@ export function createScopeEngine(api: InstrumentApi & { toast: (m: string) => v
   // ---------------- Arduino ----------------
   const acqCommand = () => `START,SCOPE,${S.dt},${N_ARD},${Math.round((S.level / 5) * 1023)},${S.edge},${S.single ? 0 : 1}`;
   async function startAcq() {
-    if (!api.ready()) { api.toast("Prima collega Arduino (o il simulatore) con i pulsanti in alto."); return; }
+    if (!api.ready()) { api.toast("Collega prima Arduino o il «Simulatore»."); return; }
     S.acq = true; S.showLive = true; onChange();
     await api.send(acqCommand());
     S.msg = S.single && S.edge ? "In attesa del trigger…" : "";
@@ -141,7 +141,7 @@ export function createScopeEngine(api: InstrumentApi & { toast: (m: string) => v
     const fr: Frame = { adc, y: Float32Array.from(adc, toQty), sr: 1e6 / dt, off: 0, unit: unit(), fired: !!fired };
     analyse(fr, true);
     S.live = fr; S.msg = "";
-    if (S.single) { void stopAcq(); api.toast("Traccia catturata. «Congela» per conservarla."); }
+    if (S.single) { void stopAcq(); api.toast("Traccia catturata. Premi «Congela» per conservarla."); }
     redraw(); updateReadouts(true); onChange();
     return true;
   }
@@ -233,7 +233,7 @@ export function createScopeEngine(api: InstrumentApi & { toast: (m: string) => v
     });
     if (ard && !S.same && S.edge && S.qty === "V" && wave.map) drawLevel(S.level - S.V0);
     const msg = !ard && !S.source ? "Scegli una sorgente e premi ▶ Avvia"
-      : !frames.length ? (ard && !S.acq ? "Collega in alto, poi ▶ Avvia" : "Premi ▶ Avvia") : "";
+      : !frames.length ? (ard && !S.acq ? "Collega Arduino, poi premi ▶ Avvia" : "Premi ▶ Avvia") : "";
     if (msg !== S.screenMsg) { S.screenMsg = msg; onChange(); }
     drawSpectrum(frames);
   }
@@ -333,7 +333,7 @@ export function createScopeEngine(api: InstrumentApi & { toast: (m: string) => v
 
   async function sendWaves() {
     const list = chosen();
-    if (!list.length) { api.toast("Non c'è ancora nessuna traccia da inviare."); return; }
+    if (!list.length) { api.toast("Nessuna traccia da inviare: premi prima ▶ Avvia."); return; }
     const tmax = windowMs(), base = list[0], dt = 1000 / base.sr;
     const n = Math.min(Math.floor(tmax / dt) + 1, 6000);
     const rows: Record<string, number>[] = [];
@@ -350,12 +350,12 @@ export function createScopeEngine(api: InstrumentApi & { toast: (m: string) => v
       subtitle: meta(list), wave: true, tUnit: "ms", t1: 0, t2: rows[rows.length - 1].t,
       columns: [{ key: "t", sym: "t", unit: "ms", name: "tempo dal trigger" }, ...list.map((s) => ({ key: s.id, sym: s.id, unit: u, name: s.name }))],
       xKey: "t", yKey: list[0].id, rows,
-    }, `Inviate ${list.length} forme d'onda (${rows.length} punti).`);
+    }, `${list.length === 1 ? "Forma d'onda inviata" : `${list.length} forme d'onda inviate`} a Elaborazione · ${rows.length} punti.`);
   }
 
   async function sendSpectra() {
     const list = chosen().filter((s) => s.spec);
-    if (!list.length) { api.toast("Non c'è ancora nessuno spettro da inviare."); return; }
+    if (!list.length) { api.toast("Nessuno spettro da inviare: premi prima ▶ Avvia."); return; }
     const fmax = Math.min(...list.map((s) => s.spec!.df * (s.spec!.mag.length - 1)), S.fRef ? S.fRef * 10 : 5000);
     const df = list[0].spec!.df, n = Math.min(Math.floor(fmax / df) + 1, 6000);
     const rows: Record<string, number>[] = [];
@@ -369,7 +369,7 @@ export function createScopeEngine(api: InstrumentApi & { toast: (m: string) => v
       subtitle: meta(list), wave: true, tUnit: "Hz", t1: 0, t2: rows[rows.length - 1].f,
       columns: [{ key: "f", sym: "f", unit: "Hz", name: "frequenza" }, ...list.map((s) => ({ key: s.id, sym: s.id, unit: s.unit, name: `ampiezza ${s.name}` }))],
       xKey: "f", yKey: list[0].id, rows,
-    }, `Inviati ${list.length} spettri.`);
+    }, `${list.length === 1 ? "Spettro inviato" : `${list.length} spettri inviati`} a Elaborazione.`);
   }
 
   // ---------------- comandi dal pannello ----------------

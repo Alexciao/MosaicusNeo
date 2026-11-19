@@ -64,7 +64,7 @@ export function WorkbenchPage() {
         <Card className="flex flex-col items-center gap-3 p-10 text-center">
           <span className="grid size-14 place-items-center rounded-2xl bg-tone-lime text-tone-ink"><ChartLine className="size-7" /></span>
           <h3 className="text-lg font-semibold">Nessun riquadro</h3>
-          <p className="max-w-md text-sm text-muted-foreground">In <b>Misura</b>, trascina su un grafico per scegliere un tratto e premi <b>Analizza il tratto</b>. Dal <b>Quaderno</b> puoi inviare una misura intera.</p>
+          <p className="max-w-md text-sm text-muted-foreground">In «Misura» trascina su un grafico per scegliere un tratto, poi premi «Analizza il tratto». Dal «Quaderno» puoi inviare una misura intera.</p>
           <Button variant="outline" onClick={() => showPage("misura")}><ArrowLeft /> Vai a Misura</Button>
         </Card>
       )}

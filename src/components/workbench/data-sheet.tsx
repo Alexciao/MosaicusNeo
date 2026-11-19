@@ -27,7 +27,7 @@ export function DataSheet({ box, rows, errors }: { box: Box; rows: Record<string
 
   const preview = useMemo(() => {
     if (!pending) return null;
-    if (!pending.formula.trim()) return { err: "Scrivi una formula: mentre scrivi vedi qui sotto il risultato.", vals: null as number[] | null };
+    if (!pending.formula.trim()) return { err: "Scrivi una formula: l'anteprima compare nella colonna.", vals: null as number[] | null };
     try {
       const { fn } = compile(pending.formula, cols.map((c) => c.key));
       return { err: "", vals: shown.map((r) => fn(r)) };
@@ -41,13 +41,13 @@ export function DataSheet({ box, rows, errors }: { box: Box; rows: Record<string
     if (!pending) return;
     const existing = cols.map((c) => c.key);
     const sym = pending.sym.trim();
-    if (!sym) { setAddErr("Dai un simbolo alla colonna (es. y, x2, lnT)."); return; }
-    if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(sym)) { setAddErr("Il simbolo può contenere solo lettere, cifre e _ e deve iniziare con una lettera."); return; }
+    if (!sym) { setAddErr("Scrivi il simbolo della colonna (es. y, x2, lnT)."); return; }
+    if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(sym)) { setAddErr("Nel simbolo usa solo lettere, cifre e _, iniziando con una lettera."); return; }
     if (existing.includes(sym)) { setAddErr(`Esiste già una colonna «${sym}».`); return; }
     try { compile(pending.formula, existing); } catch (e) { setAddErr((e as Error).message); return; }
     updateBox(box.id, (b) => ({ computed: [...b.computed, { key: sym, sym, unit: pending.unit.trim(), formula: pending.formula.trim() }] }));
     setPending(null); setAddErr("");
-    toast.success(`Colonna «${sym}» aggiunta: premi «y» o «x» nella sua intestazione per metterla sul grafico.`);
+    toast.success(`Colonna «${sym}» aggiunta. Per portarla sul grafico premi «x» o «y» nella sua intestazione.`);
   };
   const remove = async (key: string) => {
     const c = box.computed.find((k) => k.key === key);
@@ -126,7 +126,7 @@ export function DataSheet({ box, rows, errors }: { box: Box; rows: Record<string
                 </tbody>
               </table>
             </div>
-            {rows.length > MAX_ROWS && <p className="mt-2 text-xs text-muted-foreground">Mostro le prime {MAX_ROWS} righe di {rows.length}: l&apos;export le contiene tutte.</p>}
+            {rows.length > MAX_ROWS && <p className="mt-2 text-xs text-muted-foreground">Prime {MAX_ROWS} righe di {rows.length}. L&apos;export le contiene tutte.</p>}
           </>
         )}
       </CollapsibleContent>

@@ -118,7 +118,7 @@ function BluetoothHowTo({ kind }: { kind: BtKind }) {
       </p>
       <p><b className="font-semibold">Configurazione, una volta sola.</b> Con Arduino collegato via USB, premi «Configura»: il modulo prende il nome «MosaicusNeo» e la velocità di 115200 baud.</p>
       <p><b className="font-semibold">Per misurare.</b>{" "}
-        {kind === "ble" ? "Arduino sul power bank, poi «Collega» → menu ▾ → «Bluetooth LE»." : "Arduino sul power bank, poi «Collega» → «Bluetooth»."}
+        {kind === "ble" ? "Arduino sul power bank, poi «Collega» → menu ▾ → «Bluetooth LE»." : "Arduino sul power bank, poi «Collega via Bluetooth»."}
       </p>
       {canSetup ? (
         <Button size="sm" variant="outline" className="self-start" disabled={running} onClick={() => void bluetoothSetup(kind)}>

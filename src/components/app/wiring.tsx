@@ -1,5 +1,5 @@
 "use client";
-// Schemi dei collegamenti in SVG, con i pin scelti nel montaggio: seguono il tema e funzionano
+// Schemi dei collegamenti in SVG, con i pin scelti nel progetto: seguono il tema e funzionano
 // offline. In più la "mappa dei pin" di Arduino Uno con i sensori collegati.
 
 import { Bluetooth, Lightbulb, Plug, TriangleExclamationPoint } from "lucide-react";
@@ -222,7 +222,7 @@ export function PinMap({ rig }: { rig: Rig }) {
             <span className="text-muted-foreground">{SENSORS[s.type].pins.map((p) => `${p.role} ${pinName(s.pins[p.key])}`).join(" · ")}</span>
           </li>
         ))}
-        <li className="text-muted-foreground">D0 e D1 restano liberi per il cavo USB e il Bluetooth. Tutti i moduli hanno anche VCC a 5 V e GND a GND.</li>
+        <li className="text-muted-foreground">D0 e D1 restano liberi per il cavo USB e il Bluetooth. Ogni modulo ha anche VCC a 5 V e GND a GND.</li>
       </ul>
     </div>
   );

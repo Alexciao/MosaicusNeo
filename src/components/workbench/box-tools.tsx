@@ -81,8 +81,8 @@ export function EyePanel({ eye, cx, cy, su, meaning, up, down, onNext, onBack, o
       </ol>
       {eye.step === 1 ? (
         <>
-          <Say>Trascina i <b>cerchi verdi</b>: la retta deve passare in mezzo ai punti.</Say>
-          <p className={cn("tabular text-sm font-semibold", balance ? "text-success" : "text-muted-foreground")}>⬆ {up} · ⬇ {down} {balance ? "✓ in equilibrio" : ""}</p>
+          <Say>Trascina i <b>cerchi verdi</b> finché la retta passa in mezzo ai punti: quanti sopra, tanti sotto.</Say>
+          <p className={cn("tabular text-sm font-semibold", balance ? "text-success" : "text-muted-foreground")}>⬆ {up} · ⬇ {down} {balance ? "✓ bilanciata" : ""}</p>
           <Button size="sm" className="self-start" onClick={onNext}>Fatto <ArrowRight /></Button>
         </>
       ) : (
@@ -96,11 +96,11 @@ export function EyePanel({ eye, cx, cy, su, meaning, up, down, onNext, onBack, o
               </CalcBox>
               {meaning && <Meaning>{cap(meaning)} ≈ <b>{n4(result.m)} {su}</b></Meaning>}
               {eye.cmp && (
-                <p className="text-sm">Computer: <b>{formatMeasure(eye.cmp.m, eye.cmp.s, su)}</b> · differenza {rel.toLocaleString("it-IT", { maximumFractionDigits: 1 })} % · {rel <= 3 ? <b className="text-success">Ottima! ✓</b> : rel <= 10 ? <b className="text-success">Buona ✓</b> : <b className="text-warning">Riprova ↺</b>}</p>
+                <p className="text-sm">Minimi quadrati: <b>{formatMeasure(eye.cmp.m, eye.cmp.s, su)}</b> · differenza {rel.toLocaleString("it-IT", { maximumFractionDigits: 1 })} % · {rel <= 3 ? <b className="text-success">ottima ✓</b> : rel <= 10 ? <b className="text-success">buona ✓</b> : <b className="text-warning">da ritoccare ↺</b>}</p>
               )}
               <div className="flex flex-wrap gap-2">
                 <Button size="sm" onClick={() => onSave(result!)}><Save /> Salva</Button>
-                <Button size="sm" variant="outline" onClick={onCompare}>{eye.cmp ? "Nascondi il computer" : "E il computer?"}</Button>
+                <Button size="sm" variant="outline" onClick={onCompare}>{eye.cmp ? "Nascondi i minimi quadrati" : "Confronta con i minimi quadrati"}</Button>
               </div>
             </>
           )}
@@ -124,8 +124,8 @@ export function TangentPanel({ t, cx, cy, su, meaning, onSave }: { t: TangentRes
         <div>m = <Frac top={`Δ${cy.sym}`} bottom={`Δ${cx.sym}`} /> = <Frac top={fmtNum(t.m * t.dx)} bottom={fmtNum(t.dx)} /> = <b>{n4(t.m)} {su}</b></div>
       </CalcBox>
       {meaning && <Meaning>{cap(meaning)} istantanea in {cx.sym} = {fmtNum(t.P.x)} {cx.unit}: <b>{n4(t.m)} {su}</b></Meaning>}
-      <Why title="Come si calcola?">
-        <p>Una curva misurata non ha una formula: l&apos;app prende i {t.near} punti misurati più vicini a P e ci fa passare la parabola che li approssima meglio. La tangente è la retta che tocca quella parabola in P. Il triangolo mostra la pendenza: di quanto sale {cy.sym} quando {cx.sym} aumenta di {fmtNum(t.dx)} {cx.unit}.</p>
+      <Why title="Come si calcola">
+        <p>I dati misurati non hanno una formula: si prendono i {t.near} punti più vicini a P e si calcola la parabola che li approssima meglio. La tangente è la retta che tocca quella parabola in P. Il triangolo mostra la pendenza: di quanto varia {cy.sym} quando {cx.sym} aumenta di {fmtNum(t.dx)} {cx.unit}.</p>
       </Why>
       <Button size="sm" className="self-start" onClick={onSave}><Save /> Salva</Button>
     </div>
@@ -170,24 +170,24 @@ export function FitPanel({ suggested, model, fit, phys, cx, cy, onModel, onSave,
         <>
           <p className="rounded-md bg-muted px-3 py-2 text-center font-semibold tabular">{fit.eq}</p>
           <table className="w-full"><tbody>{rowsOf(phys.length ? phys : [fit.params[0]])}</tbody></table>
-          <p className="text-xs text-muted-foreground">I punti oscillano di circa <b>{fmt(fit.s, 2)} {cy.unit}</b> intorno alla curva · {fit.n} punti · {fmtNum(fit.t1)}–{fmtNum(fit.t2)} {cx.unit}</p>
+          <p className="text-xs text-muted-foreground">Scarto tipico dei punti dalla curva: <b>{fmt(fit.s, 2)} {cy.unit}</b> intorno alla curva · {fit.n} punti · {fmtNum(fit.t1)}–{fmtNum(fit.t2)} {cx.unit}</p>
           <div className="flex flex-col gap-1.5">
-            <Why title="Tutti i parametri del modello">
+            <Why title="Tutti i parametri">
               <p className="font-mono">{(MODELS as any)[model!].formula}</p>
               <table className="w-full"><tbody>{rowsOf(fit.params)}</tbody></table>
             </Why>
-            <Why title="L'incertezza: termini e formule">
-              <p><b>Deviazione standard dei dati</b>, s = {n4(fit.s)} {cy.unit}: quanto oscillano i punti intorno alla curva. Si calcola dai residui r (dato − curva): s = √( Σr² / (n − p) ), con n punti e p parametri del modello.</p>
-              <p><b>Incertezza tipo</b> di un parametro: il numero dopo il ±. Dipende da s e da quanti e quanto distribuiti sono i punti.{isLine ? ` Per la pendenza della retta: σₘ = s / √Σ(${cx.sym} − ${cx.sym}̄)². Più largo è il tratto sull'asse orizzontale, più piccola è l'incertezza.` : " Per i modelli non lineari si ricava dalla stessa s, tenendo conto di quanto ogni parametro «sposta» la curva."}</p>
-              <p>Prova a confrontarla con la retta a occhio: è la stessa idea, fatta a mano.</p>
+            <Why title="Da dove viene l'incertezza">
+              <p><b>Deviazione standard dei dati</b>, s = {n4(fit.s)} {cy.unit}: lo scarto tipico dei punti dalla curva. Si calcola dai residui r (dato − curva): s = √( Σr² / (n − p) ), con n punti e p parametri.</p>
+              <p><b>Incertezza tipo</b> di un parametro: il numero dopo il ±. Cresce con s, diminuisce con il numero di punti e con la loro estensione.{isLine ? ` Per la pendenza: σₘ = s / √Σ(${cx.sym} − ${cx.sym}̄)², quindi un tratto più lungo sull'asse orizzontale dà una pendenza più precisa.` : " Nei modelli non lineari si ricava dalla stessa s, pesata per quanto ogni parametro sposta la curva."}</p>
+              <p>La retta a occhio applica la stessa idea a mano: confronta i due risultati.</p>
             </Why>
-            <Why title={<>Che cos&apos;è R² = {Number.isFinite(fit.r2) ? fit.r2.toLocaleString("it-IT", { maximumFractionDigits: 5 }) : "—"}?</>}>
-              <p>R² dice quale frazione della variazione dei dati è spiegata dal modello: <b>1</b> = i punti stanno tutti sulla curva, <b>0</b> = il modello non spiega nulla. Un R² alto non basta a dire che il modello è giusto (una retta su un tratto di parabola può dare R² = 0,99): per questo c&apos;è la verifica dei residui.</p>
+            <Why title={<>Che cosa indica R² = {Number.isFinite(fit.r2) ? fit.r2.toLocaleString("it-IT", { maximumFractionDigits: 5 }) : "—"}</>}>
+              <p>R² è la frazione della variazione dei dati spiegata dal modello: <b>1</b> se i punti stanno tutti sulla curva, <b>0</b> se il modello non spiega nulla. Un R² alto non prova che il modello sia giusto (una retta su un tratto di parabola può dare R² = 0,99): per questo si verificano i residui.</p>
             </Why>
           </div>
           <div className="flex flex-wrap gap-2">
             <Button size="sm" onClick={onSave}><Save /> Salva</Button>
-            <Button size="sm" variant="outline" onClick={onResid}>{showResid ? "Nascondi i residui" : "Il modello è giusto?"}</Button>
+            <Button size="sm" variant="outline" onClick={onResid}>{showResid ? "Nascondi i residui" : "Verifica i residui"}</Button>
           </div>
         </>
       )}
@@ -215,12 +215,12 @@ export function Residuals({ fit, T, xLabel, cy }: { fit: any; T: number[]; xLabe
       <b className="text-sm">Residui = dato − modello</b>
       <div className="relative h-40"><canvas ref={ref} aria-label="Grafico dei residui" className="absolute inset-0 size-full" /></div>
       {rt.verdict === "sistematici" ? (
-        <p className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">✗ I residui hanno un <b>andamento sistematico</b>: cambiano segno solo {rt.runs} volte, mentre per dati casuali ce ne aspetteremmo circa {fmtNum(rt.mu, 0)}. I punti stanno «a pancia» rispetto alla curva: <b>il modello non descrive bene questo tratto</b>. Prova un altro modello o un altro tratto.</p>
+        <p className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">✗ Residui <b>sistematici</b>: cambiano segno {rt.runs} volte contro le circa {fmtNum(rt.mu, 0)} attese per dati casuali. I punti formano una «pancia» rispetto alla curva: <b>il modello non descrive questo tratto</b>. Cambia modello o tratto.</p>
       ) : rt.verdict === "casuali" ? (
-        <p className="rounded-md bg-success/10 px-3 py-2 text-sm text-success">✓ I residui sono <b>sparsi a caso</b> intorno a zero: cambiano segno {rt.runs} volte (per dati casuali ce ne aspettiamo circa {fmtNum(rt.mu, 0)}). Il modello è <b>adeguato</b> per questo tratto.</p>
-      ) : <p className="text-sm text-muted-foreground">Troppo pochi punti per un verdetto.</p>}
-      <Why title="Come funziona la verifica?">
-        <p>Se il modello è giusto, ogni punto sta sopra o sotto la curva «a caso», come lanciando una moneta: i segni dei residui cambiano spesso. Se il modello è sbagliato, ci sono lunghi tratti tutti sopra e poi tutti sotto. L&apos;app conta i cambi di segno e li confronta con quelli attesi per il caso (<i>test delle successioni</i> di Wald–Wolfowitz: verdetto negativo se il numero di successioni è più di 2 deviazioni standard sotto l&apos;atteso).</p>
+        <p className="rounded-md bg-success/10 px-3 py-2 text-sm text-success">✓ Residui <b>casuali</b> intorno a zero: cambiano segno {rt.runs} volte, circa le {fmtNum(rt.mu, 0)} attese. Il modello è <b>adeguato</b> per questo tratto.</p>
+      ) : <p className="text-sm text-muted-foreground">Troppo pochi punti per valutare i residui.</p>}
+      <Why title="Come funziona la verifica">
+        <p>Con il modello giusto ogni punto cade sopra o sotto la curva a caso, come nel lancio di una moneta, e il segno dei residui cambia spesso. Con il modello sbagliato si vedono lunghi tratti tutti sopra e poi tutti sotto. Si contano i cambi di segno e si confrontano con quelli attesi per il caso (<i>test delle successioni</i> di Wald–Wolfowitz): il verdetto è negativo se sono più di 2 deviazioni standard sotto l&apos;atteso.</p>
       </Why>
     </div>
   );
@@ -295,7 +295,7 @@ export function computeStats(x: number[], y: number[], sel: [number, number] | n
 export function StatsPanel({ st, selected, cx, cy, su, meaning, onClear, onSave }: {
   st: Stats | null; selected: boolean; cx: BoxColumn; cy: BoxColumn; su: string; meaning: string | null; onClear: () => void; onSave: () => void;
 }) {
-  if (!st) return <Say>Trascina sul grafico per scegliere un tratto: qui compaiono le sue statistiche.</Say>;
+  if (!st) return <Say>Servono almeno 2 punti. Trascina sul grafico per scegliere un tratto.</Say>;
   const u = cy.unit ? ` ${cy.unit}` : "";
   const row = (label: React.ReactNode, value: React.ReactNode, hint?: string) => (
     <tr className="border-b last:border-0" title={hint}>
@@ -306,18 +306,18 @@ export function StatsPanel({ st, selected, cx, cy, su, meaning, onClear, onSave 
   return (
     <div className="flex flex-col gap-3">
       <p className="text-xs text-muted-foreground">
-        {selected ? <>Tratto {fmtNum(st.x1)} – {fmtNum(st.x2)} {cx.unit} · {st.n} punti <button type="button" className="ml-1 underline underline-offset-2" onClick={onClear}>tutti i dati</button></> : <>Tutti i dati · {st.n} punti. Trascina per scegliere un tratto.</>}
+        {selected ? <>Tratto {fmtNum(st.x1)} – {fmtNum(st.x2)} {cx.unit} · {st.n} punti <button type="button" className="ml-1 underline underline-offset-2" onClick={onClear}>usa tutti i dati</button></> : <>Tutti i dati · {st.n} punti. Trascina per scegliere un tratto.</>}
       </p>
       <table className="w-full"><tbody>
         {row(<>media {cy.sym}̄</>, formatMeasure(st.mean, st.sem, cy.unit), "± = errore della media, s/√n")}
-        {row("deviazione standard s", `${n4(st.sd)}${u}`, "quanto oscillano i singoli valori intorno alla media")}
+        {row("deviazione standard s", `${n4(st.sd)}${u}`, "scarto tipico dei singoli valori dalla media")}
         {row("minimo · massimo", `${n4(st.min)} · ${n4(st.max)}${u}`)}
         {row(<>variazione Δ{cy.sym}</>, `${n4(st.last - st.first)}${u}`, "ultimo valore − primo valore del tratto")}
         {row(meaning ? `${meaning} media` : <>rapporto Δ{cy.sym}/Δ{cx.sym}</>, `${n4(st.rate)} ${su}`)}
       </tbody></table>
       <Why title="Media, s ed errore della media">
-        <p><b>s</b> misura quanto i singoli valori si allontanano dalla media. <b>L&apos;errore della media</b> (il numero dopo il ±) è s/√n: con più punti la media è più affidabile, anche se ogni punto oscilla allo stesso modo.</p>
-        <p>Usa la media su un tratto in cui la grandezza dovrebbe restare costante, per esempio la temperatura di equilibrio o una posizione a riposo.</p>
+        <p><b>s</b> è lo scarto tipico dei singoli valori dalla media. <b>L&apos;errore della media</b> (il numero dopo il ±) è s/√n: con più punti la media è più precisa, anche se ogni valore oscilla quanto prima.</p>
+        <p>Usa la media su un tratto in cui la grandezza resta costante, come una temperatura di equilibrio o una posizione a riposo.</p>
       </Why>
       <Button size="sm" className="self-start" onClick={onSave}><Save /> Salva</Button>
     </div>
@@ -352,7 +352,7 @@ export function CompareModels({ rows, current, unit, onPick }: { rows: ModelRow[
           </tbody>
         </table>
       </div>
-      <p className="text-[0.7rem] leading-relaxed text-muted-foreground">Il modello migliore ha la <b>s più piccola</b> (i punti stanno più vicini alla curva) e <b>residui casuali</b>. Preferisci il modello più semplice che lo soddisfa e che ha un senso fisico. Tocca una riga per sceglierlo.</p>
+      <p className="text-[0.7rem] leading-relaxed text-muted-foreground">Il modello migliore ha la <b>s più piccola</b> e <b>residui casuali</b>. A parità di risultato, scegli il più semplice con un senso fisico. Tocca una riga per usarlo.</p>
     </div>
   );
 }

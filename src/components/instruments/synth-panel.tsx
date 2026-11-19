@@ -91,9 +91,9 @@ export function SynthPanel({ exp }: { exp: Instrument }) {
   const eq = terms.map((t, j) => `${t.neg ? (j ? " − " : "−") : j ? " + " : ""}${fmtIt(t.v, 2)}·sin(${t.i ? t.i + 1 : ""}ωt)`).join("");
   const fb = Math.abs(SY.df);
   const hint: Record<string, string> = {
-    ribbon: "Tieni premuto sul nastro e scorri: a destra le note alte.",
-    tilt: "Premi ▶ Suona e inclina il telefono a destra e a sinistra.",
-    sonar: `Collega Arduino (o il simulatore), premi ▶ Suona e avvicina la mano al sensore (${D_NEAR * 100}–${D_FAR * 100} cm): più vicina, nota più alta.`,
+    ribbon: "Tieni premuto sul nastro e scorri: verso destra la nota sale.",
+    tilt: "Premi ▶ Suona e inclina il telefono verso destra o sinistra.",
+    sonar: `Collega Arduino o il «Simulatore», premi ▶ Suona e muovi la mano sopra il sensore (${D_NEAR * 100}–${D_FAR * 100} cm): più è vicina, più la nota è alta.`,
   };
 
   return (
@@ -154,7 +154,7 @@ export function SynthPanel({ exp }: { exp: Instrument }) {
             <ChevronDown className={cn("size-4 transition-transform", !eqOpen && "-rotate-90")} /> La formula
           </CollapsibleTrigger>
           <CollapsibleContent className="pt-2">
-            <p className="rounded-md bg-muted px-3 py-2 font-mono text-sm">y = {eq || "0"}{(SY.tail as number[]).some(Boolean) ? " + … (continua con le armoniche più alte)" : ""}</p>
+            <p className="rounded-md bg-muted px-3 py-2 font-mono text-sm">y = {eq || "0"}{(SY.tail as number[]).some(Boolean) ? " + … (armoniche superiori)" : ""}</p>
           </CollapsibleContent>
         </Collapsible>
       </Card>
@@ -221,7 +221,7 @@ export function SynthPanel({ exp }: { exp: Instrument }) {
             ))}
           </div>
         </div>
-        <p className="text-xs text-muted-foreground">La differenza tra i timbri si sente meglio tra 300 e 1000 Hz: l&apos;altoparlante del telefono quasi non riproduce le note basse.</p>
+        <p className="text-xs text-muted-foreground">I timbri si distinguono meglio tra 300 e 1000 Hz: l&apos;altoparlante del telefono riproduce poco le note basse.</p>
       </Card>
     </div>
   );

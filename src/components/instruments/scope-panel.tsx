@@ -93,8 +93,8 @@ export function ScopePanel({ exp }: { exp: Instrument }) {
           <Button size="lg" variant={running ? "destructive" : "default"} onClick={() => void engine.run()} className="min-w-28">
             {running ? (ard ? <><Square className="fill-current" /> Ferma</> : <><Pause /> Pausa</>) : <><Play className="fill-current" /> Avvia</>}
           </Button>
-          <Button size="lg" variant="outline" disabled={S.slots.length >= 3 || !S.live || !S.showLive} onClick={engine.freeze} title="Ferma e conserva la traccia (fino a 3)">
-            <Snowflake /> {S.slots.length >= 3 ? "Tre tracce: togline una" : "Congela"}
+          <Button size="lg" variant="outline" disabled={S.slots.length >= 3 || !S.live || !S.showLive} onClick={engine.freeze} title="Conserva la traccia attuale (fino a 3)">
+            <Snowflake /> {S.slots.length >= 3 ? "Massimo 3 tracce" : "Congela"}
           </Button>
           <div className="flex flex-wrap gap-2">
             {S.slots.map((s) => (

@@ -285,11 +285,11 @@ export function BoxCard({ box }: { box: Box }) {
   const collapsed = !!box.collapsed;
   const fmtResult = (a: Analysis) => Number.isFinite(a.main.sigma) ? formatMeasure(a.main.value, a.main.sigma, a.main.unit) : `${n4(a.main.value)} ${a.main.unit}`;
   const INTRO: Record<Tool, [string, string]> = {
-    select: ["Tratto", "Scegli una parte dei dati trascinando sul grafico. Media, dispersione e variazione si aggiornano subito."],
-    line: ["Retta a occhio", "Tracci a mano la retta che segue meglio i punti, poi ne misuri la pendenza con due punti."],
-    tangent: ["Tangente", "La pendenza della curva in un punto: per esempio la velocità in un istante."],
-    fit: ["Fit", "La curva che passa più vicino ai punti (minimi quadrati), con i parametri e la loro incertezza. Trascina sul grafico per limitarlo a un tratto."],
-    ruler: ["Righello", "Misura il periodo di un'onda: metti le due linee su due creste e indica quanti periodi ci sono in mezzo."],
+    select: ["Tratto", "Trascina sul grafico per scegliere una parte dei dati: media, dispersione e variazione si aggiornano."],
+    line: ["Retta a occhio", "Traccia a mano la retta che segue meglio i punti, poi misurane la pendenza con due punti."],
+    tangent: ["Tangente", "Pendenza della curva in un punto, per esempio la velocità in un istante. Tocca un punto del grafico."],
+    fit: ["Fit", "Curva più vicina ai punti (minimi quadrati), con parametri e incertezze. Trascina sul grafico per limitarlo a un tratto."],
+    ruler: ["Righello", "Periodo di un'onda: porta le due linee su due creste e indica quanti periodi ci sono in mezzo."],
   };
 
   return (
@@ -319,7 +319,7 @@ export function BoxCard({ box }: { box: Box }) {
           <Checkbox checked={box.checked} onCheckedChange={(v) => updateBox(box.id, { checked: !!v })} aria-label="Includi nell'export" />
           <span className="hidden sm:inline">Esporta</span>
         </label>
-        <Button size="icon-sm" variant="ghost" aria-label="Duplica il riquadro" title="Duplica: per provare un'altra analisi sugli stessi dati" className="text-muted-foreground"
+        <Button size="icon-sm" variant="ghost" aria-label="Duplica il riquadro" title="Duplica: stessi dati, un'altra analisi" className="text-muted-foreground"
           onClick={() => void useWorkbench.getState().duplicateBox(box.id)}>
           <Copy />
         </Button>
@@ -386,7 +386,7 @@ export function BoxCard({ box }: { box: Box }) {
                 onSave={(r) => saveAnalysis({
                   kind: "line", title: "Retta a occhio",
                   main: { label: meaning ? `pendenza (${meaning})` : "pendenza m", value: r.m, sigma: NaN, unit: su },
-                  detail: `A = (${fmtNum(r.A.x)}; ${fmtNum(r.A.y)}), B = (${fmtNum(r.B.x)}; ${fmtNum(r.B.y)})${eye.cmp ? `; computer: ${n4(eye.cmp.m)} ± ${n4(eye.cmp.s)} ${su}` : ""}`,
+                  detail: `A = (${fmtNum(r.A.x)}; ${fmtNum(r.A.y)}), B = (${fmtNum(r.B.x)}; ${fmtNum(r.B.y)})${eye.cmp ? `; minimi quadrati: ${n4(eye.cmp.m)} ± ${n4(eye.cmp.s)} ${su}` : ""}`,
                   eq: `${cy.sym} = ${n4(r.m)}·${cx.sym} ${r.q < 0 ? "−" : "+"} ${n4(Math.abs(r.q))}`,
                   seg: { x1: eye.h1.x, y1: eye.h1.y, x2: eye.h2.x, y2: eye.h2.y },
                 })} />
@@ -407,7 +407,7 @@ export function BoxCard({ box }: { box: Box }) {
             )}
             {tool === "fit" && (
               <>
-                <p className="text-xs text-muted-foreground">{selection ? <>Sul tratto {fmtNum(selection[0])} – {fmtNum(selection[1])} {cx.unit} <button className="ml-1 inline-flex items-center underline" onClick={() => groupRef.current?.setSelection(null, true)}><X className="size-3" />tutti i dati</button></> : <>Su tutti i dati.</>}</p>
+                <p className="text-xs text-muted-foreground">{selection ? <>Sul tratto {fmtNum(selection[0])} – {fmtNum(selection[1])} {cx.unit} <button className="ml-1 inline-flex items-center underline" onClick={() => groupRef.current?.setSelection(null, true)}><X className="size-3" />usa tutti i dati</button></> : <>Su tutti i dati.</>}</p>
                 <FitPanel suggested={suggested} model={fitModel} fit={fitData?.fit} phys={fitData?.phys ?? []} cx={cx} cy={cy}
                   onModel={(id) => { setFitModel(id); setShowResid(false); }}
                   compare={compare} onCompare={() => setCompareOn(!compareOn)}
