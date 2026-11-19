@@ -69,11 +69,13 @@ export default function PrivacyPage() {
       </Section>
 
       <Section title="Per quanto tempo">
-        <p>I dati dell&apos;account restano finché l&apos;account esiste. Uscendo, spariscono da quel dispositivo ma restano nel cloud. Per cancellare l&apos;account e tutti i dati sincronizzati scrivi a <a href={`mailto:${CONTACT}`}>{CONTACT}</a>: la cancellazione avviene entro 30 giorni.</p>
+        <p>I dati dell&apos;account restano finché l&apos;account esiste. Uscendo, spariscono da quel dispositivo ma restano nel cloud.</p>
+        <p><b>Puoi eliminare l&apos;account in qualsiasi momento dall&apos;app</b>: menu dell&apos;account → «Elimina account». L&apos;account, l&apos;indirizzo email e tutti i dati sincronizzati (misure, riquadri, progetti, preferenze) vengono cancellati subito e definitivamente dal server, insieme alle loro copie sul dispositivo che usi. Sugli altri dispositivi le copie locali restano finché non esci dall&apos;account o non cancelli i dati del sito. Eventuali copie di sicurezza del fornitore vengono eliminate con la loro normale rotazione.</p>
+        <p>Se non riesci ad accedere, chiedi la cancellazione a <a href={`mailto:${CONTACT}`}>{CONTACT}</a>.</p>
       </Section>
 
       <Section title="I tuoi diritti">
-        <p>Puoi chiedere accesso, rettifica, cancellazione, limitazione e portabilità dei tuoi dati, e opporti al trattamento. Le misure si possono già esportare dall&apos;app in Excel o CSV.</p>
+        <p>Puoi chiedere accesso, rettifica, cancellazione, limitazione e portabilità dei tuoi dati, e opporti al trattamento. Dall&apos;app puoi già esportare le misure in Excel o CSV ed eliminare l&apos;account con tutti i dati.</p>
         <p>Se ritieni che i tuoi dati siano trattati in modo non corretto, puoi presentare reclamo al <a href="https://www.garanteprivacy.it" target="_blank" rel="noopener">Garante per la protezione dei dati personali</a>.</p>
       </Section>
 

@@ -562,6 +562,7 @@ function Data() {
       <P>Misure del Quaderno e riquadri di Elaborazione restano <B>nel browser di questo dispositivo</B>, anche senza rete. Cancellando i dati di navigazione si perdono: esporta ciò che vuoi conservare.</P>
       <H>Account (facoltativo)</H>
       <P>Con «Accedi» crei un account con email e password. Misure, riquadri, progetti e preferenze vengono salvati nel cloud e sono disponibili su tutti i tuoi dispositivi; anche le misure fatte prima di accedere passano all&apos;account. Quando esci, i dati spariscono dal dispositivo ma restano nel cloud: adatto ai computer della scuola.</P>
+      <P>Per eliminare l&apos;account: menu dell&apos;account → <B>Elimina account</B>. Account e dati nel cloud vengono cancellati subito e per sempre; esporta prima quello che vuoi conservare.</P>
       <H>Formati di esportazione</H>
       <ul className="list-disc space-y-1 pl-5 text-sm text-muted-foreground">
         <li><B>Excel (.xlsx)</B>: i dati e un foglio con componenti, pin e opzioni usati.</li>
