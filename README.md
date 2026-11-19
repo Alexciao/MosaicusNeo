@@ -68,7 +68,7 @@ Ogni misura finisce da sola nel **Quaderno** (pagina dedicata): ricerca, filtri 
 
 ## Account e cloud (facoltativi)
 
-Senza account tutto resta nel browser (IndexedDB) e l'app funziona offline. Con un account (email e password, via Supabase) misure, riquadri, progetti e preferenze dei lab si sincronizzano tra i dispositivi: archivio *local-first*, vince la modifica più recente, le cancellazioni arrivano agli altri dispositivi, Row Level Security. Lo schema è in [`supabase/migrations`](supabase/migrations); per attivare il cloud servono le variabili di [`.env.example`](.env.example).
+Senza account tutto resta nel browser (IndexedDB) e l'app funziona offline. Con un account (email e password, via Supabase) misure, riquadri, progetti e preferenze dei lab si sincronizzano tra i dispositivi: archivio *local-first*, vince la modifica più recente, le cancellazioni arrivano agli altri dispositivi, Row Level Security. Lo schema è in [`supabase/migrations`](supabase/migrations); per attivare il cloud servono le variabili di [`.env.example`](.env.example). Dal menu dell'account, «Elimina account» cancella subito account e dati sincronizzati (funzione `delete_account`, migrazione `20261119130000_delete_account.sql`).
 
 ## Sviluppo
 

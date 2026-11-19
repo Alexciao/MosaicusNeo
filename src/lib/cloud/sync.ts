@@ -306,6 +306,34 @@ export async function signOut({ force = false } = {}) {
   return { ok: true };
 }
 
+/**
+ * Cancellazione dell'account (GDPR, art. 17): il server elimina subito account, misure, riquadri e
+ * preferenze (funzione delete_account, migrazione 20261119130000). Poi tolgo da questo dispositivo
+ * tutte le copie dell'account, anche le modifiche non ancora sincronizzate: l'account non esiste più.
+ */
+export async function deleteAccount() {
+  const sb = supabase()!;
+  const user = uid();
+  if (!user) return;
+  const { error } = await sb.rpc("delete_account");
+  if (error) {
+    const missing = error.code === "PGRST202" || /could not find the function|does not exist/i.test(error.message);
+    throw new Error(missing
+      ? "La cancellazione non è ancora attiva sul server. Scrivi all'indirizzo indicato nell'informativa sulla privacy."
+      : authError(error.message));
+  }
+  for (const t of ["sessions", "boxes"] as Store[]) {
+    for (const r of await all(t)) if (r.owner === user && r.id) await removeQuiet(t, r.id);
+  }
+  for (const t of ["sessions", "boxes"]) LS.del(cursorKey(user, t));
+  LS.write(TOMB, LS.read<{ owner: string }[]>(TOMB, []).filter((t) => t.owner !== user));
+  // l'utente non esiste più sul server: basta chiudere la sessione su questo dispositivo
+  await sb.auth.signOut({ scope: "local" }).catch(() => {});
+  set({ user: null, status: "off", lastSync: null, pending: 0 });
+  bindRepo({ user: null });
+  await Promise.all([refreshSessions(), useWorkbench.getState().load()]);
+}
+
 function authError(msg: string) {
   const m = msg.toLowerCase();
   if (m.includes("invalid login")) return "Email o password non corretti.";

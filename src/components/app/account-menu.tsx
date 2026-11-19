@@ -3,7 +3,7 @@
 
 import { useState } from "react";
 import { toast } from "sonner";
-import { CloudCheck, CloudExclamationPoint, CloudOff, CloudSync, LoaderCircle, LogIn, LogOut, RefreshCw, ShieldCheck, UserRound } from "lucide-react";
+import { CloudCheck, CloudExclamationPoint, CloudOff, CloudSync, LoaderCircle, LogIn, LogOut, RefreshCw, ShieldCheck, Trash, UserRound } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -12,7 +12,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { useCloud, signIn, signUp, resetPassword, updatePassword, signOut, syncNow } from "@/lib/cloud/sync";
+import { useCloud, signIn, signUp, resetPassword, updatePassword, signOut, syncNow, deleteAccount } from "@/lib/cloud/sync";
 import { confirm } from "@/lib/confirm";
 import { cn } from "@/lib/utils";
 
@@ -91,6 +91,50 @@ function AuthDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (o: b
   );
 }
 
+/** Cancellazione dell'account: si conferma scrivendo la propria email. Avviene subito e del tutto. */
+function DeleteAccountDialog({ open, onOpenChange, email }: { open: boolean; onOpenChange: (o: boolean) => void; email: string }) {
+  const [typed, setTyped] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const match = !!email && typed.trim().toLowerCase() === email.toLowerCase();
+  const change = (o: boolean) => { if (busy) return; onOpenChange(o); if (!o) { setTyped(""); setError(""); } };
+  return (
+    <Dialog open={open} onOpenChange={change}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>Eliminare l&apos;account?</DialogTitle>
+          <DialogDescription>Avviene subito e non si può annullare. Vengono cancellati:</DialogDescription>
+        </DialogHeader>
+        <ul className="list-disc space-y-1 pl-5 text-sm">
+          <li>l&apos;account e l&apos;indirizzo <b className="font-semibold">{email}</b>;</li>
+          <li>tutte le misure, i riquadri, i progetti e le preferenze salvati nel cloud;</li>
+          <li>le loro copie su questo dispositivo.</li>
+        </ul>
+        <p className="text-sm text-muted-foreground">Se vuoi conservare qualcosa, esportalo prima in Excel o CSV. Sugli altri dispositivi le copie locali restano finché non esci dall&apos;account.</p>
+        <form className="flex flex-col gap-3" onSubmit={async (e) => {
+          e.preventDefault();
+          if (!match) return;
+          setBusy(true); setError("");
+          try {
+            await deleteAccount();
+            onOpenChange(false); setTyped("");
+            toast.success("Account eliminato. I dati sono stati cancellati.");
+          } catch (err) { setError((err as Error).message); } finally { setBusy(false); }
+        }}>
+          <Field id="delete-confirm" label="Per confermare, scrivi la tua email" type="email" autoComplete="off" value={typed} onChange={(e) => setTyped(e.target.value)} />
+          {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
+          <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+            <Button type="button" variant="outline" disabled={busy} onClick={() => change(false)}>Annulla</Button>
+            <Button type="submit" variant="destructive" disabled={!match || busy}>
+              {busy ? <LoaderCircle className="animate-spin" /> : <Trash />} Elimina definitivamente
+            </Button>
+          </div>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 /** Dopo il link di "password dimenticata": si sceglie la nuova password. */
 function RecoveryDialog() {
   const recovery = useCloud((s) => s.recovery);
@@ -131,6 +175,7 @@ export function AccountMenu() {
   const pending = useCloud((s) => s.pending);
   const error = useCloud((s) => s.error);
   const [open, setOpen] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   if (!enabled) return null;
 
   if (!user) {
@@ -177,8 +222,11 @@ export function AccountMenu() {
           <DropdownMenuItem onClick={() => void syncNow({ quiet: false })}><RefreshCw /> Sincronizza ora</DropdownMenuItem>
           <DropdownMenuItem render={<a href="/privacy" target="_blank" rel="noopener" />}><ShieldCheck /> Privacy</DropdownMenuItem>
           <DropdownMenuItem onClick={() => void logout()}><LogOut /> Esci</DropdownMenuItem>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem variant="destructive" onClick={() => setDeleting(true)}><Trash /> Elimina account</DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
+      <DeleteAccountDialog open={deleting} onOpenChange={setDeleting} email={user.email ?? ""} />
       <RecoveryDialog />
     </>
   );
