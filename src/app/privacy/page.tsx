@@ -3,6 +3,7 @@
 
 import type { Metadata } from "next";
 import Link from "next/link";
+import { REPO_URL, ISSUES_URL } from "@/lib/links";
 
 export const metadata: Metadata = {
   title: "Informativa sulla privacy · MosaicusNeo",
@@ -38,7 +39,7 @@ export default function PrivacyPage() {
 
       <Section title="Titolare del trattamento">
         <p><b>Alex Corazza</b> · <a href={`mailto:${CONTACT}`}>{CONTACT}</a></p>
-        <p>Scrivi a questo indirizzo per domande sulla privacy o per esercitare i tuoi diritti.</p>
+        <p>Scrivi a questo indirizzo per domande sulla privacy o per esercitare i tuoi diritti. Il codice dell&apos;app è pubblico su <a href={REPO_URL} target="_blank" rel="noopener">GitHub</a>: puoi verificare che cosa fa con i dati.</p>
       </Section>
 
       <Section title="Dati che restano sul tuo dispositivo">
@@ -82,7 +83,8 @@ export default function PrivacyPage() {
 
       <footer className="border-t pt-6 text-xs text-muted-foreground">
         MosaicusNeo · software libero con licenza MIT ·{" "}
-        <a className="underline" href="https://github.com/Alexciao/MosaicusNeo" target="_blank" rel="noopener">codice sorgente</a>
+        <a className="underline" href={REPO_URL} target="_blank" rel="noopener">codice sorgente su GitHub</a> ·{" "}
+        <a className="underline" href={ISSUES_URL} target="_blank" rel="noopener">segnala un problema</a>
       </footer>
     </main>
   );
