@@ -2,7 +2,7 @@
 
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useTheme } from "next-themes";
-import { ArrowRight, ChevronDown, Download, FileSpreadsheet, FileText, Image as ImageIcon, Maximize2, Scan, Send, X, ZoomIn, ZoomOut } from "lucide-react";
+import { ArrowRight, ChevronDown, Download, FileSpreadsheet, FileText, Image as ImageIcon, MapPinned, Route, Maximize2, Scan, Send, X, ZoomIn, ZoomOut } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -205,6 +205,12 @@ export function ChartCard() {
               <DropdownMenuItem onClick={() => doExport("csv-it")}><FileText /> CSV per Excel in italiano</DropdownMenuItem>
               <DropdownMenuItem onClick={() => doExport("csv")}><FileText /> CSV standard (Fogli Google, Python)</DropdownMenuItem>
               <DropdownMenuItem onClick={() => doExport("png")}><ImageIcon /> Immagine dei grafici (.png)</DropdownMenuItem>
+              {exp.map && (
+                <>
+                  <DropdownMenuItem onClick={() => doExport("gpx")}><Route /> Traccia GPX (Strava, Google Earth…)</DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => doExport("geojson")}><MapPinned /> GeoJSON (QGIS, geojson.io)</DropdownMenuItem>
+                </>
+              )}
             </DropdownMenuContent>
           </DropdownMenu>
         </div>

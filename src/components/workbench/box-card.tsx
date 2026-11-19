@@ -25,6 +25,7 @@ import {
   type EyeState, type PhysicsValue, type RulerState, type TangentResult,
 } from "./box-tools";
 import { DataSheet } from "./data-sheet";
+import { BoxMap } from "./box-map";
 
 type Tool = "select" | "line" | "tangent" | "fit" | "ruler";
 
@@ -394,6 +395,7 @@ export function BoxCard({ box }: { box: Box }) {
         </aside>
       </div>
 
+      {box.columns.some((c) => c.key === "lat") && box.columns.some((c) => c.key === "lon") && <BoxMap box={box} rows={rows} selection={selection} />}
       <DataSheet box={box} rows={rows} errors={errors} />
     </Card>
   );

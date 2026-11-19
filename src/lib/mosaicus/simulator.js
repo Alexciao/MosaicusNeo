@@ -20,6 +20,9 @@
 //  • DHT (DHT11/DHT22): aula a 22,5 °C e 48 % di umidità; a 20 s e a 120 s qualcuno soffia
 //    sul sensore: l'umidità sale verso il 90 % e poi torna giù lentamente (τ ≈ 40 s), la
 //    temperatura sale di un grado e mezzo. Tempo accelerato ×5. Ogni tanto un checksum sbagliato.
+//  • GPS (mappa della temperatura): passeggiata ad anello in un parco (~1,2 km) a 1,4 m/s,
+//    con una collinetta di 25 m, ombra degli alberi a nord (più fresco e umido) e asfalto a sud
+//    (più caldo). I primi 8 s senza fix, poi 5…9 satelliti. Tempo accelerato ×5.
 //  L'app sceglie lo scenario impostando link.scenario prima del comando START.
 
 const FW = '0.1-sim';
@@ -94,6 +97,20 @@ export class SimulatedLink {
       }, 160);
       return;
     }
+    if ((m = c.match(/^START,GPS,(\d+)(?:,(\d+))?$/))) {
+      this._stop();
+      const sens = [0, 1, 11, 22].includes(+m[2]) ? +m[2] : 11;
+      const interval = Math.max(sens === 22 ? 2000 : 1000, +m[1]);
+      this._emit(`#ACK,START,GPS,${interval}`);
+      const t0 = Date.now();
+      let k = 0;
+      this._timer = setInterval(() => {
+        const tMs = k * interval; k++;
+        this._emit(`G,${tMs},${simGps(tMs / 1000, sens, t0 + tMs).join(',')}`);
+      }, Math.max(50, interval / DHT_WARP));
+      return;
+    }
+    if (c === 'BT,SETUP') { this._emit('#BT,SETUP'); setTimeout(() => this._emit('#ACK,BT,SETUP'), 800); return; }
     if ((m = c.match(/^START,DHT,(\d+)(?:,(\d+))?$/))) {
       this._stop();
       const type = m[2] === '22' ? 22 : 11;
@@ -154,6 +171,41 @@ function simDht(t, type) {
   // DHT11: parte intera e decimi (le versioni recenti danno anche i decimi)
   const hi = Math.floor(rh), ti = Math.floor(Math.abs(T));
   return [hi, Math.round((rh - hi) * 10) % 10, ti, (Math.round((Math.abs(T) - ti) * 10) % 10) | (T < 0 ? 128 : 0), 0];
+}
+
+/** Una riga G del firmware (senza t_ms): posizione NMEA, satelliti, ora, sensore di temperatura. */
+function simGps(t, sens, nowMs) {
+  const LAT0 = 45.4725, LON0 = 9.1775, L = 1200, v = 1.4;          // centro del parco, giro, velocità
+  const th = (2 * Math.PI * v * t) / L;
+  const north = 190 * Math.sin(th) + 12 * Math.sin(5 * th), east = 260 * Math.cos(th) + 10 * Math.sin(3 * th);
+  const lat = LAT0 + (north + gauss(1.5)) / 111320;
+  const lon = LON0 + (east + gauss(1.5)) / (111320 * Math.cos((LAT0 * Math.PI) / 180));
+  const alt = 122 + 25 * Math.max(0, Math.cos(th - 0.8)) ** 2 + gauss(0.8);
+  const shade = Math.max(0, Math.sin(th));                           // alberi a nord
+  const asphalt = Math.max(0, -Math.sin(th)) ** 2;                   // viale a sud
+  const T = 21.5 - 2.2 * shade + 1.6 * asphalt - 0.0065 * (alt - 122) + gauss(0.12);
+  const RH = 52 + 9 * shade - 5 * asphalt + gauss(0.8);
+  const nmea = (deg, w) => {                                          // gradi → ggmm.mmmm con segno
+    const a = Math.abs(deg), d = Math.floor(a), mm = (a - d) * 60;
+    return `${deg < 0 ? '-' : ''}${String(d * 100 + Math.floor(mm)).padStart(w, '0')}${(mm % 1).toFixed(4).slice(1)}`;
+  };
+  const d = new Date(nowMs), p2 = (n) => String(n).padStart(2, '0');
+  const utc = `${p2(d.getUTCHours())}${p2(d.getUTCMinutes())}${p2(d.getUTCSeconds())}.00`;
+  const date = `${p2(d.getUTCDate())}${p2(d.getUTCMonth() + 1)}${p2(d.getUTCFullYear() % 100)}`;
+  const fix = t >= 8;
+  const sats = fix ? Math.round(7 + 2 * Math.sin(t / 40) + gauss(0.4)) : Math.min(3, Math.floor(t / 3));
+  const pos = fix ? [1, nmea(lat, 4), nmea(lon, 5), alt.toFixed(1), sats, (1.0 + 0.3 * Math.abs(Math.sin(t / 25))).toFixed(2), (v / 0.514444 + gauss(0.1)).toFixed(3)]
+    : [0, 'nan', 'nan', 'nan', sats, 'nan', 'nan'];
+  let temp;
+  if (sens === 11 || sens === 22) {
+    if (Math.random() < 0.02) temp = [0, 0, 0, 0, 2];
+    else if (sens === 22) { const h = Math.round(RH * 10), tt = Math.round(T * 10); temp = [h >> 8, h & 255, tt >> 8, tt & 255, 0]; }
+    else { const hi = Math.floor(RH), ti = Math.floor(T); temp = [hi, Math.round((RH - hi) * 10) % 10, ti, Math.round((T - ti) * 10) % 10, 0]; }
+  } else if (sens === 1) {
+    const R = 10000 * Math.exp(3950 * (1 / (T + 273.15) - 1 / 298.15));
+    temp = [((1023 * 10000) / (10000 + R)).toFixed(2), 0, 0, 0, 0];
+  } else temp = [0, 0, 0, 0, 0];
+  return [...pos, utc, date, sens, ...temp];
 }
 
 function simAdcTemp(t) {

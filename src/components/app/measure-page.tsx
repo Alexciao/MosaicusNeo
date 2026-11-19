@@ -12,6 +12,7 @@ import { LabPicker } from "./lab-picker";
 import { Coach } from "./coach";
 import { RunCard } from "./run-card";
 import { ChartCard } from "./chart-card";
+import { MapCard } from "./map-card";
 import { SidePanel } from "./side-panel";
 import { ConnectionControls, deviceSupport } from "./connection-controls";
 import { toneBg } from "./tone";
@@ -29,12 +30,15 @@ function SupportBanner() {
   }
   if (deviceSupport() || exp.optionalLink) return null;
   const phone = exp.source === "phone";
+  const ios = typeof navigator !== "undefined" && /iPhone|iPad|iPod/i.test(navigator.userAgent);
   return (
     <Alert><TriangleExclamationPoint /><AlertTitle>{phone ? "Sensori non raggiungibili da questo browser" : "Questo browser non parla con Arduino"}</AlertTitle>
       <AlertDescription>
         {phone
           ? "Apri Mosaicus sul telefono con Chrome (Android) o Safari (iPhone). Il simulatore funziona comunque."
-          : "Serve Chrome o Edge su computer (Web Serial API). Su questo dispositivo puoi usare i lab con i sensori del telefono, gli strumenti audio e il simulatore."}
+          : ios
+            ? "Su iPhone e iPad il browser non può collegarsi ad Arduino, né via cavo né via Bluetooth (HC-06). Usa un telefono Android con Chrome, oppure un computer con Chrome o Edge. Il simulatore funziona comunque."
+            : "Serve Chrome o Edge su computer, oppure Chrome su Android con un modulo Bluetooth HC-06 (Web Serial API). Su questo dispositivo puoi usare i lab con i sensori del telefono, gli strumenti audio e il simulatore."}
       </AlertDescription>
     </Alert>
   );
@@ -80,6 +84,7 @@ export function MeasurePage() {
               <>
                 <Coach />
                 <RunCard />
+                {exp.map && <MapCard />}
                 <ChartCard />
               </>
             )}

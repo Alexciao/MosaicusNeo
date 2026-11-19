@@ -6,9 +6,10 @@
 
 import type { LucideIcon } from 'lucide-react';
 import {
-  AudioLines, AudioWaveform, Droplets, MoveRight, Piano, Rotate3d, Smartphone, Thermometer,
+  AudioLines, AudioWaveform, Droplets, MapPinned, MoveRight, Piano, Rotate3d, Smartphone, Thermometer,
   WavesHorizontal, Zap,
 } from 'lucide-react';
+import { nmeaToDeg, haversine, nmeaTime } from './geo';
 import { localPolyDerivs } from './analysis.js';
 import { P } from './fits.js';
 
@@ -33,7 +34,7 @@ export interface Param {
 export interface View { id: string; label: string; key: string; yLabel: string; sym: string; line?: boolean; raw?: boolean }
 export interface Readout { key: string; label: string; unit: string; digits: number }
 export interface Column { key: string; head: string }
-export type Schematic = 'hcsr04' | 'ntc' | 'mic' | 'coil' | 'dht';
+export type Schematic = 'hcsr04' | 'ntc' | 'mic' | 'coil' | 'dht' | 'gpsbt';
 export interface WiringBlock { title: string; text?: string; schematic?: Schematic; warn?: boolean; tip?: boolean }
 export type Tone = 'lime' | 'sky' | 'rose' | 'saffron';
 
@@ -67,6 +68,10 @@ export interface Experiment {
   readouts: Readout[];
   columns: Column[];
   xLabel?: string;
+  /** il lab registra posizioni: mostra la mappa, offre GPX/GeoJSON */
+  map?: boolean;
+  /** grandezze con cui si può colorare la mappa */
+  mapKeys?: string[];
 }
 
 // ---------------------------------------------------------------------------
@@ -168,6 +173,25 @@ const Q: Record<string, Quantity> = {
       mean: [{ label: 'vapore acqueo per metro cubo', unit: 'g/m³', calc: (f) => P(f, 'mean') }],
       expC: decayFrom('umidità assoluta di equilibrio', 'g/m³'),
     } },
+  // GPS
+  lat: { sym: 'φ', name: 'latitudine', unit: '°', models: [] },
+  lon: { sym: 'λ', name: 'longitudine', unit: '°', models: [] },
+  alt: { sym: 'h', name: 'altitudine', unit: 'm', models: ['lin', 'mean'], slope: 'velocità di salita',
+    physics: {
+      lin: [{ label: 'velocità di salita dh/dt', unit: 'm/s', calc: (f) => P(f, 'm') }],
+      mean: [{ label: 'altitudine media', unit: 'm', calc: (f) => P(f, 'mean') }],
+    } },
+  s: { sym: 's', name: 'distanza percorsa', unit: 'm', models: ['lin', 'poly2'], slope: 'velocità media',
+    physics: {
+      lin: [{ label: 'velocità media v = m', unit: 'm/s', calc: (f) => P(f, 'm') }],
+      poly2: [{ label: 'accelerazione a = 2·c₂', unit: 'm/s²', calc: (f) => { const [c, sg] = P(f, 'c2'); return [2 * c, 2 * sg]; } }],
+    } },
+  speed: { sym: 'v', name: 'velocità (GPS)', unit: 'km/h', models: ['mean', 'lin'],
+    physics: { mean: [{ label: 'velocità media', unit: 'km/h', calc: (f) => P(f, 'mean') }] } },
+  sats: { sym: 'sat', name: 'satelliti in uso', unit: '', models: [], raw: true },
+  hdop: { sym: 'HDOP', name: 'diluizione della precisione', unit: '', models: [], raw: true },
+  fix: { sym: 'fix', name: 'qualità del fix', unit: '', models: [], raw: true },
+  utc: { sym: 'UTC', name: 'ora del satellite (hhmmss)', unit: '', models: [], raw: true },
   ...Object.fromEntries(['b0', 'b1', 'b2', 'b3'].map((k) => [k, { sym: k, name: `byte ${k[1]} del sensore`, unit: '', models: [], raw: true } as Quantity])),
 };
 export const QUANTITIES: Record<string, Quantity> = { t: Q_T, ...Q };
@@ -251,6 +275,15 @@ export function decodeDht(b: number[], type: string) {
   return { RH, T };
 }
 
+/** Temperatura dal termistore NTC (partitore con resistenza fissa), stessa formula del lab Raffreddamento. */
+function ntcTemp(adc: number, p: Params) {
+  if (!(adc > 0.5 && adc < 1022.5)) return { R: NaN, T: NaN };
+  const rs = num(p.rSeries);
+  const R = p.orientation === 'ntcgnd' ? rs * adc / (1023 - adc) : rs * (1023 - adc) / adc;
+  const Tk = 1 / (1 / (num(p.t0) + 273.15) + Math.log(R / num(p.r0)) / num(p.beta));
+  return { R, T: Tk - 273.15 };
+}
+
 const humidity: Experiment = {
   id: 'humidity', topic: 'Termologia', title: 'Umidità e temperatura', subtitle: 'Punto di rugiada · DHT11',
   icon: Droplets, tone: 'sky', lineType: 'H', sim: 'dht', simNote: 'tempo ×5',
@@ -297,6 +330,95 @@ const humidity: Experiment = {
   columns: [
     { key: 't', head: 't (s)' }, { key: 'b0', head: 'byte 0' }, { key: 'b1', head: 'byte 1' }, { key: 'b2', head: 'byte 2' }, { key: 'b3', head: 'byte 3' },
     { key: 'ok', head: 'valido' }, { key: 'RH', head: 'UR (%)' }, { key: 'T', head: 'T (°C)' }, { key: 'Td', head: 'Td (°C)' }, { key: 'AH', head: 'umidità assoluta (g/m3)' },
+  ],
+  xLabel: 't (s)',
+};
+
+// ---------------------------------------------------------------------------
+// Sul campo · mappa della temperatura con GPS (VMA430 / WPI430) e Bluetooth (HC-06)
+// ---------------------------------------------------------------------------
+const TSENS: Record<string, number> = { dht11: 11, dht22: 22, ntc: 1, none: 0 };
+
+const gpsMap: Experiment = {
+  id: 'gpsmap', topic: 'Sul campo', title: 'Mappa della temperatura', subtitle: 'GPS + DHT11 · telefono via Bluetooth',
+  icon: MapPinned, tone: 'lime', lineType: 'G', sim: 'gps', simNote: 'passeggiata, tempo ×5', map: true,
+  mapKeys: ['T', 'RH', 'Td', 'alt', 'speed'],
+  command: (p) => `START,GPS,${Math.round(num(p.interval))},${TSENS[String(p.sensor)] ?? 11}`,
+  params: [
+    { key: 'interval', label: 'Intervallo tra due punti', unit: 'ms', value: 2000, min: 1000, step: 500 },
+    { key: 'sensor', label: 'Sensore di temperatura', type: 'select', value: 'dht11',
+      options: [['dht11', 'DHT11 su D2 (temperatura e umidità)'], ['dht22', 'DHT22 / AM2302 su D2'], ['ntc', 'Termistore NTC su A0'], ['none', 'Nessuno: solo il percorso']] },
+    { key: 'minSats', label: 'Satelliti minimi per accettare una posizione', value: 4, min: 3, step: 1, advanced: true },
+    { key: 'maxHdop', label: 'HDOP massimo accettato (più basso = più preciso)', value: 5, min: 1, step: 0.5, advanced: true },
+    { key: 'offsetT', label: 'Correzione di taratura della temperatura', unit: '°C', value: 0, step: 0.1, advanced: true },
+    { key: 'offsetRH', label: 'Correzione di taratura dell\'umidità', unit: '%', value: 0, step: 0.5, advanced: true },
+    { key: 'orientation', label: 'NTC: posizione nel partitore', type: 'select', value: 'ntc5v', advanced: true,
+      options: [['ntc5v', 'NTC tra 5 V e A0'], ['ntcgnd', 'NTC tra A0 e GND']] },
+    { key: 'rSeries', label: 'NTC: resistenza fissa del partitore', unit: 'Ω', value: 10000, step: 100, advanced: true },
+    { key: 'r0', label: 'NTC: R₀ a T₀', unit: 'Ω', value: 10000, step: 100, advanced: true },
+    { key: 't0', label: 'NTC: T₀ di riferimento', unit: '°C', value: 25, step: 0.1, advanced: true },
+    { key: 'beta', label: 'NTC: coefficiente B', unit: 'K', value: 3950, step: 10, advanced: true },
+  ],
+  wiring: [
+    { title: 'GPS, Bluetooth e DHT11', schematic: 'gpsbt', text: 'GPS: TX → D4. HC-06: TXD → D0, RXD ← D1 con il partitore 1 kΩ / 2 kΩ (vuole 3,3 V). DHT11: DATA → D2. Alimenta Arduino con un power bank.' },
+    { title: 'Prima volta: l\'HC-06', tip: true, text: 'Collega Arduino al computer con il cavo, «Collega Arduino» e poi «Configura HC-06» qui sotto (il LED dell\'HC-06 deve lampeggiare). Poi associa «Mosaicus» nelle impostazioni Bluetooth del telefono Android (PIN 1234). Mentre carichi il firmware, stacca il filo TXD dell\'HC-06.' },
+    { title: 'Sul campo', text: 'Apri Mosaicus con Chrome su Android, «Collega Arduino» e scegli Mosaicus dall\'elenco Bluetooth. Lo schermo resta acceso durante la misura e i dati si salvano nel Quaderno ogni 30 s. iPhone non può collegarsi all\'HC-06 (niente Bluetooth seriale in Safari).' },
+    { title: 'Il primo fix', tip: true, text: 'All\'aperto, con il cielo libero, il GPS impiega da 30 s a qualche minuto per trovare i satelliti: il LED del modulo lampeggia quando ha la posizione. I punti senza fix restano nella tabella ma non vanno sulla mappa.' },
+  ],
+  /** fields = [t_ms, fix, lat, lon, alt, sats, hdop, vel_nodi, utc, data, sensore, a, b, c, d, err] */
+  parse(f, p) {
+    if (!Number.isFinite(f[0])) return null;
+    const fix = f[1] || 0, sats = f[5], hdop = f[6];
+    const good = fix > 0 && Number.isFinite(f[2]) && Number.isFinite(f[3]) && !(sats < num(p.minSats)) && !(hdop > num(p.maxHdop));
+    const sens = f[10];
+    let T = NaN, RH = NaN, ok = true;
+    if (sens === 11 || sens === 22) {
+      const bytes = [f[11], f[12], f[13], f[14]];
+      ok = f[15] === 0 && bytes.every(Number.isFinite);
+      if (ok) {
+        const d = decodeDht(bytes, sens === 22 ? 'dht22' : 'dht11');
+        if (d.RH >= 0 && d.RH <= 100 && d.T > -45 && d.T < 85) { T = d.T + num(p.offsetT); RH = Math.min(100, Math.max(0, d.RH + num(p.offsetRH))); } else ok = false;
+      }
+    } else if (sens === 1) {
+      T = ntcTemp(f[11], p).T + num(p.offsetT);
+    }
+    return {
+      t: f[0] / 1000, fix, sats, hdop, utc: f[8], time: nmeaTime(f[8], f[9]),
+      lat: good ? nmeaToDeg(f[2]) : NaN, lon: good ? nmeaToDeg(f[3]) : NaN, alt: good ? f[4] : NaN,
+      speed: good && Number.isFinite(f[7]) ? f[7] * 1.852 : NaN,
+      T, RH, ok: ok && good,
+    };
+  },
+  derive(rows) {
+    // distanza percorsa lungo la traccia; i salti dovuti al rumore del GPS sotto 1,5 m non si sommano
+    let s = 0, last: Row | null = null;
+    return rows.map((r) => {
+      const has = Number.isFinite(r.lat as number) && Number.isFinite(r.lon as number);
+      if (has) {
+        if (last) { const d = haversine(last.lat as number, last.lon as number, r.lat as number, r.lon as number); if (d > 1.5) { s += d; last = r; } } else last = r;
+      }
+      return { ...r, s: has ? s : NaN, Td: dewPoint(r.T as number, r.RH as number) };
+    });
+  },
+  views: [
+    { id: 'T', label: 'T(t)', key: 'T', yLabel: 'T (°C)', sym: 'T', line: true },
+    { id: 'RH', label: 'UR(t)', key: 'RH', yLabel: 'UR (%)', sym: 'UR', line: true },
+    { id: 'alt', label: 'h(t)', key: 'alt', yLabel: 'altitudine (m)', sym: 'h', line: true },
+    { id: 'speed', label: 'v(t)', key: 'speed', yLabel: 'v (km/h)', sym: 'v', line: true },
+    { id: 's', label: 's(t)', key: 's', yLabel: 'distanza (m)', sym: 's', line: true },
+    { id: 'sats', label: 'Satelliti', key: 'sats', yLabel: 'satelliti', sym: 'sat', raw: true },
+  ],
+  defaultVisible: ['T', 'alt'],
+  readouts: [
+    { key: 'T', label: 'Temperatura', unit: '°C', digits: 1 },
+    { key: 'RH', label: 'Umidità', unit: '%', digits: 0 },
+    { key: 'sats', label: 'Satelliti', unit: '', digits: 0 },
+    { key: 's', label: 'Percorsi', unit: 'm', digits: 0 },
+  ],
+  columns: [
+    { key: 't', head: 't (s)' }, { key: 'utc', head: 'UTC (hhmmss)' }, { key: 'fix', head: 'fix' }, { key: 'sats', head: 'satelliti' }, { key: 'hdop', head: 'HDOP' },
+    { key: 'ok', head: 'valido' }, { key: 'lat', head: 'latitudine (°)' }, { key: 'lon', head: 'longitudine (°)' }, { key: 'alt', head: 'altitudine (m)' },
+    { key: 'speed', head: 'v (km/h)' }, { key: 's', head: 'distanza (m)' }, { key: 'T', head: 'T (°C)' }, { key: 'RH', head: 'UR (%)' }, { key: 'Td', head: 'Td (°C)' },
   ],
   xLabel: 't (s)',
 };
@@ -480,7 +602,7 @@ const scopeArduino = instrument({
   ],
 });
 
-export const EXPERIMENTS: Experiment[] = [motion, harmonic, cooling, humidity, scopeAudio, synthesizer, phoneSound, scopeArduino, phoneAcc, phoneGyro];
-export const TOPICS = ['Cinematica', 'Termologia', 'Onde e suono', 'Elettromagnetismo', 'Smartphone'];
+export const EXPERIMENTS: Experiment[] = [motion, harmonic, cooling, humidity, gpsMap, scopeAudio, synthesizer, phoneSound, scopeArduino, phoneAcc, phoneGyro];
+export const TOPICS = ['Cinematica', 'Termologia', 'Sul campo', 'Onde e suono', 'Elettromagnetismo', 'Smartphone'];
 export const byId = (id: string | null | undefined) => EXPERIMENTS.find((e) => e.id === id);
 export const defaultParams = (exp: Experiment): Params => Object.fromEntries(exp.params.map((p) => [p.key, p.value]));

@@ -17,6 +17,7 @@ import { toCSV, toXLSX, download } from "@/lib/mosaicus/export.js";
 import { APP_VERSION, FIRMWARE_VERSION, cmpVersion } from "@/lib/version";
 import { prefs, fmtVal, stamp } from "@/lib/prefs";
 import { useWorkbench, type NewBox } from "@/lib/workbench-store";
+import { toGPX, toGeoJSON, type TrackPoint } from "@/lib/mosaicus/geo";
 
 // ---------------------------------------------------------------------------
 // Tipi
@@ -259,6 +260,7 @@ export async function connect(kind: "device" | "sim") {
     const wasRunning = get().running;
     link = null;
     set({ linkKind: null, ready: false, running: false });
+    stopKeepAlive();
     setStatus("Nessun dispositivo", "off");
     instrument?.linkChanged?.();
     if (wasRunning) { toast.warning("Dispositivo scollegato durante la misura: salvo i dati raccolti."); void autosave(); }
@@ -309,9 +311,14 @@ function handleLine(line: string) {
     setStatus(kind === "simulatore" ? simStatus() : kind === "telefono" ? "Sensori del telefono pronti" : `Arduino pronto · firmware ${fw}`, "on");
     return;
   }
+  if (line === "#BT,SETUP") { toast.info("Configuro l'HC-06: nome «Mosaicus», 115200 baud…"); return; }
+  if (line === "#ACK,BT,SETUP") {
+    toast.success("HC-06 configurato. Ora associa «Mosaicus» nelle impostazioni Bluetooth del telefono (PIN 1234). Se non compare, il LED dell'HC-06 lampeggiava? Riprova con il telefono lontano.", { duration: 12000 });
+    return;
+  }
   if (line.startsWith("#ERR")) {
     const what = line.slice(5);
-    const old = /SCOPE|DHT/.test(what);
+    const old = /SCOPE|DHT|GPS|BT/.test(what);
     toast.error(kind === "telefono" ? `Telefono: ${what}`
       : old ? `Il firmware su Arduino è vecchio per questo lab: carica mosaicus_firmware.ino v${FIRMWARE_VERSION} con l'IDE di Arduino.`
         : `Arduino non ha capito il comando: ${what}`, { duration: 8000 });
@@ -343,15 +350,55 @@ export async function start() {
   recompute();
   if (link.kind === "simulatore") link.scenario = exp.sim;
   if (exp.command) await link.write(exp.command(st.params));
+  startKeepAlive();
 }
 
 export async function stop() {
   if (!get().running) return;
   set({ running: false });
-  try { await link?.write("STOP"); } catch { /* scollegato */ }
+  stopKeepAlive();
+  try {
+    await link?.write("STOP");
+    // con il GPS acceso la SoftwareSerial può far perdere qualche carattere del comando: lo ripeto
+    if (currentExp().lineType === "G") { await new Promise((r) => setTimeout(r, 250)); await link?.write("STOP"); }
+  } catch { /* scollegato */ }
   recompute();
   await autosave();
   showDragHint();
+}
+
+// ---------------------------------------------------------------------------
+// Misure lunghe (sul campo): schermo sempre acceso e salvataggio ogni 30 s
+// ---------------------------------------------------------------------------
+let wakeLock: { release: () => Promise<void> } | null = null;
+let autosaveTimer: ReturnType<typeof setInterval> | null = null;
+
+async function requestWakeLock() {
+  try {
+    const wl = (navigator as Navigator & { wakeLock?: { request: (t: "screen") => Promise<{ release: () => Promise<void> }> } }).wakeLock;
+    if (wl && document.visibilityState === "visible") wakeLock = await wl.request("screen");
+  } catch { /* non supportato o negato: pazienza */ }
+}
+function onVisibility() { if (document.visibilityState === "visible" && get().running && !wakeLock) void requestWakeLock(); }
+
+function startKeepAlive() {
+  void requestWakeLock();
+  document.addEventListener("visibilitychange", onVisibility);
+  if (autosaveTimer) clearInterval(autosaveTimer);
+  autosaveTimer = setInterval(() => { if (get().running) void autosave(true); }, 30000);
+}
+function stopKeepAlive() {
+  document.removeEventListener("visibilitychange", onVisibility);
+  void wakeLock?.release().catch(() => {});
+  wakeLock = null;
+  if (autosaveTimer) { clearInterval(autosaveTimer); autosaveTimer = null; }
+}
+
+/** Configura l'HC-06 (nome e 115200 baud): solo con Arduino collegato via cavo USB. */
+export async function bluetoothSetup() {
+  if (!link || !get().ready) { toast("Prima collega Arduino con il cavo USB."); return; }
+  if (get().running) { toast("Ferma la misura prima di configurare l'HC-06."); return; }
+  await link.write("BT,SETUP");
 }
 
 function showDragHint() {
@@ -428,7 +475,15 @@ export async function sendSelection() {
 // ---------------------------------------------------------------------------
 // Export
 // ---------------------------------------------------------------------------
-export type ExportKind = "xlsx" | "csv-it" | "csv" | "png";
+export type ExportKind = "xlsx" | "csv-it" | "csv" | "png" | "gpx" | "geojson";
+
+/** Punti con una posizione valida, con le grandezze da portare nei file geografici. */
+export function trackPoints(rows: Row[]): TrackPoint[] {
+  return rows.filter((r) => Number.isFinite(r.lat as number) && Number.isFinite(r.lon as number)).map((r) => ({
+    lat: r.lat as number, lon: r.lon as number, ele: r.alt as number, time: r.time as number, t: r.t,
+    values: Object.fromEntries(["T", "RH", "Td", "speed", "s", "sats", "hdop"].filter((k) => k in r).map((k) => [k, r[k] as number])),
+  }));
+}
 export async function exportData(kind: ExportKind) {
   const st = get();
   if (!st.rows.length) { toast("Non ci sono dati da esportare."); return; }
@@ -441,6 +496,14 @@ export async function exportData(kind: ExportKind) {
   if (kind === "csv-it") return download(toCSV(headers, rows, { it: true }), `${base}_excel.csv`);
   if (kind === "csv") return download(toCSV(headers, rows, { it: false }), `${base}.csv`);
   if (kind === "png") return download(await stackPNG(), `${base}_grafici.png`);
+  if (kind === "gpx" || kind === "geojson") {
+    const pts = trackPoints(selectedRows());
+    if (!pts.length) { toast("Nessun punto con la posizione GPS da esportare."); return; }
+    const name = st.sessionName || exp.title;
+    return kind === "gpx"
+      ? download(toGPX(name, pts), `${base}.gpx`, "application/gpx+xml")
+      : download(toGeoJSON(name, pts), `${base}.geojson`, "application/geo+json");
+  }
   const source = st.session?.source;
   const info = [
     ["Mosaicus", `v${APP_VERSION}`],

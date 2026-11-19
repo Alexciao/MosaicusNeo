@@ -2,11 +2,11 @@
 // Percorso guidato: una striscia sopra il grafico dice qual è il prossimo gesto.
 // 1 scegli il lab · 2 sorgente · 3 Avvia · 4 Ferma · 5 scegli un tratto · 6 invia e vai a Elaborazione.
 
-import { ArrowRight, Cpu, Send, Smartphone, Usb } from "lucide-react";
+import { ArrowRight, Bluetooth, Cpu, Send, Smartphone, Usb } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useLab, guideStep, connect, sendSelection, goElab, currentExp } from "@/lib/lab-store";
 import { cn } from "@/lib/utils";
-import { deviceSupport } from "./connection-controls";
+import { deviceSupport, isAndroid, connectLabel } from "./connection-controls";
 
 const STEPS = 6;
 const GUIDE = {
@@ -39,7 +39,7 @@ export function Coach() {
         {step === "link" && (
           <>
             <Button size="sm" disabled={!deviceSupport()} onClick={() => void connect("device")}>
-              {phone ? <Smartphone /> : <Usb />} {phone ? "Attiva sensori del telefono" : "Collega Arduino"}
+              {phone ? <Smartphone /> : isAndroid() ? <Bluetooth /> : <Usb />} {phone ? "Attiva sensori del telefono" : connectLabel(false)}
             </Button>
             <Button size="sm" variant="outline" onClick={() => void connect("sim")}><Cpu /> Simulatore</Button>
           </>

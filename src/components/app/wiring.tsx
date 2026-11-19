@@ -107,7 +107,45 @@ function Dht() {
   );
 }
 
-const SCHEMATICS: Record<Schematic, () => React.ReactElement> = { hcsr04: Hcsr04, ntc: Ntc, mic: Mic, coil: Coil, dht: Dht };
+function GpsBt() {
+  return (
+    <svg viewBox="0 0 300 236" role="img" aria-label="GPS: TX al pin D4. HC-06: TXD al pin D0, RXD dal pin D1 attraverso un partitore da 1 e 2 kilo-ohm. DHT11: DATA al pin 2. Tutti i moduli: VCC a 5V, GND a GND.">
+      <Board x={4} y={6} w={84} h={224} label="Arduino" />
+      <Pin x={80} y={44} end>D4</Pin>
+      <Pin x={80} y={104} end>D0 RX</Pin>
+      <Pin x={80} y={134} end>D1 TX</Pin>
+      <Pin x={80} y={190} end>D2</Pin>
+      <Pin x={80} y={220} end muted>5V · GND</Pin>
+      {/* GPS */}
+      <Board x={196} y={6} w={100} h={58} label="GPS VMA430" fill="var(--tone-lime)" />
+      <Pin x={204} y={44}>TX</Pin><Pin x={232} y={44} muted>RX: libero</Pin>
+      <Pin x={204} y={58} muted>VCC 5V · GND</Pin>
+      <Wire d="M88 40H196" color={WSIG} />
+      {/* HC-06 */}
+      <Board x={196} y={76} w={100} h={84} label="HC-06" fill="var(--tone-sky)" />
+      <Pin x={204} y={104}>TXD</Pin><Pin x={204} y={134}>RXD (3,3 V)</Pin>
+      <Pin x={204} y={154} muted>VCC 5V · GND</Pin>
+      <Wire d="M88 100H196" color="#7c3aed" />
+      <Wire d="M88 130H120" color="#7c3aed" dash />
+      <rect x={120} y={123} width={24} height={14} rx={2} fill="var(--muted)" stroke="currentColor" strokeOpacity={0.5} />
+      <text x={132} y={133} textAnchor="middle" fontSize={8}>1k</text>
+      <Wire d="M144 130H196" color="#7c3aed" dash />
+      <circle cx={168} cy={130} r={3} fill="#7c3aed" />
+      <Wire d="M168 130V142" color="#7c3aed" dash />
+      <rect x={156} y={142} width={24} height={14} rx={2} fill="var(--muted)" stroke="currentColor" strokeOpacity={0.5} />
+      <text x={168} y={152} textAnchor="middle" fontSize={8}>2k</text>
+      <Wire d="M168 156V166" color={WGND} />
+      <text x={168} y={176} textAnchor="middle" fontSize={8} opacity={0.6}>GND</text>
+      {/* DHT11 */}
+      <Board x={196} y={172} w={100} h={58} label="DHT11" fill="var(--tone-rose)" />
+      <Pin x={204} y={208}>DATA</Pin>
+      <Pin x={204} y={222} muted>VCC 5V · GND</Pin>
+      <Wire d="M88 186H140V204H196" color={W5V} />
+    </svg>
+  );
+}
+
+const SCHEMATICS: Record<Schematic, () => React.ReactElement> = { hcsr04: Hcsr04, ntc: Ntc, mic: Mic, coil: Coil, dht: Dht, gpsbt: GpsBt };
 
 export function WiringBlocks({ blocks }: { blocks: WiringBlock[] }) {
   return (

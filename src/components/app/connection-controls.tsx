@@ -1,6 +1,6 @@
 "use client";
 
-import { Cpu, Smartphone, Unplug, Usb } from "lucide-react";
+import { Bluetooth, Cpu, Smartphone, Unplug, Usb } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useLab, connect, disconnect, currentExp, type StatusTone } from "@/lib/lab-store";
 import { serialSupported } from "@/lib/mosaicus/serial.js";
@@ -23,6 +23,10 @@ export function StatusPill({ className }: { className?: string }) {
     </span>
   );
 }
+
+/** Android: la Web Serial di Chrome vede solo le porte seriali Bluetooth (HC-06 associato). */
+export const isAndroid = () => typeof navigator !== "undefined" && /Android/i.test(navigator.userAgent);
+export const connectLabel = (phone: boolean) => (phone ? "Attiva sensori" : isAndroid() ? "Collega via Bluetooth" : "Collega Arduino");
 
 /** Il dispositivo di questo lab si può usare in questo browser? */
 export function deviceSupport() {
@@ -49,7 +53,7 @@ export function ConnectionControls({ className }: { className?: string }) {
       ) : (
         <>
           <Button size="sm" disabled={!supported} onClick={() => void connect("device")}>
-            {phone ? <Smartphone /> : <Usb />} {phone ? "Attiva sensori" : "Collega Arduino"}
+            {phone ? <Smartphone /> : isAndroid() ? <Bluetooth /> : <Usb />} {connectLabel(phone)}
           </Button>
           <Button variant="outline" size="sm" onClick={() => void connect("sim")}>
             <Cpu /> Simulatore

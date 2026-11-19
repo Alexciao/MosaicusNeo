@@ -18,6 +18,14 @@
     - Sensore DHT11 (o DHT22): DATA -> D2, VCC -> 5V, GND -> GND
       (il modulo a 3 pin ha già la resistenza di pull-up; il sensore "nudo" a 4 pin
       vuole 10 kΩ tra DATA e 5V)
+    - GPS VMA430 / WPI430 (u-blox NEO-7M, 9600 baud): TX del GPS -> D4, RX del GPS -> D3
+      (facoltativo), VCC -> 5V, GND -> GND. Antenna con la faccia di ceramica verso il cielo.
+    - Bluetooth HC-06: TXD -> D0 (RX), RXD -> D1 (TX) attraverso un partitore 1 kΩ / 2 kΩ
+      (l'HC-06 vuole 3,3 V sul suo RXD), VCC -> 5V, GND -> GND.
+      L'HC-06 sta in parallelo al cavo USB: stesso protocollo, via cavo o via Bluetooth.
+      Mentre carichi lo sketch dall'IDE, scollega il filo TXD dell'HC-06 da D0.
+      Una volta sola, collegato via USB: comando BT,SETUP (l'app ha un pulsante) per portare
+      l'HC-06 a 115200 baud e chiamarlo «Mosaicus».
 
   Protocollo (115200 baud, righe terminate da '\n'):
     App -> Arduino                Arduino -> App
@@ -40,6 +48,18 @@
                 la conversione in % e °C la fa l'app, che conosce il tipo di sensore
         err     0 = lettura valida, 1 = il sensore non risponde, 2 = checksum sbagliato
         intervallo ≥ 1000 ms (DHT11) o ≥ 2000 ms (DHT22): il sensore non è più veloce
+    START,GPS,<intervallo_ms>,<sensore>
+                                  #ACK,START,GPS,<intervallo_ms>
+                                  G,<t_ms>,<fix>,<lat>,<lon>,<alt_m>,<sat>,<hdop>,<vel_nodi>,<utc>,<data>,<sensore>,<a>,<b>,<c>,<d>,<err>
+        sensore 0 = nessuno, 1 = termistore NTC su A0, 11 = DHT11, 22 = DHT22 (su D2)
+        lat, lon  come nelle frasi NMEA (gradi e primi: ggmm.mmmm, gggmm.mmmm), negativi a sud
+                  e a ovest; la conversione in gradi decimali la fa l'app
+        fix       qualità della frase GGA: 0 = nessuna posizione, 1 = GPS, 2 = DGPS
+        utc, data hhmmss.ss e ggmmaa dal satellite; "nan" se il dato manca ancora
+        a..d, err NTC: a = ADC medio; DHT: i 4 byte del sensore e l'errore (come in H)
+    BT,SETUP                      #BT,SETUP … #ACK,BT,SETUP
+        configura l'HC-06 (da fare collegati via USB, con l'HC-06 non associato: LED che
+        lampeggia): nome «Mosaicus», velocità 115200 baud
     STOP                          #ACK,STOP
     (comando sconosciuto)         #ERR,<testo>
 
@@ -47,17 +67,21 @@
   Licenza: MIT — vedi LICENSE.
 */
 
-const char *FW_VERSION = "0.3";
+#include <SoftwareSerial.h>
+
+const char *FW_VERSION = "0.4";
 
 const uint8_t PIN_THERM = A0;
 const uint8_t PIN_TRIG  = 12;
 const uint8_t PIN_ECHO  = 11;
 const uint8_t PIN_DHT   = 2;
+const uint8_t PIN_GPS_RX = 4;   // Arduino riceve: va al TX del GPS
+const uint8_t PIN_GPS_TX = 3;   // Arduino trasmette: va all'RX del GPS (facoltativo)
 
 const uint8_t  ADC_SAMPLES    = 16;      // sovracampionamento per ridurre il rumore
 const unsigned long ECHO_TIMEOUT_US = 30000UL;  // ~5 m andata e ritorno
 
-enum Mode { IDLE, TEMP, SONAR, SCOPE, DHT };
+enum Mode { IDLE, TEMP, SONAR, SCOPE, DHT, GPS };
 Mode mode = IDLE;
 
 unsigned long intervalMs = 1000;
@@ -78,6 +102,16 @@ bool scopeAuto = true;
 // DHT11 / DHT22
 uint8_t dhtType = 11;
 uint8_t dhtData[5];
+
+// GPS: le ultime frasi NMEA ricevute, conservate come testo (niente calcoli in virgola mobile)
+SoftwareSerial gpsSerial(PIN_GPS_RX, PIN_GPS_TX);
+uint8_t gpsTempSensor = 11;        // 0 nessuno, 1 NTC, 11 DHT11, 22 DHT22
+char nmea[84];
+uint8_t nmeaLen = 0;
+unsigned long nmeaLastByte = 0;
+char gLat[13] = "", gLon[14] = "", gAlt[9] = "", gSats[4] = "", gHdop[6] = "";
+char gSpd[9] = "", gUtc[11] = "", gDate[7] = "";
+char gFix = '0';
 
 char cmdBuf[48];
 uint8_t cmdLen = 0;
@@ -182,6 +216,175 @@ void startDht(char *args) {
   Serial.println(intervalMs);
 }
 
+// ---------- GPS (NMEA) ----------
+// Il GPS invia ogni secondo un gruppo di frasi di testo NMEA. Servono:
+//   $GPRMC/$GNRMC: ora, stato, latitudine, longitudine, velocità (nodi), data
+//   $GPGGA/$GNGGA: ora, posizione, qualità del fix, satelliti, HDOP, altitudine
+// Arduino controlla il checksum e conserva i campi così come sono; l'app li converte.
+
+void copyField(char *dst, uint8_t size, const char *src) {
+  uint8_t i = 0;
+  while (src[i] && i < size - 1) { dst[i] = src[i]; i++; }
+  dst[i] = '\0';
+}
+
+// Coordinata con segno: '-' davanti se l'emisfero è S o W.
+void copyCoord(char *dst, uint8_t size, const char *val, const char *hemi) {
+  if (!*val) { dst[0] = '\0'; return; }
+  uint8_t o = 0;
+  if (*hemi == 'S' || *hemi == 'W') dst[o++] = '-';
+  copyField(dst + o, size - o, val);
+}
+
+uint8_t hexVal(char c) {
+  if (c >= '0' && c <= '9') return c - '0';
+  if (c >= 'A' && c <= 'F') return c - 'A' + 10;
+  if (c >= 'a' && c <= 'f') return c - 'a' + 10;
+  return 0;
+}
+
+void parseNmea(char *line) {
+  if (line[0] != '$') return;
+  char *star = strchr(line, '*');
+  if (!star || !star[1] || !star[2]) return;
+  uint8_t sum = 0;
+  for (char *p = line + 1; p < star; p++) sum ^= (uint8_t)*p;
+  if (sum != (uint8_t)((hexVal(star[1]) << 4) | hexVal(star[2]))) return;   // frase rovinata
+  *star = '\0';
+  // separa i campi (anche quelli vuoti, che strtok salterebbe)
+  char *f[16];
+  uint8_t n = 0;
+  f[n++] = line;
+  for (char *p = line; *p && n < 16; p++) if (*p == ',') { *p = '\0'; f[n++] = p + 1; }
+  if (strlen(f[0]) < 6) return;
+  const char *type = f[0] + 3;
+  if (strcmp(type, "RMC") == 0 && n >= 10) {
+    copyField(gUtc, sizeof(gUtc), f[1]);
+    copyField(gDate, sizeof(gDate), f[9]);
+    if (f[2][0] == 'A') {
+      copyCoord(gLat, sizeof(gLat), f[3], f[4]);
+      copyCoord(gLon, sizeof(gLon), f[5], f[6]);
+      copyField(gSpd, sizeof(gSpd), f[7]);
+    } else {
+      gFix = '0';
+    }
+  } else if (strcmp(type, "GGA") == 0 && n >= 10) {
+    copyField(gUtc, sizeof(gUtc), f[1]);
+    gFix = f[6][0] ? f[6][0] : '0';
+    copyField(gSats, sizeof(gSats), f[7]);
+    copyField(gHdop, sizeof(gHdop), f[8]);
+    if (gFix != '0') {
+      copyCoord(gLat, sizeof(gLat), f[2], f[3]);
+      copyCoord(gLon, sizeof(gLon), f[4], f[5]);
+      copyField(gAlt, sizeof(gAlt), f[9]);
+    }
+  }
+}
+
+void pollGps() {
+  while (gpsSerial.available() > 0) {
+    char c = (char)gpsSerial.read();
+    nmeaLastByte = millis();
+    if (c == '$') nmeaLen = 0;
+    if (c == '\n' || c == '\r') {
+      if (nmeaLen > 6) { nmea[nmeaLen] = '\0'; parseNmea(nmea); }
+      nmeaLen = 0;
+    } else if (nmeaLen < sizeof(nmea) - 1) {
+      nmea[nmeaLen++] = c;
+    }
+  }
+}
+
+void printField(const char *s) {
+  Serial.print(',');
+  if (*s) Serial.print(s); else Serial.print(F("nan"));
+}
+
+void startGps(char *args) {
+  // args: "<intervallo_ms>,<sensore>"
+  long interval = atol(args);
+  char *p = strchr(args, ',');
+  long sens = p ? atol(p + 1) : 11;
+  gpsTempSensor = (sens == 0 || sens == 1 || sens == 22) ? (uint8_t)sens : 11;
+  long minInterval = gpsTempSensor == 22 ? 2000 : 1000;
+  if (interval < minInterval) interval = minInterval;
+  if (interval > 600000L) interval = 600000L;
+  intervalMs = (unsigned long)interval;
+  dhtType = gpsTempSensor == 22 ? 22 : 11;
+  pinMode(PIN_DHT, INPUT_PULLUP);
+  adcFast(false);
+  gpsSerial.begin(9600);
+  nmeaLen = 0;
+  mode = GPS;
+  t0Ms = millis();
+  nextMs = t0Ms + 1000;
+  digitalWrite(LED_BUILTIN, HIGH);
+  Serial.print(F("#ACK,START,GPS,"));
+  Serial.println(intervalMs);
+}
+
+void gpsSample(unsigned long t) {
+  uint8_t err = 0;
+  float adc = 0;
+  if (gpsTempSensor == 11 || gpsTempSensor == 22) {
+    // il DHT ha tempi da µs: lo si legge in un momento di silenzio del GPS e a ricezione
+    // spenta, altrimenti le interruzioni della SoftwareSerial rovinano i bit
+    unsigned long w0 = millis();
+    while (millis() - nmeaLastByte < 30 && millis() - w0 < 600) pollGps();
+    gpsSerial.end();
+    err = dhtRead();
+    gpsSerial.begin(9600);
+  } else if (gpsTempSensor == 1) {
+    adc = readThermistorAdc();
+  }
+  Serial.print(F("G,"));
+  Serial.print(t);
+  Serial.print(',');
+  Serial.print(gFix);
+  printField(gLat); printField(gLon); printField(gAlt); printField(gSats);
+  printField(gHdop); printField(gSpd); printField(gUtc); printField(gDate);
+  Serial.print(',');
+  Serial.print(gpsTempSensor);
+  if (gpsTempSensor == 1) {
+    Serial.print(',');
+    Serial.print(adc, 2);
+    Serial.print(F(",0,0,0,0"));
+  } else if (gpsTempSensor == 0) {
+    Serial.print(F(",0,0,0,0,0"));
+  } else {
+    for (uint8_t i = 0; i < 4; i++) { Serial.print(','); Serial.print(dhtData[i]); }
+    Serial.print(',');
+    Serial.print(err);
+  }
+  Serial.println();
+}
+
+// ---------- Bluetooth HC-06 ----------
+// L'HC-06 esce dalla fabbrica a 9600 baud: lo si porta a 115200 con i comandi AT, che
+// accetta solo quando nessun telefono è associato (LED che lampeggia).
+// I moduli con il firmware classico vogliono i comandi senza a capo, quelli più recenti
+// con \r\n: si mandano entrambe le forme.
+void btSetup() {
+  Serial.println(F("#BT,SETUP"));
+  Serial.flush();
+  Serial.end();
+  Serial.begin(9600);
+  delay(300);
+  Serial.print(F("AT+NAMEMosaicus"));
+  delay(1200);
+  Serial.print(F("AT+BAUD8"));          // 8 = 115200 baud
+  delay(1200);
+  Serial.print(F("AT+NAME=Mosaicus\r\n"));
+  delay(800);
+  Serial.print(F("AT+BAUD8\r\n"));
+  delay(800);
+  Serial.flush();
+  Serial.end();
+  Serial.begin(115200);
+  delay(100);
+  Serial.println(F("#ACK,BT,SETUP"));
+}
+
 // ---------- oscilloscopio ----------
 // ADC più veloce: prescaler 16 → clock dell'ADC a 1 MHz, una conversione in ~16 µs
 // (con il valore predefinito 128 servono ~112 µs). Si perde un po' di precisione, ma per
@@ -272,6 +475,7 @@ void handleCommand(char *cmd) {
   if (strcmp(cmd, "ID?") == 0) {
     sendHello();
   } else if (strcmp(cmd, "STOP") == 0) {
+    if (mode == GPS) gpsSerial.end();
     mode = IDLE;
     adcFast(false);
     digitalWrite(LED_BUILTIN, LOW);
@@ -281,6 +485,12 @@ void handleCommand(char *cmd) {
     startMode(TEMP, atol(cmd + 11));
   } else if (strncmp(cmd, "START,SCOPE,", 12) == 0) {
     startScope(cmd + 12);
+  } else if (strncmp(cmd, "START,GPS,", 10) == 0) {
+    startGps(cmd + 10);
+  } else if (strcmp(cmd, "BT,SETUP") == 0) {
+    if (mode == GPS) gpsSerial.end();
+    mode = IDLE;
+    btSetup();
   } else if (strncmp(cmd, "START,DHT,", 10) == 0) {
     startDht(cmd + 10);
   } else if (strncmp(cmd, "START,SONAR,", 12) == 0) {
@@ -310,6 +520,7 @@ void pollSerial() {
 void loop() {
   pollSerial();
   if (mode == IDLE) return;
+  if (mode == GPS) pollGps();
 
   if (mode == SCOPE) {
     bool fired;
@@ -339,6 +550,8 @@ void loop() {
     }
     Serial.print(',');
     Serial.println(err);
+  } else if (mode == GPS) {
+    gpsSample(now - t0Ms);
   } else if (mode == SONAR) {
     unsigned long tUs;
     unsigned long echo = readSonarUs(tUs);

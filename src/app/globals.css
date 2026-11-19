@@ -212,3 +212,31 @@ html.lim {
 @media (prefers-reduced-motion: reduce) {
   .mz-drag-hand { animation: none; }
 }
+
+/* mappe (Leaflet): nel tema scuro le tessere si scuriscono, i popup seguono i colori dell'app */
+.dark .mz-tiles {
+  filter: invert(1) hue-rotate(180deg) brightness(0.92) contrast(0.88) saturate(0.6);
+}
+.leaflet-container {
+  font-family: var(--font-sans);
+  background: var(--muted);
+}
+.leaflet-popup-content-wrapper,
+.leaflet-popup-tip {
+  background: var(--popover);
+  color: var(--popover-foreground);
+}
+.leaflet-container a.leaflet-popup-close-button { color: var(--muted-foreground); }
+.leaflet-control-attribution {
+  background: color-mix(in oklab, var(--background) 80%, transparent) !important;
+  color: var(--muted-foreground);
+}
+.leaflet-control-attribution a { color: var(--muted-foreground) !important; }
+.leaflet-bar a {
+  background: var(--background);
+  color: var(--foreground);
+  border-color: var(--border);
+}
+.mz-pop { font-size: 12px; border-collapse: collapse; }
+.mz-pop th { text-align: left; font-weight: 500; color: var(--muted-foreground); padding: 1px 10px 1px 0; }
+.mz-pop td { text-align: right; font-variant-numeric: tabular-nums; font-weight: 600; }

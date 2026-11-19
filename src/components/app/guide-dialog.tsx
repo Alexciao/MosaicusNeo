@@ -22,6 +22,14 @@ const ANALYSE = [
   ["Salva ed esporta", "«Salva» il risultato, spunta i riquadri, «Esporta in Excel»."],
 ];
 
+const FIELD = [
+  ["Collega i moduli", "GPS VMA430: TX → D4. HC-06: TXD → D0, RXD ← D1 con il partitore 1 kΩ / 2 kΩ. DHT11: DATA → D2. Tutti a 5 V e GND (schema nel lab «Mappa della temperatura»)."],
+  ["Configura l'HC-06 (una volta)", "Arduino al computer con il cavo, apri il lab «Mappa della temperatura», «Collega Arduino» e poi «Configura HC-06». Mentre carichi il firmware dall'IDE stacca il filo TXD dell'HC-06."],
+  ["Associa il telefono", "Android, impostazioni Bluetooth: associa «Mosaicus» (PIN 1234). Alimenta Arduino con un power bank."],
+  ["Misura camminando", "Chrome su Android → lab «Mappa della temperatura» → «Collega via Bluetooth» → scegli Mosaicus → «Avvia». Lo schermo resta acceso; il Quaderno si salva ogni 30 s."],
+  ["Analizza o esporta", "Mappa colorata e grafici subito. Poi Excel, CSV, GPX (Strava, Google Earth) o GeoJSON (QGIS), oppure «Invia a Elaborazione» per i fit, per esempio T in funzione dell'altitudine."],
+];
+
 function Steps({ items }: { items: string[][] }) {
   return (
     <ol className="flex flex-col gap-3">
@@ -49,10 +57,15 @@ export function GuideDialog({ trigger }: { trigger: React.ReactElement }) {
           <TabsList className="w-full">
             <TabsTrigger value="misura">Misura</TabsTrigger>
             <TabsTrigger value="elab">Elabora</TabsTrigger>
+            <TabsTrigger value="field">Sul campo</TabsTrigger>
             <TabsTrigger value="setup">Che cosa serve</TabsTrigger>
           </TabsList>
           <TabsContent value="misura" className="pt-3"><Steps items={MEASURE} /></TabsContent>
           <TabsContent value="elab" className="pt-3"><Steps items={ANALYSE} /></TabsContent>
+          <TabsContent value="field" className="flex flex-col gap-3 pt-3">
+            <Steps items={FIELD} />
+            <p className="text-xs text-muted-foreground">Serve Chrome 138 o successivo su Android: iPhone non può usare il Bluetooth seriale dell&apos;HC-06.</p>
+          </TabsContent>
           <TabsContent value="setup" className="flex flex-col gap-4 pt-3">
             <ul className="flex flex-col gap-2.5 text-sm">
               <li className="flex gap-2.5"><Laptop className="mt-0.5 size-4 shrink-0 text-muted-foreground" /><span><b>Computer</b> · Chrome o Edge: servono per parlare con Arduino (Web Serial).</span></li>
@@ -63,7 +76,7 @@ export function GuideDialog({ trigger }: { trigger: React.ReactElement }) {
             <div className="rounded-lg border bg-muted/50 p-3">
               <p className="mb-2 text-sm font-semibold">Firmware Arduino v{FIRMWARE_VERSION}</p>
               <p className="mb-3 text-sm text-muted-foreground">
-                Uno solo per tutti i lab: termistore (A0), HC-SR04 (pin 12 e 11), DHT11/DHT22 (pin 2), oscilloscopio (A0).
+                Uno solo per tutti i lab: termistore (A0), HC-SR04 (pin 12 e 11), DHT11/DHT22 (pin 2), GPS (pin 4), Bluetooth HC-06 (pin 0 e 1), oscilloscopio (A0).
                 Aprilo con l&apos;IDE di Arduino, scegli la scheda «Arduino Uno» e premi «Carica».
               </p>
               <Button render={<a href={FIRMWARE_URL} download="mosaicus_firmware.ino" />} size="sm">
