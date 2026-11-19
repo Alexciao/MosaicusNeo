@@ -31,7 +31,7 @@ export function WiringDiagram({ sensors, bt = null }: { sensors: SensorInstance[
         <Button size="icon-sm" variant="ghost" className="ml-auto" aria-label="Ingrandisci lo schema" onClick={() => setBig(true)}><Maximize2 /></Button>
       </div>
       <button type="button" onClick={() => setBig(true)} className="block w-full cursor-zoom-in overflow-hidden rounded-lg border bg-background p-2 text-left" aria-label="Ingrandisci lo schema">
-        {draw("h-auto w-full")}
+        <div key={style} className="mz-enter">{draw("h-auto w-full")}</div>
       </button>
       <p className="text-xs text-muted-foreground">Rosso = 5V, nero = GND, un colore per sensore. Collega con Arduino staccato dal computer; tutti i GND insieme.</p>
       <Dialog open={big} onOpenChange={setBig}>

@@ -225,10 +225,17 @@ export function BoxCard({ box }: { box: Box }) {
   useEffect(() => {
     if (focusId !== box.id) return;
     const el = rootRef.current;
-    el?.scrollIntoView({ behavior: "smooth", block: "start" });
-    el?.animate([{ boxShadow: "0 0 0 3px #C6F432" }, { boxShadow: "0 0 0 3px #C6F432", offset: 0.6 }, { boxShadow: "0 0 0 0 transparent" }], { duration: 1600 });
+    const still = matchMedia("(prefers-reduced-motion: reduce)").matches || document.documentElement.classList.contains("lim");
+    el?.scrollIntoView({ behavior: still ? "auto" : "smooth", block: "start" });
+    // appena arrivato da Misura: sale al suo posto (solo se è nuovo, non quando lo si riapre)
+    if (!still && Date.now() - box.created < 3000) {
+      el?.animate([{ opacity: 0, transform: "translateY(12px) scale(0.99)" }, { opacity: 1, transform: "none" }], { duration: 320, easing: "cubic-bezier(0.23, 1, 0.32, 1)" });
+    }
+    if (!document.documentElement.classList.contains("lim")) {
+      el?.animate([{ boxShadow: "0 0 0 3px #C6F432" }, { boxShadow: "0 0 0 3px #C6F432", offset: 0.6 }, { boxShadow: "0 0 0 0 transparent" }], { duration: 1600 });
+    }
     useWorkbench.getState().focus(null);
-  }, [focusId, box.id]);
+  }, [focusId, box.id, box.created]);
 
   // --- salvataggio delle analisi
   const saveAnalysis = (a: Omit<Analysis, "id" | "xKey" | "yKey" | "axes">) => {

@@ -5,6 +5,10 @@
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {
+  /* curve del movimento (più decise di quelle di serie): uscite/entrate, spostamenti, cassetti */
+  --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+  --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
+  --ease-drawer: cubic-bezier(0.32, 0.72, 0, 1);
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --font-sans: var(--font-inter), system-ui, -apple-system, "Segoe UI", sans-serif;
@@ -250,3 +254,120 @@ html.lim *::after {
 .mz-pop { font-size: 12px; border-collapse: collapse; }
 .mz-pop th { text-align: left; font-weight: 500; color: var(--muted-foreground); padding: 1px 10px 1px 0; }
 .mz-pop td { text-align: right; font-variant-numeric: tabular-nums; font-weight: 600; }
+
+/* ------------------------------------------------------------------------------------------
+   Movimento. Poco e utile: i popup escono dal pulsante che li apre, le finestre e i cassetti
+   entrano senza strappi, le pagine e i capitoli cambiano con una dissolvenza appena visibile.
+   Solo transform e opacity (più l'altezza dei pannelli che si aprono). Con «riduci movimento»
+   resta la dissolvenza; in modalità LIM niente di tutto questo (vedi html.lim sopra).
+   ------------------------------------------------------------------------------------------ */
+[data-slot="dropdown-menu-content"],
+[data-slot="dropdown-menu-sub-content"],
+[data-slot="select-content"] {
+  transform-origin: var(--transform-origin);
+  transition: opacity 180ms var(--ease-out), transform 180ms var(--ease-out);
+}
+[data-slot="dropdown-menu-content"]:is([data-starting-style], [data-ending-style]),
+[data-slot="dropdown-menu-sub-content"]:is([data-starting-style], [data-ending-style]),
+[data-slot="select-content"]:is([data-starting-style], [data-ending-style]) {
+  opacity: 0;
+  transform: scale(0.96);
+}
+[data-slot="dropdown-menu-content"][data-ending-style],
+[data-slot="select-content"][data-ending-style] {
+  transition-duration: 120ms;
+}
+
+[data-slot="tooltip-content"] {
+  transform-origin: var(--transform-origin);
+  transition: opacity 125ms var(--ease-out), transform 125ms var(--ease-out);
+}
+[data-slot="tooltip-content"]:is([data-starting-style], [data-ending-style]) {
+  opacity: 0;
+  transform: scale(0.97);
+}
+[data-slot="tooltip-content"][data-instant] {
+  transition-duration: 0ms;
+}
+
+[data-slot="dialog-content"],
+[data-slot="alert-dialog-content"] {
+  transition: opacity 250ms var(--ease-out), transform 250ms var(--ease-out);
+}
+[data-slot="dialog-content"]:is([data-starting-style], [data-ending-style]),
+[data-slot="alert-dialog-content"]:is([data-starting-style], [data-ending-style]) {
+  opacity: 0;
+  transform: scale(0.96);   /* il centraggio usa la proprietà translate, che si somma */
+}
+[data-slot="dialog-overlay"],
+[data-slot="alert-dialog-overlay"],
+[data-slot="sheet-overlay"] {
+  transition: opacity 250ms var(--ease-out);
+}
+[data-slot="dialog-overlay"]:is([data-starting-style], [data-ending-style]),
+[data-slot="alert-dialog-overlay"]:is([data-starting-style], [data-ending-style]),
+[data-slot="sheet-overlay"]:is([data-starting-style], [data-ending-style]) {
+  opacity: 0;
+}
+
+[data-slot="sheet-content"] {
+  transition: transform 400ms var(--ease-drawer);
+}
+[data-slot="sheet-content"][data-side="right"]:is([data-starting-style], [data-ending-style]) { transform: translateX(100%); }
+[data-slot="sheet-content"][data-side="left"]:is([data-starting-style], [data-ending-style]) { transform: translateX(-100%); }
+[data-slot="sheet-content"][data-side="bottom"]:is([data-starting-style], [data-ending-style]) { transform: translateY(100%); }
+[data-slot="sheet-content"][data-side="top"]:is([data-starting-style], [data-ending-style]) { transform: translateY(-100%); }
+[data-slot="sheet-content"][data-ending-style] {
+  transition-duration: 250ms;
+}
+
+/* pannelli che si aprono (sensori, opzioni avanzate): altezza misurata da Base UI */
+[data-slot="collapsible-content"] {
+  overflow: hidden;
+  height: var(--collapsible-panel-height);
+  transition: height 200ms var(--ease-out), opacity 200ms var(--ease-out);
+}
+[data-slot="collapsible-content"]:is([data-starting-style], [data-ending-style]) {
+  height: 0;
+  opacity: 0;
+}
+
+/* pagine, capitoli della guida, cambio di schema: dissolvenza appena visibile all'ingresso */
+.mz-enter {
+  transition: opacity 180ms var(--ease-out), transform 180ms var(--ease-out);
+  @starting-style {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [data-slot="dropdown-menu-content"]:is([data-starting-style], [data-ending-style]),
+  [data-slot="dropdown-menu-sub-content"]:is([data-starting-style], [data-ending-style]),
+  [data-slot="select-content"]:is([data-starting-style], [data-ending-style]),
+  [data-slot="tooltip-content"]:is([data-starting-style], [data-ending-style]) {
+    transform: none;
+  }
+  [data-slot="dialog-content"]:is([data-starting-style], [data-ending-style]),
+  [data-slot="alert-dialog-content"]:is([data-starting-style], [data-ending-style]) {
+    transform: none;
+  }
+  [data-slot="sheet-content"] {
+    transition: opacity 200ms var(--ease-out);
+  }
+  [data-slot="sheet-content"]:is([data-starting-style], [data-ending-style]) {
+    transform: none !important;
+    opacity: 0;
+  }
+  [data-slot="collapsible-content"] {
+    transition-property: opacity;
+  }
+  .mz-enter {
+    @starting-style {
+      transform: none;
+    }
+  }
+  [data-slot="button"]:active {
+    scale: 1;
+  }
+}

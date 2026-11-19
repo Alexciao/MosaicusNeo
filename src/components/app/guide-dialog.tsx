@@ -652,7 +652,7 @@ export function GuideDialog() {
               );
             })}
           </nav>
-          <article key={current.id} className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto p-5">
+          <article key={current.id} className="mz-enter flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto p-5">
             <h2 className="text-xl font-bold tracking-tight">{current.title}</h2>
             <Body />
             <div className="mt-auto flex justify-between gap-2 border-t pt-4">

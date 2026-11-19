@@ -72,9 +72,9 @@ export function MosaicusApp() {
     <div className="flex min-h-svh flex-col pb-16 md:pb-0">
       <AppHeader />
       <main className="flex-1">
-        <div hidden={page !== "misura"}><MeasurePage /></div>
-        {seen.quaderno && <div hidden={page !== "quaderno"}><NotebookPage /></div>}
-        {seen.elab && <div hidden={page !== "elab"}><WorkbenchPage /></div>}
+        <div hidden={page !== "misura"} className="mz-enter"><MeasurePage /></div>
+        {seen.quaderno && <div hidden={page !== "quaderno"} className="mz-enter"><NotebookPage /></div>}
+        {seen.elab && <div hidden={page !== "elab"} className="mz-enter"><WorkbenchPage /></div>}
       </main>
       <footer className="hidden px-4 py-6 text-center text-xs text-muted-foreground md:block">
         MosaicusNeo · basato su Mosaicus di Ermes Ferdinando Rosi · software libero con licenza MIT ·{" "}
