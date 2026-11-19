@@ -209,10 +209,6 @@ export function RigEditor() {
             <Label htmlFor="rig-name" className="text-xs text-muted-foreground">Nome del montaggio</Label>
             <Input key={rig.id} id="rig-name" defaultValue={rig.name} onBlur={(e) => renameRig(e.target.value)} className="h-8" />
           </div>
-          <Button size="icon-sm" variant="ghost" aria-label="Elimina il montaggio" className="text-muted-foreground hover:text-destructive" disabled={running}
-            onClick={async () => { if (await confirm({ title: `Eliminare il montaggio «${rig.name}»?`, description: "Le misure già fatte restano nel Quaderno.", action: "Elimina", destructive: true })) deleteRig(rig.id); }}>
-            <Trash />
-          </Button>
         </div>
       ) : (
         <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
@@ -234,6 +230,12 @@ export function RigEditor() {
       <Button variant="outline" disabled={running} onClick={() => setPicker(true)} className="border-dashed"><Plus /> Aggiungi un sensore</Button>
       {!rig.sensors.length && <p className="text-center text-xs text-muted-foreground">Scegli i sensori che hai collegato ad Arduino: l&apos;app ti mostra come collegarli e li legge tutti insieme.</p>}
       <SensorPicker open={picker} onOpenChange={setPicker} />
+      {custom && (
+        <Button variant="ghost" size="sm" disabled={running} className="self-start text-destructive hover:bg-destructive/10 hover:text-destructive"
+          onClick={async () => { if (await confirm({ title: `Eliminare il montaggio «${rig.name}»?`, description: "Le misure già fatte restano nel Quaderno.", action: "Elimina", destructive: true })) deleteRig(rig.id); }}>
+          <Trash /> Elimina questo montaggio
+        </Button>
+      )}
       <details className="text-xs text-muted-foreground">
         <summary className="cursor-pointer font-medium">Grandezze misurate</summary>
         <p className="pt-1.5">{rig.sensors.map((s) => `${sensorLabel(s)}: ${SENSORS[s.type].quantities(s.options).filter((q) => !q.hidden && !q.raw).map((q) => q.sym ?? QUANTITIES[q.key]?.sym ?? q.key).join(", ")}`).join(" · ") || "—"}</p>

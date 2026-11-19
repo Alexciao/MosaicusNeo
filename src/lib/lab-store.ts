@@ -393,7 +393,28 @@ export function createRigFrom(types: SensorType[], name = "Montaggio dalla guida
   set({ visible: defaultVisible(get().rig) });
 }
 
+/** Rinomina un montaggio libero qualsiasi (anche non aperto). */
+export function renameRigById(id: string, name: string) {
+  const clean = name.trim() || "Montaggio libero";
+  if (get().labId === id) { renameRig(clean); return; }
+  const list = get().customRigs.map((r) => (r.id === id ? { ...r, name: clean } : r));
+  set({ customRigs: list });
+  prefs.set("mosaicus.rigs", list);
+}
+/** Copia di un montaggio libero, aperta subito. */
+export function duplicateRig(id: string) {
+  if (get().running) { toast("Ferma la misura prima."); return; }
+  const src = get().customRigs.find((r) => r.id === id);
+  if (!src) return;
+  const rig: Rig = { id: `rig-${newId()}`, name: `${src.name} (copia)`, sensors: src.sensors.map((x) => ({ ...x, id: newId(), options: { ...x.options }, pins: { ...x.pins } })) };
+  const list = [...get().customRigs, rig];
+  set({ customRigs: list });
+  prefs.set("mosaicus.rigs", list);
+  selectLab(rig.id);
+}
+
 export function deleteRig(id: string) {
+  if (get().running && get().labId === id) { toast("Ferma la misura prima di eliminare il montaggio."); return; }
   const list = get().customRigs.filter((r) => r.id !== id);
   set({ customRigs: list });
   prefs.set("mosaicus.rigs", list);
