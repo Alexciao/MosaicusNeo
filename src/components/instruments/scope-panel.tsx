@@ -11,7 +11,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Slider } from "@/components/ui/slider";
 import { Switch } from "@/components/ui/switch";
-import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+import { GlideNav } from "@/components/app/glide-nav";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { createScopeEngine, DT_STEPS, EXAMPLES, N_ARD, WIN_STEPS, LIVE, slotColor, type Circuit } from "@/lib/mosaicus/scope-engine";
 import { fmtIt } from "@/lib/mosaicus/screen.js";
@@ -21,13 +21,12 @@ import { instrumentApi, registerInstrument } from "@/lib/lab-store";
 import { cn } from "@/lib/utils";
 import { useState } from "react";
 
-const segItem = "aria-pressed:bg-primary aria-pressed:text-primary-foreground";
 
+/** Scelta tra poche opzioni, con la pillola che scivola (come le altre schede dell'app). */
 export function Segmented<T extends string>({ value, onChange, items, label, className }: { value: T; onChange: (v: T) => void; items: [T, React.ReactNode, string?][]; label: string; className?: string }) {
   return (
-    <ToggleGroup aria-label={label} variant="outline" size="sm" spacing={0} value={[value]} onValueChange={(v) => { if (v[0] != null) onChange(v[0] as T); }} className={className}>
-      {items.map(([id, content, title]) => <ToggleGroupItem key={id} value={id} title={title} className={segItem}>{content}</ToggleGroupItem>)}
-    </ToggleGroup>
+    <GlideNav label={label} value={value} className={cn("w-fit max-w-full overflow-x-auto [scrollbar-width:none]", className)}
+      items={items.map(([id, content, title]) => ({ id, content, title, onSelect: () => onChange(id) }))} />
   );
 }
 

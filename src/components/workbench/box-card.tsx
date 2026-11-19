@@ -5,24 +5,24 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useTheme } from "next-themes";
 import { toast } from "sonner";
-import { Maximize2, MousePointer2, Ruler, Spline, TrendingUp, Trash, X } from "lucide-react";
+import { ArrowLeftRight, ChevronDown, Copy, Eye, EyeOff, Maximize2, MousePointer2, Ruler, Spline, TrendingUp, Trash, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Chart, ChartGroup } from "@/lib/mosaicus/chart.js";
-import { runModel } from "@/lib/mosaicus/fits.js";
+import { runModel, runsTest, MODELS, MODEL_ORDER } from "@/lib/mosaicus/fits.js";
 import { polyfit, formatMeasure } from "@/lib/mosaicus/analysis.js";
 import { quantityOf } from "@/lib/sensors/quantities";
 import { useWorkbench, computeRows, colInfo, axisLabel, type Analysis, type Box } from "@/lib/workbench-store";
 import { confirm } from "@/lib/confirm";
 import { fmtNum } from "@/lib/prefs";
 import { Segmented } from "@/components/instruments/scope-panel";
+import { cn } from "@/lib/utils";
 import {
-  EyePanel, FitPanel, Residuals, RulerPanel, Say, TangentPanel, cssVar, lineThrough, n4, read3,
-  type EyeState, type PhysicsValue, type RulerState, type TangentResult,
+  EyePanel, FitPanel, Residuals, RulerPanel, StatsPanel, TangentPanel, ToolIntro, computeStats, cssVar, lineThrough, n4, read3,
+  type EyeState, type ModelRow, type PhysicsValue, type RulerState, type TangentResult,
 } from "./box-tools";
 import { DataSheet } from "./data-sheet";
 import { BoxMap } from "./box-map";
@@ -61,6 +61,7 @@ export function BoxCard({ box }: { box: Box }) {
   const [fitModel, setFitModel] = useState<string | null>(null);
   const [showResid, setShowResid] = useState(false);
   const [ruler, setRuler] = useState<RulerState | null>(null);
+  const [compareOn, setCompareOn] = useState(false);
 
   const { rows, errors } = useMemo(() => computeRows(box), [box]);
   const x = useMemo(() => rows.map((r) => r[box.xKey]), [rows, box.xKey]);
@@ -92,21 +93,38 @@ export function BoxCard({ box }: { box: Box }) {
   if (prevAxes !== axesKey) { setPrevAxes(axesKey); initTool(tool); }
 
   // --- risultati degli strumenti
-  const fitData = useMemo(() => {
-    if (tool !== "fit" || !fitModel) return null;
+  const fitPoints = useMemo(() => {
+    if (tool !== "fit") return null;
     const [a, b] = selection ?? [-Infinity, Infinity];
     const tt: number[] = [], yy: number[] = [];
     x.forEach((xi, i) => { if (Number.isFinite(xi) && Number.isFinite(y[i]) && xi >= a && xi <= b) { tt.push(xi); yy.push(y[i]); } });
     const order = tt.map((_, i) => i).sort((i, j) => tt[i] - tt[j]);
-    const T = order.map((i) => tt[i]), Y = order.map((i) => yy[i]);
-    const fit = runModel(fitModel, T, Y, { x: cx.unit, y: cy.unit, xs: cx.sym, ys: cy.sym });
+    return { T: order.map((i) => tt[i]), Y: order.map((i) => yy[i]) };
+  }, [tool, selection, x, y]);
+  const units = useMemo(() => ({ x: cx.unit, y: cy.unit, xs: cx.sym, ys: cy.sym }), [cx.unit, cy.unit, cx.sym, cy.sym]);
+  const compare: ModelRow[] | null = useMemo(() => {
+    if (!compareOn || !fitPoints) return null;
+    return MODEL_ORDER.map((id: string) => {
+      const f = runModel(id, fitPoints.T, fitPoints.Y, units);
+      const label = (MODELS as any)[id].label;
+      if (f.error) return { id, label, r2: NaN, s: NaN, n: 0, verdict: "", error: f.error };
+      return { id, label, r2: f.r2, s: f.s, n: f.n, verdict: runsTest(f.residuals).verdict };
+    });
+  }, [compareOn, fitPoints, units]);
+
+  const fitData = useMemo(() => {
+    if (tool !== "fit" || !fitModel || !fitPoints) return null;
+    const { T, Y } = fitPoints;
+    const fit = runModel(fitModel, T, Y, units);
     if (fit.error) return { fit, T, phys: [] as PhysicsValue[], curve: null };
     const q = box.xKey === "t" ? quantityOf(box.yKey) : null;
     const phys: PhysicsValue[] = (q?.physics?.[fitModel] || []).map((p) => { const [v, s] = p.calc(fit); return { label: p.label, unit: p.unit, value: v, sigma: s }; });
     const N = 300, X: number[] = [], Yc: number[] = [];
     for (let i = 0; i <= N; i++) { const t = fit.t1 + ((fit.t2 - fit.t1) * i) / N; X.push(t); Yc.push(fit.curve(t)); }
     return { fit, T, phys, curve: { x: X, y: Yc } };
-  }, [tool, fitModel, selection, x, y, cx.unit, cy.unit, cx.sym, cy.sym, box.xKey, box.yKey]);
+  }, [tool, fitModel, fitPoints, units, box.xKey, box.yKey]);
+
+  const stats = useMemo(() => (tool === "select" ? computeStats(x, y, selection) : null), [tool, x, y, selection]);
 
   const tangent: TangentResult | null | "few" = useMemo(() => {
     if (tool !== "tangent" || tangentPick == null) return null;
@@ -137,6 +155,7 @@ export function BoxCard({ box }: { box: Box }) {
       if (a.xKey !== box.xKey || a.yKey !== box.yKey || a.hidden) continue;
       if (a.kind === "fit" && a.curve) out.push({ type: "curve", x: a.curve.x, y: a.curve.y, color: rosa, width: 2, dash: [6, 4] });
       if (a.kind === "ruler" && a.span) out.push({ type: "span", ...a.span, color: muted, label: a.spanLabel });
+      if (a.kind === "stats" && a.seg) out.push({ type: "segment", ...a.seg, color: muted, width: 1.6, dash: [5, 4] });
       if ((a.kind === "line" || a.kind === "tangent") && a.seg) out.push({ type: "segment", ...a.seg, extend: a.kind === "line", color: green, width: 1.6, dash: [6, 4] });
     }
     if (tool === "line" && eye) {
@@ -159,6 +178,7 @@ export function BoxCard({ box }: { box: Box }) {
         { type: "anchor", id: "P", x: P.x, y: P.y, label: "P", color: rosaD },
       );
     }
+    if (tool === "select" && stats) out.push({ type: "segment", x1: stats.x1, y1: stats.mean, x2: stats.x2, y2: stats.mean, color: rosaD, width: 2, dash: [5, 4] });
     if (tool === "fit" && fitData?.curve) out.push({ type: "curve", x: fitData.curve.x, y: fitData.curve.y, color: rosaD, width: 2.8, dash: [7, 4] });
     if (tool === "ruler" && ruler) {
       const d = Math.abs(ruler.x2 - ruler.x1);
@@ -170,7 +190,7 @@ export function BoxCard({ box }: { box: Box }) {
     }
     return out;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [box.analyses, box.xKey, box.yKey, tool, eye, tangent, fitData, ruler, cx, cy, resolvedTheme]);
+  }, [box.analyses, box.xKey, box.yKey, tool, eye, tangent, fitData, ruler, stats, cx, cy, resolvedTheme]);
 
   // --- gestori chiamati dal grafico (sempre gli ultimi)
   const handlers = useRef<any>({});
@@ -240,7 +260,7 @@ export function BoxCard({ box }: { box: Box }) {
   // --- salvataggio delle analisi
   const saveAnalysis = (a: Omit<Analysis, "id" | "xKey" | "yKey" | "axes">) => {
     updateBox(box.id, (b) => ({ analyses: [...b.analyses, { ...a, id: Date.now(), xKey: b.xKey, yKey: b.yKey, axes: `${colInfo(b, b.yKey).sym}(${colInfo(b, b.xKey).sym})` } as Analysis] }));
-    toast.success("Analisi salvata nel riquadro.");
+    toast.success("Risultato salvato.");
   };
 
   const eyeCompare = () => {
@@ -261,49 +281,79 @@ export function BoxCard({ box }: { box: Box }) {
   const axisItems = Object.fromEntries(axisCols.map((c) => [c.key, axisLabel(c)]));
   const suggested = box.xKey === "t" ? quantityOf(box.yKey)?.models || [] : [];
 
+  const swapAxes = () => updateBox(box.id, { xKey: box.yKey, yKey: box.xKey });
+  const collapsed = !!box.collapsed;
+  const fmtResult = (a: Analysis) => Number.isFinite(a.main.sigma) ? formatMeasure(a.main.value, a.main.sigma, a.main.unit) : `${n4(a.main.value)} ${a.main.unit}`;
+  const INTRO: Record<Tool, [string, string]> = {
+    select: ["Tratto", "Scegli una parte dei dati trascinando sul grafico. Media, dispersione e variazione si aggiornano subito."],
+    line: ["Retta a occhio", "Tracci a mano la retta che segue meglio i punti, poi ne misuri la pendenza con due punti."],
+    tangent: ["Tangente", "La pendenza della curva in un punto: per esempio la velocità in un istante."],
+    fit: ["Fit", "La curva che passa più vicino ai punti (minimi quadrati), con i parametri e la loro incertezza. Trascina sul grafico per limitarlo a un tratto."],
+    ruler: ["Righello", "Misura il periodo di un'onda: metti le due linee su due creste e indica quanti periodi ci sono in mezzo."],
+  };
+
   return (
-    <Card ref={rootRef as any} className="scroll-mt-20 gap-0 p-0">
-      <header className="flex items-start gap-3 border-b p-4">
-        <label className="mt-1.5 flex items-center gap-1.5 text-xs text-muted-foreground" title="Includi questo riquadro nell'export">
-          <Checkbox checked={box.checked} onCheckedChange={(v) => updateBox(box.id, { checked: !!v })} aria-label="Esporta questo riquadro" />
-          <span className="hidden sm:inline">Esporta</span>
-        </label>
+    <Card ref={rootRef as any} id={`box-${box.id}`} className="scroll-mt-20 gap-0 p-0">
+      <header className={cn("flex items-start gap-2 p-3 sm:gap-3 sm:p-4", !collapsed && "border-b")}>
+        <Button size="icon-sm" variant="ghost" className="mt-0.5 text-muted-foreground" aria-expanded={!collapsed} aria-label={collapsed ? "Apri il riquadro" : "Chiudi il riquadro"}
+          onClick={() => updateBox(box.id, { collapsed: !collapsed })}>
+          <ChevronDown className={cn("transition-transform duration-200", collapsed && "-rotate-90")} />
+        </Button>
         <div className="min-w-0 flex-1">
           <Input key={box.title} defaultValue={box.title} aria-label="Nome del riquadro"
             onBlur={(e) => { const t = e.target.value.trim(); if (t && t !== box.title) updateBox(box.id, { title: t }); }}
             className="h-8 border-transparent bg-transparent px-1 text-base font-semibold shadow-none hover:border-input focus-visible:border-ring dark:bg-transparent" />
           <p className="truncate px-1 text-xs text-muted-foreground">
-            {box.expTitle}{box.sessionName ? ` · da «${box.sessionName}»` : ""} · {fmtNum(box.t1, 2)}–{fmtNum(box.t2, 2)} {box.tUnit || "s"} · {box.rows.length} punti
+            {box.expTitle}{box.sessionName ? ` · ${box.sessionName}` : ""} · {fmtNum(box.t1, 2)}–{fmtNum(box.t2, 2)} {box.tUnit || "s"} · {box.rows.length} punti
           </p>
           {box.subtitle && <p className="truncate px-1 text-xs text-muted-foreground">{box.subtitle}</p>}
+          {collapsed && !!box.analyses.length && (
+            <ul className="mt-2 flex flex-wrap gap-1.5 px-1">
+              {box.analyses.map((a) => (
+                <li key={a.id} className="rounded-md border px-2 py-0.5 text-xs"><span className="text-muted-foreground">{a.main.label}</span> <b className="tabular">{fmtResult(a)}</b></li>
+              ))}
+            </ul>
+          )}
         </div>
+        <label className="mt-1.5 flex items-center gap-1.5 text-xs text-muted-foreground" title="Includi nell'export Excel">
+          <Checkbox checked={box.checked} onCheckedChange={(v) => updateBox(box.id, { checked: !!v })} aria-label="Includi nell'export" />
+          <span className="hidden sm:inline">Esporta</span>
+        </label>
+        <Button size="icon-sm" variant="ghost" aria-label="Duplica il riquadro" title="Duplica: per provare un'altra analisi sugli stessi dati" className="text-muted-foreground"
+          onClick={() => void useWorkbench.getState().duplicateBox(box.id)}>
+          <Copy />
+        </Button>
         <Button size="icon-sm" variant="ghost" aria-label="Elimina il riquadro" className="text-muted-foreground hover:text-destructive"
           onClick={async () => {
-            if (await confirm({ title: `Eliminare il riquadro «${box.title}»?`, description: "I dati della misura originale restano nel Quaderno.", action: "Elimina", destructive: true })) await useWorkbench.getState().removeBox(box.id);
+            if (await confirm({ title: `Eliminare «${box.title}»?`, description: "La misura originale resta nel Quaderno.", action: "Elimina", destructive: true })) await useWorkbench.getState().removeBox(box.id);
           }}>
           <Trash />
         </Button>
       </header>
 
+      <div hidden={collapsed}>
       <div className="flex flex-wrap items-center gap-2 border-b px-4 py-2.5">
-        {(["x", "y"] as const).map((ax) => (
-          <div key={ax} className="flex items-center gap-1.5">
-            <Label className="text-xs text-muted-foreground">{ax === "x" ? "asse orizzontale" : "asse verticale"}</Label>
-            <Select value={ax === "x" ? box.xKey : box.yKey} onValueChange={(v) => v && setAxis(ax, String(v))} items={axisItems}>
-              <SelectTrigger size="sm" className="min-w-28"><SelectValue /></SelectTrigger>
-              <SelectContent>{axisCols.map((c) => <SelectItem key={c.key} value={c.key}>{axisLabel(c)}</SelectItem>)}</SelectContent>
-            </Select>
-          </div>
-        ))}
+        <div className="flex flex-wrap items-center gap-1.5">
+          <Select value={box.yKey} onValueChange={(v) => v && setAxis("y", String(v))} items={axisItems}>
+            <SelectTrigger size="sm" className="min-w-24" aria-label="Asse verticale"><SelectValue /></SelectTrigger>
+            <SelectContent>{axisCols.map((c) => <SelectItem key={c.key} value={c.key}>{axisLabel(c)}</SelectItem>)}</SelectContent>
+          </Select>
+          <span className="text-xs text-muted-foreground">in funzione di</span>
+          <Select value={box.xKey} onValueChange={(v) => v && setAxis("x", String(v))} items={axisItems}>
+            <SelectTrigger size="sm" className="min-w-24" aria-label="Asse orizzontale"><SelectValue /></SelectTrigger>
+            <SelectContent>{axisCols.map((c) => <SelectItem key={c.key} value={c.key}>{axisLabel(c)}</SelectItem>)}</SelectContent>
+          </Select>
+          <Button size="icon-sm" variant="ghost" aria-label="Scambia gli assi" title="Scambia gli assi" onClick={swapAxes}><ArrowLeftRight /></Button>
+        </div>
         <Segmented<Tool> label="Strumenti" value={tool} onChange={setTool} className="md:ml-auto"
           items={[
-            ["select", <><MousePointer2 /><span className="hidden sm:inline">Tratto</span></>, "Trascina sul grafico per scegliere il tratto da analizzare"],
-            ["line", <><TrendingUp /><span className="hidden sm:inline">Retta</span></>, "Tira tu la retta che media i punti, poi misurane la pendenza"],
-            ["tangent", <><Spline /><span className="hidden sm:inline">Tangente</span></>, "Scegli un punto misurato: tangente alla curva in quel punto"],
-            ["fit", <><span className="font-serif text-base leading-none">∿</span><span className="hidden sm:inline">Fit</span></>, "Retta o curva dei minimi quadrati"],
-            ["ruler", <><Ruler /><span className="hidden sm:inline">Righello</span></>, "Due cursori verticali: periodo e frequenza"],
+            ["select", <><MousePointer2 /><span className="hidden sm:inline">Tratto</span></>, INTRO.select[1]],
+            ["line", <><TrendingUp /><span className="hidden sm:inline">Retta</span></>, INTRO.line[1]],
+            ["tangent", <><Spline /><span className="hidden sm:inline">Tangente</span></>, INTRO.tangent[1]],
+            ["fit", <><span className="font-serif text-base leading-none">∿</span><span className="hidden sm:inline">Fit</span></>, INTRO.fit[1]],
+            ["ruler", <><Ruler /><span className="hidden sm:inline">Righello</span></>, INTRO.ruler[1]],
           ]} />
-        <Button size="icon-sm" variant="outline" aria-label="Adatta" title="Mostra tutti i dati" onClick={() => groupRef.current?.fitAll()}><Maximize2 /></Button>
+        <Button size="icon-sm" variant="outline" aria-label="Mostra tutti i dati" title="Mostra tutti i dati" onClick={() => groupRef.current?.fitAll()}><Maximize2 /></Button>
       </div>
 
       <div className="grid gap-4 p-4 xl:grid-cols-[minmax(0,1fr)_22rem]">
@@ -311,8 +361,23 @@ export function BoxCard({ box }: { box: Box }) {
           <canvas ref={canvasRef} aria-label="Grafico del riquadro" className="absolute inset-0 size-full touch-none" />
         </div>
         <aside className="flex min-w-0 flex-col gap-4">
-          <div className="flex flex-col gap-3">
-            {tool === "select" && <Say>Trascina sul grafico per scegliere un tratto{selection ? <>: <b className="tabular">{fmtNum(selection[0])} – {fmtNum(selection[1])} {cx.unit}</b></> : "."}</Say>}
+          <div key={tool} className="mz-enter flex flex-col gap-3">
+            <ToolIntro title={INTRO[tool][0]}>{INTRO[tool][1]}</ToolIntro>
+            {tool === "select" && (
+              <StatsPanel st={stats} selected={!!selection} cx={cx} cy={cy} su={su} meaning={meaning}
+                onClear={() => groupRef.current?.setSelection(null, true)}
+                onSave={() => {
+                  if (!stats) return;
+                  saveAnalysis({
+                    kind: "stats", title: `Media su ${fmtNum(stats.x1)}–${fmtNum(stats.x2)} ${cx.unit}`,
+                    main: { label: `media ${cy.sym}`, value: stats.mean, sigma: stats.sem, unit: cy.unit },
+                    detail: `${stats.n} punti; s = ${n4(stats.sd)} ${cy.unit}; min ${n4(stats.min)}, max ${n4(stats.max)}; Δ${cy.sym}/Δ${cx.sym} = ${n4(stats.rate)} ${su}`,
+                    eq: `${cy.sym}̄ = ${formatMeasure(stats.mean, stats.sem, cy.unit)}`,
+                    physics: [{ label: "deviazione standard s", value: stats.sd, sigma: NaN, unit: cy.unit }, { label: meaning ? `${meaning} media` : `Δ${cy.sym}/Δ${cx.sym}`, value: stats.rate, sigma: NaN, unit: su }],
+                    seg: { x1: stats.x1, y1: stats.mean, x2: stats.x2, y2: stats.mean },
+                  });
+                }} />
+            )}
             {tool === "line" && eye && (
               <EyePanel eye={eye} cx={cx} cy={cy} su={su} meaning={meaning} up={balance.up} down={balance.down}
                 onNext={() => setEye({ ...eye, step: 2, pts: [] })}
@@ -342,9 +407,10 @@ export function BoxCard({ box }: { box: Box }) {
             )}
             {tool === "fit" && (
               <>
-                {selection && <p className="text-xs text-muted-foreground">Sul tratto {fmtNum(selection[0])} – {fmtNum(selection[1])} {cx.unit} <button className="ml-1 inline-flex items-center underline" onClick={() => groupRef.current?.setSelection(null, true)}><X className="size-3" />tutto</button></p>}
+                <p className="text-xs text-muted-foreground">{selection ? <>Sul tratto {fmtNum(selection[0])} – {fmtNum(selection[1])} {cx.unit} <button className="ml-1 inline-flex items-center underline" onClick={() => groupRef.current?.setSelection(null, true)}><X className="size-3" />tutti i dati</button></> : <>Su tutti i dati.</>}</p>
                 <FitPanel suggested={suggested} model={fitModel} fit={fitData?.fit} phys={fitData?.phys ?? []} cx={cx} cy={cy}
                   onModel={(id) => { setFitModel(id); setShowResid(false); }}
+                  compare={compare} onCompare={() => setCompareOn(!compareOn)}
                   showResid={showResid} onResid={() => setShowResid(!showResid)}
                   onSave={() => {
                     const d = fitData!; const fit = d.fit; const id = fitModel!;
@@ -384,18 +450,26 @@ export function BoxCard({ box }: { box: Box }) {
 
           {!!box.analyses.length && (
             <div className="flex flex-col gap-2 border-t pt-3">
-              <h4 className="text-sm font-semibold">Analisi salvate</h4>
+              <h4 className="text-sm font-semibold">Risultati salvati</h4>
               <ul className="flex flex-col gap-1.5">
-                {box.analyses.map((a, i) => (
-                  <li key={a.id} className="flex items-start gap-2 rounded-lg border px-3 py-2">
-                    <div className="min-w-0 flex-1 text-sm">
-                      <b>{a.title}</b> <small className="text-muted-foreground">· {a.axes}</small>
-                      <p className="tabular">{a.main.label}: <b>{Number.isFinite(a.main.sigma) ? formatMeasure(a.main.value, a.main.sigma, a.main.unit) : `${n4(a.main.value)} ${a.main.unit}`}</b></p>
-                      <p className="truncate text-xs text-muted-foreground">{a.eq}</p>
-                    </div>
-                    <Button size="icon-xs" variant="ghost" aria-label="Elimina l'analisi" onClick={() => updateBox(box.id, (b) => ({ analyses: b.analyses.filter((_, j) => j !== i) }))}><X /></Button>
-                  </li>
-                ))}
+                {box.analyses.map((a, i) => {
+                  const here = a.xKey === box.xKey && a.yKey === box.yKey;
+                  return (
+                    <li key={a.id} className={cn("flex items-start gap-1 rounded-lg border px-3 py-2", a.hidden && "opacity-60")}>
+                      <div className="min-w-0 flex-1 text-sm">
+                        <p className="flex items-baseline gap-1.5"><b className="truncate">{a.title}</b> <small className="shrink-0 text-muted-foreground">{a.axes}</small></p>
+                        <p className="tabular">{a.main.label}: <b>{fmtResult(a)}</b></p>
+                        <p className="truncate text-xs text-muted-foreground" title={a.detail}>{a.eq}</p>
+                      </div>
+                      <Button size="icon-xs" variant="ghost" disabled={!here} aria-label={a.hidden ? "Mostra sul grafico" : "Nascondi dal grafico"}
+                        title={here ? (a.hidden ? "Mostra sul grafico" : "Nascondi dal grafico") : `Visibile con gli assi ${a.axes}`}
+                        onClick={() => updateBox(box.id, (b) => ({ analyses: b.analyses.map((x, j) => (j === i ? { ...x, hidden: !x.hidden } : x)) }))}>
+                        {a.hidden ? <EyeOff /> : <Eye />}
+                      </Button>
+                      <Button size="icon-xs" variant="ghost" aria-label="Elimina il risultato" onClick={() => updateBox(box.id, (b) => ({ analyses: b.analyses.filter((_, j) => j !== i) }))}><X /></Button>
+                    </li>
+                  );
+                })}
               </ul>
             </div>
           )}
@@ -404,6 +478,7 @@ export function BoxCard({ box }: { box: Box }) {
 
       {box.columns.some((c) => c.key === "lat") && box.columns.some((c) => c.key === "lon") && <BoxMap box={box} rows={rows} selection={selection} />}
       <DataSheet box={box} rows={rows} errors={errors} />
+      </div>
     </Card>
   );
 }

@@ -136,9 +136,10 @@ export function TangentPanel({ t, cx, cy, su, meaning, onSave }: { t: TangentRes
 // Fit
 // ---------------------------------------------------------------------------
 export interface PhysicsValue { label: string; unit: string; value: number; sigma: number }
-export function FitPanel({ suggested, model, fit, phys, cx, cy, onModel, onSave, showResid, onResid }: {
+export function FitPanel({ suggested, model, fit, phys, cx, cy, onModel, onSave, showResid, onResid, compare, onCompare }: {
   suggested: string[]; model: string | null; fit: any; phys: PhysicsValue[]; cx: BoxColumn; cy: BoxColumn;
   onModel: (id: string) => void; onSave: () => void; showResid: boolean; onResid: () => void;
+  compare: ModelRow[] | null; onCompare: () => void;
 }) {
   const others = MODEL_ORDER.filter((id: string) => !suggested.includes(id));
   const [more, setMore] = useState(!suggested.length);
@@ -157,18 +158,19 @@ export function FitPanel({ suggested, model, fit, phys, cx, cy, onModel, onSave,
   const isLine = model === "lin";
   return (
     <div className="flex flex-col gap-3">
-      <Say>Scegli un modello.</Say>
       {!!suggested.length && <div className="flex flex-wrap items-center gap-1.5"><span className="text-xs text-muted-foreground">Consigliati</span>{suggested.map((id) => btn(id, true))}</div>}
       <Collapsible open={more} onOpenChange={setMore}>
-        <CollapsibleTrigger className="flex items-center gap-1.5 text-xs font-semibold"><ChevronDown className={cn("size-3.5 transition-transform", !more && "-rotate-90")} /> Altri modelli</CollapsibleTrigger>
+        <CollapsibleTrigger className="flex items-center gap-1.5 text-xs font-semibold"><ChevronDown className={cn("size-3.5 transition-transform", !more && "-rotate-90")} /> {suggested.length ? "Altri modelli" : "Modelli"}</CollapsibleTrigger>
         <CollapsibleContent className="flex flex-wrap gap-1.5 pt-2">{others.map((id: string) => btn(id))}</CollapsibleContent>
       </Collapsible>
+      <Button size="xs" variant="ghost" className="self-start" onClick={onCompare}>{compare ? "Nascondi il confronto" : "Confronta tutti i modelli"}</Button>
+      {compare && <CompareModels rows={compare} current={model} unit={cy.unit} onPick={onModel} />}
       {fit?.error && <p className="text-sm text-destructive">{fit.error}</p>}
       {fit && !fit.error && (
         <>
           <p className="rounded-md bg-muted px-3 py-2 text-center font-semibold tabular">{fit.eq}</p>
           <table className="w-full"><tbody>{rowsOf(phys.length ? phys : [fit.params[0]])}</tbody></table>
-          <p className="text-xs text-muted-foreground"><b>±</b> perché i punti oscillano di circa <b>{fmt(fit.s, 2)} {cy.unit}</b> intorno alla curva · {fit.n} punti · {fmtNum(fit.t1)}–{fmtNum(fit.t2)} {cx.unit}</p>
+          <p className="text-xs text-muted-foreground">I punti oscillano di circa <b>{fmt(fit.s, 2)} {cy.unit}</b> intorno alla curva · {fit.n} punti · {fmtNum(fit.t1)}–{fmtNum(fit.t2)} {cx.unit}</p>
           <div className="flex flex-col gap-1.5">
             <Why title="Tutti i parametri del modello">
               <p className="font-mono">{(MODELS as any)[model!].formula}</p>
@@ -256,6 +258,101 @@ export function RulerPanel({ r, cx, onN, onSave }: { r: RulerState; cx: BoxColum
       </CalcBox>
       <p className="text-xs text-muted-foreground">Più periodi abbracci, più la misura è precisa: l&apos;errore di lettura si divide per N.</p>
       <Button size="sm" className="self-start" onClick={onSave}><Save /> Salva</Button>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Intestazione degli strumenti: che cosa fa, in una riga
+// ---------------------------------------------------------------------------
+export function ToolIntro({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <div className="flex flex-col gap-0.5">
+      <h4 className="text-sm font-semibold">{title}</h4>
+      <p className="text-xs leading-relaxed text-muted-foreground">{children}</p>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Statistiche del tratto
+// ---------------------------------------------------------------------------
+export interface Stats { n: number; x1: number; x2: number; mean: number; sd: number; sem: number; min: number; max: number; first: number; last: number; rate: number }
+
+export function computeStats(x: number[], y: number[], sel: [number, number] | null): Stats | null {
+  const [a, b] = sel ?? [-Infinity, Infinity];
+  const pts: [number, number][] = [];
+  x.forEach((xi, i) => { if (Number.isFinite(xi) && Number.isFinite(y[i]) && xi >= a && xi <= b) pts.push([xi, y[i]]); });
+  if (pts.length < 2) return null;
+  pts.sort((p, q) => p[0] - q[0]);
+  const ys = pts.map((p) => p[1]), n = ys.length;
+  const mean = ys.reduce((s, v) => s + v, 0) / n;
+  const sd = Math.sqrt(ys.reduce((s, v) => s + (v - mean) ** 2, 0) / (n - 1));
+  const [x1, first] = pts[0], [x2, last] = pts[n - 1];
+  return { n, x1, x2, mean, sd, sem: sd / Math.sqrt(n), min: Math.min(...ys), max: Math.max(...ys), first, last, rate: (last - first) / (x2 - x1) };
+}
+
+export function StatsPanel({ st, selected, cx, cy, su, meaning, onClear, onSave }: {
+  st: Stats | null; selected: boolean; cx: BoxColumn; cy: BoxColumn; su: string; meaning: string | null; onClear: () => void; onSave: () => void;
+}) {
+  if (!st) return <Say>Trascina sul grafico per scegliere un tratto: qui compaiono le sue statistiche.</Say>;
+  const u = cy.unit ? ` ${cy.unit}` : "";
+  const row = (label: React.ReactNode, value: React.ReactNode, hint?: string) => (
+    <tr className="border-b last:border-0" title={hint}>
+      <th className="py-1 pr-2 text-left text-xs font-medium text-muted-foreground">{label}</th>
+      <td className="py-1 text-right text-sm font-semibold tabular">{value}</td>
+    </tr>
+  );
+  return (
+    <div className="flex flex-col gap-3">
+      <p className="text-xs text-muted-foreground">
+        {selected ? <>Tratto {fmtNum(st.x1)} – {fmtNum(st.x2)} {cx.unit} · {st.n} punti <button type="button" className="ml-1 underline underline-offset-2" onClick={onClear}>tutti i dati</button></> : <>Tutti i dati · {st.n} punti. Trascina per scegliere un tratto.</>}
+      </p>
+      <table className="w-full"><tbody>
+        {row(<>media {cy.sym}̄</>, formatMeasure(st.mean, st.sem, cy.unit), "± = errore della media, s/√n")}
+        {row("deviazione standard s", `${n4(st.sd)}${u}`, "quanto oscillano i singoli valori intorno alla media")}
+        {row("minimo · massimo", `${n4(st.min)} · ${n4(st.max)}${u}`)}
+        {row(<>variazione Δ{cy.sym}</>, `${n4(st.last - st.first)}${u}`, "ultimo valore − primo valore del tratto")}
+        {row(meaning ? `${meaning} media` : <>rapporto Δ{cy.sym}/Δ{cx.sym}</>, `${n4(st.rate)} ${su}`)}
+      </tbody></table>
+      <Why title="Media, s ed errore della media">
+        <p><b>s</b> misura quanto i singoli valori si allontanano dalla media. <b>L&apos;errore della media</b> (il numero dopo il ±) è s/√n: con più punti la media è più affidabile, anche se ogni punto oscilla allo stesso modo.</p>
+        <p>Usa la media su un tratto in cui la grandezza dovrebbe restare costante, per esempio la temperatura di equilibrio o una posizione a riposo.</p>
+      </Why>
+      <Button size="sm" className="self-start" onClick={onSave}><Save /> Salva</Button>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Confronto dei modelli
+// ---------------------------------------------------------------------------
+export interface ModelRow { id: string; label: string; r2: number; s: number; n: number; verdict: string; error?: string }
+
+export function CompareModels({ rows, current, unit, onPick }: { rows: ModelRow[]; current: string | null; unit: string; onPick: (id: string) => void }) {
+  const ok = rows.filter((r) => !r.error);
+  const best = ok.length ? ok.reduce((a, b) => (b.s < a.s ? b : a)).id : null;
+  return (
+    <div className="flex flex-col gap-2 rounded-lg border p-2.5">
+      <div className="overflow-x-auto">
+        <table className="w-full text-xs">
+          <thead className="text-left text-muted-foreground">
+            <tr><th className="py-1 pr-2 font-medium">Modello</th><th className="py-1 pr-2 text-right font-medium">s ({unit || "—"})</th><th className="py-1 pr-2 text-right font-medium">R²</th><th className="py-1 text-right font-medium">Residui</th></tr>
+          </thead>
+          <tbody>
+            {rows.map((r) => (
+              <tr key={r.id} onClick={() => !r.error && onPick(r.id)}
+                className={cn("border-t", r.error ? "text-muted-foreground" : "cursor-pointer hover:bg-muted/60", current === r.id && "bg-accent/50")}>
+                <td className="py-1 pr-2 font-medium">{r.label}{r.id === best && <span className="ml-1.5 rounded bg-success/15 px-1 text-[0.6rem] font-semibold text-success">migliore</span>}</td>
+                <td className="py-1 pr-2 text-right tabular">{r.error ? "—" : fmt(r.s, 2)}</td>
+                <td className="py-1 pr-2 text-right tabular">{r.error || !Number.isFinite(r.r2) ? "—" : r.r2.toLocaleString("it-IT", { maximumFractionDigits: 4 })}</td>
+                <td className="py-1 text-right">{r.error ? "" : r.verdict === "casuali" ? <span className="text-success">casuali ✓</span> : r.verdict === "sistematici" ? <span className="text-destructive">sistematici</span> : "—"}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <p className="text-[0.7rem] leading-relaxed text-muted-foreground">Il modello migliore ha la <b>s più piccola</b> (i punti stanno più vicini alla curva) e <b>residui casuali</b>. Preferisci il modello più semplice che lo soddisfa e che ha un senso fisico. Tocca una riga per sceglierlo.</p>
     </div>
   );
 }

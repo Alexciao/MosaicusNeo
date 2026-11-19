@@ -6,7 +6,7 @@
 import { useLayoutEffect, useRef } from "react";
 import { cn } from "@/lib/utils";
 
-export interface GlideItem { id: string; content: React.ReactNode; onSelect: () => void; label?: string }
+export interface GlideItem { id: string; content: React.ReactNode; onSelect: () => void; label?: string; title?: string }
 
 export function GlideNav({ label, value, items, className, size = "md" }: {
   label: string; value: string; items: GlideItem[]; className?: string; size?: "sm" | "md";
@@ -40,12 +40,12 @@ export function GlideNav({ label, value, items, className, size = "md" }: {
       <span ref={pillRef} aria-hidden
         className="pointer-events-none absolute top-0.5 bottom-0.5 left-0 -z-10 rounded-md bg-background shadow-sm ring-1 ring-border will-change-transform data-ready:transition-[transform,width] data-ready:duration-250 data-ready:ease-(--ease-drawer) motion-reduce:transition-none dark:bg-secondary" />
       {items.map((it) => (
-        <button key={it.id} type="button" aria-label={it.label}
+        <button key={it.id} type="button" aria-label={it.label} title={it.title}
           ref={(el) => { if (el) btns.current.set(it.id, el); else btns.current.delete(it.id); }}
           onClick={it.onSelect}
-          aria-current={value === it.id ? "page" : undefined}
+          aria-current={value === it.id ? "page" : undefined} aria-pressed={value === it.id}
           className={cn(
-            "inline-flex items-center gap-1.5 rounded-md font-medium whitespace-nowrap transition-colors duration-200 outline-none focus-visible:ring-2 focus-visible:ring-ring/60",
+            "inline-flex items-center justify-center gap-1.5 rounded-md font-medium whitespace-nowrap [&_svg]:size-3.5 [&_svg]:shrink-0 transition-colors duration-200 outline-none focus-visible:ring-2 focus-visible:ring-ring/60",
             size === "sm" ? "h-6 px-2 text-xs" : "h-7 px-2.5 text-sm",
             value === it.id ? "text-foreground" : "text-muted-foreground hover:text-foreground",
           )}>
