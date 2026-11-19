@@ -61,7 +61,7 @@ const SMALL_ERR: Record<string, string> = { gps: "fili GPS?", ntc: "sonda?", ds1
 const SMALL_ERR_SHORT: Record<string, string> = { ds18b20: "4,7k?", imu: "SDA?", hx711: "DT?" };
 
 const CFG_WHY = ["?", "pin errato", "pin A0-A5", "pin doppio", "1 solo GPS", "tipo?", "comando?"];
-interface MirrorCtx { running: boolean; slotType?: string; cfgType?: string; same: number; ord: number; sats: string; elapsed: number; lines: [string, string]; tick: number }
+interface MirrorCtx { running: boolean; fw: string; slotType?: string; cfgType?: string; same: number; ord: number; sats: string; elapsed: number; lines: [string, string]; tick: number }
 
 /** Gli stessi testi che compone il firmware (screenTexts in mosaicusneo_firmware.ino). */
 function screenTexts(d: DeviceStatus, o: MirrorCtx) {
@@ -72,8 +72,7 @@ function screenTexts(d: DeviceStatus, o: MirrorCtx) {
   switch (d.st) {
     case "W":
       if (o.running) { bar = "APP PERSA"; big = d.link === "B" ? "BT?" : "USB?"; small = "ricollega"; }
-      else if (d.bt) { bar = "ATTESA BT"; big = "APP"; small = d.bt === 1 ? "PIN 1234" : "BLE pronto"; }
-      else { bar = "ATTESA"; big = "APP"; small = "Collega ~"; }
+      else { bar = "ATTESA"; big = "APP"; small = d.bt ? `USB/BT ${o.fw.slice(0, 4)}` : `USB v${o.fw.slice(0, 4)}`; }
       break;
     case "I": bar = "COLLEGATO"; big = "OK"; small = d.link === "B" ? "BT ~ Avvia" : "~ Avvia"; break;
     case "O": bar = "OSCILLOSC."; big = "SCOPE"; small = "segnale A0"; break;
@@ -148,6 +147,7 @@ export function DeviceMirror() {
   const device = useLab((s) => s.device);
   const running = useLab((s) => s.running);
   const lines = useLab((s) => s.oledLines);
+  const fw = useLab((s) => s.fw);
   const created = useLab((s) => s.session?.created ?? 0);
   const lim = useLab((s) => s.lim);
   const outs = outputsOf(rig);
@@ -174,7 +174,7 @@ export function DeviceMirror() {
       if (code <= device.slot) ord = same;
     }
   }
-  const txt = screenTexts(device, { running, slotType: slotSensor?.type, cfgType: device.st === "C" ? slotSensor?.type : undefined, same, ord, sats, elapsed, lines, tick });
+  const txt = screenTexts(device, { running, fw: (fw ?? "").replace(/-.*$/, ""), slotType: slotSensor?.type, cfgType: device.st === "C" ? slotSensor?.type : undefined, same, ord, sats, elapsed, lines, tick });
   const led = LED[device.st];
   const ms = tick * (lim ? 500 : 125);
   const ledOn = !led.blink || Math.floor(ms / led.blink) % 2 === 0;

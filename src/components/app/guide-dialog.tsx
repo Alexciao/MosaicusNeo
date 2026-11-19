@@ -500,8 +500,7 @@ function Field() {
 
 function Outputs() {
   const rows: [string, string, string, string, string][] = [
-    ["Acceso, l'app non è collegata", "ATTESA · APP", "#3b82f6", "blu, lampeggia", "1 bip ogni 3 s"],
-    ["Come sopra, con un modulo Bluetooth configurato", "ATTESA BT · PIN 1234 (HC-06) o BLE pronto", "#3b82f6", "blu, lampeggia", "1 bip ogni 3 s"],
+    ["Acceso, l'app non è collegata", "ATTESA · APP · USB v1.3 (con un modulo Bluetooth: USB/BT 1.3)", "#3b82f6", "blu, lampeggia", "1 bip ogni 3 s"],
     ["Collegato, fermo", "COLLEGATO · OK (via Bluetooth: «BT»)", "#3b82f6", "blu fisso", "1 bip ogni 3 s"],
     ["Un componente è stato rifiutato", "CONFIG · DHT · pin doppio", "#ef4444", "rosso, lampeggia veloce", "3 bip ogni 3 s"],
     ["Misura avviata, GPS in ricerca", "CERCO GPS · 3 sat", "#eab308", "giallo, lampeggia", "2 bip ogni 3 s"],
@@ -535,7 +534,7 @@ function Outputs() {
         <li>Se più sensori hanno un problema, il display li mostra a turno ogni 2,5 secondi, prima gli errori e poi quelli in ricerca: «PROBL 1/2», «PROBL 2/2». LED e cicalino seguono sempre il più grave.</li>
         <li>Con due sensori dello stesso tipo, il display indica quale con il numero: «#2» è il secondo DHT nell&apos;elenco dei componenti.</li>
         <li>Se Arduino rifiuta un componente (pin doppio, pin non analogico, secondo GPS), il display mostra «CONFIG» con il motivo finché non correggi i pin e riavvii la misura.</li>
-        <li>Dopo «Configura» nel passo Bluetooth, Arduino ricorda il modulo: in attesa dell&apos;app il display mostra «ATTESA BT». Se il modulo non risponde, l&apos;app lo segnala: controlla TXD e RXD.</li>
+        <li>In attesa dell&apos;app il display mostra come collegarsi e la versione del firmware: «USB v1.3». Il Bluetooth è facoltativo: dopo «Configura» nel passo Bluetooth, se il modulo risponde, Arduino lo ricorda e il display mostra «USB/BT 1.3».</li>
       </ul>
       <Note>Queste funzioni richiedono il firmware v{FIRMWARE_VERSION}.</Note>
       <H>Dettagli</H>
