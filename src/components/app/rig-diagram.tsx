@@ -8,14 +8,20 @@ import type { SensorInstance } from "@/lib/sensors/rig";
 
 export type BtModule = "hc06" | "ble" | null;
 type Conn = "5V" | "GND" | number;
-interface ModRow { label: string; conn: Conn; dashed?: boolean; note?: string }
-interface Mod { title: string; rows: ModRow[]; color: string; steps: string[] }
+/** via: il filo passa dalla breadboard con una resistenza di pull-up (DS18B20) o un partitore (RXD del Bluetooth) */
+export interface ModRow { label: string; conn: Conn; dashed?: boolean; note?: string; via?: "pullup" | "divider" }
+/** kind: il disegno del modulo nello schema realistico (tipo di sensore, o "hc06"/"ble") */
+export interface Mod { title: string; rows: ModRow[]; color: string; steps: string[]; kind: string; options?: Record<string, number | string> }
 
 const COLORS = ["#2563eb", "#db2777", "#16a34a", "#d97706", "#7c3aed", "#0891b2", "#4d7c0f"];
 const RED = "#dc2626", BLACK = "var(--foreground)";
 
 /** Righe del modulo e istruzioni, per un sensore. */
 function moduleOf(s: SensorInstance, color: string): Mod {
+  const m = moduleRows(s, color);
+  return { ...m, kind: s.type, options: s.options };
+}
+function moduleRows(s: SensorInstance, color: string): Omit<Mod, "kind"> {
   const p = (k: string) => s.pins[k];
   const n = (k: string) => pinName(s.pins[k]);
   // titolo: il tipo di modulo, con davanti il nome dato dall'utente se diverso da quello di serie
@@ -84,6 +90,79 @@ function moduleOf(s: SensorInstance, color: string): Mod {
           "Mai più di 5 V sul pin, e mai la rete elettrica.",
         ],
       };
+    case "ds18b20":
+      return {
+        title: title("Sonda DS18B20"), color,
+        rows: [{ label: "rosso (VCC)", conn: "5V" }, { label: "giallo (DATA)", conn: p("a"), via: "pullup", note: "4,7 kΩ" }, { label: "nero (GND)", conn: "GND" }],
+        steps: [
+          "La sonda ha tre fili: rosso (VCC), giallo (DATA), nero (GND). Se la tua ha la schedina con i morsetti, la resistenza c'è già.",
+          "Rosso a 5V, nero a GND.",
+          `Giallo al pin ${n("a")}.`,
+          "Una resistenza da 4,7 kΩ (giallo-viola-rosso) tra il filo giallo e 5V: senza, la sonda non risponde.",
+        ],
+      };
+    case "gate":
+      return {
+        title: title("Fotocellula"), color,
+        rows: [{ label: "VCC", conn: "5V" }, { label: "GND", conn: "GND" }, { label: "OUT (D0)", conn: p("a") }],
+        steps: [
+          "VCC a 5V, GND a GND.",
+          `OUT (su alcuni moduli si chiama D0 o DO) al pin ${n("a")}${p("a") === 2 || p("a") === 3 ? ": su D2/D3 l'istante è preciso al microsecondo" : ""}.`,
+          "Monta la forcella in modo che l'oggetto (la massa del pendolo, la bandierina del carrello) passi nella fessura e interrompa il raggio.",
+          "Se gli istanti sembrano invertiti, cambia «Quando il raggio è interrotto» nelle opzioni.",
+        ],
+      };
+    case "hx711":
+      return {
+        title: title("HX711 + cella di carico"), color,
+        rows: [{ label: "VCC", conn: "5V" }, { label: "SCK", conn: p("b") }, { label: "DT (DOUT)", conn: p("a") }, { label: "GND", conn: "GND" }],
+        steps: [
+          "Fili della cella sull'HX711: rosso E+, nero E−, bianco A−, verde A+ (se i valori crescono al contrario, scambia bianco e verde).",
+          "VCC a 5V, GND a GND.",
+          `DT al pin ${n("a")}, SCK al pin ${n("b")}.`,
+          "Fissa la cella con due viti, la freccia verso il basso. Per tarare: misura un peso noto e cambia «conteggi per grammo» finché la massa è giusta.",
+        ],
+      };
+    case "imu":
+      return {
+        title: title("MPU-6050 (GY-521)"), color,
+        rows: [{ label: "VCC", conn: "5V" }, { label: "GND", conn: "GND" }, { label: "SCL", conn: p("b") }, { label: "SDA", conn: p("a") }],
+        steps: [
+          "VCC a 5V, GND a GND (il modulo ha il suo regolatore).",
+          `SDA al pin ${n("a")}, SCL al pin ${n("b")}. Un display OLED può stare sugli stessi due pin.`,
+          "Fissa bene il modulo all'oggetto che si muove: se balla, misuri le sue vibrazioni. Le frecce stampate indicano gli assi x e y.",
+        ],
+      };
+    case "oled":
+      return {
+        title: title("Display OLED 0,49\""), color,
+        rows: [{ label: "GND", conn: "GND" }, { label: "VCC", conn: "5V" }, { label: "SCL", conn: p("b") }, { label: "SDA", conn: p("a") }],
+        steps: [
+          "I 4 pin del display, nell'ordine stampato: GND, VCC, SCL, SDA (controlla: alcuni moduli hanno VCC e GND scambiati).",
+          "GND a GND, VCC a 5V.",
+          `SCL al pin ${n("b")}, SDA al pin ${n("a")}.`,
+          "Alla prima misura Arduino ricorda il display: da lì in poi, appena acceso, scrive «ATTESA APP» finché il telefono non si collega.",
+        ],
+      };
+    case "rgb":
+      return {
+        title: title("LED RGB"), color,
+        rows: [{ label: "R", conn: p("a") }, { label: "G", conn: p("b") }, { label: "B", conn: p("c") }, { label: s.options.common === "anode" ? "+ (comune)" : "− (comune)", conn: s.options.common === "anode" ? "5V" : "GND" }],
+        steps: [
+          `Il piedino più lungo è il comune: va a ${s.options.common === "anode" ? "5V" : "GND"}.`,
+          `R al pin ${n("a")}, G al pin ${n("b")}, B al pin ${n("c")}.`,
+          "Con un LED «nudo», metti una resistenza da 220 Ω su ognuno dei tre colori (i moduli a 4 pin ce l'hanno già).",
+        ],
+      };
+    case "buzzer":
+      return {
+        title: title(s.options.kind === "passive" ? "Cicalino passivo" : "Cicalino attivo"), color,
+        rows: [{ label: "+ (S)", conn: p("a") }, { label: "−", conn: "GND" }],
+        steps: [
+          `Il piedino + (il più lungo, o «S» sul modulo) al pin ${n("a")}, il − a GND.`,
+          "Attivo o passivo? Collegato a 5V, quello attivo suona da solo; quello passivo fa solo un «clic». Scegli il tipo nelle opzioni.",
+        ],
+      };
   }
   return { title: title(SENSORS[s.type].short), color, rows: [], steps: [] };
 }
@@ -91,8 +170,8 @@ function moduleOf(s: SensorInstance, color: string): Mod {
 function btModule(kind: Exclude<BtModule, null>): Mod {
   const name = kind === "ble" ? "Bluetooth LE (HM-10 / AT-09)" : "Bluetooth HC-06";
   return {
-    title: name, color: "#64748b",
-    rows: [{ label: "VCC", conn: "5V" }, { label: "TXD", conn: 0 }, { label: "RXD (3,3 V)", conn: 1, note: "partitore" }, { label: "GND", conn: "GND" }],
+    title: name, color: "#64748b", kind,
+    rows: [{ label: "VCC", conn: "5V" }, { label: "GND", conn: "GND" }, { label: "TXD", conn: 0 }, { label: "RXD (3,3 V)", conn: 1, note: "partitore", via: "divider" }],
     steps: [
       "VCC a 5V (rosso), GND a GND (nero).",
       "TXD del modulo a D0 (RX di Arduino).",

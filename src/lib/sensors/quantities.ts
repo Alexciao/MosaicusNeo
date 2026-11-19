@@ -105,6 +105,31 @@ export const QUANTITIES: Record<string, Quantity> = {
   ok: raw("valido", "lettura valida"),
   ...Object.fromEntries(["b0", "b1", "b2", "b3"].map((k) => [k, raw(k, `byte ${k[1]} del sensore`)])),
   err: raw("err", "errore del sensore"),
+  ds: raw("DS", "lettura grezza (1/16 °C)"),
+  // --- fotocellula
+  gate: { sym: "stato", name: "raggio (1 = interrotto)", unit: "", models: [] },
+  n: { sym: "N", name: "passaggi contati", unit: "", models: ["lin"], slope: "passaggi al secondo",
+    physics: { lin: [{ label: "frequenza dei passaggi", unit: "Hz", calc: (f) => P(f, "m") }] } },
+  Tp: { sym: "Tₚ", name: "tempo tra due passaggi", unit: "s", models: ["mean", "lin"],
+    physics: { mean: mean("periodo medio", "s"), lin: [{ label: "variazione del periodo a ogni secondo", unit: "s/s", calc: (f) => P(f, "m") }] } },
+  tb: { sym: "Δtₒ", name: "tempo di oscuramento", unit: "s", models: ["mean", "lin"], physics: { mean: mean("tempo di oscuramento medio", "s") } },
+  vg: { sym: "vₒ", name: "velocità al passaggio", unit: "m/s", models: ["mean", "lin"], slope: "accelerazione",
+    physics: { mean: mean("velocità media al passaggio", "m/s"), lin: [{ label: "accelerazione a = m", unit: "m/s²", calc: (f) => P(f, "m") }] } },
+  fg: { sym: "f", name: "frequenza dei passaggi", unit: "Hz", models: ["mean"], physics: { mean: mean("frequenza media", "Hz") } },
+  // --- bilancia
+  m: { sym: "m", name: "massa", unit: "g", models: ["mean", "lin", "expC"], slope: "rapidità di variazione della massa",
+    physics: { mean: mean("massa media", "g"), lin: [{ label: "dm/dt", unit: "g/s", calc: (f) => P(f, "m") }] } },
+  F: { sym: "F", name: "forza", unit: "N", models: ["mean", "lin", "dsin"], slope: "rapidità di variazione della forza",
+    physics: { mean: mean("forza media", "N"), lin: [{ label: "dF/dt", unit: "N/s", calc: (f) => P(f, "m") }], dsin: periodFrom() } },
+  cnt: raw("cnt", "conteggi dell'HX711"),
+  // --- accelerometro
+  ax: { sym: "aₓ", name: "accelerazione x", unit: "m/s²", models: ["mean", "lin", "dsin"], physics: { mean: mean("accelerazione media x", "m/s²"), dsin: periodFrom() } },
+  ay: { sym: "aᵧ", name: "accelerazione y", unit: "m/s²", models: ["mean", "lin", "dsin"], physics: { mean: mean("accelerazione media y", "m/s²"), dsin: periodFrom() } },
+  az: { sym: "a_z", name: "accelerazione z", unit: "m/s²", models: ["mean", "lin", "dsin"], physics: { mean: mean("accelerazione media z", "m/s²"), dsin: periodFrom() } },
+  am: { sym: "|a|", name: "accelerazione (modulo)", unit: "m/s²", models: ["mean", "dsin"], physics: { mean: mean("modulo medio (fermo ≈ g)", "m/s²"), dsin: periodFrom() } },
+  gx: { sym: "ωₓ", name: "velocità angolare x", unit: "°/s", models: ["mean", "dsin"], physics: { dsin: periodFrom() } },
+  gy: { sym: "ωᵧ", name: "velocità angolare y", unit: "°/s", models: ["mean", "dsin"], physics: { dsin: periodFrom() } },
+  gz: { sym: "ω_z", name: "velocità angolare z", unit: "°/s", models: ["mean", "dsin"], physics: { dsin: periodFrom() } },
 };
 
 /** Chiave di base: "T_2" → "T". */

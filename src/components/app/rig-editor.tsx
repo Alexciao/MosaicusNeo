@@ -4,19 +4,19 @@
 // montaggi liberi.
 
 import { useState } from "react";
-import { ChevronDown, CopyPlus, Plus, RotateCcw, Trash, TriangleExclamationPoint } from "lucide-react";
+import { ChevronDown, CopyPlus, Plus, RotateCcw, Siren, Trash, TriangleExclamationPoint } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { SENSORS, ARDUINO_SENSORS, MAX_ARDUINO, pinName, pinsFor, type SensorType } from "@/lib/sensors/catalog";
-import { validateRig, usedPins, sensorLabel, type SensorInstance } from "@/lib/sensors/rig";
+import { SENSORS, ARDUINO_SENSORS, OUTPUTS, MAX_ARDUINO, pinName, pinsFor, type SensorType } from "@/lib/sensors/catalog";
+import { validateRig, usedPins, sensorLabel, inputsOf, outputsOf, type SensorInstance } from "@/lib/sensors/rig";
 import { QUANTITIES } from "@/lib/sensors/quantities";
 import type { Param } from "@/lib/sensors/types";
 import {
-  useLab, labInfo, updateSensor, addSensor, removeSensor, resetPreset, renameRig, newRig, deleteRig,
+  useLab, labInfo, updateSensor, addSensor, removeSensor, resetPreset, renameRig, newRig, deleteRig, testOutputs, openGuide,
 } from "@/lib/lab-store";
 import { confirm } from "@/lib/confirm";
 import { cn } from "@/lib/utils";
@@ -76,7 +76,8 @@ function SensorCard({ s, defaultOpen }: { s: SensorInstance; defaultOpen: boolea
             <span className="block truncate text-sm font-semibold">{sensorLabel(s)}</span>
             <span className="flex flex-wrap gap-1 pt-0.5">
               {def.pins.map((p) => <span key={p.key} className="rounded bg-muted px-1.5 font-mono text-[0.65rem] font-semibold">{p.role.split(" ")[0]} {pinName(s.pins[p.key])}</span>)}
-              <span className="rounded px-1 text-[0.65rem] text-muted-foreground tabular">ogni {s.interval >= 1000 ? `${s.interval / 1000} s` : `${s.interval} ms`}</span>
+              {!def.output && !def.events && <span className="rounded px-1 text-[0.65rem] text-muted-foreground tabular">ogni {s.interval >= 1000 ? `${s.interval / 1000} s` : `${s.interval} ms`}</span>}
+              {def.events && <span className="rounded px-1 text-[0.65rem] text-muted-foreground">a ogni passaggio</span>}
             </span>
           </span>
           <ChevronDown className={cn("size-4 shrink-0 text-muted-foreground transition-transform", !open && "-rotate-90")} />
@@ -94,10 +95,12 @@ function SensorCard({ s, defaultOpen }: { s: SensorInstance; defaultOpen: boolea
             <OptionField id={`${s.id}-label`} p={{ key: "label", label: "Nome", type: "text", value: "" }} value={s.label ?? def.short} disabled={running}
               onChange={(v) => updateSensor(s.id, { label: String(v) })} />
           </Field>
-          <Field label="Una lettura ogni" unit="ms" htmlFor={`${s.id}-int`}>
-            <OptionField key={`int-${s.interval}`} id={`${s.id}-int`} p={{ key: "interval", label: "", value: s.interval, min: minI, step: 10 }} value={s.interval} disabled={running}
-              onChange={(v) => updateSensor(s.id, { interval: Math.max(minI, Number(v)) })} />
-          </Field>
+          {!def.output && !def.events && (
+            <Field label="Una lettura ogni" unit="ms" htmlFor={`${s.id}-int`}>
+              <OptionField key={`int-${s.interval}`} id={`${s.id}-int`} p={{ key: "interval", label: "", value: s.interval, min: minI, step: 10 }} value={s.interval} disabled={running}
+                onChange={(v) => updateSensor(s.id, { interval: Math.max(minI, Number(v)) })} />
+            </Field>
+          )}
           {def.pins.map((spec) => (
             <Field key={spec.key} label={spec.role} htmlFor={`${s.id}-pin-${spec.key}`}>
               <Select value={String(s.pins[spec.key])} disabled={running}
@@ -106,12 +109,15 @@ function SensorCard({ s, defaultOpen }: { s: SensorInstance; defaultOpen: boolea
                 <SelectTrigger id={`${s.id}-pin-${spec.key}`} size="sm" className="w-full min-w-0 font-mono"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   {pinsFor(spec.kind).map((p) => {
-                    const u = taken.get(p);
+                    const u0 = taken.get(p);
+                    const shared = !!u0 && !!spec.bus && u0.bus === spec.bus;     // stesso filo I2C: si può
+                    const u = shared ? undefined : u0;
                     const self = Object.entries(s.pins).find(([k, v]) => k !== spec.key && v === p);
                     return (
                       <SelectItem key={p} value={String(p)} disabled={!!u || !!self}>
                         <span className="font-mono">{pinName(p)}</span>
                         {(u || self) && <span className="ml-2 text-xs text-muted-foreground">{u ? sensorLabel(u.sensor) : "già usato qui"}</span>}
+                        {shared && <span className="ml-2 text-xs text-muted-foreground">in comune con {sensorLabel(u0!.sensor)}</span>}
                       </SelectItem>
                     );
                   })}
@@ -165,14 +171,14 @@ function PickerCard({ type, disabled, why, onPick }: { type: SensorType; disable
   );
 }
 
-export function SensorPicker({ open, onOpenChange }: { open: boolean; onOpenChange: (o: boolean) => void }) {
+export function SensorPicker({ open, onOpenChange, outputs = false }: { open: boolean; onOpenChange: (o: boolean) => void; outputs?: boolean }) {
   const rig = useLab((s) => s.rig);
-  const nArduino = rig.sensors.length;
+  const nArduino = inputsOf(rig).length;
   const count = (t: SensorType) => rig.sensors.filter((s) => s.type === t).length;
   const state = (t: SensorType): [boolean, string?] => {
     const def = SENSORS[t];
     if (count(t) >= def.max) return [true, def.max === 1 ? "già nel montaggio (ce ne può essere uno solo)" : `al massimo ${def.max}`];
-    if (nArduino >= MAX_ARDUINO) return [true, `Arduino legge al massimo ${MAX_ARDUINO} sensori`];
+    if (!def.output && nArduino >= MAX_ARDUINO) return [true, `Arduino legge al massimo ${MAX_ARDUINO} sensori`];
     return [false];
   };
   const pick = (t: SensorType) => { addSensor(t); onOpenChange(false); };
@@ -180,12 +186,17 @@ export function SensorPicker({ open, onOpenChange }: { open: boolean; onOpenChan
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-h-[90svh] overflow-y-auto sm:max-w-2xl">
         <DialogHeader>
-          <DialogTitle>Aggiungi un sensore</DialogTitle>
-          <DialogDescription>Sensori da collegare ad Arduino: il firmware MosaicusNeo li legge tutti, fino a {MAX_ARDUINO} insieme, ognuno con il suo ritmo. I pin si scelgono dopo.</DialogDescription>
+          <DialogTitle>{outputs ? "Aggiungi un indicatore di stato" : "Aggiungi un sensore"}</DialogTitle>
+          <DialogDescription>
+            {outputs
+              ? "Display, LED o cicalino collegati ad Arduino: mostrano da soli se è pronto, se il GPS sta cercando i satelliti, se c'è un problema o se sta misurando. Comodi all'aperto, quando il telefono è in tasca."
+              : <>Sensori da collegare ad Arduino: il firmware MosaicusNeo li legge tutti, fino a {MAX_ARDUINO} insieme, ognuno con il suo ritmo. I pin si scelgono dopo.</>}
+          </DialogDescription>
         </DialogHeader>
         <div className="grid gap-2 sm:grid-cols-2">
-          {ARDUINO_SENSORS.map((t) => { const [d, why] = state(t); return <PickerCard key={t} type={t} disabled={d} why={why} onPick={() => pick(t)} />; })}
+          {(outputs ? OUTPUTS : ARDUINO_SENSORS).map((t) => { const [d, why] = state(t); return <PickerCard key={t} type={t} disabled={d} why={why} onPick={() => pick(t)} />; })}
         </div>
+        {!outputs && <p className="text-xs text-muted-foreground">Cerchi un display, un LED o un cicalino che dica se è tutto pronto? Sono tra gli <b>indicatori di stato</b>, sotto l&apos;elenco dei sensori.</p>}
       </DialogContent>
     </Dialog>
   );
@@ -197,6 +208,9 @@ export function RigEditor() {
   const running = useLab((s) => s.running);
   const labId = useLab((s) => s.labId);
   const [picker, setPicker] = useState(false);
+  const [outPicker, setOutPicker] = useState(false);
+  const linked = useLab((s) => s.ready && !!s.linkKind);
+  const inputs = inputsOf(rig), outs = outputsOf(rig);
   const info = labInfo(labId);
   const issues = validateRig(rig).filter((i) => !i.sensorId);
   const custom = info.kind === "custom";
@@ -225,11 +239,22 @@ export function RigEditor() {
       ))}
 
       <div className="flex flex-col gap-2">
-        {rig.sensors.map((s) => <SensorCard key={s.id} s={s} defaultOpen={rig.sensors.length === 1 || custom} />)}
+        {inputs.map((s) => <SensorCard key={s.id} s={s} defaultOpen={inputs.length === 1 || custom} />)}
       </div>
       <Button variant="outline" disabled={running} onClick={() => setPicker(true)} className="border-dashed"><Plus /> Aggiungi un sensore</Button>
-      {!rig.sensors.length && <p className="text-center text-xs text-muted-foreground">Scegli i sensori che hai collegato ad Arduino: l&apos;app ti mostra come collegarli e li legge tutti insieme.</p>}
+      {!inputs.length && <p className="text-center text-xs text-muted-foreground">Scegli i sensori che hai collegato ad Arduino: l&apos;app ti mostra come collegarli e li legge tutti insieme.</p>}
       <SensorPicker open={picker} onOpenChange={setPicker} />
+
+      <div className="mt-2 flex flex-col gap-2 border-t pt-3">
+        <div className="flex items-baseline justify-between gap-2">
+          <h4 className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">Indicatori di stato</h4>
+          {!!outs.length && <Button size="xs" variant="ghost" disabled={running || !linked} onClick={() => void testOutputs()} title={linked ? "Fa lampeggiare il LED, suonare il cicalino e scrivere sul display" : "Prima collega Arduino"}>Prova gli indicatori</Button>}
+        </div>
+        {!outs.length && <p className="text-xs text-muted-foreground">Facoltativi: un display, un LED RGB o un cicalino su Arduino dicono da soli se è pronto e sta misurando (il cicalino suona finché qualcosa non va). <button type="button" className="underline underline-offset-2" onClick={() => openGuide("outputs")}>Come funzionano</button></p>}
+        {outs.map((s) => <SensorCard key={s.id} s={s} defaultOpen={custom} />)}
+        <Button variant="ghost" size="sm" disabled={running || outs.length >= OUTPUTS.length} onClick={() => setOutPicker(true)} className="self-start text-muted-foreground"><Siren /> Aggiungi un indicatore</Button>
+        <SensorPicker open={outPicker} onOpenChange={setOutPicker} outputs />
+      </div>
       {custom && (
         <Button variant="ghost" size="sm" disabled={running} className="self-start text-destructive hover:bg-destructive/10 hover:text-destructive"
           onClick={async () => { if (await confirm({ title: `Eliminare il montaggio «${rig.name}»?`, description: "Le misure già fatte restano nel Quaderno.", action: "Elimina", destructive: true })) deleteRig(rig.id); }}>
@@ -238,7 +263,7 @@ export function RigEditor() {
       )}
       <details className="text-xs text-muted-foreground">
         <summary className="cursor-pointer font-medium">Grandezze misurate</summary>
-        <p className="pt-1.5">{rig.sensors.map((s) => `${sensorLabel(s)}: ${SENSORS[s.type].quantities(s.options).filter((q) => !q.hidden && !q.raw).map((q) => q.sym ?? QUANTITIES[q.key]?.sym ?? q.key).join(", ")}`).join(" · ") || "—"}</p>
+        <p className="pt-1.5">{inputs.map((s) => `${sensorLabel(s)}: ${SENSORS[s.type].quantities(s.options).filter((q) => !q.hidden && !q.raw).map((q) => q.sym ?? QUANTITIES[q.key]?.sym ?? q.key).join(", ")}`).join(" · ") || "—"}</p>
       </details>
     </div>
   );

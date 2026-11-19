@@ -56,9 +56,13 @@ export class SerialLink {
   }
 
   async write(text) {
-    if (!this.port || !this.port.writable) return;
-    const w = this.port.writable.getWriter();
-    try { await w.write(new TextEncoder().encode(text + '\n')); } finally { w.releaseLock(); }
+    // in fila: due scritture insieme si contenderebbero il writer della porta
+    this._queue = (this._queue || Promise.resolve()).then(async () => {
+      if (!this.port || !this.port.writable) return;
+      const w = this.port.writable.getWriter();
+      try { await w.write(new TextEncoder().encode(text + '\n')); } finally { w.releaseLock(); }
+    }).catch(() => { /* porta chiusa */ });
+    return this._queue;
   }
 
   async close() {

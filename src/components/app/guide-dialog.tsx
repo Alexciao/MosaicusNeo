@@ -8,21 +8,22 @@ import { create } from "zustand";
 import type { LucideIcon } from "lucide-react";
 import {
   BookOpen, Bluetooth, ChartLine, Check, Cloud, Copy, Cpu, Download, FlaskConical, LifeBuoy, Minus, Monitor, Plug, Presentation, Rocket, Share2,
-  SlidersHorizontal, Smartphone, TriangleAlert, Wrench, X,
+  Siren, SlidersHorizontal, Smartphone, TriangleAlert, Wrench, X,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { SENSORS, ARDUINO_SENSORS, type SensorType } from "@/lib/sensors/catalog";
+import { SENSORS, ARDUINO_SENSORS, OUTPUTS, type SensorType } from "@/lib/sensors/catalog";
 import { makeSensor } from "@/lib/sensors/rig";
 import { useLab, openGuide, closeGuide, createRigFrom, setLim } from "@/lib/lab-store";
 import { detectDevice, bluetoothAvailable, DEVICE_LABEL, OS_LABEL, BROWSER_LABEL, type GuideDevice, type DeviceInfo } from "@/lib/device";
 import { APP_VERSION, FIRMWARE_URL, FIRMWARE_VERSION } from "@/lib/version";
 import { cn } from "@/lib/utils";
 import { Segmented } from "@/components/instruments/scope-panel";
-import { RigDiagram, WiringSteps, type BtModule } from "./rig-diagram";
+import { WiringSteps, type BtModule } from "./rig-diagram";
+import { WiringDiagram } from "./wiring-diagram";
 
 // ---------------------------------------------------------------------------
 // Mattoncini del testo
@@ -373,7 +374,7 @@ function Wiring() {
       </div>
       {(mode === "pick" || !mine) && (
         <div className="grid gap-1.5 sm:grid-cols-2">
-          {ARDUINO_SENSORS.map((t) => (
+          {[...ARDUINO_SENSORS, ...OUTPUTS].map((t) => (
             <label key={t} className="flex items-center gap-2 rounded-md border px-2.5 py-2 text-sm">
               <Checkbox checked={picked.includes(t)} onCheckedChange={(v) => setPicked((p) => (v ? [...p, t] : p.filter((x) => x !== t)))} />
               <span><B>{SENSORS[t].title}</B> <span className="text-muted-foreground">· {SENSORS[t].measures}</span></span>
@@ -383,10 +384,8 @@ function Wiring() {
       )}
       {sensors.length || btMod ? (
         <>
-          <div className="rounded-lg border bg-card p-3">
-            <RigDiagram sensors={sensors} bt={btMod} className="h-auto w-full text-foreground [&_text]:fill-current" />
-            <p className="mt-2 text-xs text-muted-foreground">Rosso = 5V · nero = GND · un colore per sensore · tratteggiato = facoltativo. I pin si cambiano nella scheda «Sensori» dell&apos;esperimento.</p>
-          </div>
+          <WiringDiagram sensors={sensors} bt={btMod} />
+          <p className="-mt-2 text-xs text-muted-foreground">Tratteggiato = facoltativo. I pin si cambiano nella scheda «Sensori» dell&apos;esperimento.</p>
           <H>Passo passo</H>
           <Note>Prima di collegare: <B>stacca Arduino dal computer</B>. Ricontrolla i fili, poi ricollega.</Note>
           <WiringSteps sensors={sensors} bt={btMod} />
@@ -507,6 +506,47 @@ function Field() {
   );
 }
 
+function Outputs() {
+  const rows: [string, string, string, string, string][] = [
+    ["Acceso, l'app non è collegata", "ATTESA · APP", "#3b82f6", "blu, lampeggia", "1 bip ogni 3 s"],
+    ["Collegato, fermo", "COLLEGATO · OK", "#3b82f6", "blu fisso", "1 bip ogni 3 s"],
+    ["Misura avviata, GPS in ricerca", "CERCO GPS · 3 sat", "#eab308", "giallo, lampeggia", "2 bip ogni 3 s"],
+    ["Un sensore non risponde", "PROBLEMA · DHT", "#ef4444", "rosso, lampeggia veloce", "3 bip ogni 3 s"],
+    ["Sta misurando, tutto a posto", "REC 1:23 · 23.4°", "#22c55e", "verde fisso", "silenzio (un «bip-bip» quando ci arriva)"],
+  ];
+  return (
+    <>
+      <P>Un display, un LED RGB o un cicalino collegati ad Arduino dicono <B>da soli</B> in che stato è, anche quando il telefono è in tasca o lontano. Si aggiungono nella scheda «Sensori» → <B>Indicatori di stato</B>, con i pin che preferisci (schema e passi in «Collegamenti»). Servono il firmware v{FIRMWARE_VERSION} o più recente.</P>
+      <div className="overflow-x-auto rounded-lg border">
+        <table className="w-full text-sm">
+          <thead className="bg-muted/50 text-left"><tr><th className="p-2">Situazione</th><th className="p-2">Display</th><th className="p-2">LED</th><th className="p-2">Cicalino</th></tr></thead>
+          <tbody className="text-muted-foreground">
+            {rows.map(([a, b, c, d, e]) => (
+              <tr key={a} className="border-t">
+                <td className="p-2 text-foreground">{a}</td>
+                <td className="p-2 font-mono text-xs">{b}</td>
+                <td className="p-2"><span className="inline-flex items-center gap-1.5"><span className="size-2.5 rounded-full" style={{ background: c }} />{d}</span></td>
+                <td className="p-2">{e}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <Note>In breve: <B>finché il cicalino suona, qualcosa non è pronto</B>. Quando smette, Arduino sta misurando e tutto va bene.</Note>
+      <H>Il GPS «cerca», non è rotto</H>
+      <P>Appena acceso, e ogni volta che è al chiuso, il GPS non ha ancora la posizione: sta cercando i satelliti. Per questo display e LED dicono «in ricerca» (giallo, 2 bip) e mostrano quanti satelliti vede. All&apos;aperto, con il cielo libero, ci vogliono da 30 secondi a qualche minuto. Se invece dal GPS non arriva proprio niente, è un problema di fili (rosso, 3 bip, «fili GPS?»).</P>
+      <H>Da sapere</H>
+      <ul className="list-disc space-y-1 pl-5 text-sm text-muted-foreground">
+        <li>Arduino ricorda gli indicatori: dalla misura successiva, appena acceso, mostra subito «in attesa dell&apos;app» (utile sul campo, prima di collegare il telefono).</li>
+        <li>Durante la misura il display mostra la prima grandezza in grande e la seconda sotto, aggiornate ogni secondo.</li>
+        <li>«Prova gli indicatori» (scheda Sensori, con Arduino collegato) fa cambiare colore al LED, suonare il cicalino e scrivere «CIAO» sul display.</li>
+        <li>Nella scheda della misura l&apos;app mostra in piccolo che cosa stanno mostrando in quel momento display, LED e cicalino.</li>
+        <li>Il cicalino si può zittire (opzione «Bip finché non è tutto pronto»). Display e accelerometro MPU-6050 possono stare sugli stessi due pin I2C (di solito A4 e A5).</li>
+      </ul>
+    </>
+  );
+}
+
 function Data() {
   return (
     <>
@@ -547,7 +587,7 @@ function Problems() {
         <p>Controlla la «posizione del termistore nel partitore» (tra 5V e il pin, o tra il pin e GND) e, nelle opzioni avanzate, R₀ e B del tuo termistore. Una correzione di taratura si somma a tutti i valori.</p>
       </Faq>
       <Faq q="Il GPS non trova la posizione">
-        <p>Solo all&apos;aperto, lontano da palazzi alti; il primo fix può richiedere qualche minuto. Controlla che il TX del GPS vada sul pin «RX di Arduino» scelto nel montaggio.</p>
+        <p>Se l&apos;app dice «cerco i satelliti», il GPS funziona: sta solo aspettando il segnale. Solo all&apos;aperto, lontano da palazzi alti; il primo fix può richiedere qualche minuto. Controlla che il TX del GPS vada sul pin «RX di Arduino» scelto nel montaggio.</p>
       </Faq>
       <Faq q="Il modulo Bluetooth non compare">
         <p>HC-06: va associato prima nelle impostazioni del telefono (PIN 1234 o 0000), e funziona solo su Android. BLE: compare dall&apos;app, non nelle impostazioni; se non trovi «MosaicusNeo», cerca HMSoft, BT05 o HC-08 (il modulo non è stato configurato). Su iPhone usa Bluefy, non Safari.</p>
@@ -572,6 +612,7 @@ const CHAPTERS: { id: string; title: string; icon: LucideIcon; body: () => React
   { id: "rigs", title: "Montaggi di sensori", icon: SlidersHorizontal, body: Rigs },
   { id: "analysis", title: "Elaborazione", icon: ChartLine, body: Analysis },
   { id: "field", title: "Sul campo e Bluetooth", icon: Bluetooth, body: Field },
+  { id: "outputs", title: "Indicatori di stato", icon: Siren, body: Outputs },
   { id: "data", title: "Dati e account", icon: Cloud, body: Data },
   { id: "problems", title: "Problemi comuni", icon: LifeBuoy, body: Problems },
 ];

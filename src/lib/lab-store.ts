@@ -24,7 +24,7 @@ import { toGPX, toGeoJSON, type TrackPoint } from "@/lib/mosaicus/geo";
 import { SENSORS, pinName, type SensorType } from "@/lib/sensors/catalog";
 import {
   resolveRig, validateRig, hasErrors, firmwareCommands, buildRows, alignRows, seriesOf, interpAt, tolerance,
-  makeSensor, usedPins, newId, sensorLabel, LEGACY, type Rig, type SensorInstance, type Resolved, type ResolvedQuantity,
+  makeSensor, usedPins, newId, sensorLabel, LEGACY, inputsOf, outputsOf, firmwareNeeded, type Rig, type SensorInstance, type Resolved, type ResolvedQuantity,
 } from "@/lib/sensors/rig";
 import { PRESETS, INSTRUMENTS, presetById, instrumentById, presetSensors, type Preset, type Instrument } from "@/lib/sensors/presets";
 import type { Row, Tone } from "@/lib/sensors/types";
@@ -56,6 +56,8 @@ export interface SessionSummary {
 export type StatusTone = "off" | "wait" | "on" | "err";
 export type Page = "misura" | "quaderno" | "elab";
 export type GuideStep = "link" | "wait" | "start" | "stop" | "pick" | "send" | "go" | null;
+/** Stato riferito da Arduino (firmware 1.2): W attesa app · I pronto · S in ricerca · E problema · T misura ok · O oscilloscopio */
+export interface DeviceStatus { st: "W" | "I" | "S" | "E" | "T" | "O"; slot: number; issue: number; at: number }
 
 /** Pannello di uno strumento (oscilloscopio, synth): riceve le righe che lo riguardano. */
 export interface InstrumentPanel {
@@ -111,6 +113,11 @@ interface LabState {
   rigOpen: boolean;
   /** capitolo della guida aperto (null = guida chiusa) */
   guide: string | null;
+  /** stato riferito da Arduino e righe mandate al display */
+  device: DeviceStatus | null;
+  oledLines: [string, string];
+  /** scheda aperta nel pannello laterale (Sensori, Collegamenti, Quaderno, Seriale) */
+  sideTab: string;
   /** ultimo tratto inviato a Elaborazione: per riconoscerlo e aprirlo */
   lastSent: { key: string; boxId: number } | null;
 }
@@ -145,6 +152,9 @@ export const useLab = create<LabState>(() => ({
   rigOpen: false,
   guide: null,
   lastSent: null,
+  device: null,
+  oledLines: ["", ""],
+  sideTab: prefs.get("mosaicus.sideTab", "sensors"),
 }));
 
 const get = useLab.getState;
@@ -172,7 +182,7 @@ export function resolved(rig = get().rig): Resolved {
 /** Grafici possibili: tutte le grandezze non nascoste del montaggio. */
 export function viewsOf(rig = get().rig): View[] {
   const res = resolved(rig);
-  const multi = rig.sensors.length > 1;
+  const multi = inputsOf(rig).length > 1;
   return res.quantities.filter((q) => !q.hidden).map((q) => {
     const s = rig.sensors.find((x) => x.id === q.sensorId)!;
     return {
@@ -198,7 +208,7 @@ export function readoutsOf(): ResolvedQuantity[] {
 /** Colonne della tabella e dell'export: tempo e tutte le grandezze (anche quelle tecniche). */
 export function columnsOf(rig = get().rig) {
   const res = resolved(rig);
-  const multi = rig.sensors.length > 1;
+  const multi = inputsOf(rig).length > 1;
   return [
     { key: "t", head: "t (s)" },
     ...res.quantities.map((q) => {
@@ -208,7 +218,7 @@ export function columnsOf(rig = get().rig) {
   ];
 }
 export const rigHas = (types: SensorType[], rig = get().rig) => rig.sensors.some((s) => types.includes(s.type));
-export const needsArduino = (rig = get().rig) => rig.sensors.length > 0;
+export const needsArduino = (rig = get().rig) => inputsOf(rig).length > 0;
 export const hasMap = (rig = get().rig) => rigHas(["gps"], rig);
 export const simScenario = () => labInfo().preset?.sim ?? (hasMap() ? "walk" : "free");
 
@@ -264,6 +274,20 @@ export function showPage(page: Page, { restoreScroll = true } = {}) {
   prefs.set("mosaicus.page", page);
   if (restoreScroll) requestAnimationFrame(() => window.scrollTo({ top: scrollOf[page] ?? 0 }));
 }
+export function setSideTab(tab: string) { set({ sideTab: tab }); prefs.set("mosaicus.sideTab", tab); }
+/** Apre i collegamenti (schema e passi) e ci porta lì, con un lampo per farli trovare. */
+export function showWiring() {
+  showPage("misura", { restoreScroll: false });
+  set({ rigOpen: false });
+  setSideTab("wiring");
+  requestAnimationFrame(() => {
+    const el = document.getElementById("side-panel");
+    if (!el) return;
+    el.scrollIntoView({ behavior: "smooth", block: "start" });
+    el.animate?.([{ boxShadow: "0 0 0 0 transparent" }, { boxShadow: "0 0 0 4px color-mix(in oklab, var(--primary) 70%, transparent)" }, { boxShadow: "0 0 0 0 transparent" }], { duration: 1400, easing: "ease-out", delay: 250 });
+  });
+}
+
 /** Logo: torna alla pagina iniziale (Misura, in cima). */
 export function goHome() {
   showPage("misura", { restoreScroll: false });
@@ -538,7 +562,8 @@ export async function connect(kind: "arduino" | "ble" | "sim") {
     if (link !== l) return;
     const wasRunning = get().running;
     link = null;
-    set({ linkKind: null, transport: null, ready: false });
+    stopPing();
+    set({ linkKind: null, transport: null, ready: false, device: null });
     setStatus("Nessun dispositivo", "off");
     instrument?.linkChanged?.();
     if (wasRunning) {
@@ -602,6 +627,7 @@ function handleLine(line: string) {
   if (line.startsWith("#MOSAICUS")) {
     const fw = line.split(",")[1] ?? null;
     set({ ready: true, fw });
+    if (kind === "simulatore" || (fw && cmpVersion(fw, "1.2") >= 0)) startPing();
     if (kind === "arduino" && fw && cmpVersion(fw, FIRMWARE_VERSION) < 0) {
       toast.warning(`Su Arduino c'è il firmware v${fw}: aggiornalo alla v${FIRMWARE_VERSION}.`, { duration: 10000, action: { label: "Come si fa", onClick: () => openGuide("firmware") } });
     }
@@ -624,6 +650,11 @@ function handleLine(line: string) {
       : `Arduino non ha capito il comando: ${what}`, { duration: 8000 });
     return;
   }
+  if (line.startsWith("#ST,")) {
+    const [, st, slot, issue] = line.split(",");
+    set({ device: { st: (st as DeviceStatus["st"]) || "I", slot: Number(slot), issue: Number(issue), at: Date.now() } });
+    return;
+  }
   if (line.startsWith("#")) return;
   if (instrument?.onLine?.(line)) return;
   if (!get().running) return;
@@ -633,6 +664,70 @@ function handleLine(line: string) {
   }
 }
 
+// ---------------------------------------------------------------------------
+// Indicatori di stato (firmware 1.2): PING per dire ad Arduino che l'app c'è, righe del display
+// ---------------------------------------------------------------------------
+let pingTimer: ReturnType<typeof setInterval> | null = null;
+function startPing() {
+  stopPing();
+  void link?.write("PING");
+  // l'oscilloscopio occupa la seriale: lì non serve (Arduino mostra «oscilloscopio»)
+  pingTimer = setInterval(() => { if (link && get().ready && !instrumentById(get().labId)) void link.write("PING"); }, 2000);
+}
+function stopPing() { if (pingTimer) { clearInterval(pingTimer); pingTimer = null; } }
+
+/** Testo per il display 64×32: solo ASCII (il ° diventa il carattere 127 del firmware). */
+function oledText(s: string, max: number) {
+  return s.replace(/°/g, "\x7f").normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[²]/g, "2").replace(/[³]/g, "3")
+    .replace(/[^\x20-\x7f]/g, "").slice(0, max);
+}
+/** Valore compatto per il display: «23.4°», «48%», «1.25». */
+function oledValue(q: ResolvedQuantity, v: number, max: number) {
+  const unit = q.unit === "°C" ? "°" : q.unit === "%" ? "%" : "";
+  for (let d = Math.min(q.digits, 3); d >= 0; d--) {
+    const t = `${v.toFixed(d)}${unit}`;
+    if (t.length <= max) return t;
+  }
+  return v.toPrecision(3).slice(0, max);
+}
+let oledTimer: ReturnType<typeof setInterval> | null = null;
+/** Durante la misura: valore principale grande, secondo valore piccolo (una volta al secondo). */
+function startOledFeed() {
+  stopOledFeed();
+  if (!outputsOf(get().rig).some((s) => s.type === "oled")) return;
+  oledTimer = setInterval(() => {
+    const st = get();
+    if (!st.running || !link) return;
+    const qs = readoutsOf().filter((q) => !q.raw);
+    const last = (key: string) => { for (let i = st.rows.length - 1; i >= 0; i--) { const v = st.rows[i][key]; if (typeof v === "number" && Number.isFinite(v)) return v; } return NaN; };
+    const [a, b] = qs;
+    const big = a && Number.isFinite(last(a.key)) ? oledText(oledValue(a, last(a.key), 5), 5) : "";
+    const small = b && Number.isFinite(last(b.key)) ? oledText(`${b.sym.replace(/[^\x20-\x7e]/g, "").slice(0, 3)} ${oledValue(b, last(b.key), 6)}`, 10) : "";
+    const prev = st.oledLines;
+    if (big !== prev[0]) void link.write(`OUT,L,1,${big}`);
+    if (small !== prev[1]) void link.write(`OUT,L,2,${small}`);
+    if (big !== prev[0] || small !== prev[1]) set({ oledLines: [big, small] });
+  }, 1000);
+}
+function stopOledFeed() { if (oledTimer) { clearInterval(oledTimer); oledTimer = null; } set({ oledLines: ["", ""] }); }
+
+/** Prova degli indicatori: colori, bip e scritta sul display (Arduino collegato, firmware 1.2). */
+export async function testOutputs() {
+  const st = get();
+  if (!link || !st.ready) { toast("Prima collega Arduino."); return; }
+  if (st.running) { toast("Ferma la misura prima della prova."); return; }
+  if (link.kind !== "simulatore" && (!st.fw || cmpVersion(st.fw, "1.2") < 0)) {
+    toast.error("Gli indicatori di stato richiedono il firmware v1.2: ricaricalo dalla Guida.", { action: { label: "Come si fa", onClick: () => openGuide("firmware") } }); return;
+  }
+  for (const cmd of firmwareCommands(st.rig, resolved(st.rig), { outputs: true }).filter((c) => c.startsWith("OUT"))) {
+    const r = await request(cmd, (l) => l.startsWith("#ACK,OUT") || l.startsWith("#ERR"));
+    if (!r || r.startsWith("#ERR")) { toast.error(`Arduino non ha accettato gli indicatori${r ? `: ${OUT_ERR[r.split(",")[2]] ?? r}` : ""}.`); return; }
+  }
+  const ok = await request("OUT,TEST", (l) => l.startsWith("#ACK,OUT,TEST"), 6000);
+  toast[ok ? "success" : "error"](ok ? "Prova fatta: il LED ha cambiato colore, il cicalino ha suonato, il display ha scritto «CIAO»?" : "Arduino non ha risposto alla prova.");
+}
+const OUT_ERR: Record<string, string> = { PIN: "pin non valido", DOPPIO: "pin già usato", TIPO: "tipo sconosciuto", PIENO: "troppi indicatori", ARGOMENTI: "comando incompleto" };
+
 const CFG_ERR: Record<string, string> = {
   PIN: "pin non valido", ANALOGICO: "serve un pin analogico (A0…A5)", DOPPIO: "pin già usato da un altro sensore",
   GPS: "c'è già un GPS", SLOT: "troppi sensori", TIPO: "tipo di sensore sconosciuto", ARGOMENTI: "comando incompleto",
@@ -640,7 +735,7 @@ const CFG_ERR: Record<string, string> = {
 
 /** Si può premere Avvia? (montaggio valido e, se servono, Arduino o simulatore pronti) */
 export function canStart(st = get()) {
-  if (st.running || !st.rig.sensors.length) return false;
+  if (st.running || !inputsOf(st.rig).length) return false;
   if (hasErrors(validateRig(st.rig))) return false;
   return !!st.linkKind && st.ready;
 }
@@ -655,12 +750,21 @@ export async function start() {
   if (hasErrors(issues)) { toast.error(issues.find((i) => i.level === "error")!.text); set({ rigOpen: true }); return; }
   if (!canStart()) return;
   if (link) {
-    if (link.kind === "simulatore") link.scenario = simScenario();
-    for (const cmd of firmwareCommands(rig, res)) {
-      const reply = await request(cmd, (l) => l.startsWith("#ACK,CFG") || l.startsWith("#ERR"));
+    const sim = link.kind === "simulatore";
+    if (sim) link.scenario = simScenario();
+    const need = firmwareNeeded(rig);
+    if (!sim && st.fw && cmpVersion(st.fw, need) < 0) {
+      const what = rig.sensors.filter((s) => SENSORS[s.type].since).map(sensorLabel).join(", ");
+      toast.error(`${what}: serve il firmware v${need} (su Arduino c'è la v${st.fw}). Ricaricalo: è un minuto.`, { duration: 12000, action: { label: "Come si fa", onClick: () => openGuide("firmware") } });
+      return;
+    }
+    const outputs = sim || (!!st.fw && cmpVersion(st.fw, "1.2") >= 0);
+    for (const cmd of firmwareCommands(rig, res, { outputs })) {
+      const reply = await request(cmd, (l) => l.startsWith("#ACK,CFG") || l.startsWith("#ACK,OUT") || l.startsWith("#ERR"));
       if (!reply) { toast.error("Arduino non risponde alla configurazione. Scollega e ricollega."); return; }
       if (reply.startsWith("#ERR")) {
         const parts = reply.split(",");
+        if (parts[1] === "OUT") { toast.error(`Indicatori di stato: ${OUT_ERR[parts[2]] ?? parts[2]}.`); return; }
         if (parts[1] !== "CFG") { toast.error(`Il firmware su Arduino è vecchio: serve la v${FIRMWARE_VERSION} per i montaggi di sensori. Scaricala dalla «Guida».`, { duration: 10000 }); return; }
         const s = res.byCode.get(Number(parts[2]));
         toast.error(`${s ? sensorLabel(s) : "Sensore"}: ${CFG_ERR[parts[3]] ?? parts[3]}.`);
@@ -679,12 +783,14 @@ export async function start() {
     if (!ok || ok.startsWith("#ERR")) { set({ running: false }); toast.error("Arduino non è partito: controlla i sensori e riprova."); return; }
   }
   startKeepAlive();
+  startOledFeed();
 }
 
 export async function stop() {
   if (!get().running) return;
   set({ running: false });
   stopKeepAlive();
+  stopOledFeed();
   {
     try {
       await link?.write("STOP");
@@ -822,7 +928,7 @@ export async function sendSelection({ open = true } = {}) {
     rows: aligned.map((r) => Object.fromEntries(["t", ...keys].map((k) => [k, Number.isFinite(r[k] as number) ? (r[k] as number) : NaN]))),
   });
   set({ sent: true, lastSent: { key, boxId: box.id } });
-  const mixed = rig.sensors.length > 1 && keys.some((k) => !own.has(k));
+  const mixed = inputsOf(rig).length > 1 && keys.some((k) => !own.has(k));
   const note = mixed ? " Le grandezze degli altri sensori sono interpolate sui tempi di questo." : "";
   if (open) {
     goElab(box.id);
@@ -846,7 +952,7 @@ function rawTable(sel: [number, number] | null) {
   const res = resolved(rig);
   const [a, b] = sel ?? [-Infinity, Infinity];
   const fields: string[] = [];
-  for (const s of rig.sensors) for (const f of SENSORS[s.type].rawFields) if (!fields.includes(f)) fields.push(f);
+  for (const s of inputsOf(rig)) for (const f of SENSORS[s.type].rawFields) if (!fields.includes(f)) fields.push(f);
   const headers = ["t_s", "t_ms", "sensor", "type", "slot", ...fields];
   const per = new Map<string, (string | number)[][]>();
   const rows: (string | number)[][] = [];
@@ -891,7 +997,7 @@ export async function exportData(kind: ExportKind) {
   if (!st.rows.length) { toast("Non ci sono dati da esportare."); return; }
   const exp = labInfo();
   const cols = columnsOf();
-  const multi = st.rig.sensors.length > 1;
+  const multi = inputsOf(st.rig).length > 1;
   const headers = [...cols.map((c) => c.head), ...(multi ? ["sensore"] : [])];
   const sensorName = new Map(st.rig.sensors.map((s) => [s.id, sensorLabel(s)]));
   const rows = selectedRows().map((r) => [...cols.map((c) => r[c.key]), ...(multi ? [sensorName.get(String(r._s)) ?? ""] : [])]);
@@ -1051,7 +1157,7 @@ export async function removeSession(id: number) {
 // Percorso guidato: qual è il prossimo gesto
 // ---------------------------------------------------------------------------
 export function guideStep(st: LabState): GuideStep {
-  if (instrumentById(st.labId) || !st.rig.sensors.length) return null;
+  if (instrumentById(st.labId) || !inputsOf(st.rig).length) return null;
   if (!st.linkKind) return "link";
   if (!st.ready) return "wait";
   if (st.running) return "stop";

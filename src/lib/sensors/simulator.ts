@@ -13,7 +13,7 @@
 //             luce che cambia, tensione che oscilla; GPS → passeggiata
 //  Rumore realistico, echi persi o spuri, qualche checksum sbagliato del DHT.
 
-const FW = "1.0-sim";
+const FW = "1.2-sim";
 export const WARP: Record<string, number> = { cooling: 30, breath: 5, walk: 5 };
 
 const gauss = (s: number) => s * Math.sqrt(-2 * Math.log(Math.random() + 1e-12)) * Math.cos(2 * Math.PI * Math.random());
@@ -97,9 +97,28 @@ function sonarEcho(x: number) {
 }
 
 interface SimSlot { type: string; interval: number; opt: number; pinA: number }
+const G = 9.80665;
+/** Bilancia: a 3 s si appoggia una massa di 200 g su un piatto a molla (oscillazione smorzata). */
+function massAt(t: number, k: number) {
+  if (t < 3 + 2 * k) return 0;
+  const u = t - 3 - 2 * k;
+  return 200 * (1 - Math.exp(-u * 1.2) * Math.cos(2 * Math.PI * 1.6 * u));
+}
+/** Pendolo da 1 m (T ≈ 2,0 s) che passa nella fotocellula al centro: il raggio si interrompe per ~40 ms. */
+function gateBlocked(t: number, k: number) {
+  const T = 2.006 * (1 + 0.15 * k), x = Math.sin((2 * Math.PI * t) / T) * Math.exp(-t / 400);
+  return Math.abs(x) < 0.06 * Math.exp(t / 400) ? 1 : 0;
+}
 function slotValues(s: SimSlot, t: number, scenario: string, k: number, nowMs: number): (number | string)[] {
   const sc = scenario === "free" && s.type === "GPS" ? "walk" : scenario;
   const w = world(t, sc, k);
+  if (s.type === "DS18") return [Math.round((w.T + 0.4 + gauss(0.03)) * 16), 0];
+  if (s.type === "HX711") return [Math.round(84231 + 420 * (massAt(t, k) + gauss(0.15))), 0];
+  if (s.type === "IMU") {
+    const lsb = 16384 / 2 ** (s.opt & 3), tS = 1 + 2 * k;
+    const ax = (t > tS && w.x < 1.5 ? 0.45 : 0) + gauss(0.02), ay = gauss(0.02), az = G + gauss(0.03) + 0.05 * Math.sin(2 * Math.PI * 3 * t);
+    return [...[ax, ay, az].map((a) => Math.round((a / G) * lsb)), ...[gauss(0.5), gauss(0.5), gauss(0.5)].map((d) => Math.round(d * 131)), 0];
+  }
   if (s.type === "NTC") return [tempToAdc(w.T + gauss(0.05)).toFixed(2)];
   // fotoresistenza e tensione generica leggono lo stesso segnale lento, con un po' di sfarfallio
   if (s.type === "ANA") return [Math.min(1023, Math.max(0, w.light * 10.23 + gauss(0.8))).toFixed(2)];
@@ -120,29 +139,39 @@ export class SimulatedLink {
   private closeCb: () => void = () => {};
   private timers: ReturnType<typeof setInterval>[] = [];
   private slots = new Map<number, SimSlot>();
+  private pinged = false;
+  private outs = new Set<string>();
+  private st(s: string) { this.emit(`#ST,${s}`); }
 
   onLine(cb: (l: string) => void) { this.lineCb = cb; }
   onClose(cb: () => void) { this.closeCb = cb; }
   async open() { setTimeout(() => this.emit(`#MOSAICUS,${FW},READY`), 300); }
   async close() { this.stop(); this.closeCb(); }
   private emit(l: string) { this.lineCb(l); }
-  private stop() { this.timers.forEach(clearInterval); this.timers = []; }
+  private stop() { this.timers.forEach((t) => { clearInterval(t); clearTimeout(t); }); this.timers = []; }
 
   async write(cmd: string) {
     const c = cmd.trim();
     let m: RegExpMatchArray | null;
     if (c === "ID?") return this.emit(`#MOSAICUS,${FW},READY`);
-    if (c === "STOP") { this.stop(); return this.emit("#ACK,STOP"); }
+    if (c === "PING") { if (!this.pinged) { this.pinged = true; this.st("I,-1,0"); } return; }
+    if (c === "STOP") { const was = this.timers.length > 0; this.stop(); this.emit("#ACK,STOP"); if (was) this.st("I,-1,0"); return; }
+    if (c === "OUT,CLEAR") { this.outs.clear(); return this.emit("#ACK,OUT,CLEAR"); }
+    if ((m = c.match(/^OUT,ADD,(OLED|RGB|BUZ),(\d+),(\d+),(\d+),(\d+)$/))) { this.outs.add(m[1]); return this.emit(`#ACK,OUT,ADD,${m[1]}`); }
+    if (c === "OUT,SAVE") return this.emit("#ACK,OUT,SAVE");
+    if (c === "OUT,TEST") { setTimeout(() => this.emit("#ACK,OUT,TEST"), 1500); return; }
+    if (c.startsWith("OUT,L,")) return;
     if (c === "CFG,CLEAR") { this.stop(); this.slots.clear(); return this.emit("#ACK,CFG,CLEAR"); }
-    if ((m = c.match(/^CFG,ADD,(\d+),(NTC|ANA|DHT|SONAR|GPS),(\d+),(\d+),(\d+),(\d+)$/))) {
+    if ((m = c.match(/^CFG,ADD,(\d+),(NTC|ANA|DHT|SONAR|GPS|DS18|GATE|HX711|IMU),(\d+),(\d+),(\d+),(\d+)$/))) {
       const slot = +m[1], type = m[2], a = +m[4], b = +m[5], opt = +m[6];
-      const twoPins = type === "SONAR" || type === "GPS";
-      const taken = [...this.slots.entries()].filter(([k]) => k !== slot).flatMap(([, s]) => [s.pinA]);
+      const twoPins = ["SONAR", "GPS", "HX711", "IMU"].includes(type);
+      const taken = [...this.slots.entries()].filter(([k, s]) => k !== slot && !(type === "IMU" && s.type === "IMU")).flatMap(([, s]) => [s.pinA]);
       if (slot > 5) return this.emit(`#ERR,CFG,${slot},SLOT`);
       if ((type === "NTC" || type === "ANA") && !(a >= 14 && a <= 19)) return this.emit(`#ERR,CFG,${slot},ANALOGICO`);
       if (a < 2 || a > 19 || (twoPins && (b < 2 || b > 19 || a === b))) return this.emit(`#ERR,CFG,${slot},PIN`);
       if (taken.includes(a)) return this.emit(`#ERR,CFG,${slot},DOPPIO`);
-      const min = type === "DHT" ? (opt === 22 ? 2000 : 1000) : type === "GPS" ? 1000 : type === "SONAR" ? 30 : 5;
+      const min = type === "DHT" ? (opt === 22 ? 2000 : 1000) : type === "GPS" || type === "DS18" ? 1000 : type === "SONAR" ? 30
+        : type === "HX711" ? 100 : type === "IMU" ? 10 : 5;
       this.slots.set(slot, { type, interval: Math.max(min, +m[3]), opt, pinA: a });
       return this.emit(`#ACK,CFG,ADD,${slot}`);
     }
@@ -151,9 +180,25 @@ export class SimulatedLink {
       if (!this.slots.size) return this.emit("#ERR,START,VUOTO");
       this.emit("#ACK,START");
       const warp = WARP[this.scenario] ?? 1, t0 = Date.now();
+      // stato come lo riferirebbe Arduino: il GPS prima cerca i satelliti (8 s di misura)
+      const gps = [...this.slots.entries()].find(([, s]) => s.type === "GPS");
+      if (gps) { this.st(`S,${gps[0]},1`); this.timers.push(setTimeout(() => this.st("T,-1,0"), 8000 / warp) as unknown as ReturnType<typeof setInterval>); }
+      else this.st("T,-1,0");
       const counts = new Map<string, number>();
       for (const [slot, s] of this.slots) {
         const k = counts.get(s.type) ?? 0; counts.set(s.type, k + 1);
+        if (s.type === "GATE") {
+          // fotocellula: righe solo ai cambi, con l'istante del cambio
+          const p0 = performance.now();
+          let last = gateBlocked(0, k);
+          this.emit(`D,${slot},0.000,${last}`);
+          this.timers.push(setInterval(() => {
+            const tS = ((performance.now() - p0) / 1000) * warp;
+            const lv = gateBlocked(tS, k);
+            if (lv !== last) { last = lv; this.emit(`D,${slot},${(tS * 1000).toFixed(3)},${lv}`); }
+          }, 4));
+          continue;
+        }
         const delay = s.type === "DHT" || s.type === "GPS" ? 1000 : 0;
         let n = 0;
         this.timers.push(setInterval(() => {
@@ -165,6 +210,7 @@ export class SimulatedLink {
       return;
     }
     if (c === "BT,SETUP") { this.emit("#BT,SETUP"); setTimeout(() => this.emit("#ACK,BT,SETUP"), 800); return; }
+    if (c === "BT,SETUP,BLE") { this.emit("#BT,SETUP"); setTimeout(() => this.emit("#ACK,BT,SETUP,BLE"), 800); return; }
     if ((m = c.match(/^START,SCOPE,(\d+),(\d+),(\d+),(-?\d+),([01])$/))) return this.scope(+m[1], +m[2], +m[3], +m[4], m[5] === "1");
     this.emit(`#ERR,${c}`);
   }

@@ -1,11 +1,12 @@
 "use client";
 // La scheda della misura: il prossimo gesto (collega → avvia → ferma) e le letture in evidenza.
 
-import { Cpu, Crosshair, LoaderCircle, Pencil, Play, Square } from "lucide-react";
+import { LiveChips, DeviceMirror } from "./device-status";
+import { Cpu, Crosshair, LoaderCircle, Pencil, Play, Square, Plug } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import {
-  useLab, start, stop, zeroPosition, setSessionName, commitSessionName, readoutsOf, canStart, rigHas, guideStep, connect,
+  useLab, start, stop, zeroPosition, showWiring, setSessionName, commitSessionName, readoutsOf, canStart, rigHas, guideStep, connect,
 } from "@/lib/lab-store";
 import { sensorLabel } from "@/lib/sensors/rig";
 import { fmtVal } from "@/lib/prefs";
@@ -67,6 +68,7 @@ export function RunCard() {
             <>
               <ConnectButton size="lg" />
               <Button size="lg" variant="outline" onClick={() => void connect("sim")}><Cpu /> Simulatore</Button>
+              <Button size="lg" variant="ghost" className="text-muted-foreground" onClick={showWiring}><Plug /> Schema dei collegamenti</Button>
             </>
           ) : step === "wait" ? (
             <Button size="lg" variant="outline" disabled><LoaderCircle className="animate-spin" /> Collegamento…</Button>
@@ -81,6 +83,8 @@ export function RunCard() {
         </div>
         <div className={cn("min-w-0 flex-1 md:border-l md:pl-5", step === "link" && "opacity-50")}><Readouts /></div>
       </div>
+      <LiveChips />
+      <DeviceMirror />
     </Card>
   );
 }

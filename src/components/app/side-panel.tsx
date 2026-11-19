@@ -5,13 +5,14 @@ import { ArrowRight, BookOpen, Bluetooth, CloudCheck, CloudUpload, FolderOpen, T
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { useLab, labInfo, needsArduino, openSession, removeSession, bluetoothSetup, showPage } from "@/lib/lab-store";
+import { useLab, labInfo, needsArduino, openSession, removeSession, bluetoothSetup, showPage, setSideTab, openGuide } from "@/lib/lab-store";
 import { useCloud } from "@/lib/cloud/sync";
 import { confirm } from "@/lib/confirm";
 import { prefs } from "@/lib/prefs";
 import { cn } from "@/lib/utils";
 import { WiringBlocks } from "./wiring";
-import { RigDiagram, WiringSteps } from "./rig-diagram";
+import { WiringSteps } from "./rig-diagram";
+import { WiringDiagram } from "./wiring-diagram";
 import { RigEditor } from "./rig-editor";
 import { Segmented } from "@/components/instruments/scope-panel";
 
@@ -29,12 +30,15 @@ function RigWiring() {
   return (
     <div className="flex flex-col gap-3">
       {!!rig.sensors.length && (
-        <div className="rounded-lg border p-3">
-          <h4 className="mb-2 text-sm font-semibold">Schema del montaggio</h4>
-          <RigDiagram sensors={rig.sensors} className="h-auto w-full max-w-xl text-foreground [&_text]:fill-current" />
-          <p className="mt-2 text-xs text-muted-foreground">Rosso = 5V, nero = GND, un colore per sensore. Collega con Arduino scollegato dal computer. Tutti i GND insieme.</p>
+        <div className="flex flex-col gap-2">
+          <div className="flex items-baseline justify-between gap-2">
+            <h4 className="text-sm font-semibold">Come collegare i sensori</h4>
+            <button type="button" className="text-xs text-muted-foreground underline underline-offset-2 hover:text-foreground" onClick={() => openGuide("wiring")}>Guida completa</button>
+          </div>
+          <WiringDiagram sensors={rig.sensors} />
         </div>
       )}
+      <h4 className="text-sm font-semibold">Passo passo</h4>
       <WiringSteps sensors={rig.sensors} />
       {!!info.preset?.tips?.length && <WiringBlocks blocks={info.preset.tips} />}
       {needsArduino(rig) && (
@@ -125,11 +129,11 @@ export function SidePanel() {
     ? [["wiring", "Collegamenti"], ins.source !== "audio" ? ["serial", "Seriale"] : null]
     : [["sensors", `Sensori${rig.sensors.length ? ` (${rig.sensors.length})` : ""}`], ["wiring", "Collegamenti"], ["notebook", "Quaderno"], needsArduino(rig) ? ["serial", "Seriale"] : null]
   ).filter(Boolean) as [string, string][];
-  const [tab, setTab] = useState(() => prefs.get("mosaicus.sideTab", "sensors"));
+  const tab = useLab((s) => s.sideTab);
   const active = tabs.some(([id]) => id === tab) ? tab : tabs[0][0];
   return (
-    <Card className="gap-0 p-0">
-      <Tabs value={active} onValueChange={(v) => { setTab(String(v)); prefs.set("mosaicus.sideTab", v); }}>
+    <Card id="side-panel" className="scroll-mt-20 gap-0 p-0">
+      <Tabs value={active} onValueChange={(v) => setSideTab(String(v))}>
         <div className="border-b p-2">
           <TabsList className="w-full">
             {tabs.map(([id, label]) => <TabsTrigger key={id} value={id} className="text-xs">{label}</TabsTrigger>)}

@@ -16,6 +16,14 @@ Il cuore dell'app è il **montaggio**: fino a 6 sensori su un Arduino Uno, anche
 | GPS NEO-6M/7M (VMA430 / WPI430) | RX (+ TX) | posizione, altitudine, velocità, distanza percorsa |
 | Fotoresistenza (partitore) | A0…A5 | luminosità relativa |
 | Tensione analogica 0–5 V | A0…A5 | V, o una grandezza tarata y = k·V + q |
+| Sonda DS18B20 (anche impermeabile) | digitale + 4,7 kΩ | T (±0,5 °C, −55…125 °C) |
+| Fotocellula / ingresso digitale | digitale (D2/D3: istanti al µs) | stato, passaggi, periodo, tempo di oscuramento, velocità |
+| Cella di carico + HX711 | DT + SCK | massa, forza |
+| Accelerometro MPU-6050 (GY-521) | SDA + SCL (I2C) | aₓ, aᵧ, a_z, \|a\|, velocità angolari |
+
+**Indicatori di stato** (facoltativi, fuori dai 6 posti dei sensori): display OLED 64×32 da 0,49" (I2C), LED RGB, cicalino attivo o passivo. Li comanda Arduino da solo: blu = in attesa dell'app o pronto, giallo = GPS o sensore in ricerca, rosso = problema, verde = sta misurando; il cicalino suona finché qualcosa non è pronto (1, 2 o 3 bip ogni 3 s) e tace quando la misura procede bene. Il display mostra lo stato e, durante la misura, il valore principale. Arduino li ricorda (EEPROM): appena acceso segnala subito «in attesa dell'app». Il GPS senza fix viene mostrato come «in ricerca», non come errore.
+
+Gli schemi dei collegamenti si generano dai pin scelti, in due versioni: **realistico** (Arduino Uno, breadboard e moduli disegnati come sono, stile Tinkercad) e **schema** compatto.
 
 Gli **esperimenti pronti** sono montaggi già pensati per una lezione (Moto rettilineo, Moto armonico, Raffreddamento, Umidità e temperatura, Mappa della temperatura): si aprono e funzionano subito, e si possono modificare (le modifiche diventano una versione personale, ripristinabile). In **I miei montaggi** si compongono montaggi liberi. Gli **strumenti** (oscilloscopio audio, oscilloscopio elettrico su A0, synth) hanno un pannello proprio.
 
@@ -23,14 +31,16 @@ Con più sensori a ritmi diversi ogni lettura conserva il suo istante; quando se
 
 ## Firmware
 
-Un solo sketch: [`firmware/mosaicusneo_firmware/mosaicusneo_firmware.ino`](firmware/mosaicusneo_firmware/mosaicusneo_firmware.ino) (v1.1), da caricare una volta con l'IDE di Arduino. L'app configura il montaggio con comandi seriali (115200 baud) e il firmware invia solo dati grezzi (conteggi ADC, tempi di volo, i byte del DHT, i campi NMEA del GPS): le conversioni avvengono nell'app, dove si vedono e si tarano.
+Un solo sketch: [`firmware/mosaicusneo_firmware/mosaicusneo_firmware.ino`](firmware/mosaicusneo_firmware/mosaicusneo_firmware.ino) (v1.2, nessuna libreria esterna: I2C e 1-Wire a software, 69 % della flash, 79 % della RAM), da caricare una volta con l'IDE di Arduino. L'app configura il montaggio con comandi seriali (115200 baud) e il firmware invia solo dati grezzi (conteggi ADC, tempi di volo, i byte del DHT, i campi NMEA del GPS): le conversioni avvengono nell'app, dove si vedono e si tarano.
 
 ```
 CFG,CLEAR                                          → #ACK,CFG,CLEAR
-CFG,ADD,<slot>,<NTC|ANA|DHT|SONAR|GPS>,<ms>,<pinA>,<pinB>,<opz>
+CFG,ADD,<slot>,<NTC|ANA|DHT|SONAR|GPS|DS18|GATE|HX711|IMU>,<ms>,<pinA>,<pinB>,<opz>
                                                    → #ACK,CFG,ADD,<slot> | #ERR,CFG,<slot>,<motivo>
 START                                              → #ACK,START, poi D,<slot>,<t_ms>,<valori…>
 STOP · START,SCOPE,… (oscilloscopio) · BT,SETUP (HC-06) · BT,SETUP,BLE (HM-10, AT-09, HC-08) · ID?
+OUT,CLEAR · OUT,ADD,<OLED|RGB|BUZ>,<p1>,<p2>,<p3>,<opz> · OUT,SAVE · OUT,TEST · OUT,L,<1|2>,<testo>
+PING (ogni 2 s dall'app)                           ← #ST,<W|I|S|E|T|O>,<slot>,<0|1|2> a ogni cambio di stato
 ```
 
 Pin come numeri (A0 = 14 … A5 = 19); tempi con risoluzione di 1 µs e orologio a 64 bit (nessun azzeramento dopo 71 minuti).
@@ -49,6 +59,10 @@ Due tipi di modulo, collegati allo stesso modo (TXD → D0, RXD ← D1 tramite p
 La configurazione (nome «MosaicusNeo», 115200 baud) si fa una volta, con Arduino collegato via USB: scheda «Collegamenti» → «Senza cavo: Bluetooth». Mentre carichi lo sketch stacca il filo TXD da D0. Sul campo: power bank su Arduino, «Collega» (menu ▾ per scegliere il Bluetooth LE), «Avvia»; lo schermo resta acceso e il Quaderno si salva ogni 30 s.
 
 Safari non ha né Web Serial né Web Bluetooth: su iPhone e iPad serve un modulo BLE e il browser Bluefy.
+
+## Quaderno ed export
+
+Ogni misura finisce da sola nel **Quaderno** (pagina dedicata): ricerca, filtri per lab e sorgente, ordinamento, gruppi per giorno; da lì si riapre in Misura, si manda intera a Elaborazione («Analizza»), si esporta o si rinomina. In Misura, «Analizza il tratto» apre Elaborazione sul nuovo riquadro (il «+» lo aggiunge senza cambiare pagina). Oltre a Excel, CSV, PNG, GPX e GeoJSON c'è l'export dei **dati grezzi** di Arduino (CSV o Excel, una riga per lettura, colonne `t_s, t_ms, sensor, type, slot, …`), per script in Python, R o MATLAB.
 
 ## Account e cloud (facoltativi)
 

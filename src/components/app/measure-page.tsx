@@ -1,11 +1,11 @@
 "use client";
 
-import { LayoutGrid, SlidersHorizontal, TriangleExclamationPoint } from "lucide-react";
+import { LayoutGrid, SlidersHorizontal, TriangleExclamationPoint, Plug } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
-import { useLab, labInfo, needsArduino, hasMap, openGuide } from "@/lib/lab-store";
+import { useLab, labInfo, needsArduino, hasMap, openGuide, showWiring } from "@/lib/lab-store";
 import { SENSORS, pinName } from "@/lib/sensors/catalog";
 import { sensorLabel } from "@/lib/sensors/rig";
 import { audioSupported } from "@/lib/mosaicus/audio.js";
@@ -83,6 +83,11 @@ export function LabHeading({ onPick, onSensors }: { onPick: () => void; onSensor
           <Button variant="ghost" size="xs" onClick={onSensors} className="text-muted-foreground 2xl:hidden">
             <SlidersHorizontal /> {rig.sensors.length ? "Modifica sensori" : "Aggiungi sensori"}
           </Button>
+          {!!rig.sensors.length && (
+            <Button variant="ghost" size="xs" onClick={showWiring} className="text-muted-foreground">
+              <Plug /> Come collegarli
+            </Button>
+          )}
         </div>
       )}
     </div>
