@@ -23,6 +23,7 @@ import { APP_VERSION, FIRMWARE_URL, FIRMWARE_VERSION } from "@/lib/version";
 import { cn } from "@/lib/utils";
 import { Segmented } from "@/components/instruments/scope-panel";
 import { WiringGuide } from "./wiring-diagram";
+import { openPrivacy } from "./privacy-dialog";
 import { GithubMark } from "./github-mark";
 import { REPO_URL, ISSUES_URL, FIRMWARE_SOURCE_URL } from "@/lib/links";
 
@@ -700,7 +701,7 @@ export function GuideDialog() {
               MosaicusNeo v{APP_VERSION} · firmware v{FIRMWARE_VERSION} · basato su Mosaicus (© 2026 Ermes Ferdinando Rosi) · licenza MIT ·{" "}
               <a className="underline" href={REPO_URL} target="_blank" rel="noopener">codice sorgente su GitHub</a> ·{" "}
               <a className="underline" href={ISSUES_URL} target="_blank" rel="noopener">segnala un problema</a> ·{" "}
-              <a className="underline" href="/privacy" target="_blank" rel="noopener">informativa sulla privacy</a>
+              <button type="button" className="underline" onClick={openPrivacy}>informativa sulla privacy</button>
             </p>
           </article>
         </div>

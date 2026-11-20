@@ -15,6 +15,7 @@ import {
 import { useCloud, signIn, signUp, resetPassword, updatePassword, signOut, syncNow, deleteAccount } from "@/lib/cloud/sync";
 import { confirm } from "@/lib/confirm";
 import { cn } from "@/lib/utils";
+import { openPrivacy } from "./privacy-dialog";
 
 function Field({ id, label, ...props }: { id: string; label: string } & React.ComponentProps<typeof Input>) {
   return (
@@ -83,7 +84,7 @@ function AuthDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (o: b
           <ShieldCheck className="mt-px size-3.5 shrink-0 text-foreground" />
           <span>
             {tab === "up" ? "Creando l'account accetti il trattamento descritto nell'" : "I dati dell'account sono visibili solo a te. Leggi l'"}
-            <a href="/privacy" target="_blank" rel="noopener" className="font-medium text-foreground underline underline-offset-2">informativa sulla privacy</a>.
+            <button type="button" onClick={openPrivacy} className="font-medium text-foreground underline underline-offset-2">informativa sulla privacy</button>.
           </span>
         </p>
       </DialogContent>
@@ -200,7 +201,7 @@ function AccountItems({ onDelete }: { onDelete: () => void }) {
   return (
     <>
       <DropdownMenuItem onClick={() => void syncNow({ quiet: false })}><RefreshCw /> Sincronizza ora</DropdownMenuItem>
-      <DropdownMenuItem render={<a href="/privacy" target="_blank" rel="noopener" />}><ShieldCheck /> Privacy</DropdownMenuItem>
+      <DropdownMenuItem onClick={openPrivacy}><ShieldCheck /> Privacy</DropdownMenuItem>
       <DropdownMenuItem onClick={() => void logout()}><LogOut /> Esci</DropdownMenuItem>
       <DropdownMenuSeparator />
       <DropdownMenuItem variant="destructive" onClick={onDelete}><Trash /> Elimina account</DropdownMenuItem>

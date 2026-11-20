@@ -24,6 +24,7 @@ import { REPO_URL, ISSUES_URL } from "@/lib/links";
 import { prefs } from "@/lib/prefs";
 import { cn } from "@/lib/utils";
 import { toneBg } from "./tone";
+import { openPrivacy } from "./privacy-dialog";
 
 /** Dopo la scelta: sul telefono il cassetto si chiude. */
 function useClose() {
@@ -191,7 +192,7 @@ export function LabLinks() {
     <div className="flex flex-wrap items-center gap-x-3 gap-y-1 px-2 py-1 text-xs text-muted-foreground">
       <a href={REPO_URL} target="_blank" rel="noopener" className="inline-flex items-center gap-1.5 hover:text-foreground"><GithubMark className="size-3.5" /> GitHub</a>
       <a href={ISSUES_URL} target="_blank" rel="noopener" className="hover:text-foreground" title="Segnala un problema su GitHub">Segnalazioni</a>
-      <a href="/privacy" target="_blank" rel="noopener" className="hover:text-foreground">Privacy</a>
+      <button type="button" onClick={openPrivacy} className="hover:text-foreground">Privacy</button>
     </div>
   );
 }

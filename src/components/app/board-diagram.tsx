@@ -66,7 +66,7 @@ function ortho(pts: Pt[], r = 5) {
 // mouse si ingrossa.
 function Wire({ d, color, dashed, title }: { d: string; color: string; dashed?: boolean; title?: string }) {
   return (
-    <g className="group/wire cursor-help" data-tip={title} data-wire="">
+    <g className="group/wire cursor-help" data-tip={title} data-wire="" data-hl="">
       <path d={d} fill="none" stroke="transparent" strokeWidth={11} strokeLinecap="round" strokeLinejoin="round" pointerEvents="stroke" />
       <path d={d} fill="none" stroke="#000" strokeOpacity={0.3} strokeWidth={5.4} strokeLinecap="round" strokeLinejoin="round" className="transition-[stroke-width] group-hover/wire:[stroke-width:8] group-data-[on]/wire:[stroke-width:8]" />
       <path d={d} fill="none" stroke={color} strokeWidth={3.6} strokeLinecap="round" strokeLinejoin="round" strokeDasharray={dashed ? "7 4" : undefined} className="transition-[stroke-width] group-hover/wire:[stroke-width:5.6] group-data-[on]/wire:[stroke-width:5.6]" />
@@ -92,7 +92,7 @@ function Resistor({ x1, y1, x2, y2, value, title }: { x1: number; y1: number; x2
   const len = Math.hypot(x2 - x1, y2 - y1), ang = (Math.atan2(y2 - y1, x2 - x1) * 180) / Math.PI;
   const bw = Math.min(22, len - 4), bh = 9.5, bx = len / 2 - bw / 2;
   return (
-    <g transform={`translate(${x1} ${y1}) rotate(${ang})`} className={title ? "cursor-help" : undefined} data-tip={title}>
+    <g transform={`translate(${x1} ${y1}) rotate(${ang})`} className={title ? "cursor-help" : undefined} data-tip={title} data-hl="">
       <line x1={0} y1={0.8} x2={len} y2={0.8} stroke="#000" strokeOpacity={0.18} strokeWidth={3} strokeLinecap="round" />
       <line x1={0} y1={0} x2={len} y2={0} stroke="#4b5563" strokeWidth={2} strokeLinecap="round" />
       <circle cx={0} cy={0} r={1.8} fill="#4b5563" />
@@ -109,7 +109,7 @@ function Resistor({ x1, y1, x2, y2, value, title }: { x1: number; y1: number; x2
 function Part({ kind, x1, x2, y, title }: { kind: "ntc" | "ldr"; x1: number; x2: number; y: number; title?: string }) {
   const cx = (x1 + x2) / 2;
   return (
-    <g className={title ? "cursor-help" : undefined} data-tip={title}>
+    <g className={title ? "cursor-help" : undefined} data-tip={title} data-hl="">
       <line x1={x1} y1={y} x2={x2} y2={y} stroke="#a1a1aa" strokeWidth={1.6} strokeLinecap="round" />
       {kind === "ntc" ? (
         <g>
@@ -671,7 +671,11 @@ function layout(sensors: SensorInstance[], bt: BtModule) {
           : <Part kind={kind} x1={xa} x2={xm} y={R.e} title={`${p.m.title}: ${name} tra ${hole("e", ca)} e ${hole("e", cm)} (verso 5V)`} />}
         {toGnd ? <Part kind={kind} x1={xm} x2={xb} y={R.d} title={`${p.m.title}: ${name} tra ${hole("d", cm)} e ${hole("d", cb)} (verso GND)`} />
           : <Resistor x1={xm} y1={R.d} x2={xb} y2={R.d} value="10k" title={`${p.m.title}: resistenza 10 kΩ tra ${hole("d", cm)} e ${hole("d", cb)} (verso GND)`} />}
-        <text x={xm} y={R.g + 2} textAnchor="middle" fontSize={7} fontWeight={700} fill={INK}>{kind === "ntc" ? "NTC" : "LDR"} + 10 kΩ</text>
+        {/* etichetta del partitore, su una targhetta: scritta sopra i fori sembrava un componente da infilare */}
+        <g aria-hidden>
+          <rect x={xm - 27} y={R.g - 6} width={54} height={12} rx={3} fill="#fafaf9" stroke="#a8a29e" strokeWidth={0.6} />
+          <text x={xm} y={R.g + 2.4} textAnchor="middle" fontSize={7} fontWeight={700} fill={INK}>{kind === "ntc" ? "NTC" : "LDR"} + 10 kΩ</text>
+        </g>
       </g>);
       g.place = toGnd
         ? `Resistenza da 10 kΩ tra ${hole("e", ca)} e ${hole("e", cm)}, ${name} tra ${hole("d", cm)} e ${hole("d", cb)}.`
@@ -785,8 +789,8 @@ export function BoardDiagram({ sensors, bt = null, className }: { sensors: Senso
     if (pointer.current !== "mouse") {
       const svg = e.currentTarget as SVGSVGElement;
       svg.querySelectorAll("[data-on]").forEach((n) => n.removeAttribute("data-on"));
-      const wire = el?.closest("[data-wire]");
-      if (wire) { wire.setAttribute("data-on", ""); svg.setAttribute("data-focus", ""); } else svg.removeAttribute("data-focus");
+      const item = el?.closest("[data-hl]");
+      if (item) { item.setAttribute("data-on", ""); svg.setAttribute("data-focus", ""); } else svg.removeAttribute("data-focus");
     }
     if (el) channel.current({ text: el.getAttribute("data-tip") ?? "", x: e.clientX, y: e.clientY });
     else if (!keep) channel.current(null);
@@ -798,8 +802,8 @@ export function BoardDiagram({ sensors, bt = null, className }: { sensors: Senso
     <>
     <FollowTip channelRef={channel} />
     <svg viewBox={`0 0 ${W} ${H}`} role="img" aria-label="Schema realistico dei collegamenti: Arduino, breadboard e sensori"
-      // con un filo in evidenza (mouse sopra, o toccato) gli altri si scuriscono un po'
-      className={cn(className, "[&_g[data-wire]]:transition-[filter] [&:has(g[data-wire]:hover)_g[data-wire]:not(:hover)]:brightness-75 [&[data-focus]_g[data-wire]:not([data-on])]:brightness-75")}
+      // con un filo o un componente in evidenza (mouse sopra, o toccato) gli altri scendono al 60 %
+      className={cn(className, "[&_[data-hl]]:transition-opacity [&_[data-hl]]:duration-150 [&:has([data-hl]:hover)_[data-hl]:not(:hover)]:opacity-60 [&[data-focus]_[data-hl]:not([data-on])]:opacity-60")}
       fontFamily="ui-sans-serif, system-ui, sans-serif"
       onPointerMove={(e) => { if (e.pointerType === "mouse") tipAt(e); }}
       onPointerLeave={(e) => { if (e.pointerType === "mouse") channel.current(null); }}
@@ -851,7 +855,7 @@ export function BoardDiagram({ sensors, bt = null, className }: { sensors: Senso
 
       {/* moduli infilati nella riga e */}
       {placed.map((p, mi) => !p.onBoard && (
-        <g key={`m${mi}`}>
+        <g key={`m${mi}`} data-hl="">
           <ModuleArt kind={p.m.kind} options={p.m.options} x={p.x} y={p.y} w={p.w} h={p.h} uid={uid} />
           {p.m.rows.map((r, ri) => (
             <g key={ri} className="cursor-help"

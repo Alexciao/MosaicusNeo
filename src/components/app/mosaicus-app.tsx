@@ -12,6 +12,7 @@ import { AppHeader } from "./app-header";
 import { MeasurePage } from "./measure-page";
 import { ConfirmHost } from "./confirm-host";
 import { GuideDialog } from "./guide-dialog";
+import { PrivacyDialog, openPrivacy } from "./privacy-dialog";
 import { WorkbenchPage } from "@/components/workbench/workbench-page";
 import { NotebookPage } from "@/components/notebook/notebook-page";
 import { startCloud } from "@/lib/cloud/sync";
@@ -65,6 +66,11 @@ export function MosaicusApp() {
   if (!seen[page]) setSeen({ ...seen, [page]: true });
   useEffect(() => {
     startCloud();
+    // /privacy porta qui: l'informativa si apre dentro l'app
+    if (new URLSearchParams(window.location.search).has("privacy")) {
+      openPrivacy();
+      window.history.replaceState(null, "", window.location.pathname + window.location.hash);
+    }
     void boot();
     if ("serviceWorker" in navigator && process.env.NODE_ENV === "production") {
       navigator.serviceWorker.register("/sw.js").catch(() => { /* offline non disponibile */ });
@@ -82,12 +88,13 @@ export function MosaicusApp() {
         MosaicusNeo · basato su Mosaicus di Ermes Ferdinando Rosi · software libero con licenza MIT ·{" "}
         <a className="inline-flex items-center gap-1 underline" href={REPO_URL} target="_blank" rel="noopener"><GithubMark className="size-3" />GitHub</a> ·{" "}
         <a className="underline" href={ISSUES_URL} target="_blank" rel="noopener">segnala un problema</a> ·{" "}
-        <a className="font-medium text-foreground underline" href="/privacy" target="_blank" rel="noopener">privacy</a>
+        <button type="button" className="font-medium text-foreground underline" onClick={openPrivacy}>privacy</button>
       </footer>
       <MobileNav />
       <GenChip />
       <ConfirmHost />
       <GuideDialog />
+      <PrivacyDialog />
     </div>
   );
 }
