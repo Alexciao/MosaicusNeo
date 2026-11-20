@@ -119,6 +119,7 @@
 #include <SoftwareSerial.h>
 #include <SPI.h>
 #include <EEPROM.h>
+#include <new.h>                  // placement new (SoftwareSerial del GPS)
 
 const char *FW_VERSION = "1.8";
 
@@ -216,6 +217,8 @@ uint8_t dhtData[5];
 
 // ---------- GPS ----------
 SoftwareSerial *gpsSerial = nullptr;
+// l'oggetto vive qui (placement new): niente malloc/free, che costerebbero ~600 byte di flash
+alignas(SoftwareSerial) uint8_t gpsMem[sizeof(SoftwareSerial)];
 int8_t gpsSlot = -1;
 // I campioni dell'oscilloscopio e i testi del GPS non servono mai insieme: condividono la RAM
 // (l'Arduino Uno ne ha solo 2 KB). All'avvio di una misura i campi del GPS si azzerano.
@@ -1052,7 +1055,7 @@ void printField(const char *s) {
   if (*s) dout.print(s); else dout.print(F("nan"));
 }
 void gpsStop() {
-  if (gpsSerial) { gpsSerial->end(); delete gpsSerial; gpsSerial = nullptr; }
+  if (gpsSerial) { gpsSerial->~SoftwareSerial(); gpsSerial = nullptr; }   // il distruttore chiama end()
   gpsSlot = -1;
 }
 
@@ -1135,7 +1138,7 @@ uint8_t cfgApply(uint8_t slot, uint8_t type, long ms, uint8_t a, uint8_t b, uint
   s.st = 0; s.bad = 0; s.issue = 0;
   if (type == S_SONAR) { pinMode(a, OUTPUT); digitalWrite(a, LOW); pinMode(b, INPUT); }
   if (type == S_DHT) pinMode(a, INPUT_PULLUP);
-  if (type == S_GPS) { gpsSlot = slot; gpsSerial = new SoftwareSerial(a, b); }
+  if (type == S_GPS) { gpsSlot = slot; gpsSerial = new (gpsMem) SoftwareSerial(a, b); }
   if (type == S_DS18) lineRelease(a);
   if (type == S_HX711) { pinMode(a, INPUT); pinMode(b, OUTPUT); digitalWrite(b, LOW); }
   if (type == S_GATE) pinMode(a, (opt & 2) ? INPUT_PULLUP : INPUT);
