@@ -213,7 +213,8 @@
     "add": "Add",
     "cancel": "Cancel",
     "newColumn": "New column",
-    "truncated": "First {max} rows of {n}. The export contains all of them."
+    "truncated": "First {max} rows of {n}. The export contains all of them.",
+    "showMore": "Show {n, plural, one {# more row} other {# more rows}}"
   },
   "map": {
     "title": "Map",

@@ -18,15 +18,19 @@ import { cn } from "@/lib/utils";
 import { Sym } from "@/components/app/sym";
 
 const MAX_ROWS = 2000;
+/** Righe disegnate alla volta: 2000 righe tutte insieme rallentano la pagina sui computer della scuola. */
+const PAGE_ROWS = 200;
 
 export function DataSheet({ box, rows, errors }: { box: Box; rows: Record<string, number>[]; errors: Record<string, string> }) {
   const t = useTranslations("workbench.sheet");
   const updateBox = useWorkbench((s) => s.updateBox);
   const [open, setOpen] = useState(false);
+  const [limit, setLimit] = useState(PAGE_ROWS);
   const [pending, setPending] = useState<{ sym: string; unit: string; formula: string } | null>(null);
   const cols = [...box.columns, ...box.computed];
   const isComp = (key: string) => box.computed.some((c) => c.key === key);
-  const shown = rows.slice(0, MAX_ROWS);
+  const shown = rows.slice(0, Math.min(MAX_ROWS, limit));
+  const more = Math.min(MAX_ROWS, rows.length) - shown.length;
 
   const preview = useMemo(() => {
     if (!pending) return null;
@@ -36,7 +40,7 @@ export function DataSheet({ box, rows, errors }: { box: Box; rows: Record<string
       return { err: "", vals: shown.map((r) => fn(r)) };
     } catch (e) { return { err: (e as Error).message, vals: null }; }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pending, rows, box.computed]);
+  }, [pending, rows, box.computed, limit]);
   const [addErr, setAddErr] = useState("");
 
   const setAxis = (ax: "x" | "y", key: string) => updateBox(box.id, ax === "x" ? { xKey: key } : { yKey: key });
@@ -129,6 +133,11 @@ export function DataSheet({ box, rows, errors }: { box: Box; rows: Record<string
                 </tbody>
               </table>
             </div>
+            {more > 0 && (
+              <Button size="sm" variant="outline" className="mt-2" onClick={() => setLimit((l) => l + PAGE_ROWS)}>
+                {t("showMore", { n: Math.min(PAGE_ROWS, more) })}
+              </Button>
+            )}
             {rows.length > MAX_ROWS && <p className="mt-2 text-xs text-muted-foreground">{t("truncated", { max: MAX_ROWS, n: rows.length })}</p>}
           </>
         )}

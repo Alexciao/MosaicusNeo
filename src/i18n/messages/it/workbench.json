@@ -213,7 +213,8 @@
     "add": "Aggiungi",
     "cancel": "Annulla",
     "newColumn": "Nuova colonna",
-    "truncated": "Prime {max} righe di {n}. L'export le contiene tutte."
+    "truncated": "Prime {max} righe di {n}. L'export le contiene tutte.",
+    "showMore": "Mostra altre {n, plural, one {# riga} other {# righe}}"
   },
   "map": {
     "title": "Mappa",
