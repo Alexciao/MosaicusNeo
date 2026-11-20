@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+  <title>MosaicusNeo</title>
+  <mask id="m" maskUnits="userSpaceOnUse"><rect width="24" height="24" fill="#fff"/><path d="m6.9 15.3 3-3.5 3 2 3.1-4.4" fill="none" stroke="#000" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></mask>
+  <path d="M12 1.6a1.6 1.6 0 0 1 .8.21l8.2 4.74a1.6 1.6 0 0 1 .8 1.39v9.12a1.6 1.6 0 0 1-.8 1.39l-8.2 4.74a1.6 1.6 0 0 1-1.6 0L3 18.45a1.6 1.6 0 0 1-.8-1.39V7.94a1.6 1.6 0 0 1 .8-1.39l8.2-4.74A1.6 1.6 0 0 1 12 1.6Z" fill="#09090b" mask="url(#m)"/>
+</svg>

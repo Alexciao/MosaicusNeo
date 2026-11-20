@@ -16,7 +16,7 @@
     "analysis": "Analysis",
     "field": "In the field and Bluetooth",
     "sd": "SD card and button",
-    "outputs": "Display, LED and buzzer",
+    "outputs": "Status display",
     "data": "Data and account",
     "problems": "Common problems"
   },
@@ -177,7 +177,7 @@
   },
   "startDevice": {
     "path": "Your path: {device}",
-    "check": "Check your device →",
+    "check": "Check your device",
     "cannot": "This device can't connect to Arduino yet. What's missing and how to fix it: <device>Your device</device>."
   },
   "yourDevice": {
@@ -222,29 +222,6 @@
       "computer": "<b>A computer</b> with Chrome or Edge: needed to upload the firmware and to measure over the cable.",
       "optional": "<b>Optional</b>: a Bluetooth module and a power bank, to measure wirelessly with the phone."
     },
-    "stepsTitle": "The steps",
-    "steps": {
-      "s1": {
-        "t": "Firmware",
-        "d": "just once"
-      },
-      "s2": {
-        "t": "Experiment",
-        "d": "list on the left"
-      },
-      "s3": {
-        "t": "Wiring",
-        "d": "follow the diagram"
-      },
-      "s4": {
-        "t": "Measure",
-        "d": "Start → Stop"
-      },
-      "s5": {
-        "t": "Analysis",
-        "d": "Analysis page"
-      }
-    },
     "simulator": "No hardware? Press <b>Simulator</b>: it generates realistic data for every experiment."
   },
   "firmware": {
@@ -280,7 +257,7 @@
     "serialBusy": "The serial port can be opened by only one program at a time: with the IDE's Serial Monitor open, MosaicusNeo can't connect, and vice versa."
   },
   "wiring": {
-    "intro": "Every project has its own wiring diagram, made from its components and the pins you chose: open the project and go to the “Wiring” tab. There you'll find the breadboard diagram (or the compact schematic), the parts list and the steps, hole by hole.",
+    "intro": "Every project has its own wiring diagram, made from its components and the pins you chose: open the project and go to the “Wiring” tab. There you'll find the breadboard diagram (or the pin map), the parts list and the steps, hole by hole.",
     "breadboard": "The breadboard",
     "bb1": "The five holes of a column (a–e or f–j) are connected to each other; the central groove separates them.",
     "bb2": "The side rails run the whole length: red (+) for 5V, blue (−) for GND.",
@@ -415,7 +392,7 @@
       "t": "Import into the Notebook",
       "d": "Put the card in the computer and press <b>Import from SD card</b> (in the Notebook or in the component's card): each file becomes a measurement, with the usual quantities, charts and Analysis."
     },
-    "statusNote": "The display, LED and buzzer tell you what's happening: “SD READY · PRESS” waits for the button, “SD 1:23 · REC” is recording, “PROBLEM · SD” if the card is missing or not FAT32.",
+    "statusNote": "The display, LED and buzzer tell you what's happening: “SD CARD · PRESS” waits for the button, “● SD REC · 1:23” is recording, “ERROR · SD” if the card is missing or not FAT32.",
     "buttonTitle": "The button with the app",
     "buttonText": "With the app connected, via cable or Bluetooth, the button works like “Start” and “Stop”: handy when your hands are busy with the experiment. If you connect the app while Arduino is recording to the card, the recording is closed and you measure as usual."
   },
@@ -480,7 +457,7 @@
     "gpsText": "The first fix takes from 30 seconds to a few minutes, outdoors with a clear sky; the module's LED blinks when it has a position. Points without a position stay in the table but don't appear on the map. The map colors the points by the chosen quantity. Export to GPX (Google Earth, Strava) or GeoJSON (QGIS)."
   },
   "outputs": {
-    "intro": "Display, RGB LED and buzzer show Arduino's status without looking at the phone. They are added like the other components: “Components” tab → <b>Add a component</b>, “Display, LEDs, sounds” category. They require firmware v{v} or later.",
+    "intro": "Display, RGB LED and buzzer show Arduino's status without looking at the phone. They are added like the other components: “Components” tab → <b>Add a component</b>, “Status display” category. They require firmware v{v} or later.",
     "colSituation": "Situation",
     "colDisplay": "Display",
     "colLed": "LED",
@@ -488,19 +465,19 @@
     "rows": {
       "waiting": {
         "situation": "Powered on, the app isn't connected",
-        "display": "WAITING · APP · USB v1.7 (with a Bluetooth module: USB/BT 1.7)",
+        "display": "NO APP · WAIT · USB v1.8 (with a Bluetooth module: USB/BT 1.8)",
         "led": "blue, blinking",
         "beep": "1 beep every 3 s"
       },
       "connected": {
         "situation": "Connected, idle",
-        "display": "CONNECTED · OK (over Bluetooth: “BT”)",
+        "display": "LINK USB · READY · tap Start (over Bluetooth: “LINK BT”)",
         "led": "solid blue",
         "beep": "1 beep every 3 s"
       },
       "rejected": {
         "situation": "A component was rejected",
-        "display": "CONFIG · DHT · pin doppio",
+        "display": "BAD SETUP · DHT · pin twice",
         "led": "red, fast blinking",
         "beep": "3 beeps every 3 s"
       },
@@ -512,7 +489,7 @@
       },
       "noResponse": {
         "situation": "A sensor isn't responding",
-        "display": "PROBLEM · DHT",
+        "display": "ERROR · DHT",
         "led": "red, fast blinking",
         "beep": "3 beeps every 3 s"
       },
@@ -524,7 +501,7 @@
       },
       "measuring": {
         "situation": "Measuring, all good",
-        "display": "REC 1:23 · 23.4°",
+        "display": "● REC 1:23 · 23.4° (the dot blinks while recording)",
         "led": "solid green",
         "beep": "silent (a “beep-beep” when it gets there)"
       }
@@ -535,8 +512,8 @@
     "multiTitle": "Several sensors, configuration and Bluetooth",
     "mu1": "If several sensors have a problem, the display shows them in turn every 2.5 seconds, errors first and then those still searching: “ERROR 1/2”, “ERROR 2/2”. LED and buzzer always follow the most serious.",
     "mu2": "With two sensors of the same type, the display tells which one by number: “#2” is the second DHT in the component list.",
-    "mu3": "If Arduino rejects a component (duplicate pin, non-analog pin, second GPS), the display shows “CONFIG” with the reason until you fix the pins and restart the measurement.",
-    "mu4": "While waiting for the app, the display shows how to connect and the firmware version: “USB v1.7”. Bluetooth is optional: after “Configure” in the Bluetooth step, if the module responds, Arduino remembers it and the display shows “USB/BT 1.7”.",
+    "mu3": "If Arduino rejects a component (duplicate pin, non-analog pin, second GPS), the display shows “BAD SETUP” with the reason until you fix the pins and restart the measurement.",
+    "mu4": "While waiting for the app, the display shows how to connect and the firmware version: “USB v1.8”. Bluetooth is optional: after “Configure” in the Bluetooth step, if the module responds, Arduino remembers it and the display shows “USB/BT 1.8”.",
     "firmwareNote": "These features require firmware v{v}.",
     "details": "Details",
     "d1": "Arduino remembers the indicators: on later power-ups it immediately shows “waiting for the app”, even before you connect the phone.",

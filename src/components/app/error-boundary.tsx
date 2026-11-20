@@ -38,7 +38,7 @@ export function CrashPanel({ error, where, retry, fullPage }: { error: unknown; 
   return (
     <div role="alert" className={fullPage ? "flex min-h-svh items-center justify-center p-4" : "mx-auto max-w-xl p-4 py-12"}>
       <div className="flex flex-col gap-4 rounded-xl border bg-card p-6 text-card-foreground">
-        <TriangleAlert className="size-7 text-destructive" />
+        <TriangleAlert className="size-5 text-destructive" />
         <div className="space-y-1">
           <h2 className="text-lg font-semibold">{t("title")}</h2>
           <p className="text-sm text-muted-foreground">{fullPage ? t("page") : t("body")}</p>

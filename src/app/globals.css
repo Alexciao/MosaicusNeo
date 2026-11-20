@@ -48,6 +48,12 @@
   --color-tone-sky: var(--tone-sky);
   --color-tone-rose: var(--tone-rose);
   --color-tone-saffron: var(--tone-saffron);
+  --color-tone-violet: var(--tone-violet);
+  --color-tone-lime-fg: var(--tone-lime-fg);
+  --color-tone-sky-fg: var(--tone-sky-fg);
+  --color-tone-rose-fg: var(--tone-rose-fg);
+  --color-tone-saffron-fg: var(--tone-saffron-fg);
+  --color-tone-violet-fg: var(--tone-violet-fg);
   --color-tone-ink: var(--tone-ink);
   --color-success: var(--success);
   --color-warning: var(--warning);
@@ -90,7 +96,7 @@
   --border: #e4e4e7;
   --input: #e4e4e7;
   --ring: #84cc16;
-  --radius: 0.625rem;
+  --radius: 0.5rem;
 
   --brand: #4d7c0f;
   --brand-foreground: #ffffff;
@@ -102,6 +108,14 @@
   --tone-sky: #e0f2fe;
   --tone-rose: #ffe4e6;
   --tone-saffron: #fef3c7;
+  --tone-violet: #ede9fe;
+  --logo-accent: #65a30d;
+  /* icone sulle piastrelle colorate: la stessa tinta, più scura */
+  --tone-lime-fg: #4d7c0f;
+  --tone-sky-fg: #0369a1;
+  --tone-rose-fg: #be123c;
+  --tone-saffron-fg: #b45309;
+  --tone-violet-fg: #6d28d9;
   --tone-ink: #3f6212;
 
   /* canvas: grafici, oscilloscopio */
@@ -126,6 +140,11 @@
   --slot-c: #f9a8d4;
   --slot-b-dash: none;
   --slot-c-dash: none;
+
+  /* superfici piatte: un filo di bordo, al massimo un'ombra appena percettibile; l'ombra vera solo
+     per ciò che sta sopra la pagina (menu, finestre) */
+  --shadow-card: 0 1px 2px rgba(9, 9, 11, 0.04);
+  --shadow-raised: 0 1px 2px rgba(9, 9, 11, 0.06), 0 16px 36px -14px rgba(9, 9, 11, 0.22);
 }
 
 .dark {
@@ -165,6 +184,13 @@
   --tone-sky: rgba(56, 189, 248, 0.12);
   --tone-rose: rgba(244, 114, 182, 0.12);
   --tone-saffron: rgba(251, 191, 36, 0.12);
+  --tone-violet: rgba(167, 139, 250, 0.14);
+  --logo-accent: #c6f432;
+  --tone-lime-fg: #bef264;
+  --tone-sky-fg: #7dd3fc;
+  --tone-rose-fg: #fda4af;
+  --tone-saffron-fg: #fcd34d;
+  --tone-violet-fg: #c4b5fd;
   --tone-ink: #e4e4e7;
 
   --mz-chart-bg: #111113;
@@ -177,12 +203,15 @@
   --mz-fit: #c6f432;
   --mz-raw: rgba(255, 255, 255, 0.35);
   --mz-sel: rgba(198, 244, 50, 0.12);
-  --mz-tip-bg: #c6f432;
-  --mz-tip-ink: #1a2e05;
+  --mz-tip-bg: #fafafa;
+  --mz-tip-ink: #09090b;
   --mz-green: #c6f432;
   --mz-rosa: #f472b6;
   --mz-rosa-d: #f9a8d4;
   --mz-screen: #050d0b;
+
+  --shadow-card: none;
+  --shadow-raised: 0 1px 2px rgba(0, 0, 0, 0.5), 0 20px 40px -16px rgba(0, 0, 0, 0.8);
 }
 
 /* Modalità LIM: tutto in rem, basta ingrandire il carattere della radice */
@@ -236,21 +265,6 @@ html.lim *::after {
   .frac > span:last-child {
     padding: 0 0.2em;
   }
-}
-
-/* suggerimento animato «trascina qui» sul primo grafico */
-@keyframes mz-drag {
-  0% { transform: translateX(-40%); opacity: 0; }
-  15% { opacity: 1; }
-  85% { opacity: 1; }
-  100% { transform: translateX(40%); opacity: 0; }
-}
-.mz-drag-hand {
-  animation: mz-drag 2.2s ease-in-out infinite;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .mz-drag-hand { animation: none; }
 }
 
 /* mappe (Leaflet): nel tema scuro le tessere si scuriscono, i popup seguono i colori dell'app */
@@ -360,10 +374,11 @@ html.lim *::after {
 
 /* pagine, capitoli della guida, cambio di schema: dissolvenza appena visibile all'ingresso */
 .mz-enter {
-  transition: opacity 180ms var(--ease-out), transform 180ms var(--ease-out);
+  /* solo opacità: una trasformazione farebbe da riferimento agli elementi fissi dentro la pagina
+     (la barra dei lab) e li sposterebbe insieme alla pagina per un attimo */
+  transition: opacity 180ms var(--ease-out);
   @starting-style {
     opacity: 0;
-    transform: translateY(4px);
   }
 }
 
@@ -442,27 +457,16 @@ html.lim *::after {
   flex-direction: column;
   align-items: center;
 }
-.mz-boot-mark {
-  border-radius: 20px;
-  box-shadow:
-    0 1px 0 0 rgba(255, 255, 255, 0.06) inset,
-    0 24px 48px -16px rgba(12, 31, 27, 0.45),
-    0 8px 16px -8px rgba(12, 31, 27, 0.3);
-}
-.dark .mz-boot-mark {
-  box-shadow:
-    0 0 0 1px rgba(198, 244, 50, 0.14),
-    0 24px 48px -16px rgba(0, 0, 0, 0.7);
-}
+.mz-boot-mark { color: var(--foreground); }
 .mz-boot-mark svg { display: block; }
 .mz-boot-word {
-  margin-top: 28px;
+  margin-top: 20px;
   font-size: 22px;
   font-weight: 650;
   letter-spacing: -0.025em;
   color: var(--foreground);
 }
-.mz-boot-word span { color: var(--brand); }
+.mz-boot-word span { color: inherit; }
 .mz-boot-bar {
   position: relative;
   margin-top: 22px;
@@ -472,7 +476,7 @@ html.lim *::after {
   overflow: hidden;
   background: color-mix(in oklab, var(--foreground) 8%, transparent);
   opacity: 0;
-  animation: mz-boot-show 300ms ease-out 600ms forwards;
+  animation: mz-boot-show 300ms ease-out 100ms forwards;
 }
 .mz-boot-bar span {
   position: absolute;
@@ -493,3 +497,20 @@ html.lim *::after {
 @media (prefers-reduced-motion: reduce) {
   .mz-boot-bar span { animation: none; left: 30%; }
 }
+
+
+/* una finestra aperta sopra un pannello (es. il catalogo dei componenti sopra il pannello dei
+   componenti): il pannello si scurisce e non risponde; un clic lì chiude la finestra */
+[data-slot="sheet-content"][data-nested-dialog-open]::after,
+[data-slot="drawer-content"][data-nested-dialog-open]::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 60;
+  border-radius: inherit;
+  background: rgb(0 0 0 / 0.4);
+  animation: mz-dim 200ms var(--ease-out);
+}
+.dark [data-slot="sheet-content"][data-nested-dialog-open]::after,
+.dark [data-slot="drawer-content"][data-nested-dialog-open]::after { background: rgb(0 0 0 / 0.6); }
+@keyframes mz-dim { from { opacity: 0; } }

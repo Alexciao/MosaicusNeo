@@ -250,8 +250,8 @@
       "hint": "per avviare e fermare da Arduino"
     },
     "output": {
-      "name": "Display, LED e suoni",
-      "hint": "mostrano lo stato di Arduino"
+      "name": "Display di stato",
+      "hint": "mostra che cosa sta facendo Arduino"
     },
     "storage": {
       "name": "Memoria",

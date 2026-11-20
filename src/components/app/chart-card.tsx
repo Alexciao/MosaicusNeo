@@ -3,7 +3,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useTheme } from "next-themes";
 import { useTranslations } from "next-intl";
-import { ArrowRight, Binary, ChartLine, Check, ChevronDown, Download, Plus, FileSpreadsheet, FileText, Image as ImageIcon, MapPinned, Maximize2, MoveHorizontal, Route, Scan, Table2, X, ZoomIn, ZoomOut } from "lucide-react";
+import { ArrowRight, Binary, ChartLine, Check, ChevronDown, Download, Ellipsis, FileSpreadsheet, FileText, Image as ImageIcon, MapPinned, Maximize2, MoveHorizontal, Plus, Route, Scan, Table2, X, ZoomIn, ZoomOut } from "lucide-react";
 import { toast } from "@/lib/toast";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -21,6 +21,7 @@ import {
 import { fmtCell, fmtVal } from "@/lib/prefs";
 import { useWorkbench } from "@/lib/workbench-store";
 import { cn } from "@/lib/utils";
+import { Sym, plainSym } from "./sym";
 
 function Tip({ label, children }: { label: string; children: React.ReactElement }) {
   return (
@@ -37,7 +38,6 @@ function ChartStack() {
   const rows = useLab((s) => s.rows);
   const viewId = useLab((s) => s.viewId);
   const lim = useLab((s) => s.lim);
-  const dragHint = useLab((s) => s.dragHint);
   const t = useTranslations("app.chart");
   const { resolvedTheme } = useTheme();
   const canvases = useRef(new Map<string, HTMLCanvasElement>());
@@ -65,29 +65,29 @@ function ChartStack() {
       // ogni sensore ha il suo ritmo: nel grafico vanno solo le righe con questa grandezza
       const x: number[] = [], y: number[] = [];
       for (const r of rows) { const val = r[v.key]; if (typeof val === "number" && Number.isFinite(val)) { x.push(r.t); y.push(val); } }
+      // linea con piccoli punti per tutte le serie dal vivo (i punti spariscono quando sono tanti)
       ch.setData({
-        series: [{ x, y, label: v.sym, color: v.raw ? rawColor : undefined, mode: v.line ? "both" : "points" }],
+        series: [{ x, y, label: v.sym, color: v.raw ? rawColor : undefined, mode: "both" }],
         xLabel: "t (s)", yLabel: v.yLabel,
       });
     }
   }, [rows, key, rig, resolvedTheme]);
 
+  // grafico attivo della pila: titolo in inchiostro, gli altri attenuati (niente righe colorate)
+  useEffect(() => {
+    for (const ch of measureGroup().charts) ch.setActive(visible.length < 2 || ch.viewId === viewId);
+  }, [viewId, key, visible.length]);
+
   const h = visible.length > 2 ? "h-[clamp(360px,64vh,760px)]" : "h-[clamp(300px,52vh,620px)]";
   return (
-    <div className={cn("flex flex-col overflow-hidden rounded-lg border bg-[var(--mz-chart-bg)]", lim ? "h-[72vh]" : h)} onPointerDownCapture={() => hideDragHint()}>
+    <div className={cn("-mx-4 flex flex-col border-y bg-[var(--mz-chart-bg)]", lim ? "h-[72vh]" : h)} onPointerDownCapture={() => hideDragHint()}>
       {visible.map((id, i) => {
         const v = viewsOf(rig).find((w) => w.id === id);
         return (
-          <div key={`${rig.id}-${id}`} className={cn("relative min-h-0 flex-1 border-l-[3px] transition-colors", id === viewId && visible.length > 1 ? "border-l-brand" : "border-l-transparent", i > 0 && "border-t")}
+          <div key={`${rig.id}-${id}`} className={cn("relative min-h-0 flex-1", i > 0 && "border-t")}
             style={{ flexGrow: i === visible.length - 1 ? 1.25 : 1 }}>
             <canvas ref={(el) => { if (el) canvases.current.set(id, el); else canvases.current.delete(id); }}
-              aria-label={t("canvas", { name: v?.label ?? id })} className="absolute inset-0 size-full touch-none" style={{ cursor: "crosshair" }} />
-            {i === 0 && dragHint && (
-              <div aria-hidden className="pointer-events-none absolute inset-x-0 top-1/3 flex flex-col items-center gap-2">
-                <span className="mz-drag-hand grid size-10 place-items-center rounded-full bg-foreground/80 text-background"><MoveHorizontal className="size-5" /></span>
-                <span className="rounded-full bg-foreground/80 px-3 py-1 text-xs font-medium text-background">{t("dragHint")}</span>
-              </div>
-            )}
+              aria-label={t("canvas", { name: plainSym(v?.label ?? id) })} className="absolute inset-y-0 right-3 left-3 h-full w-[calc(100%-1.5rem)] touch-none" style={{ cursor: "crosshair" }} />
           </div>
         );
       })}
@@ -155,21 +155,26 @@ export function ChartCard() {
   const doExport = (k: ExportKind) => void exportData(k);
   const sentId = useLab(sentBoxId);
   useWorkbench((s) => s.boxes.length);   // ridisegna se un riquadro viene eliminato
-  const shownNames = views.filter((v) => visible.includes(v.id)).map((v) => v.sym).join(", ");
+  const shown = views.filter((v) => visible.includes(v.id));
+  const dragHint = useLab((s) => s.dragHint);
 
   return (
-    <Card className="gap-3 p-4">
-      <div className="flex flex-wrap items-center gap-2">
+    <Card className="gap-0 p-4 pb-0">
+      <div className="flex flex-wrap items-center gap-2 pb-3">
         <DropdownMenu>
           <DropdownMenuTrigger render={<Button size="sm" variant="outline" className="max-w-full" />}>
-            <ChartLine /> <span className="truncate">{t("charts", { names: shownNames })}</span> <ChevronDown />
+            <ChartLine />
+            <span className="truncate">
+              {shown.length ? shown.map((v, i) => <span key={v.id}>{i > 0 && ", "}<Sym>{v.sym}</Sym></span>) : t("chartsNone")}
+            </span>
+            <ChevronDown className="text-muted-foreground" />
           </DropdownMenuTrigger>
           <DropdownMenuContent align="start" className="w-64">
             <DropdownMenuGroup>
               <DropdownMenuLabel>{t("quantities")}</DropdownMenuLabel>
               {physical.map((v) => (
                 <DropdownMenuCheckboxItem key={v.id} checked={visible.includes(v.id)} onCheckedChange={() => toggleView(v.id)} closeOnClick={false}>
-                  {v.yLabel}
+                  <Sym>{v.yLabel}</Sym>
                 </DropdownMenuCheckboxItem>
               ))}
             </DropdownMenuGroup>
@@ -180,7 +185,7 @@ export function ChartCard() {
                   <DropdownMenuLabel>{t("rawSensors")}</DropdownMenuLabel>
                   {raw.map((v) => (
                     <DropdownMenuCheckboxItem key={v.id} checked={visible.includes(v.id)} onCheckedChange={() => toggleView(v.id)} closeOnClick={false}>
-                      {v.yLabel}
+                      <Sym>{v.yLabel}</Sym>
                     </DropdownMenuCheckboxItem>
                   ))}
                 </DropdownMenuGroup>
@@ -188,17 +193,18 @@ export function ChartCard() {
             )}
           </DropdownMenuContent>
         </DropdownMenu>
-        <div className="ml-auto flex items-center gap-1">
-          <div role="group" aria-label={t("zoomGroup")} className="flex rounded-lg border">
+        <div className="ml-auto flex items-center gap-0.5 text-muted-foreground">
+          <div role="group" aria-label={t("zoomGroup")} className="flex items-center gap-0.5">
             <Tip label={t("zoomInTip")}><Button size="icon-sm" variant="ghost" onClick={() => g.zoomCenter(0.6)} aria-label={t("zoomIn")}><ZoomIn /></Button></Tip>
             <Tip label={t("zoomOut")}><Button size="icon-sm" variant="ghost" onClick={() => g.zoomCenter(1 / 0.6)} aria-label={t("zoomOut")}><ZoomOut /></Button></Tip>
             <Tip label={t("zoomSel")}><Button size="icon-sm" variant="ghost" aria-label={t("zoomSel")} onClick={() => { if (!g.zoomToSelection()) toast(t("noSel")); }}><Scan /></Button></Tip>
             <Tip label={t("fitTip")}><Button size="icon-sm" variant="ghost" onClick={() => g.fitAll()} aria-label={t("fit")}><Maximize2 /></Button></Tip>
           </div>
-          <Tip label={t("table")}><Button size="icon-sm" variant="outline" aria-label={t("table")} disabled={!hasRows} onClick={() => setTable(true)}><Table2 /></Button></Tip>
+          <span aria-hidden className="mx-1.5 h-4 w-px bg-border" />
+          <Tip label={t("table")}><Button size="icon-sm" variant="ghost" aria-label={t("table")} disabled={!hasRows} onClick={() => setTable(true)}><Table2 /></Button></Tip>
           <DropdownMenu>
             <Tip label={selection ? t("exportSel") : t("exportAll")}>
-              <DropdownMenuTrigger render={<Button size="icon-sm" variant="outline" aria-label={t("export")} disabled={!hasRows} />}><Download /></DropdownMenuTrigger>
+              <DropdownMenuTrigger render={<Button size="icon-sm" variant="ghost" aria-label={t("export")} disabled={!hasRows} />}><Download /></DropdownMenuTrigger>
             </Tip>
             <DropdownMenuContent align="end" className="w-64">
               <DropdownMenuGroup>
@@ -223,34 +229,40 @@ export function ChartCard() {
 
       <ChartStack />
 
-      {hasRows && (
-        <div className={cn("flex flex-wrap items-center gap-2 rounded-lg px-1 transition-colors", selection && !running && "bg-[var(--mz-sel)] px-2 py-1")}>
-          <p className="text-sm">
-            {selection ? <><b className="tabular">{fmtVal(selection[0], 2)} – {fmtVal(selection[1], 2)} s</b> · {t("readings", { n: nSel })}</>
-              : <span className="text-muted-foreground">{t("selectHint")}</span>}
-          </p>
-          <div className="ml-auto flex items-center gap-2">
+      <div className={cn("-mx-4 flex min-h-12 flex-wrap items-center gap-x-3 gap-y-2 px-4 py-2 transition-colors", selection && !running && "bg-[var(--mz-sel)]")}>
+        <p className="flex min-w-0 items-center gap-2 text-[13px]">
+          {selection ? (
+            <><span className="font-medium tabular">{fmtVal(selection[0], 2)} – {fmtVal(selection[1], 2)} s</span><span className="text-muted-foreground">{t("readings", { n: nSel })}</span></>
+          ) : (
+            <span className={cn("flex items-center gap-2 text-muted-foreground", dragHint && hasRows && "text-foreground")}>
+              <MoveHorizontal className="size-4 shrink-0" aria-hidden />
+              {hasRows ? t("selectHint") : t("emptyHint")}
+            </span>
+          )}
+        </p>
+        {hasRows && (
+          <div className="ml-auto flex items-center gap-1">
             {selection && <Button size="sm" variant="ghost" onClick={clearSelection}><X /> {t("clear")}</Button>}
             {sentId != null ? (
               <Button size="sm" variant="outline" onClick={() => goElab(sentId)}>
-                <Check className="text-brand" /> {t("sent")} <ArrowRight />
+                <Check className="text-success" /> {t("sent")} <ArrowRight />
               </Button>
             ) : (
-              <div className="flex">
-                <Button size="sm" variant={selection ? "default" : "outline"} disabled={running} className="rounded-r-none" onClick={() => void sendSelection()}>
+              <>
+                <Button size="sm" variant={selection ? "default" : "outline"} disabled={running} onClick={() => void sendSelection()}>
                   {selection ? t("analyzeSel") : t("analyzeAll")} <ArrowRight />
                 </Button>
-                <Tip label={t("addTip")}>
-                  <Button size="icon-sm" variant={selection ? "default" : "outline"} disabled={running} aria-label={t("addAria")}
-                    className={cn("rounded-l-none", selection ? "border-l border-l-primary-foreground/15" : "border-l-0")} onClick={() => void sendSelection({ open: false })}>
-                    <Plus />
-                  </Button>
-                </Tip>
-              </div>
+                <DropdownMenu>
+                  <DropdownMenuTrigger render={<Button size="icon-sm" variant="ghost" disabled={running} aria-label={t("more")} />}><Ellipsis /></DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-64">
+                    <DropdownMenuItem onClick={() => void sendSelection({ open: false })}><Plus /> {t("addStay")}</DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </>
             )}
           </div>
-        </div>
-      )}
+        )}
+      </div>
       {table && <DataDialog open onOpenChange={setTable} />}
     </Card>
   );

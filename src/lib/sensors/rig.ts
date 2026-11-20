@@ -13,7 +13,7 @@ import { cmpVersion } from "@/lib/version";
 import { t } from "@/i18n";
 import { SENSORS, MAX_ARDUINO, pinName, pinsFor, defaultOptions, isSlot, type Rec, type SensorType } from "./catalog";
 import { QUANTITIES, symOf } from "./quantities";
-import type { Options, Row } from "./types";
+import type { Options, Row, Tone } from "./types";
 
 export interface SensorInstance {
   id: string;
@@ -23,7 +23,11 @@ export interface SensorInstance {
   options: Options;
   interval: number;
 }
-export interface Rig { id: string; name: string; sensors: SensorInstance[] }
+export interface Rig {
+  id: string; name: string; sensors: SensorInstance[];
+  /** solo i progetti: colore e icona scelti (vedi project-look.ts) */
+  tone?: Tone; icon?: string;
+}
 
 export interface ResolvedQuantity {
   key: string;          // chiave nel montaggio (T, T_2…)
@@ -59,6 +63,46 @@ export function makeSensor(type: SensorType, taken: Set<number> = new Set(), ext
     taken.add(pins[spec.key]);
   }
   return { id: newId(), type, pins, options: defaultOptions(type), interval: def.interval.def, ...extra, ...(extra.options ? { options: { ...defaultOptions(type), ...extra.options } } : {}) };
+}
+
+/**
+ * Ripara un montaggio salvato: i pin mancanti o non validi (versioni vecchie, sincronizzazione a
+ * metà) prendono un pin libero adatto, come quando si aggiunge il componente. Restituisce lo
+ * stesso oggetto se non c'era niente da riparare.
+ */
+export function normalizeRig(rig: Rig): Rig {
+  const ok = (p: unknown): p is number => typeof p === "number" && Number.isFinite(p);
+  // opzioni mancanti o fuori dall'elenco (versioni vecchie): il valore di serie
+  const badOpt = (s: SensorInstance) => SENSORS[s.type]?.options.some((o) => {
+    const v = s.options?.[o.key];
+    return v == null || (o.type === "select" && !(o.options ?? []).some(([k]) => k === String(v)));
+  });
+  const fixOpts = (s: SensorInstance): SensorInstance => !badOpt(s) ? s : {
+    ...s,
+    options: { ...s.options, ...Object.fromEntries(SENSORS[s.type].options.map((o) => {
+      const v = s.options?.[o.key];
+      const valid = v != null && (o.type !== "select" || (o.options ?? []).some(([k]) => k === String(v)));
+      return [o.key, valid ? v : o.value];
+    })) },
+  };
+  if (rig.sensors.some((s) => SENSORS[s.type] && badOpt(s))) rig = { ...rig, sensors: rig.sensors.map((s) => (SENSORS[s.type] ? fixOpts(s) : s)) };
+  const broken = rig.sensors.some((s) => !SENSORS[s.type] || SENSORS[s.type].pins.some((spec) => !ok(s.pins?.[spec.key])));
+  if (!broken) return rig;
+  const taken = new Set<number>();
+  for (const s of rig.sensors) for (const spec of SENSORS[s.type]?.pins ?? []) if (ok(s.pins?.[spec.key]) && !spec.bus) taken.add(s.pins[spec.key]);
+  const sensors = rig.sensors.filter((s) => SENSORS[s.type]).map((s) => {
+    const specs = SENSORS[s.type].pins;
+    if (specs.every((spec) => ok(s.pins?.[spec.key]))) return s;
+    const pins: Record<string, number> = { ...s.pins };
+    for (const spec of specs) {
+      if (ok(pins[spec.key])) continue;
+      const free = spec.bus || spec.fixed ? spec.def : [spec.def, ...pinsFor(spec.kind)].find((p) => !taken.has(p) && !Object.values(pins).includes(p));
+      pins[spec.key] = free ?? spec.def;
+      if (!spec.bus) taken.add(pins[spec.key]);
+    }
+    return { ...s, pins };
+  });
+  return { ...rig, sensors };
 }
 
 // ---------------------------------------------------------------------------

@@ -1,10 +1,7 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
   <title>MosaicusNeo</title>
-  <rect width="64" height="64" rx="14" fill="#18221f"/>
-  <polygon points="32.00,9.00 51.92,20.50 51.92,43.50 32.00,55.00 12.08,43.50 12.08,20.50" fill="#C6F432" fill-opacity="0.09" stroke="#C6F432" stroke-width="3.6" stroke-linejoin="round"/>
-  <polyline points="19.5,41 27.5,32.5 35,37.5 45,24.5" fill="none" stroke="#C6F432" stroke-width="3.6" stroke-linecap="round" stroke-linejoin="round"/>
-  <polygon points="19.50,37.40 22.62,39.20 22.62,42.80 19.50,44.60 16.38,42.80 16.38,39.20" fill="#C6F432" stroke="#C6F432" stroke-width="1.2" stroke-linejoin="round"/>
-  <polygon points="27.50,28.90 30.62,30.70 30.62,34.30 27.50,36.10 24.38,34.30 24.38,30.70" fill="#C6F432" stroke="#C6F432" stroke-width="1.2" stroke-linejoin="round"/>
-  <polygon points="35.00,33.90 38.12,35.70 38.12,39.30 35.00,41.10 31.88,39.30 31.88,35.70" fill="#C6F432" stroke="#C6F432" stroke-width="1.2" stroke-linejoin="round"/>
-  <polygon points="45.00,19.30 49.50,21.90 49.50,27.10 45.00,29.70 40.50,27.10 40.50,21.90" fill="#C6F432" stroke="#C6F432" stroke-width="1.2" stroke-linejoin="round"/>
+  <style>.h{fill:#09090b}.t{stroke:#65a30d}@media (prefers-color-scheme:dark){.h{fill:#fafafa}.t{stroke:#c6f432}}</style>
+  <mask id="m" maskUnits="userSpaceOnUse"><rect width="24" height="24" fill="#fff"/><path d="m6.9 15.3 3-3.5 3 2 3.1-4.4" fill="none" stroke="#000" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"/></mask>
+  <path class="h" d="M12 1.6a1.6 1.6 0 0 1 .8.21l8.2 4.74a1.6 1.6 0 0 1 .8 1.39v9.12a1.6 1.6 0 0 1-.8 1.39l-8.2 4.74a1.6 1.6 0 0 1-1.6 0L3 18.45a1.6 1.6 0 0 1-.8-1.39V7.94a1.6 1.6 0 0 1 .8-1.39l8.2-4.74A1.6 1.6 0 0 1 12 1.6Z" mask="url(#m)"/>
+  <path d="m6.9 15.3 3-3.5 3 2 3.1-4.4" fill="none" class="t" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>
 </svg>

@@ -94,15 +94,15 @@ export function TrackMap({ points, label, unit, highlight, follow, onPick, class
   };
 
   return (
-    <div className={cn("relative isolate overflow-hidden rounded-lg border", className)}>
+    <div className={cn("relative isolate overflow-hidden rounded-md border", className)}>
       <div ref={el} className="absolute inset-0 z-0" />
       {!points.length && (
-        <div className="pointer-events-none absolute inset-0 z-[500] grid place-items-center bg-background/40 p-6 text-center text-sm font-medium text-muted-foreground">
-          {t("empty")}
+        <div className="pointer-events-none absolute inset-x-0 top-3 z-[500] flex justify-center px-14">
+          <p className="max-w-md rounded-md bg-background/90 px-3 py-1.5 text-center text-[13px] text-foreground shadow-sm ring-1 ring-foreground/10 backdrop-blur">{t("empty")}</p>
         </div>
       )}
       <Button size="icon-sm" variant="outline" onClick={recenter} aria-label={t("recenter")} title={t("recenter")}
-        className="absolute top-2.5 right-2.5 z-[500] bg-background shadow-sm">
+        className="absolute top-2.5 right-2.5 z-[500] bg-background">
         <LocateFixed />
       </Button>
       {range && (

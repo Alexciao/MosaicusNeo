@@ -8,12 +8,14 @@ import { ArrowLeft, ArrowRight, ChevronDown, Minus, Plus, Save } from "lucide-re
 import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuGroup, DropdownMenuLabel, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Chart, ChartGroup } from "@/lib/mosaicus/chart.js";
 import { MODELS, MODEL_ORDER, runsTest } from "@/lib/mosaicus/fits.js";
 import { formatMeasure, fmt } from "@/lib/mosaicus/analysis.js";
 import type { BoxColumn } from "@/lib/workbench-store";
 import { fmtNum } from "@/lib/prefs";
 import { cn } from "@/lib/utils";
+import { Sym, plainSym } from "@/components/app/sym";
 import { intlLocale } from "@/i18n";
 
 const bold = (c: React.ReactNode) => <b>{c}</b>;
@@ -96,15 +98,15 @@ export function EyePanel({ eye, cx, cy, su, meaning, up, down, onNext, onBack, o
           {result && (
             <>
               <CalcBox>
-                <div>m = <Frac top={`Δ${cy.sym}`} bottom={`Δ${cx.sym}`} /> = <Frac top={`${fmtNum(result.B.y)} − ${fmtNum(result.A.y)}`} bottom={`${fmtNum(result.B.x)} − ${fmtNum(result.A.x)}`} /> = <b>{n4(result.m)} {su}</b></div>
-                <div className="text-muted-foreground">{cy.sym} = {n4(result.m)}·{cx.sym} {result.q < 0 ? "−" : "+"} {n4(Math.abs(result.q))}</div>
+                <div>m = <Frac top={<Sym>{`Δ${cy.sym}`}</Sym>} bottom={<Sym>{`Δ${cx.sym}`}</Sym>} /> = <Frac top={`${fmtNum(result.B.y)} − ${fmtNum(result.A.y)}`} bottom={`${fmtNum(result.B.x)} − ${fmtNum(result.A.x)}`} /> = <b>{n4(result.m)} {su}</b></div>
+                <div className="text-muted-foreground"><Sym>{cy.sym}</Sym> = {n4(result.m)}·<Sym>{cx.sym}</Sym> {result.q < 0 ? "−" : "+"} {n4(Math.abs(result.q))}</div>
               </CalcBox>
               {meaning && <Meaning>{cap(meaning)} ≈ <b>{n4(result.m)} {su}</b></Meaning>}
               {eye.cmp && (
                 <p className="text-sm">{t.rich("eye.leastSquares", { b: bold, value: formatMeasure(eye.cmp.m, eye.cmp.s, su), rel: rel.toLocaleString(intlLocale, { maximumFractionDigits: 1 }) })} · {rel <= 3 ? <b className="text-success">{t("eye.excellent")}</b> : rel <= 10 ? <b className="text-success">{t("eye.good")}</b> : <b className="text-warning">{t("eye.adjust")}</b>}</p>
               )}
               <div className="flex flex-wrap gap-2">
-                <Button size="sm" onClick={() => onSave(result!)}><Save /> {t("save")}</Button>
+                <Button size="sm" variant="outline" onClick={() => onSave(result!)}><Save /> {t("save")}</Button>
                 <Button size="sm" variant="outline" onClick={onCompare}>{eye.cmp ? t("eye.hideLsq") : t("eye.compareLsq")}</Button>
               </div>
             </>
@@ -127,13 +129,13 @@ export function TangentPanel({ t, cx, cy, su, meaning, onSave }: { t: TangentRes
   return (
     <div className="flex flex-col gap-3">
       <CalcBox>
-        <div>m = <Frac top={`Δ${cy.sym}`} bottom={`Δ${cx.sym}`} /> = <Frac top={fmtNum(t.m * t.dx)} bottom={fmtNum(t.dx)} /> = <b>{n4(t.m)} {su}</b></div>
+        <div>m = <Frac top={<Sym>{`Δ${cy.sym}`}</Sym>} bottom={<Sym>{`Δ${cx.sym}`}</Sym>} /> = <Frac top={fmtNum(t.m * t.dx)} bottom={fmtNum(t.dx)} /> = <b>{n4(t.m)} {su}</b></div>
       </CalcBox>
-      {meaning && <Meaning>{tr.rich("tangent.instant", { b: bold, meaning, Meaning: cap(meaning), x: cx.sym, v: fmtNum(t.P.x), unit: cx.unit, m: n4(t.m), su })}</Meaning>}
+      {meaning && <Meaning>{tr.rich("tangent.instant", { b: bold, meaning, Meaning: cap(meaning), x: plainSym(cx.sym), v: fmtNum(t.P.x), unit: cx.unit, m: n4(t.m), su })}</Meaning>}
       <Why title={tr("tangent.howTitle")}>
-        <p>{tr("tangent.how", { n: t.near, y: cy.sym, x: cx.sym, dx: fmtNum(t.dx), unit: cx.unit })}</p>
+        <p><Sym>{tr("tangent.how", { n: t.near, y: cy.sym, x: cx.sym, dx: fmtNum(t.dx), unit: cx.unit })}</Sym></p>
       </Why>
-      <Button size="sm" className="self-start" onClick={onSave}><Save /> {tr("save")}</Button>
+      <Button size="sm" variant="outline" className="self-start" onClick={onSave}><Save /> {tr("save")}</Button>
     </div>
   );
 }
@@ -148,28 +150,44 @@ export function FitPanel({ suggested, model, fit, phys, cx, cy, onModel, onSave,
   compare: ModelRow[] | null; onCompare: () => void;
 }) {
   const t = useTranslations("workbench.tools");
-  const others = MODEL_ORDER.filter((id: string) => !suggested.includes(id));
-  const [more, setMore] = useState(!suggested.length);
-  const btn = (id: string, sug = false) => (
-    <Button key={id} size="xs" variant={model === id ? "default" : "outline"} title={(MODELS as any)[id].formula}
-      className={cn(sug && model !== id && "border-primary/40")} onClick={() => onModel(id)}>
-      {(MODELS as any)[id].label}
-    </Button>
-  );
+  // gli altri modelli, in «Avanzate»: prima quelli consigliati per questa grandezza
+  const advanced = [...MODEL_ORDER.filter((id: string) => id !== "lin" && suggested.includes(id)), ...MODEL_ORDER.filter((id: string) => id !== "lin" && !suggested.includes(id))];
+  const isAdv = !!model && model !== "lin";
   const rowsOf = (list: any[]) => list.map((p, i) => (
     <tr key={i} className="border-b last:border-0">
-      <th className="py-1 pr-2 text-left text-xs font-medium text-muted-foreground">{p.label ?? p.sym}</th>
+      <th className="py-1 pr-2 text-left text-xs font-medium text-muted-foreground"><Sym>{p.label ?? p.sym}</Sym></th>
       <td className="py-1 text-right text-sm font-semibold tabular">{p.key === "sd" ? `${n4(p.value)} ${p.unit}` : formatMeasure(p.value, p.sigma, p.unit)}</td>
     </tr>
   ));
   const isLine = model === "lin";
   return (
     <div className="flex flex-col gap-3">
-      {!!suggested.length && <div className="flex flex-wrap items-center gap-1.5"><span className="text-xs text-muted-foreground">{t("fit.suggested")}</span>{suggested.map((id) => btn(id, true))}</div>}
-      <Collapsible open={more} onOpenChange={setMore}>
-        <CollapsibleTrigger className="flex items-center gap-1.5 text-xs font-semibold"><ChevronDown className={cn("size-3.5 transition-transform", !more && "-rotate-90")} /> {suggested.length ? t("fit.otherModels") : t("fit.models")}</CollapsibleTrigger>
-        <CollapsibleContent className="flex flex-wrap gap-1.5 pt-2">{others.map((id: string) => btn(id))}</CollapsibleContent>
-      </Collapsible>
+      <div className="flex flex-wrap items-center gap-1.5">
+        <Button size="sm" variant={model === "lin" ? "default" : "outline"} title={(MODELS as any).lin.formula} onClick={() => onModel("lin")}>
+          {(MODELS as any).lin.label}
+        </Button>
+        <DropdownMenu>
+          <DropdownMenuTrigger render={<Button size="sm" variant={isAdv ? "default" : "outline"} />}>
+            {isAdv ? (MODELS as any)[model!].label : t("fit.advanced")} <ChevronDown className="opacity-60" />
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="start" className="w-64">
+            <DropdownMenuGroup>
+              <DropdownMenuLabel>{t("fit.advancedTitle")}</DropdownMenuLabel>
+              <DropdownMenuRadioGroup value={isAdv ? model! : ""} onValueChange={(v) => onModel(String(v))}>
+                {advanced.map((id: string) => (
+                  <DropdownMenuRadioItem key={id} value={id} closeOnClick>
+                    <span className="flex min-w-0 flex-1 flex-col">
+                      <span>{(MODELS as any)[id].label}</span>
+                      <span className="font-mono text-[11px] text-muted-foreground">{(MODELS as any)[id].formula}</span>
+                    </span>
+                    {suggested.includes(id) && <span className="text-xs text-muted-foreground">{t("fit.suggested")}</span>}
+                  </DropdownMenuRadioItem>
+                ))}
+              </DropdownMenuRadioGroup>
+            </DropdownMenuGroup>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
       <Button size="xs" variant="ghost" className="self-start" onClick={onCompare}>{compare ? t("fit.hideCompare") : t("fit.compareAll")}</Button>
       {compare && <CompareModels rows={compare} current={model} unit={cy.unit} onPick={onModel} />}
       {fit?.error && <p className="text-sm text-destructive">{fit.error}</p>}
@@ -185,7 +203,7 @@ export function FitPanel({ suggested, model, fit, phys, cx, cy, onModel, onSave,
             </Why>
             <Why title={t("fit.uncTitle")}>
               <p>{t.rich("fit.unc1", { b: bold, s: n4(fit.s), unit: cy.unit })}</p>
-              <p>{t.rich("fit.unc2", { b: bold })} {isLine ? t("fit.uncLine", { x: cx.sym }) : t("fit.uncNonlin")}</p>
+              <p>{t.rich("fit.unc2", { b: bold })} {isLine ? t("fit.uncLine", { x: plainSym(cx.sym) }) : t("fit.uncNonlin")}</p>
               <p>{t("fit.unc3")}</p>
             </Why>
             <Why title={t("fit.r2Title", { r2: Number.isFinite(fit.r2) ? fit.r2.toLocaleString(intlLocale, { maximumFractionDigits: 5 }) : "—" })}>
@@ -193,7 +211,7 @@ export function FitPanel({ suggested, model, fit, phys, cx, cy, onModel, onSave,
             </Why>
           </div>
           <div className="flex flex-wrap gap-2">
-            <Button size="sm" onClick={onSave}><Save /> {t("save")}</Button>
+            <Button size="sm" variant="outline" onClick={onSave}><Save /> {t("save")}</Button>
             <Button size="sm" variant="outline" onClick={onResid}>{showResid ? t("fit.hideResid") : t("fit.checkResid")}</Button>
           </div>
         </>
@@ -257,16 +275,16 @@ export function RulerPanel({ r, cx, onN, onSave }: { r: RulerState; cx: BoxColum
       </div>
       <CalcBox>
         {isFreq ? (
-          <div>f₀ = <Frac top={`Δ${cx.sym}`} bottom="N" /> = <Frac top={`${fmtNum(d, 4)} ${cx.unit}`} bottom={r.n} /> = <b>{fmtNum(T, 4)} {cx.unit}</b></div>
+          <div>f₀ = <Frac top={<Sym>{`Δ${cx.sym}`}</Sym>} bottom="N" /> = <Frac top={`${fmtNum(d, 4)} ${cx.unit}`} bottom={r.n} /> = <b>{fmtNum(T, 4)} {cx.unit}</b></div>
         ) : (
           <>
-            <div>T = <Frac top={`Δ${cx.sym}`} bottom="N" /> = <Frac top={`${fmtNum(d, 4)} ${cx.unit}`} bottom={r.n} /> = <b>{fmtNum(T, 4)} {cx.unit}</b></div>
+            <div>T = <Frac top={<Sym>{`Δ${cx.sym}`}</Sym>} bottom="N" /> = <Frac top={`${fmtNum(d, 4)} ${cx.unit}`} bottom={r.n} /> = <b>{fmtNum(T, 4)} {cx.unit}</b></div>
             {Number.isFinite(f) && <div>f = <Frac top="1" bottom="T" /> = <b>{fmtNum(f, f < 10 ? 3 : 1)} Hz</b></div>}
           </>
         )}
       </CalcBox>
       <p className="text-xs text-muted-foreground">{t("ruler.precision")}</p>
-      <Button size="sm" className="self-start" onClick={onSave}><Save /> {t("save")}</Button>
+      <Button size="sm" variant="outline" className="self-start" onClick={onSave}><Save /> {t("save")}</Button>
     </div>
   );
 }
@@ -309,7 +327,7 @@ export function StatsPanel({ st, selected, cx, cy, su, meaning, onClear, onSave 
   const u = cy.unit ? ` ${cy.unit}` : "";
   const row = (label: React.ReactNode, value: React.ReactNode, hint?: string) => (
     <tr className="border-b last:border-0" title={hint}>
-      <th className="py-1 pr-2 text-left text-xs font-medium text-muted-foreground">{label}</th>
+      <th className="py-1 pr-2 text-left text-xs font-medium text-muted-foreground"><Sym>{label}</Sym></th>
       <td className="py-1 text-right text-sm font-semibold tabular">{value}</td>
     </tr>
   );
@@ -329,7 +347,7 @@ export function StatsPanel({ st, selected, cx, cy, su, meaning, onClear, onSave 
         <p>{t.rich("stats.why1", { b: bold })}</p>
         <p>{t("stats.why2")}</p>
       </Why>
-      <Button size="sm" className="self-start" onClick={onSave}><Save /> {t("save")}</Button>
+      <Button size="sm" variant="outline" className="self-start" onClick={onSave}><Save /> {t("save")}</Button>
     </div>
   );
 }

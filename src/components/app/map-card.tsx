@@ -17,9 +17,9 @@ const isNum = (v: unknown): v is number => typeof v === "number" && Number.isFin
 
 function Stat({ label, value }: { label: string; value: string }) {
   return (
-    <div className="min-w-24 rounded-lg border bg-muted/40 px-3 py-1.5">
-      <p className="text-[0.7rem] font-medium text-muted-foreground">{label}</p>
-      <p className="tabular text-sm font-semibold">{value}</p>
+    <div className="flex flex-col gap-0.5">
+      <dt className="text-xs text-muted-foreground">{label}</dt>
+      <dd className="tabular text-[13px] font-medium">{value}</dd>
     </div>
   );
 }
@@ -66,23 +66,24 @@ export function MapCard() {
 
   return (
     <Card className="flex flex-col gap-3 p-4">
-      <div className="flex flex-wrap items-center gap-2">
-        <h3 className="mr-auto font-semibold">{t("title")}</h3>
-        {keys.length > 1 && (
+      <h3 className="sr-only">{t("title")}</h3>
+      {keys.length > 1 && (
+        <div className="flex flex-wrap items-center gap-3">
+          <span className="text-[13px] text-muted-foreground">{t("colorBy")}</span>
           <Segmented label={t("colorBy")} value={key} onChange={(k) => { setWant(k); prefs.set("mosaicus.mapKey", k); }}
             items={keys.map((k) => [k, info(k).sym, info(k).name])} />
-        )}
-      </div>
+        </div>
+      )}
       <TrackMap className="h-[clamp(300px,52vh,620px)]" points={points} label={q.name} unit={q.unit}
         highlight={selection} follow={running} onPick={(t) => measureGroup().setHover(t)} />
       {!!sel.length && (
-        <div className="flex flex-wrap gap-2">
+        <dl className="flex flex-wrap gap-x-8 gap-y-3">
           <Stat label={selection ? t("ptsSel") : t("ptsAll")} value={String(sel.length)} />
           <Stat label={t("distance")} value={ss.length ? `${fmtNum(ss[ss.length - 1] - ss[0], 0)} m` : "—"} />
           <Stat label={t("duration")} value={mm(dur)} />
           <Stat label={t("gain")} value={`${fmtNum(gain, 0)} m`} />
           {!!vals.length && <Stat label={t("minMeanMax", { sym: q.sym })} value={`${fmtNum(Math.min(...vals), 1)} · ${fmtNum(vals.reduce((x, y) => x + y, 0) / vals.length, 1)} · ${fmtNum(Math.max(...vals), 1)} ${q.unit}`} />}
-        </div>
+        </dl>
       )}
       <p className="text-xs text-muted-foreground">{t("hint")}</p>
     </Card>

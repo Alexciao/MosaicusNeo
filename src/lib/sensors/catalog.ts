@@ -65,7 +65,8 @@ export interface SensorDef {
 // ---------------------------------------------------------------------------
 // Pin di Arduino Uno: D2…D13 digitali, A0…A5 (14…19) analogici (anche digitali)
 // ---------------------------------------------------------------------------
-export const pinName = (p: number) => (p >= 14 ? `A${p - 14}` : `D${p}`);
+/** Nome del pin (D2, A0…); "—" se manca (montaggi salvati da versioni vecchie o incompleti). */
+export const pinName = (p: number | null | undefined) => (typeof p !== "number" || !Number.isFinite(p) ? "—" : p >= 14 ? `A${p - 14}` : `D${p}`);
 export const DIGITAL_PINS = [2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19];
 export const ANALOG_PINS = [14, 15, 16, 17, 18, 19];
 export const pinsFor = (kind: PinSpec["kind"]) => (kind === "analog" ? ANALOG_PINS : DIGITAL_PINS);

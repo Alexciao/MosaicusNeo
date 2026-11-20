@@ -5,7 +5,7 @@
 //  • il firmware: prima la rete, come le pagine. Ha sempre lo stesso nome: dalla cache
 //    si scaricava per sempre la versione vecchia
 // Quando cambia CACHE le copie vecchie vengono cancellate.
-const CACHE = 'mosaicus-neo-v9';
+const CACHE = 'mosaicus-neo-v10';
 const SHELL = ['/', '/manifest.webmanifest', '/icons/icon.svg', '/icons/icon-192.png', '/icons/icon-512.png', '/firmware/mosaicusneo_firmware.ino'];
 
 self.addEventListener('install', (e) => {

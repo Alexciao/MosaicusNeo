@@ -10,8 +10,11 @@
 // misurato più vicino (onPick) e i punti già scelti si possono trascinare (onAnchorMove),
 // sempre agganciati ai dati. chart.overlays disegna rette, triangoli Δy/Δx, punti, curve.
 
-const PAD = { l: 64, r: 18, t: 14, b: 46 };
-const PAD_COMPACT_B = 10;
+// margini: in alto la riga del titolo dell'asse verticale (orizzontale, non ruotato),
+// in basso le tacche e il titolo dell'asse dei tempi
+const PAD = { l: 40, r: 16, t: 26, b: 40 };
+const PAD_COMPACT_B = 8;
+const MARK_MAX = 200;      // oltre tanti punti visibili, nelle serie «linea + punti» restano solo le linee
 import { canvasFont, rootScale, onStyleChange, canvasDpr, lowPower } from './style.js';
 import { fixed, upTo } from './numfmt.js';
 
@@ -112,6 +115,7 @@ export class Chart {
     this.xLabel = '';
     this.yLabel = '';
     this.group = null;
+    this.active = true;      // grafico attivo della pila: titolo in inchiostro, gli altri attenuati
     this.overlays = [];      // disegni sopra i dati: segment, triangle, anchor, curve
     this.tool = 'select';    // 'select' | 'pick'
     this.onPick = null;      // (indice del punto) => void
@@ -188,6 +192,7 @@ export class Chart {
     if (this.group) { this.group._ext = null; this.group.invalidate(); } else this.invalidate();
   }
   setFit(fit) { this.fit = fit; this.invalidate(); }
+  setActive(on) { if (this.active !== on) { this.active = on; this.invalidate(); } }
   setOverlays(list) { this.overlays = list || []; this.invalidate(); }
 
   /** Indice del punto della prima serie più vicino (in pixel) a (px, py). */
@@ -226,12 +231,12 @@ export class Chart {
   iy(py) { const b = this._bounds; return b.y0 + ((this.h - this.pad.b - py) / this.plotH()) * (b.y1 - b.y0); }
   /** Passo della griglia (in unità dei dati) sui due assi, come disegnata. */
   gridSteps() {
-    const b = this._bounds, k = this.k;
-    return {
-      x: niceTicks(b.x0, b.x1, Math.max(3, Math.floor(this.plotW() / (90 * k)))).step,
-      y: niceTicks(b.y0, b.y1, Math.max(2, Math.floor(this.plotH() / (42 * k)))).step,
-    };
+    const b = this._bounds;
+    return { x: niceTicks(b.x0, b.x1, this._xTickTarget()).step, y: niceTicks(b.y0, b.y1, this._yTickTarget()).step };
   }
+  /** Quante tacche cercare sui due assi: da 3 a 6 in verticale, una ogni ~80 px in orizzontale. */
+  _yTickTarget() { return Math.min(6, Math.max(3, Math.floor(this.plotH() / (34 * this.k)))); }
+  _xTickTarget() { return Math.max(3, Math.floor(this.plotW() / (80 * this.k))); }
 
   // ---------- disegno ----------
   draw() {
@@ -269,10 +274,10 @@ export class Chart {
 
     // griglia e tacche
     g.strokeStyle = this.color('--mz-grid'); g.fillStyle = this.color('--mz-muted'); g.lineWidth = 1;
-    // margine sinistro adattivo: abbastanza largo per le etichette dell'asse verticale
-    const yt = niceTicks(b.y0, b.y1, Math.max(2, Math.floor(this.plotH() / (42 * k))));
+    // margine sinistro adattivo: quanto basta per le etichette delle tacche (il titolo sta sopra)
+    const yt = niceTicks(b.y0, b.y1, this._yTickTarget());
     const wLab = Math.max(...yt.values.map((v) => g.measureText(tickLabel(v, yt.step)).width), 0);
-    this._wantL = Math.max(PAD.l * k, wLab + 46 * k);
+    this._wantL = Math.max(PAD.l * k, wLab + 16 * k);
     let L = this._wantL;
     if (this.group) {
       // nei grafici impilati il margine è uguale per tutti: i tempi restano allineati in verticale
@@ -280,7 +285,7 @@ export class Chart {
       if (L !== this._lastGroupL) { this._lastGroupL = L; this.group.charts.forEach((c) => { if (c !== this) c.invalidate(); }); }
     }
     this.pad.l = L;
-    const xt = niceTicks(b.x0, b.x1, Math.max(3, Math.floor(this.plotW() / (90 * k))));
+    const xt = niceTicks(b.x0, b.x1, this._xTickTarget());
     g.textAlign = 'center'; g.textBaseline = 'top';
     for (const v of xt.values) {
       const X = Math.round(this.sx(v)) + 0.5;
@@ -293,25 +298,27 @@ export class Chart {
       g.beginPath(); g.moveTo(this.pad.l, Y); g.lineTo(this.w - this.pad.r, Y); g.stroke();
       g.fillText(tickLabel(v, yt.step), this.pad.l - 8 * k, Y);
     }
-    // cornice ed etichette degli assi
-    g.strokeStyle = this.color('--mz-axis'); g.lineWidth = 1.2;
-    g.strokeRect(this.pad.l + 0.5, top + 0.5, this.plotW(), bottom - top);
-    g.fillStyle = this.color('--mz-ink');
-    g.font = `500 ${13 * k}px ${canvasFont()}`;
+    // assi: solo sinistro e in basso (niente cornice: la griglia basta)
+    g.strokeStyle = this.color('--mz-axis'); g.lineWidth = 1;
+    const AL = Math.round(this.pad.l) + 0.5, AB = Math.round(bottom) + 0.5;
+    g.beginPath(); g.moveTo(AL, top); g.lineTo(AL, AB); g.lineTo(this.w - this.pad.r, AB); g.stroke();
+    // titoli: quello verticale in orizzontale, in alto a sinistra; quello dei tempi in basso al centro
+    g.fillStyle = this.color(this.active ? '--mz-ink' : '--mz-muted');
+    fillRich(g, this.yLabel, 2 * k, top - 9 * k, { size: 12 * k, weight: this.active ? 600 : 500 });
     if (!this.compact) {
-      g.textAlign = 'center'; g.textBaseline = 'bottom';
-      g.fillText(this.xLabel, this.pad.l + this.plotW() / 2, this.h - 6);
+      g.fillStyle = this.color('--mz-muted');
+      fillRich(g, this.xLabel, this.pad.l + this.plotW() / 2, this.h - 5 * k, { size: 12 * k, align: 'center' });
     }
-    g.save(); g.translate(14 * k, top + (bottom - top) / 2); g.rotate(-Math.PI / 2);
-    g.textAlign = 'center'; g.textBaseline = 'top'; g.fillText(this.yLabel, 0, 0); g.restore();
 
     // area dati (ritaglio)
     g.save();
     g.beginPath(); g.rect(this.pad.l, top, this.plotW(), bottom - top); g.clip();
     for (const s of this.series) {
       g.strokeStyle = g.fillStyle = s.color || this.color('--mz-accent');
+      let visible = 0;
+      for (let i = 0; i < s.x.length; i++) if (s.x[i] >= b.x0 && s.x[i] <= b.x1) visible++;
       if (s.mode !== 'points') {
-        g.lineWidth = (s.width || 1.6) * Math.sqrt(k); g.beginPath();
+        g.lineWidth = (s.width || 1.5) * Math.sqrt(k); g.lineJoin = 'round'; g.beginPath();
         let pen = false;
         for (let i = 0; i < s.x.length; i++) {
           if (!isFinite(s.y[i]) || !isFinite(s.x[i])) { pen = false; continue; }
@@ -320,10 +327,9 @@ export class Chart {
         }
         g.stroke();
       }
-      if (s.mode !== 'line') {
-        let visible = 0;
-        for (let i = 0; i < s.x.length; i++) if (s.x[i] >= b.x0 && s.x[i] <= b.x1) visible++;
-        const r = (visible > 1500 ? 1.4 : 2.6) * Math.sqrt(k);
+      // «both»: linea con piccoli punti finché sono pochi; «points»: solo punti (dati sparsi, misure)
+      if (s.mode === 'points' || (s.mode === 'both' && visible <= MARK_MAX)) {
+        const r = (s.mode === 'both' ? 2 : visible > 1500 ? 1.4 : 2.4) * Math.sqrt(k);
         // un solo percorso per tutti i punti: un fill invece di migliaia
         g.beginPath();
         if (visible > 4000 || this.lite) {
@@ -355,7 +361,6 @@ export class Chart {
   _drawHover(g, k) {
     const b = this._bounds; if (!b) return;
     const top = this.pad.t, bottom = this.h - this.pad.b;
-    const font = `500 ${12 * k}px ${canvasFont()}`;
     g.save();
     g.beginPath(); g.rect(this.pad.l, top, this.plotW(), bottom - top); g.clip();
     // mirino condiviso: linea verticale all'istante sotto il puntatore
@@ -377,14 +382,14 @@ export class Chart {
         g.strokeStyle = this.color('--mz-ink'); g.lineWidth = 1.5;
         g.beginPath(); g.arc(X, Y, 5 * Math.sqrt(k), 0, 2 * Math.PI); g.stroke();
         const txt = this.hover ? `${this.xSym || 't'} = ${fmtNum(s.x[best])}   ${s.label || 'y'} = ${fmtNum(s.y[best])}` : `${s.label || 'y'} = ${fmtNum(s.y[best])}`;
-        g.font = font;
-        const tw = g.measureText(txt).width + 14 * k, th = 22 * k;
+        const tw = measureRich(g, txt, 12 * k) + 16 * k, th = 24 * k;
         let bx = X + 10 * k; if (bx + tw > this.w - this.pad.r) bx = X - 10 * k - tw;
         bx = Math.max(this.pad.l, bx);
         const by = Math.min(Math.max(top + 4, Y - th - 8 * k), bottom - th - 2);
-        g.fillStyle = this.color('--mz-tip-bg'); g.fillRect(bx, by, tw, th);
-        g.fillStyle = this.color('--mz-tip-ink'); g.textAlign = 'left'; g.textBaseline = 'middle';
-        g.fillText(txt, bx + 7 * k, by + th / 2);
+        g.fillStyle = this.color('--mz-tip-bg');
+        g.beginPath(); if (g.roundRect) g.roundRect(bx, by, tw, th, 5 * k); else g.rect(bx, by, tw, th); g.fill();
+        g.fillStyle = this.color('--mz-tip-ink');
+        fillRich(g, txt, bx + 8 * k, by + th / 2, { size: 12 * k, baseline: 'middle' });
       }
     }
   }
@@ -413,15 +418,14 @@ export class Chart {
         const X1 = this.sx(o.x1), Y1 = this.sy(o.y1), X2 = this.sx(o.x2), Y2 = this.sy(o.y2);
         g.setLineDash([]); g.lineWidth = 1.8 * Math.sqrt(k);
         g.beginPath(); g.moveTo(X1, Y1); g.lineTo(X2, Y1); g.lineTo(X2, Y2); g.stroke();
-        g.font = `500 ${12.5 * k}px ${canvasFont()}`;
         const pill = (txt, cx, cy, align) => {
-          const tw = g.measureText(txt).width + 12 * k, th = 20 * k;
+          const tw = measureRich(g, txt, 12.5 * k) + 12 * k, th = 20 * k;
           let bx = align === 'center' ? cx - tw / 2 : align === 'left' ? cx : cx - tw;
           bx = Math.min(Math.max(bx, L + 2), R - tw - 2);
           const by = Math.min(Math.max(cy - th / 2, top + 2), bottom - th - 2);
           g.fillStyle = this.color('--mz-card'); g.globalAlpha = 0.92; g.fillRect(bx, by, tw, th); g.globalAlpha = 1;
           g.strokeStyle = o.color || this.color('--mz-fit'); g.lineWidth = 1; g.strokeRect(bx + 0.5, by + 0.5, tw - 1, th - 1);
-          g.fillStyle = this.color('--mz-ink'); g.textAlign = 'left'; g.textBaseline = 'middle'; g.fillText(txt, bx + 6 * k, by + th / 2);
+          g.fillStyle = this.color('--mz-ink'); fillRich(g, txt, bx + 6 * k, by + th / 2, { size: 12.5 * k, baseline: 'middle' });
         };
         if (o.dxLabel) pill(o.dxLabel, (X1 + X2) / 2, Y1 + (Y2 < Y1 ? 14 : -14) * k, 'center');
         if (o.dyLabel) pill(o.dyLabel, X2 + (X2 >= X1 ? 8 : -8) * k, (Y1 + Y2) / 2, X2 >= X1 ? 'left' : 'right');
@@ -434,9 +438,9 @@ export class Chart {
         g.beginPath(); g.arc(X, bottom - r * 1.6, r, 0, 2 * Math.PI); g.fill();
         g.strokeStyle = '#ffffff'; g.lineWidth = 2; g.stroke();
         if (o.label) {
-          g.font = `500 ${13 * k}px ${canvasFont()}`; g.fillStyle = o.color || this.color('--mz-fit');
-          g.textAlign = X > R - 30 * k ? 'right' : 'left'; g.textBaseline = 'top';
-          g.fillText(o.label, X + (g.textAlign === 'left' ? 5 : -5) * k, top + 4 * k);
+          g.fillStyle = o.color || this.color('--mz-fit');
+          const right = X > R - 30 * k;
+          fillRich(g, o.label, X + (right ? -5 : 5) * k, top + 4 * k, { size: 13 * k, align: right ? 'right' : 'left', baseline: 'top' });
         }
       } else if (o.type === 'span') {
         // intervallo tra due cursori con la freccia ↔ e la scritta
@@ -448,12 +452,11 @@ export class Chart {
         g.beginPath(); g.moveTo(X1 + s * ah, Y - ah * 0.6); g.lineTo(X1, Y); g.lineTo(X1 + s * ah, Y + ah * 0.6); g.stroke();
         g.beginPath(); g.moveTo(X2 - s * ah, Y - ah * 0.6); g.lineTo(X2, Y); g.lineTo(X2 - s * ah, Y + ah * 0.6); g.stroke();
         if (o.label) {
-          g.font = `500 ${12.5 * k}px ${canvasFont()}`;
-          const tw = g.measureText(o.label).width + 12 * k, th = 20 * k;
+          const tw = measureRich(g, o.label, 12.5 * k) + 12 * k, th = 20 * k;
           const bx = Math.min(Math.max((X1 + X2) / 2 - tw / 2, L + 2), R - tw - 2), by = Y + 6 * k;
           g.fillStyle = this.color('--mz-card'); g.globalAlpha = 0.92; g.fillRect(bx, by, tw, th); g.globalAlpha = 1;
           g.strokeStyle = o.color; g.lineWidth = 1; g.strokeRect(bx + 0.5, by + 0.5, tw - 1, th - 1);
-          g.fillStyle = this.color('--mz-ink'); g.textAlign = 'left'; g.textBaseline = 'middle'; g.fillText(o.label, bx + 6 * k, by + th / 2);
+          g.fillStyle = this.color('--mz-ink'); fillRich(g, o.label, bx + 6 * k, by + th / 2, { size: 12.5 * k, baseline: 'middle' });
         }
       } else if (o.type === 'anchor' && o.handle) {
         const X = this.sx(o.x), Y = this.sy(o.y), r = 9 * Math.sqrt(k);
@@ -469,8 +472,8 @@ export class Chart {
         g.strokeStyle = o.color || this.color('--mz-fit'); g.lineWidth = 3 * Math.sqrt(k);
         g.beginPath(); g.arc(X, Y, r, 0, 2 * Math.PI); g.stroke();
         if (o.label) {
-          g.font = `500 ${13 * k}px ${canvasFont()}`; g.fillStyle = o.color || this.color('--mz-fit');
-          g.textAlign = 'left'; g.textBaseline = 'bottom'; g.fillText(o.label, X + r + 2, Y - r);
+          g.fillStyle = o.color || this.color('--mz-fit');
+          fillRich(g, o.label, X + r + 2, Y - r, { size: 13 * k, baseline: 'bottom' });
         }
       }
       g.restore();
@@ -582,19 +585,73 @@ export class Chart {
 }
 
 // ---------- utilità ----------
+/** Tacche «tonde» (passi 1, 2, 5 × 10ⁿ), circa maxTicks e mai meno di 3 dentro l'intervallo. */
 export function niceTicks(lo, hi, maxTicks) {
   const span = hi - lo;
+  if (!(span > 0) || !isFinite(span)) return { values: [lo], step: 1 };
+  const NICE = [1, 2, 5, 10];
   const raw = span / Math.max(1, maxTicks);
-  const mag = Math.pow(10, Math.floor(Math.log10(raw)));
-  const norm = raw / mag;
-  const step = (norm <= 1 ? 1 : norm <= 2 ? 2 : norm <= 2.5 ? 2.5 : norm <= 5 ? 5 : 10) * mag;
-  const values = [];
-  for (let v = Math.ceil(lo / step) * step; v <= hi + step * 1e-9; v += step) values.push(Math.abs(v) < step * 1e-9 ? 0 : v);
-  return { values, step };
+  let mag = Math.pow(10, Math.floor(Math.log10(raw)));
+  let idx = NICE.findIndex((n) => raw / mag <= n + 1e-9);
+  const make = (step) => {
+    const values = [];
+    for (let i = Math.ceil(lo / step - 1e-9); i * step <= hi + step * 1e-9; i++) {
+      const v = i * step;
+      values.push(Math.abs(v) < step * 1e-9 ? 0 : v);
+    }
+    return { values, step };
+  };
+  let res = make(NICE[idx] * mag);
+  // troppo poche etichette (intervallo stretto rispetto al passo): si scende al passo tondo più piccolo
+  for (let guard = 0; res.values.length < 3 && guard < 6; guard++) {
+    idx--; if (idx < 0) { idx = 2; mag /= 10; }
+    res = make(NICE[idx] * mag);
+  }
+  return res;
 }
 function tickLabel(v, step) {
-  const d = Math.max(0, -Math.floor(Math.log10(step)) + (step / Math.pow(10, Math.floor(Math.log10(step))) === 2.5 ? 1 : 0));
-  return fixed(v, Math.min(d, 20));
+  // decimali che servono al passo (con passi 1/2/5 bastano quelli della sua potenza di 10);
+  // il segno meno è quello tipografico (−), non il trattino
+  const d = Math.max(0, -Math.floor(Math.log10(step) + 1e-9));
+  return fixed(v, Math.min(d, 20)).replace(/^-(?=\d)/, '\u2212');
+}
+
+// ---------- testo con pedici ----------
+// Nei simboli «_» seguito da un solo carattere è un pedice (a_z, ω_x): sul canvas lo si scrive più
+// piccolo e abbassato, come in un testo scientifico.
+const SUB_RE = /_([A-Za-z0-9])(?![A-Za-z0-9])/g;
+function richParts(txt) {
+  const out = []; let last = 0, m;
+  SUB_RE.lastIndex = 0;
+  while ((m = SUB_RE.exec(txt))) {
+    if (m.index > last) out.push({ t: txt.slice(last, m.index) });
+    out.push({ t: m[1], sub: true });
+    last = SUB_RE.lastIndex;
+  }
+  if (last < txt.length) out.push({ t: txt.slice(last) });
+  return out;
+}
+/** Larghezza di un testo con pedici (stesso carattere di fillRich). */
+export function measureRich(g, txt, size, weight = 500) {
+  let w = 0;
+  for (const p of richParts(String(txt ?? ''))) {
+    g.font = `${weight} ${p.sub ? size * 0.72 : size}px ${canvasFont()}`;
+    w += g.measureText(p.t).width;
+  }
+  return w;
+}
+/** Scrive un testo con pedici. align: left | center | right; baseline: alphabetic | middle. */
+export function fillRich(g, txt, x, y, { size, weight = 500, align = 'left', baseline = 'alphabetic' }) {
+  const parts = richParts(String(txt ?? ''));
+  const total = measureRich(g, txt, size, weight);
+  let cx = align === 'center' ? x - total / 2 : align === 'right' ? x - total : x;
+  g.textAlign = 'left'; g.textBaseline = baseline;
+  for (const p of parts) {
+    const sz = p.sub ? size * 0.72 : size;
+    g.font = `${weight} ${sz}px ${canvasFont()}`;
+    g.fillText(p.t, cx, y + (p.sub ? size * 0.26 : 0));
+    cx += g.measureText(p.t).width;
+  }
 }
 function fmtNum(x) {
   if (!isFinite(x)) return '—';

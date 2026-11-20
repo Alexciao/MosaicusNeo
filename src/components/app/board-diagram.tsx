@@ -13,6 +13,7 @@
 import { Fragment, useEffect, useId, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import { t } from "@/i18n";
+import { ArrowRight } from "lucide-react";
 import { Tooltip, TooltipContent } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import { buildModules, OHMS, type BtModule, type Mod, type ResValue } from "./rig-diagram";
@@ -39,7 +40,7 @@ const SIZE: Record<string, [number, number]> = {
 };
 const ON_BOARD = new Set(["ntc", "ldr"]);
 /** Componenti «nudi» (senza schedina): i piedini sono reofori d'acciaio infilati direttamente. */
-const BARE = new Set(["rgb", "buzzer"]);
+const BARE = new Set(["rgb", "buzzer", "button"]);
 /** Larghezza vera dei moduli (mm) lungo la fila dei piedini: infilati nella breadboard stanno in
  *  piedi, uno accanto all'altro nella riga e, e due vicini non devono toccarsi. */
 const WIDTH_MM: Record<string, number> = {
@@ -78,23 +79,35 @@ function ortho(pts: Pt[], r = 5) {
   return d;
 }
 
-// Ogni filo, puntale, piedino e resistenza dice che cosa collega (attributo data-tip): un solo
-// suggerimento in stile shadcn segue il mouse, o compare dove tocchi sul telefono. Il filo sotto il
-// mouse si ingrossa.
+// Ogni filo, puntale, piedino e resistenza dice che cosa collega (attributo data-tip, un Tip in
+// JSON): un solo suggerimento in stile shadcn segue il mouse, o compare dove tocchi sul telefono.
+// Il filo sotto il mouse si ingrossa, e con lui i suoi puntali e il pin di Arduino a cui arriva.
+
+/** Contenuto di un suggerimento: titolo (componente · piedino), da → a, una nota; a sinistra il
+ *  colore del filo, o il disegnino della resistenza. */
+export interface Tip { head: string; from?: string; to?: string; note?: string; color?: string; dashed?: boolean; kind?: "res" | "part" | "pin" }
+const enc = (tip: Tip) => JSON.stringify(tip);
+function decode(s: string): Tip[] {
+  try { const v = JSON.parse(s) as Tip | Tip[]; return Array.isArray(v) ? v : [v]; } catch { return [{ head: s }]; }
+}
+
+/** Il nero del GND passa da una variabile: nel tema scuro diventa grigio, sennò sparisce sullo sfondo. */
+const paint = (color: string) => (color === BLK ? "var(--wire-gnd)" : color);
+
 function Wire({ d, color, dashed, title }: { d: string; color: string; dashed?: boolean; title?: string }) {
   return (
     <g className="group/wire cursor-help" data-tip={title} data-wire="" data-hl="">
       <path d={d} fill="none" stroke="transparent" strokeWidth={11} strokeLinecap="round" strokeLinejoin="round" pointerEvents="stroke" />
-      <path d={d} fill="none" stroke="#000" strokeOpacity={0.3} strokeWidth={5.4} strokeLinecap="round" strokeLinejoin="round" className="transition-[stroke-width] group-hover/wire:[stroke-width:8] group-data-[on]/wire:[stroke-width:8]" />
-      <path d={d} fill="none" stroke={color} strokeWidth={3.6} strokeLinecap="round" strokeLinejoin="round" strokeDasharray={dashed ? "7 4" : undefined} className="transition-[stroke-width] group-hover/wire:[stroke-width:5.6] group-data-[on]/wire:[stroke-width:5.6]" />
+      <path d={d} fill="none" stroke="var(--wire-halo)" strokeWidth={5.4} strokeLinecap="round" strokeLinejoin="round" className="transition-[stroke-width] group-hover/wire:[stroke-width:8] group-data-[on]/wire:[stroke-width:8]" />
+      <path d={d} fill="none" stroke={paint(color)} strokeWidth={3.6} strokeLinecap="round" strokeLinejoin="round" strokeDasharray={dashed ? "7 4" : undefined} className="transition-[stroke-width] group-hover/wire:[stroke-width:5.6] group-data-[on]/wire:[stroke-width:5.6]" />
       {!dashed && <path d={d} fill="none" stroke="#fff" strokeOpacity={0.32} strokeWidth={1} strokeLinecap="round" strokeLinejoin="round" />}
     </g>
   );
 }
 /** Puntale del ponticello, infilato in un foro. */
 const End = ({ x, y, color, title }: { x: number; y: number; color: string; title?: string }) => (
-  <g className="cursor-help" data-tip={title}>
-    <rect x={x - 3} y={y - 3} width={6} height={6} rx={1.2} fill={color} stroke="#000" strokeOpacity={0.45} strokeWidth={0.8} />
+  <g className="cursor-help data-on:[&>rect:first-child]:stroke-white data-on:[&>rect:first-child]:[stroke-opacity:1]" data-tip={title}>
+    <rect x={x - 3} y={y - 3} width={6} height={6} rx={1.2} fill={paint(color)} stroke="#000" strokeOpacity={0.45} strokeWidth={0.8} />
     <rect x={x - 1.2} y={y - 1.2} width={2.4} height={2.4} fill="#e5e7eb" opacity={0.8} />
   </g>
 );
@@ -291,18 +304,40 @@ export function ModuleArt({ kind, options, x, y, w, h, uid }: { kind: string; op
         </g>
       );
     case "button": {
-      // pulsante a 4 piedini (12 mm) con il cappuccio colorato
-      const s = Math.min(w - 8, h - LZ - 4), cx = x + w / 2, cy = top + 2 + s / 2;
+      // pulsante tattile 12 mm, come in Tinkercad: corpo nero, coperchio di metallo con i quattro
+      // rivetti, pulsante tondo nero; le zampe di metallo escono dai lati
+      // il corpo sta subito sotto i nomi dei piedini (niente fascia scura: i piedini sono reofori)
+      const s0 = Math.min(w - 8, h - 12), cx = x + w / 2, cy = y + 9 + s0 / 2, r0 = s0 / 2;
+      const g = `${uid}btn`;
       return (
         <g>
-          <rect x={cx - s / 2 + 1} y={cy - s / 2 + 2} width={s} height={s} rx={2} fill="#000" opacity={0.25} />
-          <rect x={cx - s / 2} y={cy - s / 2} width={s} height={s} rx={2} fill="#3f3f46" stroke="#18181b" strokeWidth={0.8} />
-          <rect x={cx - s / 2 + 2} y={cy - s / 2 + 2} width={s - 4} height={s - 4} rx={1.5} fill="#a1a1aa" />
-          {[[-1, -1], [1, -1], [-1, 1], [1, 1]].map(([dx, dy], i) => <circle key={i} cx={cx + dx * (s / 2 - 3.2)} cy={cy + dy * (s / 2 - 3.2)} r={1.1} fill="#52525b" />)}
-          <circle cx={cx} cy={cy + 1} r={s * 0.3} fill="#000" opacity={0.3} />
-          <circle cx={cx} cy={cy} r={s * 0.3} fill="#dc2626" stroke="#7f1d1d" strokeWidth={0.8} />
-          <circle cx={cx - s * 0.09} cy={cy - s * 0.1} r={s * 0.1} fill="#fff" opacity={0.35} />
-          <rect x={x + 2} y={y} width={w - 4} height={LZ - 2} rx={2} fill="#27272a" />
+          <defs>
+            <linearGradient id={`${g}m`} x1="0" y1="0" x2="1" y2="1">
+              <stop offset="0" stopColor="#f4f4f5" /><stop offset="0.45" stopColor="#c9c9ce" /><stop offset="1" stopColor="#8b8b93" />
+            </linearGradient>
+            <radialGradient id={`${g}c`} cx="0.38" cy="0.32" r="0.75">
+              <stop offset="0" stopColor="#55555c" /><stop offset="0.55" stopColor="#1f1f23" /><stop offset="1" stopColor="#09090b" />
+            </radialGradient>
+          </defs>
+          {/* i due contatti scendono dalla fila della breadboard fino al pulsante */}
+          {[-1, 1].map((d) => <rect key={`l${d}`} x={cx + d * P - 0.85} y={y} width={1.7} height={cy - r0 - y + 1.5} fill="#a1a1aa" />)}
+          {/* zampe piegate, due per lato */}
+          {[-1, 1].map((d) => [-0.42, 0.42].map((k) => (
+            <rect key={`${d}${k}`} x={d < 0 ? cx - r0 - 2.6 : cx + r0 - 0.4} y={cy + k * s0 - 1.2} width={3} height={2.4} rx={0.6} fill="#c4c4cb" stroke="#71717a" strokeWidth={0.4} />
+          )))}
+          <rect x={cx - r0 + 1} y={cy - r0 + 2} width={s0} height={s0} rx={1.8} fill="#000" opacity={0.28} />
+          <rect x={cx - r0} y={cy - r0} width={s0} height={s0} rx={1.8} fill="#232327" stroke="#09090b" strokeWidth={0.7} />
+          <rect x={cx - r0 + 1.6} y={cy - r0 + 1.6} width={s0 - 3.2} height={s0 - 3.2} rx={1.2} fill={`url(#${g}m)`} stroke="#71717a" strokeWidth={0.4} />
+          {[[-1, -1], [1, -1], [-1, 1], [1, 1]].map(([dx, dy], i) => (
+            <g key={i}>
+              <circle cx={cx + dx * (r0 - 3.6)} cy={cy + dy * (r0 - 3.6)} r={1.15} fill="#52525b" />
+              <circle cx={cx + dx * (r0 - 3.6) - 0.35} cy={cy + dy * (r0 - 3.6) - 0.35} r={0.4} fill="#fff" opacity={0.5} />
+            </g>
+          ))}
+          <circle cx={cx} cy={cy} r={s0 * 0.34} fill="#3f3f46" stroke="#18181b" strokeWidth={0.6} />
+          <circle cx={cx} cy={cy + 0.6} r={s0 * 0.27} fill="#000" opacity={0.35} />
+          <circle cx={cx} cy={cy} r={s0 * 0.27} fill={`url(#${g}c)`} />
+          <ellipse cx={cx - s0 * 0.08} cy={cy - s0 * 0.1} rx={s0 * 0.09} ry={s0 * 0.055} fill="#fff" opacity={0.28} />
         </g>
       );
     }
@@ -510,7 +545,7 @@ export function ComponentThumb({ type, options, className }: { type: SensorType 
 // ---------------------------------------------------------------------------
 // Arduino Uno
 // ---------------------------------------------------------------------------
-function ArduinoArt({ x, y, used, uid, tips }: { x: number; y: number; used: Map<string, string>; uid: string; tips: Map<string, string[]> }) {
+function ArduinoArt({ x, y, used, uid, tips }: { x: number; y: number; used: Map<string, string>; uid: string; tips: Map<string, Tip[]> }) {
   const topX0 = x + AW - 16 - 18 * HP, botX0 = x + AW - 16 - 14 * HP;
   const header = (x0: number, n: number, yy: number) => (
     <g>
@@ -518,10 +553,10 @@ function ArduinoArt({ x, y, used, uid, tips }: { x: number; y: number; used: Map
       <rect x={x0 - HP / 2} y={yy - 5.5} width={n * HP} height={2} rx={1} fill="#3f3f46" />
     </g>
   );
-  const pinHole = (cx: number, cy: number, c?: string, tip?: string[]) => (
-    <g className={tip ? "cursor-help" : undefined} data-tip={tip?.join("\n")}>
+  const pinHole = (cx: number, cy: number, c?: string, tip?: Tip[]) => (
+    <g className={tip ? "cursor-help data-on:*:stroke-white data-on:*:[stroke-width:1.2]" : undefined} data-tip={tip ? JSON.stringify(tip) : undefined}>
       <rect x={cx - 2.4} y={cy - 2.4} width={4.8} height={4.8} fill="#09090b" stroke="#3f3f46" strokeWidth={0.5} />
-      {c && <rect x={cx - 2.4} y={cy - 2.4} width={4.8} height={4.8} fill={c} />}
+      {c && <rect x={cx - 2.4} y={cy - 2.4} width={4.8} height={4.8} fill={paint(c)} />}
     </g>
   );
   const outline = `M${x + 8} ${y} H${x + AW - 18} L${x + AW - 8} ${y + 10} V${y + 60} L${x + AW} ${y + 68} V${y + AH - 28} L${x + AW - 8} ${y + AH - 20} V${y + AH - 8} Q${x + AW - 8} ${y + AH} ${x + AW - 16} ${y + AH} H${x + 8} Q${x} ${y + AH} ${x} ${y + AH - 8} V${y + 8} Q${x} ${y} ${x + 8} ${y} Z`;
@@ -599,7 +634,7 @@ function ArduinoArt({ x, y, used, uid, tips }: { x: number; y: number; used: Map
       {TOP_LABELS.map((t, i) => t && (
         <g key={`t${i}`}>
           {pinHole(topX0 + i * HP, y + 10, used.get(`t${i}`), tips.get(`t${i}`))}
-          <text transform={`translate(${topX0 + i * HP + 2.2} ${y + 19}) rotate(90)`} fontSize={5.6} fontWeight={used.has(`t${i}`) ? 700 : 400} fill="#ecfeff">{t}</text>
+          <text transform={`translate(${topX0 + i * HP + 2.2} ${y + 19}) rotate(90)`} fontSize={5.8} fontWeight={used.has(`t${i}`) ? 800 : 500} fill="#ecfeff" fillOpacity={used.has(`t${i}`) ? 1 : 0.62}>{t}</text>
         </g>
       ))}
       {/* il foro senza nome (NC) all'inizio dell'header: contando i fori, 5V è il quinto */}
@@ -607,7 +642,7 @@ function ArduinoArt({ x, y, used, uid, tips }: { x: number; y: number; used: Map
       {BOT_LABELS.map((t, i) => t && (
         <g key={`b${i}`}>
           {pinHole(botX0 + i * HP, y + AH - 10, used.get(`b${i}`), tips.get(`b${i}`))}
-          <text transform={`translate(${botX0 + i * HP + 2.2} ${y + AH - 19}) rotate(-90)`} fontSize={5.6} fontWeight={used.has(`b${i}`) ? 700 : 400} fill="#ecfeff">{t}</text>
+          <text transform={`translate(${botX0 + i * HP + 2.2} ${y + AH - 19}) rotate(-90)`} fontSize={5.8} fontWeight={used.has(`b${i}`) ? 800 : 500} fill="#ecfeff" fillOpacity={used.has(`b${i}`) ? 1 : 0.62}>{t}</text>
         </g>
       ))}
       <text x={topX0 + 4 * HP} y={y + 48} fontSize={6} fill="#b2dfdb" letterSpacing={0.5}>DIGITAL (PWM ~)</text>
@@ -739,8 +774,8 @@ function layout(sensors: SensorInstance[], bt: BtModule) {
   };
   const used = new Map<string, string>();
   // suggerimenti dei pin di Arduino (un pin può servire a più fili: SDA e SCL condivisi)
-  const tips = new Map<string, string[]>();
-  const tip = (key: string, text: string) => tips.set(key, [...(tips.get(key) ?? []), text]);
+  const tips = new Map<string, Tip[]>();
+  const tip = (key: string, text: string) => tips.set(key, [...(tips.get(key) ?? []), ...decode(text)]);
 
   const wires: React.ReactNode[] = [], ends: React.ReactNode[] = [], parts: React.ReactNode[] = [];
   const steps: StepGroup[] = [];
@@ -749,10 +784,13 @@ function layout(sensors: SensorInstance[], bt: BtModule) {
   // --- alimentazione: Arduino → binari in basso, ponticelli ai binari in alto
   const v5 = ardPin("5V"), gnd = ardPin("GND");
   used.set(v5.key, RED); used.set(gnd.key, BLK);
-  const T5 = t("rig.board.tip5v"), TG = t("rig.board.tipGnd");
-  const TB5 = t("rig.board.tipBridge5v"), TBG = t("rig.board.tipBridgeGnd");
   const railPlusBottom = t("rig.board.railPlusBottom"), railMinusBottom = t("rig.board.railMinusBottom");
   const railPlusTop = t("rig.board.railPlusTop"), railMinusTop = t("rig.board.railMinusTop");
+  const POWER = t("rig.board.power");
+  const T5 = enc({ head: `${POWER} · 5V`, from: t("rig.board.arduino5v"), to: railPlusBottom, color: RED });
+  const TG = enc({ head: `${POWER} · GND`, from: t("rig.board.arduinoGnd"), to: railMinusBottom, color: BLK });
+  const TB5 = enc({ head: `${POWER} · 5V`, from: railPlusBottom, to: railPlusTop, note: t("rig.board.bridgeNote"), color: RED });
+  const TBG = enc({ head: `${POWER} · GND`, from: railMinusBottom, to: railMinusTop, note: t("rig.board.bridgeNote"), color: BLK });
   tip(gnd.key, TG); tip(v5.key, T5);
   wires.push(<Wire key="pg" color={BLK} title={TG} d={ortho([[gnd.x, gnd.y], [gnd.x, botLane(nA)], [colX(2), botLane(nA)], [colX(2), R.n2]])} />);
   wires.push(<Wire key="p5" color={RED} title={T5} d={ortho([[v5.x, v5.y], [v5.x, botLane(nA + 1)], [colX(3), botLane(nA + 1)], [colX(3), R.p2]])} />);
@@ -760,19 +798,20 @@ function layout(sensors: SensorInstance[], bt: BtModule) {
   wires.push(<Wire key="bg" color={BLK} title={TBG} d={ortho([[colX(1), R.n2], [colX(1), R.n1]])} />);
   // binari interrotti a metà (molte breadboard da 830 fori): due ponticelli, tratteggiati perché
   // servono solo se la linea rossa e blu si interrompe. Senza, i moduli nella metà destra restano spenti.
-  const TSR = t("rig.board.tipSplitBridge");
   boards.forEach(({ c0 }, b) => {
     if (b === nBoards - 1 && usedTo <= c0 + 30) return;
     const xa = colX(c0 + 29), xb = colX(c0 + 32);
     for (const [yy, color, k] of [[R.p1, RED, "p"], [R.n1, BLK, "n"]] as const) {
+      const rail = k === "p" ? railPlusTop : railMinusTop;
+      const TSR = enc({ head: t("rig.board.splitHead"), from: t("rig.board.railCol", { rail, col: localCol(c0 + 29) + 1 }), to: t("rig.board.railCol", { rail, col: localCol(c0 + 32) + 1 }), note: t("rig.board.splitNote"), color, dashed: true });
       wires.push(<Wire key={`sr${b}${k}`} color={color} dashed title={TSR} d={ortho([[xa, yy], [xa, yy - (k === "p" ? 7 : 4)], [xb, yy - (k === "p" ? 7 : 4)], [xb, yy]], 3)} />);
       ends.push(<End key={`sra${b}${k}`} x={xa} y={yy} color={color} title={TSR} />, <End key={`srb${b}${k}`} x={xb} y={yy} color={color} title={TSR} />);
     }
   });
-  for (const [k, xx, yy, c, t] of [["e5", colX(3), R.p2, RED, T5], ["eg", colX(2), R.n2, BLK, TG], ["b5a", colX(0), R.p2, RED, TB5], ["b5b", colX(0), R.p1, RED, TB5], ["bga", colX(1), R.n2, BLK, TBG], ["bgb", colX(1), R.n1, BLK, TBG]] as const)
-    ends.push(<End key={k} x={xx} y={yy} color={c} title={t} />);
+  for (const [k, xx, yy, c, tt] of [["e5", colX(3), R.p2, RED, T5], ["eg", colX(2), R.n2, BLK, TG], ["b5a", colX(0), R.p2, RED, TB5], ["b5b", colX(0), R.p1, RED, TB5], ["bga", colX(1), R.n2, BLK, TBG], ["bgb", colX(1), R.n1, BLK, TBG]] as const)
+    ends.push(<End key={k} x={xx} y={yy} color={c} title={tt} />);
   steps.push({
-    title: t("rig.board.power"), color: RED, place: nCols > 30 ? `${t("rig.board.powerPlace")} ${t("rig.board.splitRails")}` : t("rig.board.powerPlace"),
+    title: POWER, color: RED, place: nCols > 30 ? `${t("rig.board.powerPlace")} ${t("rig.board.splitRails")}` : t("rig.board.powerPlace"),
     wires: [
       { color: RED, from: t("rig.board.arduino5v"), to: railPlusBottom },
       { color: BLK, from: t("rig.board.arduinoGnd"), to: railMinusBottom },
@@ -790,7 +829,7 @@ function layout(sensors: SensorInstance[], bt: BtModule) {
     const xa = colX((b - 1) * STRIDE + BREADBOARD_COLS - 1), xb = colX(b * STRIDE);
     const g: StepGroup = { title: t("rig.board.joinTitle", { board: b + 1 }), color: RED, place: t("rig.board.joinPlace", { board: b + 1, prev: b }), wires: [] };
     for (const [c, yy, color] of [["5V", R.p1, RED], ["GND", R.n1, BLK]] as const) {
-      const wt = t("rig.board.joinTip", { rail: c === "5V" ? railPlusTop : railMinusTop, a: b, b: b + 1 });
+      const wt = enc({ head: t("rig.board.joinTitle", { board: b + 1 }), from: railName(c, (b - 1) * STRIDE), to: railName(c, b * STRIDE), note: t("rig.board.joinNote"), color });
       wires.push(<Wire key={`j${b}${c}`} color={color} title={wt} d={ortho([[xa, yy], [xa, yy - (c === "5V" ? 7 : 4)], [xb, yy - (c === "5V" ? 7 : 4)], [xb, yy]], 3)} />);
       ends.push(<End key={`ja${b}${c}`} x={xa} y={yy} color={color} title={wt} />, <End key={`jb${b}${c}`} x={xb} y={yy} color={color} title={wt} />);
       g.wires.push({ color, from: railName(c, (b - 1) * STRIDE), to: railName(c, b * STRIDE) });
@@ -809,9 +848,10 @@ function layout(sensors: SensorInstance[], bt: BtModule) {
       const [ca, cm, cb] = p.pinCol, [xa, xm, xb] = p.pinX;
       const kind = p.m.kind as "ntc" | "ldr";
       const name = kind === "ntc" ? t("rig.modules.thermistor") : t("rig.modules.photoresistor");
-      const between = (part: string | null, a: string, b: string, side: "v5" | "gnd") => part
-        ? t("rig.board.partBetween", { title: p.m.title, part, a, b, side })
-        : t("rig.board.resistorBetween", { title: p.m.title, ohms: OHMS["10k"], a, b, side });
+      const between = (part: string | null, a: string, b: string, side: "v5" | "gnd") => enc({
+        head: `${p.m.title} · ${part ?? t("rig.board.resistor", { ohms: OHMS["10k"] })}`, from: a, to: b,
+        note: t("rig.board.sideNote", { side }), kind: part ? "part" : "res",
+      });
       const toGnd = p.m.options?.orientation === "ntcgnd" || p.m.options?.orientation === "ldrgnd";
       parts.push(<g key={`ob${mi}`}>
         {toGnd ? <Resistor x1={xa} y1={R.e} x2={xm} y2={R.e} value="10k" title={between(null, hole("e", ca), hole("e", cm), "v5")} />
@@ -827,7 +867,8 @@ function layout(sensors: SensorInstance[], bt: BtModule) {
       g.place = toGnd
         ? t("rig.board.placeResFirst", { a: hole("e", ca), b: hole("e", cm), part: name, c: hole("d", cm), d: hole("d", cb) })
         : t("rig.board.placePartFirst", { part: `${name[0].toUpperCase()}${name.slice(1)}`, a: hole("e", ca), b: hole("e", cm), c: hole("d", cm), d: hole("d", cb) });
-      const t5 = t("rig.board.tipTo5v", { title: p.m.title, hole: hole("a", ca) }), tg = t("rig.board.tipToGnd", { title: p.m.title, hole: hole("a", cb) });
+      const t5 = enc({ head: `${p.m.title} · 5V`, from: hole("a", ca), to: railName("5V", ca), color: RED });
+      const tg = enc({ head: `${p.m.title} · GND`, from: hole("a", cb), to: railName("GND", cb), color: BLK });
       wires.push(<Wire key={`o5${mi}`} color={RED} title={t5} d={ortho([[xa, R.a], [xa, R.p1]])} />);
       wires.push(<Wire key={`og${mi}`} color={BLK} title={tg} d={ortho([[xb, R.a], [xb, R.n1]])} />);
       ends.push(<End key={`o5a${mi}`} x={xa} y={R.a} color={RED} title={t5} />, <End key={`o5b${mi}`} x={xa} y={R.p1} color={RED} title={t5} />,
@@ -842,7 +883,7 @@ function layout(sensors: SensorInstance[], bt: BtModule) {
       const x = p.pinX[ri], c = p.pinCol[ri];
       if (r.conn === "5V" || r.conn === "GND") {
         const color = r.conn === "5V" ? RED : BLK, yy = r.conn === "5V" ? R.p1 : R.n1;
-        const wt = `${p.m.title} · ${r.label}: ${hole("a", c)} → ${railName(r.conn, c)} (${r.conn})`;
+        const wt = enc({ head: `${p.m.title} · ${r.label}`, from: hole("a", c), to: railName(r.conn, c), color });
         wires.push(<Wire key={`pw${mi}-${ri}`} color={color} title={wt} d={ortho([[x, R.a], [x, yy]])} />);
         ends.push(<End key={`pwa${mi}-${ri}`} x={x} y={R.a} color={color} title={wt} />, <End key={`pwb${mi}-${ri}`} x={x} y={yy} color={color} title={wt} />);
         g.wires.push({ color, from: hole("a", c), to: railName(r.conn, c) });
@@ -854,8 +895,8 @@ function layout(sensors: SensorInstance[], bt: BtModule) {
       if (r.via === "divider") {
         // ingresso a 3,3 V del modulo: 2 kΩ verso GND, 1 kΩ verso il ponticello che viene dal pin di Arduino
         parts.push(<g key={`dv${mi}-${ri}`}>
-          <Resistor x1={x} y1={R.a} x2={x} y2={R.n1} value="2k" title={t("rig.board.divider2k", { title: p.m.title, hole: hole("a", c), pin })} />
-          <Resistor x1={x} y1={ty} x2={tx} y2={ty} value="1k" title={t("rig.board.divider1k", { title: p.m.title, a: hole(cd.row, c), pin, b: hole(cd.row, cd.col), from: pinName })} />
+          <Resistor x1={x} y1={R.a} x2={x} y2={R.n1} value="2k" title={enc({ head: `${p.m.title} · ${t("rig.board.resistor", { ohms: OHMS["2k"] })}`, from: hole("a", c), to: railName("GND", c), note: t("rig.board.dividerNote", { pin }), kind: "res" })} />
+          <Resistor x1={x} y1={ty} x2={tx} y2={ty} value="1k" title={enc({ head: `${p.m.title} · ${t("rig.board.resistor", { ohms: OHMS["1k"] })}`, from: hole(cd.row, c), to: hole(cd.row, cd.col), note: t("rig.board.dividerNote", { pin }), kind: "res" })} />
         </g>);
         g.wires.push(
           { color: RES, from: hole("a", c), to: railName("GND", c), part: t("rig.board.resistor", { ohms: OHMS["2k"] }) },
@@ -864,13 +905,13 @@ function layout(sensors: SensorInstance[], bt: BtModule) {
         return;
       }
       const v = r.res ?? (r.via === "pullup" ? "10k" : "220");
-      const why = r.via === "pullup" ? t("rig.board.towards5v") : t("rig.board.wireTowards", { pin: pinName });
+      const why = r.via === "pullup" ? t("rig.board.pullupNote", { pin }) : t("rig.board.seriesNote", { pin: pinName });
       parts.push(<Resistor key={`rs${mi}-${ri}`} x1={x} y1={ty} x2={tx} y2={ty} value={v}
-        title={t("rig.board.resistorTip", { title: p.m.title, ohms: OHMS[v], a: hole(cd.row, c), pin, b: hole(cd.row, cd.col), why })} />);
+        title={enc({ head: `${p.m.title} · ${t("rig.board.resistor", { ohms: OHMS[v] })}`, from: hole(cd.row, c), to: hole(cd.row, cd.col), note: why, kind: "res" })} />);
       g.wires.push({ color: RES, from: hole(cd.row, c), to: hole(cd.row, cd.col), part: t(r.via === "pullup" ? "rig.board.resistorPullup" : "rig.board.resistor", { ohms: OHMS[v] }) });
       if (r.via === "pullup") {
         // l'altro capo della resistenza va al binario + con un ponticello rosso
-        const wt = t("rig.board.pullupTip", { title: p.m.title, pin, hole: hole("a", cd.col) });
+        const wt = enc({ head: `${p.m.title} · ${pin}`, from: hole("a", cd.col), to: railName("5V", cd.col), note: t("rig.board.pullupNote", { pin }), color: RED });
         wires.push(<Wire key={`pu${mi}-${ri}`} color={RED} title={wt} d={ortho([[tx, R.a], [tx, R.p1]])} />);
         ends.push(<End key={`pua${mi}-${ri}`} x={tx} y={R.a} color={RED} title={wt} />, <End key={`pub${mi}-${ri}`} x={tx} y={R.p1} color={RED} title={wt} />);
         g.wires.push({ color: RED, from: hole("a", cd.col), to: railName("5V", cd.col) });
@@ -897,7 +938,7 @@ function layout(sensors: SensorInstance[], bt: BtModule) {
       const bx = colX(s.hop.bus), by = R[s.hop.row], vx = bx + s.hop.vx;
       const mod = placed[s.mi].m, row = mod.rows[s.ri];
       const to = t("rig.board.busHole", { hole: hole(s.hop.row, s.hop.bus), pin: ardName(s.pin as number) });
-      const text = `${mod.title} · ${row.label}: ${hole("a", s.col)} → ${to}`;
+      const text = enc({ head: `${mod.title} · ${row.label}`, from: hole("a", s.col), to, note: t("rig.board.busNote", { pin: ardName(s.pin as number) }), color: s.color });
       tip(ardPin(s.pin).key, text);
       wires.push(<Wire key={`h${k}`} color={s.color} title={text} d={ortho([[sx, sy], [sx, ly], [vx, ly], [vx, by], [bx, by]])} />);
       ends.push(<End key={`ha${k}`} x={bx} y={by} color={s.color} title={text} />, <End key={`hb${k}`} x={sx} y={sy} color={s.color} title={text} />);
@@ -915,12 +956,14 @@ function layout(sensors: SensorInstance[], bt: BtModule) {
     }
     let text: string;
     if (s.mi < 0) {
-      text = t("rig.board.busTip", { hole: hole("a", s.col), pin: ardName(s.pin as number) });
+      text = enc({ head: t("rig.board.busTitle", { pin: ardName(s.pin as number) }), from: hole("a", s.col), to: ardName(s.pin as number), note: t("rig.board.busNote", { pin: ardName(s.pin as number) }), color: s.color });
       busGroup(s.pin as number).wires.push({ color: s.color, from: hole("a", s.col), to: ardName(s.pin as number) });
     } else {
       const mod = placed[s.mi].m, row = mod.rows[s.ri];
-      const base = `${mod.title} · ${placed[s.mi].onBoard ? midpoint : row.label}: ${hole("a", s.col)} → ${pinLabel(s.pin)}`;
-      text = s.dashed ? t("rig.board.optionalTip", { text: base }) : base;
+      text = enc({
+        head: `${mod.title} · ${placed[s.mi].onBoard ? midpoint : row.label}`, from: hole("a", s.col), to: pinLabel(s.pin),
+        note: s.dashed ? t("rig.board.optionalNote") : undefined, color: s.color, dashed: s.dashed,
+      });
       groupOf.get(s.mi)!.wires.push({ color: s.color, from: hole("a", s.col), to: pinLabel(s.pin), dashed: s.dashed, part: s.dashed ? optional : undefined });
     }
     tip(a.key, text);
@@ -932,7 +975,51 @@ function layout(sensors: SensorInstance[], bt: BtModule) {
   return { W, H, bbX, bbTop, bbW, nCols, R, colX, AX, AY, placed, wires, ends, parts, used, tips, steps, count, busCol, hopRow, boards, hole };
 }
 
-type TipState = { text: string; x: number; y: number } | null;
+type TipState = { tips: Tip[]; x: number; y: number } | null;
+
+/** A sinistra del titolo: il colore del filo (tratteggiato se facoltativo), o una resistenza in miniatura. */
+function Swatch({ tip }: { tip: Tip }) {
+  if (tip.kind === "res" || tip.kind === "part") {
+    return (
+      <svg viewBox="0 0 22 10" className="h-2.5 w-5 shrink-0" aria-hidden>
+        <line x1={0} y1={5} x2={22} y2={5} stroke="#a1a1aa" strokeWidth={1.4} />
+        <rect x={5} y={1.5} width={12} height={7} rx={3} fill={tip.kind === "part" ? "#1c1917" : "#f3cf8e"} stroke={tip.kind === "part" ? "#a1a1aa" : "#5c3d12"} strokeWidth={0.8} />
+        {tip.kind === "res" && [8, 10.5, 13].map((bx, i) => <rect key={bx} x={bx} y={2} width={1.3} height={6} fill={["#7c2d12", "#111", "#ea580c"][i]} />)}
+      </svg>
+    );
+  }
+  if (tip.kind === "pin") return <span className="h-2.5 w-1.5 shrink-0 rounded-[1px] bg-[#d4a017] ring-1 ring-[#92400e]" aria-hidden />;
+  if (!tip.color) return null;
+  return (
+    <span className={cn("h-1 w-5 shrink-0 rounded-full ring-1 ring-background/30", tip.color === BLK && "bg-[#71717a]! dark:bg-[#27272a]!")} aria-hidden
+      style={tip.dashed ? { backgroundImage: `repeating-linear-gradient(90deg, ${tip.color} 0 4px, transparent 4px 6px)` } : { background: tip.color }} />
+  );
+}
+
+/** Un foro, un pin o un binario: in un riquadrino, così si legge a colpo d'occhio. */
+const Place = ({ children }: { children: React.ReactNode }) => (
+  <span className="font-mono text-[0.72rem] leading-4 font-medium text-background">{children}</span>
+);
+
+function TipBody({ tips }: { tips: Tip[] }) {
+  return (
+    <div className="flex flex-col gap-2 py-0.5">
+      {tips.map((tip, i) => (
+        <div key={i} className={cn("flex flex-col gap-1", i > 0 && "border-t border-background/15 pt-2")}>
+          <p className="flex items-center gap-2 font-semibold"><Swatch tip={tip} /><span className="min-w-0">{tip.head}</span></p>
+          {(tip.from || tip.to) && (
+            <p className="flex flex-wrap items-center gap-1.5">
+              {tip.from && <Place>{tip.from}</Place>}
+              {tip.from && tip.to && <ArrowRight className="size-3 shrink-0 text-background/55" aria-label="→" />}
+              {tip.to && <Place>{tip.to}</Place>}
+            </p>
+          )}
+          {tip.note && <p className="text-background/70">{tip.note}</p>}
+        </div>
+      ))}
+    </div>
+  );
+}
 
 /** Il suggerimento che segue il puntatore: un'ancora virtuale nel punto del mouse o del dito. */
 function FollowTip({ channelRef }: { channelRef: React.RefObject<(t: TipState) => void> }) {
@@ -946,9 +1033,9 @@ function FollowTip({ channelRef }: { channelRef: React.RefObject<(t: TipState) =
   }, [channelRef]);
   return (
     <Tooltip open={!!tip} onOpenChange={(o) => { if (!o) setTip(null); }}>
-      <TooltipContent side="top" sideOffset={14} className="pointer-events-none max-w-72 whitespace-pre-line text-left"
+      <TooltipContent side="top" sideOffset={14} className="pointer-events-none max-w-80 text-left"
         anchor={tip ? { getBoundingClientRect: () => new DOMRect(tip.x, tip.y, 0, 0) } : undefined}>
-        {tip?.text}
+        {tip && <TipBody tips={tip.tips} />}
       </TooltipContent>
     </Tooltip>
   );
@@ -959,18 +1046,31 @@ export function BoardDiagram({ sensors, bt = null, className }: { sensors: Senso
   const uid = useId().replace(/[^a-zA-Z0-9]/g, "");
   const channel = useRef<(t: TipState) => void>(() => {});
   const pointer = useRef("mouse");
+  const focused = useRef<Element | null>(null);
   const L = layout(sensors, bt);
   if (!L) return null;
+  /** Mette in evidenza l'elemento sotto il puntatore e tutto ciò che dice la stessa cosa: il filo, i
+   *  suoi due puntali, il pin di Arduino a cui arriva. Gli altri si scuriscono. Solo quando cambia. */
+  const focus = (svg: SVGSVGElement, target: Element | null) => {
+    if (target === focused.current) return;
+    focused.current = target;
+    svg.querySelectorAll("[data-on]").forEach((n) => n.removeAttribute("data-on"));
+    if (!target) { svg.removeAttribute("data-focus"); return; }
+    const key = target.getAttribute("data-tip");
+    if (key) {
+      const same = new Set([key, ...decode(key).map((x) => JSON.stringify(x))]);
+      svg.querySelectorAll("[data-tip]").forEach((n) => {
+        const v = n.getAttribute("data-tip")!;
+        if (same.has(v) || (v.startsWith("[") && decode(v).some((x) => same.has(JSON.stringify(x))))) (n.closest("[data-hl]") ?? n).setAttribute("data-on", "");
+      });
+    } else target.setAttribute("data-on", "");
+    svg.setAttribute("data-focus", "");
+  };
   const tipAt = (e: React.PointerEvent | React.MouseEvent, keep = false) => {
-    const el = (e.target as Element).closest?.("[data-tip]");
-    // tocco: il filo scelto resta in evidenza (col mouse basta :hover)
-    if (pointer.current !== "mouse") {
-      const svg = e.currentTarget as SVGSVGElement;
-      svg.querySelectorAll("[data-on]").forEach((n) => n.removeAttribute("data-on"));
-      const item = el?.closest("[data-hl]");
-      if (item) { item.setAttribute("data-on", ""); svg.setAttribute("data-focus", ""); } else svg.removeAttribute("data-focus");
-    }
-    if (el) channel.current({ text: el.getAttribute("data-tip") ?? "", x: e.clientX, y: e.clientY });
+    const from = e.target as Element;
+    const el = from.closest?.("[data-tip]") ?? null;
+    if (el || !keep) focus(e.currentTarget as SVGSVGElement, el ?? from.closest?.("[data-hl]") ?? null);
+    if (el) channel.current({ tips: decode(el.getAttribute("data-tip") ?? ""), x: e.clientX, y: e.clientY });
     else if (!keep) channel.current(null);
     return !!el;
   };
@@ -981,11 +1081,12 @@ export function BoardDiagram({ sensors, bt = null, className }: { sensors: Senso
     <FollowTip channelRef={channel} />
     <svg viewBox={`0 0 ${W} ${H}`} role="img" aria-label={tr("aria")}
       // con un filo o un componente in evidenza (mouse sopra, o toccato) gli altri si scuriscono del
-      // 25 %: luminosità, non opacità, così restano pieni e i fori sotto non si vedono attraverso
-      className={cn(className, "[&_[data-hl]]:transition-[filter] [&_[data-hl]]:duration-150 [&:has([data-hl]:hover)_[data-hl]:not(:hover)]:brightness-75 [&[data-focus]_[data-hl]:not([data-on])]:brightness-75")}
+      // 25 %: luminosità, non opacità, così restano pieni e i fori sotto non si vedono attraverso.
+      // --wire-halo: il bordo dei fili, scuro sul chiaro e chiaro sullo scuro (il filo nero resta visibile)
+      className={cn(className, "[--wire-gnd:#27272a] [--wire-halo:rgba(0,0,0,0.3)] dark:[--wire-gnd:#52525b] dark:[--wire-halo:rgba(255,255,255,0.3)] [&_[data-hl]]:transition-[filter] [&_[data-hl]]:duration-150 [&[data-focus]_[data-hl]:not([data-on])]:brightness-75")}
       fontFamily="ui-sans-serif, system-ui, sans-serif"
       onPointerMove={(e) => { if (e.pointerType === "mouse") tipAt(e); }}
-      onPointerLeave={(e) => { if (e.pointerType === "mouse") channel.current(null); }}
+      onPointerLeave={(e) => { if (e.pointerType === "mouse") { channel.current(null); focus(e.currentTarget, null); } }}
       onPointerDown={(e) => { pointer.current = e.pointerType; }}
       // tocco: su un filo, un piedino o una resistenza mostra il suggerimento (e non apre lo schema
       // a tutto schermo); altrove il tocco fa quello di sempre
@@ -1008,8 +1109,9 @@ export function BoardDiagram({ sensors, bt = null, className }: { sensors: Senso
         const bx = colX(c0) - 22, bw = (n - 1) * P + 44, gx = colX(c0) - P / 2, gw = n * P;
         return (
           <g key={bi}>
-            <rect x={bx + 2} y={bbTop + 3} width={bw} height={BH} rx={7} fill="#000" opacity={0.15} />
-            <rect x={bx} y={bbTop} width={bw} height={BH} rx={7} fill={`url(#${uid}bb)`} stroke="#d6d3d1" />
+            <rect x={bx + 1.5} y={bbTop + 3} width={bw} height={BH} rx={7} fill="#000" opacity={0.16} />
+            <rect x={bx} y={bbTop} width={bw} height={BH} rx={7} fill={`url(#${uid}bb)`} stroke="#c4bfba" />
+            <rect x={bx + 1} y={bbTop + 1} width={bw - 2} height={BH - 2} rx={6} fill="none" stroke="#fff" strokeOpacity={0.7} />
             <rect x={bx + 8} y={R.gap - 5} width={bw - 16} height={10} rx={2} fill="#d6d3d1" />
             <rect x={bx + 8} y={R.gap - 5} width={bw - 16} height={3} rx={1.5} fill="#a8a29e" opacity={0.4} />
             {[[R.p1 - 8, RED], [R.n1 + 8, "#2563eb"], [R.n2 - 8, "#2563eb"], [R.p2 + 8, RED]].map(([yy, c], i) => (
@@ -1022,15 +1124,15 @@ export function BoardDiagram({ sensors, bt = null, className }: { sensors: Senso
             {[R.p1, R.p2].map((yy) => [bx + 8, bx + bw - 8].map((xx) => <text key={`${yy}${xx}`} x={xx} y={yy + 2.5} textAnchor="middle" fontSize={8} fontWeight={700} fill={RED}>+</text>))}
             {[R.n1, R.n2].map((yy) => [bx + 8, bx + bw - 8].map((xx) => <text key={`${yy}${xx}`} x={xx} y={yy + 3} textAnchor="middle" fontSize={9} fontWeight={700} fill="#2563eb">−</text>))}
             {LETTERS.map((l) => [bx + 11, bx + bw - 11].map((xx) => (
-              <text key={`${l}${xx}`} x={xx} y={R[l] + 2.2} textAnchor="middle" fontSize={6} fontWeight={600} fill="#78716c">{l}</text>
+              <text key={`${l}${xx}`} x={xx} y={R[l] + 2.3} textAnchor="middle" fontSize={6.4} fontWeight={700} fill="#57534e">{l}</text>
             )))}
             {Array.from({ length: n }, (_, c) => (
               <Fragment key={c}>
-                <text x={colX(c0 + c)} y={R.num1 + 2} textAnchor="middle" fontSize={(c + 1) % 5 === 0 || c === 0 ? 5.6 : 4.6} fontWeight={(c + 1) % 5 === 0 || c === 0 ? 700 : 400} fill="#78716c">{c + 1}</text>
-                <text x={colX(c0 + c)} y={R.num2 + 2} textAnchor="middle" fontSize={(c + 1) % 5 === 0 || c === 0 ? 5.6 : 4.6} fontWeight={(c + 1) % 5 === 0 || c === 0 ? 700 : 400} fill="#78716c">{c + 1}</text>
+                <text x={colX(c0 + c)} y={R.num1 + 2} textAnchor="middle" fontSize={(c + 1) % 5 === 0 || c === 0 ? 5.8 : 4.8} fontWeight={(c + 1) % 5 === 0 || c === 0 ? 700 : 500} fill={(c + 1) % 5 === 0 || c === 0 ? "#44403c" : "#78716c"}>{c + 1}</text>
+                <text x={colX(c0 + c)} y={R.num2 + 2} textAnchor="middle" fontSize={(c + 1) % 5 === 0 || c === 0 ? 5.8 : 4.8} fontWeight={(c + 1) % 5 === 0 || c === 0 ? 700 : 500} fill={(c + 1) % 5 === 0 || c === 0 ? "#44403c" : "#78716c"}>{c + 1}</text>
               </Fragment>
             ))}
-            {boards.length > 1 && <text x={bx + bw / 2} y={bbTop + BH + 11} textAnchor="middle" fontSize={9} fontWeight={700} fill="#78716c">B{bi + 1}</text>}
+            {boards.length > 1 && <text x={bx + bw / 2} y={bbTop + BH + 12} textAnchor="middle" fontSize={9} fontWeight={700} fill="#a8a29e">B{bi + 1}</text>}
           </g>
         );
       })}
@@ -1044,10 +1146,10 @@ export function BoardDiagram({ sensors, bt = null, className }: { sensors: Senso
           <ModuleArt kind={p.m.kind} options={p.m.options} x={p.x} y={p.y} w={p.w} h={p.h} uid={uid} />
           {p.m.rows.map((r, ri) => !r.gap && (
             <g key={ri} className="cursor-help"
-              data-tip={tr("pinTip", {
-                title: p.m.title, label: r.label, hole: hole("e", p.pinCol[ri]),
-                dest: r.conn === "NC" ? tr("notConnected") : r.conn === "3V3" ? "3.3V" : typeof r.conn === "number" ? (busCol.has(r.conn) ? tr("busHole", { hole: hole(hopRow.get(`${mi}-${ri}`) ?? "a", busCol.get(r.conn)!), pin: ardName(r.conn) }) : ardName(r.conn)) : r.conn === "5V" ? tr("rail5v") : tr("railGnd"),
-                via: r.via ?? "none", ohms: OHMS[r.res ?? (r.via === "pullup" ? "10k" : "220")],
+              data-tip={enc({
+                head: `${p.m.title} · ${r.label}`, from: hole("e", p.pinCol[ri]), kind: "pin",
+                to: r.conn === "NC" ? tr("notConnected") : r.conn === "3V3" ? "3.3V" : typeof r.conn === "number" ? (busCol.has(r.conn) ? tr("busHole", { hole: hole(hopRow.get(`${mi}-${ri}`) ?? "a", busCol.get(r.conn)!), pin: ardName(r.conn) }) : ardName(r.conn)) : r.conn === "5V" ? tr("rail5v") : tr("railGnd"),
+                note: r.via ? tr("viaNote", { via: r.via, ohms: OHMS[r.res ?? (r.via === "pullup" ? "10k" : "220")] }) : r.conn === "NC" ? tr("freeNote") : undefined,
               })}>
               {BARE.has(p.m.kind) ? (
                 <>

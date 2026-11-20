@@ -10,7 +10,7 @@ import { WiringGuide } from "./wiring-diagram";
 import { SENSORS } from "@/lib/sensors/catalog";
 import { isPhoneRig } from "@/lib/sensors/rig";
 import { RigEditor } from "./rig-editor";
-import { useIsMobile } from "@/hooks/use-mobile";
+import { cn } from "@/lib/utils";
 
 /** Collegamenti del progetto: schema, occorrente e passi; i consigli dell'esperimento in fondo. */
 function RigWiring() {
@@ -24,9 +24,9 @@ function RigWiring() {
     return <WiringBlocks blocks={[...blocks.filter((b) => !seen.has(b.title) && seen.add(b.title)), ...(info.preset?.tips ?? [])]} />;
   }
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex flex-col">
       <WiringGuide editable sensors={rig.sensors.filter((s) => !SENSORS[s.type].phone)} />
-      {!!info.preset?.tips?.length && <WiringBlocks blocks={info.preset.tips} />}
+      {!!info.preset?.tips?.length && <div className="border-t"><WiringBlocks blocks={info.preset.tips} /></div>}
     </div>
   );
 }
@@ -39,7 +39,7 @@ function SerialMonitor() {
   return (
     <div className="flex flex-col gap-2">
       <p className="text-xs text-muted-foreground">{t("serialHint")}</p>
-      <pre ref={ref} className="h-72 overflow-auto rounded-lg bg-screen p-3 font-mono text-[0.72rem] leading-relaxed text-lime/90">
+      <pre ref={ref} className={cn("h-72 overflow-auto rounded-lg bg-screen p-3 font-mono text-xs leading-relaxed font-normal", log.length ? "text-lime/80" : "text-lime/40")}>
         {log.length ? log.join("\n") : t("serialWaiting")}
       </pre>
     </div>
@@ -52,12 +52,11 @@ export function SidePanel() {
   const rig = useLab((s) => s.rig);
   const info = labInfo(labId);
   const ins = info.instrument;
-  const wide = !useIsMobile(1536);
   const tabs = (ins
     ? [["wiring", t("wiring")], ins.source !== "audio" ? ["serial", t("serial")] : null]
     // i componenti si modificano qui solo sugli schermi larghi: altrove c'è «Modifica componenti» sopra la misura
-    : [wide ? ["sensors", rig.sensors.length ? t("componentsCount", { n: rig.sensors.length }) : t("components")] : null, ["wiring", t("wiring")], needsArduino(rig) ? ["serial", t("serial")] : null]
-  ).filter(Boolean) as [string, string][];
+    : [["sensors", <>{t("components")}{!!rig.sensors.length && <span className="ml-1 text-muted-foreground tabular">{rig.sensors.length}</span>}</>], ["wiring", t("wiring")], needsArduino(rig) ? ["serial", t("serial")] : null]
+  ).filter(Boolean) as [string, React.ReactNode][];
   const tab = useLab((s) => s.sideTab);
   const active = tabs.some(([id]) => id === tab) ? tab : tabs[0][0];
   return (
@@ -65,14 +64,13 @@ export function SidePanel() {
       <Tabs value={active} onValueChange={(v) => setSideTab(String(v))}>
         <div className="border-b p-2">
           <TabsList className="w-full">
-            {tabs.map(([id, label]) => <TabsTrigger key={id} value={id} className="text-xs">{label}</TabsTrigger>)}
+            {tabs.map(([id, label]) => <TabsTrigger key={id} value={id} className="text-[13px]">{label}</TabsTrigger>)}
           </TabsList>
         </div>
-        <div className="p-4">
-          <TabsContent value="sensors"><RigEditor /></TabsContent>
-          <TabsContent value="wiring">{ins ? <WiringBlocks blocks={ins.wiring} /> : <RigWiring />}</TabsContent>
-          <TabsContent value="serial"><SerialMonitor /></TabsContent>
-        </div>
+        <TabsContent value="sensors" className="p-4"><RigEditor /></TabsContent>
+        {/* le sezioni dei collegamenti sono righe con il filo sopra: margine in alto ridotto */}
+        <TabsContent value="wiring" className="px-4 py-1">{ins ? <WiringBlocks blocks={ins.wiring} /> : <RigWiring />}</TabsContent>
+        <TabsContent value="serial" className="p-4"><SerialMonitor /></TabsContent>
       </Tabs>
     </Card>
   );

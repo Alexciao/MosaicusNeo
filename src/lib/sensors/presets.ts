@@ -16,6 +16,9 @@ const TOPIC = {
   kinematics: t("sensors.topics.kinematics"), thermo: t("sensors.topics.thermo"), field: t("sensors.topics.field"), tools: t("lab.info.toolsTopic"),
 };
 const IDEA = t("sensors.presets.idea");
+/** Un colore per argomento: nella barra dei lab ogni gruppo ha la sua tinta. I miei progetti
+ *  partono in viola, e ognuno può avere colore e icona propri (vedi project-look.ts). */
+export const TOPIC_TONE = { kinematics: "sky", thermo: "rose", field: "lime", tools: "saffron", projects: "violet" } as const;
 
 export interface PresetSensor { type: SensorType; pins?: Record<string, number>; options?: Options; interval?: number; label?: string }
 export interface Preset {
@@ -45,7 +48,7 @@ export const PRESETS: Preset[] = [
   },
   {
     id: "harmonic", topic: TOPIC.kinematics, title: t("sensors.presets.harmonic.title"), subtitle: t("sensors.presets.harmonic.subtitle"),
-    icon: WavesHorizontal, tone: "rose", sim: "spring",
+    icon: WavesHorizontal, tone: "sky", sim: "spring",
     sensors: [{ type: "sonar", interval: 50, options: { window: 2 } }],
     visible: ["x", "v", "a"], readouts: ["x", "v"],
     tips: [{ title: IDEA, tip: true, text: t("sensors.presets.harmonic.tip") }],
@@ -59,7 +62,7 @@ export const PRESETS: Preset[] = [
   },
   {
     id: "humidity", topic: TOPIC.thermo, title: t("sensors.presets.humidity.title"), subtitle: t("sensors.presets.humidity.subtitle"),
-    icon: Droplets, tone: "sky", sim: "breath", simNote: t("sensors.presets.humidity.simNote"),
+    icon: Droplets, tone: "rose", sim: "breath", simNote: t("sensors.presets.humidity.simNote"),
     sensors: [{ type: "dht", interval: 2000 }],
     visible: ["RH", "T"], readouts: ["RH", "T", "Td"],
     tips: [{ title: IDEA, tip: true, text: t("sensors.presets.humidity.tip") }],
@@ -77,21 +80,21 @@ export const PRESETS: Preset[] = [
   // --- sensori del telefono, senza Arduino
   {
     id: "phoneAcc", topic: TOPIC.tools, title: t("sensors.presets.phoneAcc.title"), subtitle: t("sensors.presets.phoneAcc.subtitle"),
-    icon: Smartphone, tone: "lime", sim: "phone-pendulum",
+    icon: Smartphone, tone: "saffron", sim: "phone-pendulum",
     sensors: [{ type: "pmotion", interval: 20 }],
     visible: ["ax", "ay", "az"], readouts: ["am", "ay"],
     tips: [{ title: IDEA, tip: true, text: t("sensors.presets.phoneAcc.tip") }],
   },
   {
     id: "phoneGyro", topic: TOPIC.tools, title: t("sensors.presets.phoneGyro.title"), subtitle: t("sensors.presets.phoneGyro.subtitle"),
-    icon: Rotate3d, tone: "sky", sim: "phone-turn",
+    icon: Rotate3d, tone: "saffron", sim: "phone-turn",
     sensors: [{ type: "pmotion", interval: 20 }],
     visible: ["gz"], readouts: ["gz", "ax"],
     tips: [{ title: IDEA, tip: true, text: t("sensors.presets.phoneGyro.tip") }],
   },
   {
     id: "phoneSound", topic: TOPIC.tools, title: t("sensors.presets.phoneSound.title"), subtitle: t("sensors.presets.phoneSound.subtitle"),
-    icon: AudioLines, tone: "rose", sim: "phone-sound",
+    icon: AudioLines, tone: "saffron", sim: "phone-sound",
     sensors: [{ type: "psound", interval: 50 }],
     visible: ["freq", "level"], readouts: ["freq", "level"],
     tips: [{ title: IDEA, tip: true, text: t("sensors.presets.phoneSound.tip") }],
@@ -133,7 +136,7 @@ export interface Instrument {
 
 export const INSTRUMENTS: Instrument[] = [
   {
-    id: "scope", kind: "scope", source: "audio", title: t("sensors.instruments.scope.title"), subtitle: t("sensors.instruments.scope.subtitle"), icon: AudioWaveform, tone: "lime",
+    id: "scope", kind: "scope", source: "audio", title: t("sensors.instruments.scope.title"), subtitle: t("sensors.instruments.scope.subtitle"), icon: AudioWaveform, tone: "saffron",
     wiring: [{ title: t("sensors.instruments.scope.wiringTitle"), text: t("sensors.instruments.scope.wiring") }],
   },
   {
@@ -142,7 +145,7 @@ export const INSTRUMENTS: Instrument[] = [
     wiring: [{ title: t("sensors.instruments.synth.wiringTitle"), schematic: "hcsr04", pins: { trig: "D12", echo: "D11" }, text: t("sensors.instruments.synth.wiring") }],
   },
   {
-    id: "escope", kind: "scope", source: "arduino", title: t("sensors.instruments.escope.title"), subtitle: t("sensors.instruments.escope.subtitle"), icon: Zap, tone: "sky", sim: "scope",
+    id: "escope", kind: "scope", source: "arduino", title: t("sensors.instruments.escope.title"), subtitle: t("sensors.instruments.escope.subtitle"), icon: Zap, tone: "saffron", sim: "scope",
     wiring: [
       { title: t("sensors.instruments.escope.safeTitle"), warn: true, text: t("sensors.instruments.escope.safe") },
       { title: t("sensors.instruments.escope.micTitle"), schematic: "mic" },

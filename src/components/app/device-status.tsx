@@ -8,7 +8,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import { ArrowRight, CircleAlert, CircleCheck, LoaderCircle, Plug, SlidersHorizontal, TriangleAlert, Volume2, VolumeX, Wrench, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { useLab, resolved, showWiring, type DeviceStatus } from "@/lib/lab-store";
+import { useLab, resolved, showWiring, type DeviceStatus, showComponents } from "@/lib/lab-store";
 import { useDiag, diagDismiss, type Diag } from "@/lib/diagnostics";
 import { indicatorsOf, sensorLabel, type SensorInstance } from "@/lib/sensors/rig";
 import { SENSORS, pinName } from "@/lib/sensors/catalog";
@@ -101,7 +101,7 @@ function DiagRow({ d, sensor, running }: { d: Diag; sensor?: SensorInstance; run
       {!resolvedNow && (sensor || d.setup) && (
         <div className="flex shrink-0 gap-1.5 pl-6.5 sm:pl-0">
           {sensor && !def?.phone && <Button size="xs" variant="outline" onClick={showWiring}><Plug /> {t("wiring")}</Button>}
-          <Button size="xs" variant="ghost" disabled={running} onClick={() => useLab.setState({ rigOpen: true })}><SlidersHorizontal /> {t("component")}</Button>
+          <Button size="xs" variant="ghost" disabled={running} onClick={showComponents}><SlidersHorizontal /> {t("component")}</Button>
         </div>
       )}
     </li>
@@ -121,48 +121,48 @@ interface MirrorCtx { running: boolean; fw: string; slotType?: string; cfgType?:
 /** Gli stessi testi che compone il firmware (screenTexts in mosaicusneo_firmware.ino). */
 function screenTexts(d: DeviceStatus, o: MirrorCtx) {
   const spin = "-\\|/"[Math.floor(o.tick / 2.4) % 4];
-  let bar = "", big = "", small = "", sp = spin;
+  let bar = "", big = "", small = "";
+  const sp = spin;
   const count = (pre: string) => `${pre} ${d.k}/${d.n}`;
   const num = o.same > 1 ? `#${o.ord} ` : "";
+  const bt = d.link === "B";
   switch (d.st) {
     case "W":
-      if (o.running) { bar = "APP LOST"; big = d.link === "B" ? "BT?" : "USB?"; small = "reconnect"; }
-      else { bar = "WAITING"; big = "APP"; small = d.bt ? `USB/BT ${o.fw.slice(0, 4)}` : `USB v${o.fw.slice(0, 4)}`; }
+      if (o.running) { bar = "LINK LOST"; big = bt ? "BT?" : "USB?"; small = "reconnect"; }
+      else { bar = "NO APP"; big = "WAIT"; small = d.bt ? `USB/BT ${o.fw.slice(0, 4)}` : `USB v${o.fw.slice(0, 4)}`; }
       break;
-    case "I": bar = "CONNECTED"; big = "OK"; small = d.link === "B" ? "BT ~ Start" : "~ Start"; break;
-    case "O": bar = "OSCILLOSC."; big = "SCOPE"; small = "signal A0"; break;
-    case "C": bar = "CONFIG"; big = d.slot < 0 ? "OUT" : FW_NAME[o.cfgType ?? ""] ?? "?"; small = CFG_WHY[d.issue] ?? "?"; break;
-    case "R": bar = "SD READY"; big = "PRESS"; small = "button"; break;
-    case "L": {
-      const s = Math.floor(o.elapsed), m = Math.floor(s / 60);
-      bar = m > 99 ? `SD ${Math.floor(m / 60)}h` : `SD ${m}:${String(s % 60).padStart(2, "0")}`;
-      big = "REC"; small = "LOG…";
-      sp = Math.floor(o.tick / 4) % 2 ? "*" : " ";
-      break;
-    }
+    case "I": bar = bt ? "LINK BT" : "LINK USB"; big = "READY"; small = "tap Start"; break;
+    case "O": bar = "LIVE A0"; big = "SCOPE"; small = bt ? "via BT" : "via USB"; break;
+    case "C": bar = "BAD SETUP"; big = d.slot < 0 ? "OUT" : FW_NAME[o.cfgType ?? ""] ?? "?"; small = CFG_WHY[d.issue] ?? "?"; break;
+    case "R": bar = "SD CARD"; big = "PRESS"; small = "to record"; break;
     case "S":
     case "E": {
       const t = o.slotType ?? "";
-      if (d.slot === -2) { bar = "PROBLEM"; big = "SD"; small = "SD card?"; break; }
+      if (d.slot === -2) { bar = "ERROR"; big = "SD"; small = "card?"; break; }
       if (d.issue === 1 && t === "gps") { bar = d.n > 1 ? count("SEARCH") : "GPS SEARCH"; big = `${o.sats.slice(0, 2) || "0"} sat`; small = "go outside"; }
       else if (d.issue === 1) {
         bar = d.n > 1 ? count("SEARCH") : t === "sonar" ? "NO ECHO" : "WAITING"; big = FW_NAME[t] ?? "?";
         small = num + (t === "sonar" ? (o.same > 1 ? "echo?" : "target?") : "waiting");
       } else {
-        bar = d.n > 1 ? count("ERROR") : "PROBLEM"; big = FW_NAME[t] ?? "?";
+        bar = d.n > 1 ? count("ERROR") : "ERROR"; big = FW_NAME[t] ?? "?";
         small = num + (o.same > 1 ? SMALL_ERR_SHORT[t] ?? SMALL_ERR[t] ?? "wires?" : SMALL_ERR[t] ?? "wires?");
       }
       break;
     }
-    case "T": {
-      const s = Math.floor(o.elapsed), m = Math.floor(s / 60);
-      bar = m > 99 ? `REC ${Math.floor(m / 60)}h` : `REC ${m}:${String(s % 60).padStart(2, "0")}`;
-      if (o.lines[0]) { big = o.lines[0]; small = o.lines[1]; } else { big = "REC"; small = "measuring"; }
-      sp = Math.floor(o.tick / 4) % 2 ? "*" : " ";
-      break;
+    case "T":
+    case "L": {
+      // registrazione: il pallino ● (carattere 126, «~») lampeggia all'inizio della barra
+      const sec = Math.floor(o.elapsed), m = Math.floor(sec / 60);
+      const tm = m > 99 ? `${Math.floor(m / 60) % 100}h` : `${m}:${String(sec % 60).padStart(2, "0")}`;
+      const dot = Math.floor(o.tick / 4) % 2 ? "~" : " ";
+      const sd = d.st === "L", val = !sd && !!o.lines[0];
+      bar = dot + (sd ? "SD REC" : val ? `REC ${tm}` : bt ? "REC BT" : "REC USB");
+      if (val) { big = o.lines[0]; small = o.lines[1]; }
+      else { big = tm; small = sd ? "LOG…" : "measuring"; }
+      return { bar: bar.slice(0, 10), big: big.slice(0, 5), small: small.slice(0, 10) };
     }
   }
-  bar = bar.padEnd(9, " ").slice(0, 9) + (d.st === "W" || d.st === "S" || d.st === "T" || d.st === "L" ? sp : " ");
+  bar = bar.padEnd(9, " ").slice(0, 9) + (d.st === "W" || d.st === "S" ? sp : " ");
   return { bar, big: big.slice(0, 5), small: small.slice(0, 10) };
 }
 

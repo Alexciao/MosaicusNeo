@@ -16,7 +16,7 @@
     "analysis": "Elaborazione",
     "field": "Sul campo e Bluetooth",
     "sd": "Scheda SD e pulsante",
-    "outputs": "Display, LED e cicalino",
+    "outputs": "Display di stato",
     "data": "Dati e account",
     "problems": "Problemi comuni"
   },
@@ -177,7 +177,7 @@
   },
   "startDevice": {
     "path": "Il tuo percorso: {device}",
-    "check": "Controlla il dispositivo →",
+    "check": "Controlla il dispositivo",
     "cannot": "Questo dispositivo non può ancora collegarsi ad Arduino. Cosa manca e come rimediare: <device>Il tuo dispositivo</device>."
   },
   "yourDevice": {
@@ -222,29 +222,6 @@
       "computer": "<b>Un computer</b> con Chrome o Edge: serve per caricare il firmware e per misurare via cavo.",
       "optional": "<b>Facoltativo</b>: modulo Bluetooth e power bank, per misurare senza cavo con il telefono."
     },
-    "stepsTitle": "I passaggi",
-    "steps": {
-      "s1": {
-        "t": "Firmware",
-        "d": "una volta sola"
-      },
-      "s2": {
-        "t": "Esperimento",
-        "d": "elenco a sinistra"
-      },
-      "s3": {
-        "t": "Collegamenti",
-        "d": "segui lo schema"
-      },
-      "s4": {
-        "t": "Misura",
-        "d": "Avvia → Ferma"
-      },
-      "s5": {
-        "t": "Analisi",
-        "d": "Elaborazione"
-      }
-    },
     "simulator": "Senza hardware premi <b>Simulatore</b>: genera dati realistici per ogni esperimento."
   },
   "firmware": {
@@ -280,7 +257,7 @@
     "serialBusy": "La porta seriale si apre da un solo programma alla volta: con il Monitor seriale dell'IDE aperto, MosaicusNeo non si collega, e viceversa."
   },
   "wiring": {
-    "intro": "Ogni progetto ha il suo schema dei collegamenti, fatto dai suoi componenti e dai pin che hai scelto: apri il progetto e vai nella scheda «Collegamenti». Lì trovi lo schema sulla breadboard (o quello compatto), l'occorrente e i passi, foro per foro.",
+    "intro": "Ogni progetto ha il suo schema dei collegamenti, fatto dai suoi componenti e dai pin che hai scelto: apri il progetto e vai nella scheda «Collegamenti». Lì trovi lo schema sulla breadboard (o la mappa dei pin), l'occorrente e i passi, foro per foro.",
     "breadboard": "La breadboard",
     "bb1": "I cinque fori di una colonna (a–e oppure f–j) sono collegati tra loro; il solco centrale li separa.",
     "bb2": "I binari laterali corrono per tutta la lunghezza: rosso (+) per il 5V, blu (−) per il GND.",
@@ -415,7 +392,7 @@
       "t": "Importa nel Quaderno",
       "d": "Metti la scheda nel computer e premi <b>Importa dalla scheda SD</b> (nel Quaderno o nella scheda del componente): ogni file diventa una misura, con le grandezze, i grafici e l'Elaborazione di sempre."
     },
-    "statusNote": "Il display, il LED e il cicalino dicono che cosa succede: «SD READY · PRESS» aspetta il pulsante, «SD 1:23 · REC» sta registrando, «PROBLEM · SD» se la scheda manca o non è FAT32.",
+    "statusNote": "Il display, il LED e il cicalino dicono che cosa succede: «SD CARD · PRESS» aspetta il pulsante, «● SD REC · 1:23» sta registrando, «ERROR · SD» se la scheda manca o non è FAT32.",
     "buttonTitle": "Il pulsante con l'app",
     "buttonText": "Con l'app collegata, via cavo o Bluetooth, il pulsante fa come «Avvia» e «Ferma»: comodo quando le mani servono all'esperimento. Se colleghi l'app mentre Arduino registra sulla scheda, la registrazione si chiude e si misura come sempre."
   },
@@ -480,7 +457,7 @@
     "gpsText": "Il primo fix richiede da 30 secondi a qualche minuto, all'aperto e con il cielo libero; il LED del modulo lampeggia quando ha la posizione. I punti senza posizione restano in tabella ma non compaiono sulla mappa. La mappa colora i punti secondo la grandezza scelta. Esporta in GPX (Google Earth, Strava) o GeoJSON (QGIS)."
   },
   "outputs": {
-    "intro": "Display, LED RGB e cicalino mostrano lo stato di Arduino senza guardare il telefono. Si aggiungono come gli altri componenti: scheda «Componenti» → <b>Aggiungi un componente</b>, categoria «Display, LED, suoni». Richiedono il firmware v{v} o successivo.",
+    "intro": "Display, LED RGB e cicalino mostrano lo stato di Arduino senza guardare il telefono. Si aggiungono come gli altri componenti: scheda «Componenti» → <b>Aggiungi un componente</b>, categoria «Display di stato». Richiedono il firmware v{v} o successivo.",
     "colSituation": "Situazione",
     "colDisplay": "Display",
     "colLed": "LED",
@@ -488,19 +465,19 @@
     "rows": {
       "waiting": {
         "situation": "Acceso, l'app non è collegata",
-        "display": "WAITING · APP · USB v1.7 (con un modulo Bluetooth: USB/BT 1.7)",
+        "display": "NO APP · WAIT · USB v1.8 (con un modulo Bluetooth: USB/BT 1.8)",
         "led": "blu, lampeggia",
         "beep": "1 bip ogni 3 s"
       },
       "connected": {
         "situation": "Collegato, fermo",
-        "display": "CONNECTED · OK (via Bluetooth: «BT»)",
+        "display": "LINK USB · READY · tap Start (via Bluetooth: «LINK BT»)",
         "led": "blu fisso",
         "beep": "1 bip ogni 3 s"
       },
       "rejected": {
         "situation": "Un componente è stato rifiutato",
-        "display": "CONFIG · DHT · pin doppio",
+        "display": "BAD SETUP · DHT · pin twice",
         "led": "rosso, lampeggia veloce",
         "beep": "3 bip ogni 3 s"
       },
@@ -512,7 +489,7 @@
       },
       "noResponse": {
         "situation": "Un sensore non risponde",
-        "display": "PROBLEM · DHT",
+        "display": "ERROR · DHT",
         "led": "rosso, lampeggia veloce",
         "beep": "3 bip ogni 3 s"
       },
@@ -524,7 +501,7 @@
       },
       "measuring": {
         "situation": "Sta misurando, tutto a posto",
-        "display": "REC 1:23 · 23.4°",
+        "display": "● REC 1:23 · 23.4° (il pallino lampeggia durante la registrazione)",
         "led": "verde fisso",
         "beep": "silenzio (un «bip-bip» quando ci arriva)"
       }
@@ -535,8 +512,8 @@
     "multiTitle": "Più sensori, configurazione e Bluetooth",
     "mu1": "Se più sensori hanno un problema, il display li mostra a turno ogni 2,5 secondi, prima gli errori e poi quelli in ricerca: «ERROR 1/2», «ERROR 2/2». LED e cicalino seguono sempre il più grave.",
     "mu2": "Con due sensori dello stesso tipo, il display indica quale con il numero: «#2» è il secondo DHT nell'elenco dei componenti.",
-    "mu3": "Se Arduino rifiuta un componente (pin doppio, pin non analogico, secondo GPS), il display mostra «CONFIG» con il motivo finché non correggi i pin e riavvii la misura.",
-    "mu4": "In attesa dell'app il display mostra come collegarsi e la versione del firmware: «USB v1.7». Il Bluetooth è facoltativo: dopo «Configura» nel passo Bluetooth, se il modulo risponde, Arduino lo ricorda e il display mostra «USB/BT 1.7».",
+    "mu3": "Se Arduino rifiuta un componente (pin doppio, pin non analogico, secondo GPS), il display mostra «BAD SETUP» con il motivo finché non correggi i pin e riavvii la misura.",
+    "mu4": "In attesa dell'app il display mostra come collegarsi e la versione del firmware: «USB v1.8». Il Bluetooth è facoltativo: dopo «Configura» nel passo Bluetooth, se il modulo risponde, Arduino lo ricorda e il display mostra «USB/BT 1.8».",
     "firmwareNote": "Queste funzioni richiedono il firmware v{v}.",
     "details": "Dettagli",
     "d1": "Arduino memorizza gli indicatori: alle accensioni successive mostra subito «in attesa dell'app», anche prima di collegare il telefono.",

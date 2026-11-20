@@ -25,7 +25,7 @@ export class Screen {
    * frame = {
    *   x0, x1, y0, y1                  intervalli mostrati
    *   xLabel, yLabel                  es. '2 ms/div', 'u.a.'
-   *   traces: [{ x, y, color, width, glow, fill }]
+   *   traces: [{ x, y, color, width, fill }]
    *   markers: [{ x, label, color }]  tacche verticali (armoniche, cursori)
    *   note: testo in alto a destra
    * }
@@ -75,7 +75,7 @@ export class Screen {
       if (!t.x?.length) continue;
       g.lineJoin = 'round';
       g.strokeStyle = t.color; g.lineWidth = (t.width || 1.8) * Math.sqrt(k);
-      if (t.glow) { g.shadowColor = t.color; g.shadowBlur = 8 * k; }
+      // niente bagliore: una linea netta, come sullo schermo di uno strumento
       g.setLineDash(t.dash ? t.dash.map((d) => d * k) : []);
       g.beginPath();
       let pen = false;
@@ -84,7 +84,7 @@ export class Screen {
         if (!isFinite(Y)) { pen = false; continue; }
         pen ? g.lineTo(X, Y) : g.moveTo(X, Y); pen = true;
       }
-      g.stroke(); g.shadowBlur = 0; g.setLineDash([]);
+      g.stroke(); g.setLineDash([]);
       if (t.fill) {
         g.lineTo(sx(t.x[t.x.length - 1]), sy(y0)); g.lineTo(sx(t.x[0]), sy(y0)); g.closePath();
         g.fillStyle = t.fill; g.fill();

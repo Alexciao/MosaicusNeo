@@ -33,7 +33,7 @@ export interface ModRow { label: string; conn: Conn; dashed?: boolean; note?: st
 export interface Mod { title: string; rows: ModRow[]; color: string; notes: string[]; kind: string; options?: Record<string, number | string> }
 
 const COLORS = ["#2563eb", "#db2777", "#16a34a", "#d97706", "#7c3aed", "#0891b2", "#4d7c0f"];
-const RED = "#dc2626", BLACK = "var(--foreground)";
+const RED = "#dc2626";
 
 function moduleOf(s: SensorInstance, color: string): Mod {
   return { ...moduleRows(s, color), kind: s.type, options: s.options };
@@ -235,98 +235,69 @@ export function buildModules(sensors: SensorInstance[], bt: BtModule = null) {
   return mods;
 }
 
+/**
+ * Mappa dei pin: una riga per collegamento, il pin di Arduino a sinistra e il piedino del modulo a
+ * destra, uniti da un filo dritto del suo colore (rosso 5V, inchiostro GND, arancione 3.3V, il colore
+ * del modulo per i segnali). Niente canali né incroci: si legge riga per riga. Le resistenze in più
+ * (pull-up, serie, partitore) sono un'etichetta sul filo.
+ */
 export function RigDiagram({ sensors, bt = null, className }: { sensors: SensorInstance[]; bt?: BtModule; className?: string }) {
   const tr = useTranslations("rig.modules");
   // le colonne vuote (gap) servono solo sulla breadboard
   const mods = buildModules(sensors, bt).map((m) => ({ ...m, rows: m.rows.filter((r) => !r.gap) }));
   if (!mods.length) return null;
-  const ROW = 20, HEAD = 26, GAP = 12, AX = 6, AW = 112;
-  // righe di Arduino: 5V, GND, poi i pin dei segnali nell'ordine dei moduli. Un pin usato da più
-  // moduli (bus I2C) compare una volta sola: un filo da Arduino che si dirama verso ogni modulo.
-  type Sig = { mod: number; row: number; color: string; dashed?: boolean };
-  const nets = new Map<number | "3V3", Sig[]>();
-  mods.forEach((m, mi) => m.rows.forEach((r, ri) => {
-    if (typeof r.conn !== "number" && r.conn !== "3V3") return;
-    nets.set(r.conn, [...(nets.get(r.conn) ?? []), { mod: mi, row: ri, color: m.color, dashed: r.dashed }]);
-  }));
-  const netList = [...nets];
-  const netName = (pin: number | "3V3") => (pin === "3V3" ? "3.3V" : pin === 0 ? "D0 (RX)" : pin === 1 ? "D1 (TX)" : pinName(pin));
-  const aRows: string[] = ["5V", "GND", ...netList.map(([pin]) => netName(pin))];
-  const aY = (i: number) => 14 + HEAD + i * ROW + ROW / 2;
-  const nCh = netList.length;
-  const CH0 = AX + AW + 14, CHS = 10;
-  const R5 = CH0 + nCh * CHS + 14, RG = R5 + 12;
-  const MX = RG + 26, MW = 168;
-  // moduli in colonna
-  const mTop: number[] = [];
-  let y = 6;
-  for (const m of mods) { mTop.push(y); y += HEAD + m.rows.length * ROW + 8 + GAP; }
-  const mY = (mi: number, ri: number) => mTop[mi] + HEAD + ri * ROW + ROW / 2;
-  const H = Math.max(y, 14 + HEAD + aRows.length * ROW + 16);
-  const W = MX + MW + 6;
-  const isRail = (c: Conn) => c === "5V" || c === "GND";
-  const lastPowerY = Math.max(...mods.flatMap((m, mi) => m.rows.map((r, ri) => (isRail(r.conn) ? mY(mi, ri) : 0))));
-  const BUS = "#0f766e";
+  const ROW = 24, HEAD = 30, GAP = 10, PAD = 8;
+  const AX = PAD + 86;            // fine (a destra) dei nomi dei pin di Arduino
+  const W1 = AX + 10, W2 = W1 + 168, MX = W2 + 12;
+  const W = MX + 200 + PAD;
+  const V33 = "#ea580c";
+  const pinOf = (c: Conn) => (c === "5V" ? "5V" : c === "GND" ? "GND" : c === "3V3" ? "3.3V" : c === "NC" ? "" : c === 0 ? "D0 (RX)" : c === 1 ? "D1 (TX)" : pinName(c));
+  const colorOf = (m: Mod, r: ModRow) => (r.conn === "5V" ? RED : r.conn === "GND" ? "currentColor" : r.conn === "3V3" ? V33 : m.color);
+  const viaOf = (r: ModRow) => r.via === "divider" ? "1 kΩ + 2 kΩ" : r.note ?? (r.via === "series" && r.res ? OHMS[r.res] : undefined);
+  const tops: number[] = [];
+  let y = PAD;
+  for (const m of mods) { tops.push(y); y += HEAD + m.rows.length * ROW + 8 + GAP; }
+  const H = y - GAP + PAD;
   return (
     <svg viewBox={`0 0 ${W} ${H}`} role="img" aria-label={tr("diagramAria")} className={className}>
-      {/* Arduino */}
-      <rect x={AX} y={14} width={AW} height={HEAD + aRows.length * ROW + 8} rx={8} fill="var(--tone-lime)" stroke="currentColor" strokeOpacity={0.45} />
-      <text x={AX + AW / 2} y={14 + 18} textAnchor="middle" fontWeight={600} fontSize={12}>Arduino Uno</text>
-      {aRows.map((r, i) => (
-        <g key={i}>
-          <circle cx={AX + AW} cy={aY(i)} r={3} fill={i === 0 ? RED : i === 1 ? BLACK : netList[i - 2][1].length > 1 ? BUS : netList[i - 2][1][0].color} />
-          <text x={AX + AW - 8} y={aY(i) + 4} textAnchor="end" fontSize={11} fontWeight={500}>{r}</text>
-        </g>
-      ))}
-      {/* binari dell'alimentazione */}
-      <path d={`M${AX + AW} ${aY(0)}H${R5}V${Math.max(aY(0), lastPowerY)}`} fill="none" stroke={RED} strokeWidth={2.5} strokeLinejoin="round" />
-      <path d={`M${AX + AW} ${aY(1)}H${RG}V${Math.max(aY(1), lastPowerY)}`} fill="none" stroke={BLACK} strokeWidth={2.5} strokeLinejoin="round" />
-      {/* moduli */}
-      {mods.map((m, mi) => (
-        <g key={mi}>
-          <rect x={MX} y={mTop[mi]} width={MW} height={HEAD + m.rows.length * ROW + 8} rx={8} fill="var(--card)" stroke={m.color} strokeWidth={1.5} />
-          <rect x={MX} y={mTop[mi]} width={6} height={HEAD + m.rows.length * ROW + 8} rx={3} fill={m.color} />
-          <text x={MX + 14} y={mTop[mi] + 17} fontWeight={600} fontSize={11.5}>{m.title.length > 26 ? `${m.title.slice(0, 25)}…` : m.title}</text>
-          {m.rows.map((r, ri) => {
-            const yy = mY(mi, ri);
-            const isPow = isRail(r.conn), nc = r.conn === "NC";
-            return (
-              <g key={ri} opacity={nc ? 0.55 : undefined}>
-                {isPow && <path d={`M${r.conn === "5V" ? R5 : RG} ${yy}H${MX}`} stroke={r.conn === "5V" ? RED : BLACK} strokeWidth={2.5} fill="none" />}
-                {isPow && <circle cx={r.conn === "5V" ? R5 : RG} cy={yy} r={2.8} fill={r.conn === "5V" ? RED : BLACK} />}
-                <circle cx={MX} cy={yy} r={3} fill={nc ? "none" : isPow ? (r.conn === "5V" ? RED : BLACK) : m.color} stroke={nc ? "currentColor" : undefined} />
-                <text x={MX + 12} y={yy + 4} fontSize={10.5}>{r.label}</text>
-                {(r.note || nc) && <text x={MX + MW - 8} y={yy + 4} textAnchor="end" fontSize={9} opacity={0.65}>{nc ? (r.note ? `${r.note} · ${tr("notConnected")}` : tr("notConnected")) : r.note}</text>}
-              </g>
-            );
-          })}
-        </g>
-      ))}
-      {/* fili dei segnali: il primo usa il canale più a destra, così non si incrociano */}
-      {netList.map(([, list], i) => {
-        const x = CH0 + (nCh - 1 - i) * CHS;
-        const ya = aY(i + 2);
-        if (list.length === 1) {
-          const s = list[0], d = `M${AX + AW} ${ya}H${x}V${mY(s.mod, s.row)}H${MX}`;
-          return (
-            <g key={i}>
-              <path d={d} fill="none" stroke="var(--card)" strokeWidth={6} strokeLinejoin="round" />
-              <path d={d} fill="none" stroke={s.color} strokeWidth={2.5} strokeLinejoin="round" strokeDasharray={s.dashed ? "5 3" : undefined} />
-            </g>
-          );
-        }
-        // filo condiviso: tronco da Arduino al canale, poi un ramo (con il pallino di giunzione) per modulo
-        const ys = list.map((s) => mY(s.mod, s.row));
-        const y0 = Math.min(ya, ...ys), y1 = Math.max(ya, ...ys);
-        const trunk = `M${AX + AW} ${ya}H${x} M${x} ${y0}V${y1}`;
+      {mods.map((m, mi) => {
+        const top = tops[mi];
+        const h = HEAD + m.rows.length * ROW + 8;
         return (
-          <g key={i}>
-            <title>{tr("busJunction")}</title>
-            <path d={trunk} fill="none" stroke="var(--card)" strokeWidth={6} strokeLinejoin="round" />
-            {list.map((s, k) => <path key={`c${k}`} d={`M${x} ${ys[k]}H${MX}`} fill="none" stroke="var(--card)" strokeWidth={6} />)}
-            <path d={trunk} fill="none" stroke={BUS} strokeWidth={2.5} strokeLinejoin="round" />
-            {list.map((s, k) => <path key={k} d={`M${x} ${ys[k]}H${MX}`} fill="none" stroke={s.color} strokeWidth={2.5} strokeDasharray={s.dashed ? "5 3" : undefined} />)}
-            {ys.map((yy, k) => <circle key={`j${k}`} cx={x} cy={yy} r={3.2} fill={BUS} />)}
+          <g key={mi}>
+            <rect x={PAD} y={top} width={W - PAD * 2} height={h} rx={8} fill="none" stroke="currentColor" strokeOpacity={0.14} />
+            <line x1={PAD} x2={W - PAD} y1={top + HEAD} y2={top + HEAD} stroke="currentColor" strokeOpacity={0.1} />
+            <text x={AX} y={top + 19} textAnchor="end" fontSize={10.5} fontWeight={500} opacity={0.55}>Arduino</text>
+            <circle cx={MX + 4} cy={top + 15} r={4} fill={m.color} />
+            <text x={MX + 14} y={top + 19} fontSize={12} fontWeight={600}>{m.title.length > 28 ? `${m.title.slice(0, 27)}…` : m.title}</text>
+            {m.rows.map((r, ri) => {
+              const yy = top + HEAD + 4 + ri * ROW + ROW / 2;
+              const nc = r.conn === "NC";
+              const c = colorOf(m, r);
+              const via = nc ? undefined : viaOf(r);
+              const mid = (W1 + W2) / 2, vw = via ? Math.min(160, via.length * 5.4 + 14) : 0;
+              return (
+                <g key={ri}>
+                  {!nc && <text x={AX} y={yy + 4} textAnchor="end" fontSize={11} fontWeight={600} fontFamily="ui-monospace, monospace">{pinOf(r.conn)}</text>}
+                  {nc ? (
+                    <text x={mid} y={yy + 4} textAnchor="middle" fontSize={10} opacity={0.5}>{tr("notConnected")}</text>
+                  ) : (
+                    <>
+                      <line x1={W1} x2={W2} y1={yy} y2={yy} stroke={c} strokeOpacity={r.conn === "GND" ? 0.8 : 1} strokeWidth={2.5} strokeLinecap="round" strokeDasharray={r.dashed ? "6 4" : undefined} />
+                      <circle cx={W1} cy={yy} r={3} fill={c} fillOpacity={r.conn === "GND" ? 0.8 : 1} />
+                      <circle cx={W2} cy={yy} r={3} fill={c} fillOpacity={r.conn === "GND" ? 0.8 : 1} />
+                      {via && (
+                        <g>
+                          <rect x={mid - vw / 2} y={yy - 8} width={vw} height={16} rx={4} fill="var(--card)" stroke="currentColor" strokeOpacity={0.2} />
+                          <text x={mid} y={yy + 3.5} textAnchor="middle" fontSize={9.5} fontWeight={500}>{via}</text>
+                        </g>
+                      )}
+                    </>
+                  )}
+                  <text x={MX} y={yy + 4} fontSize={11} opacity={nc ? 0.5 : 1}>{r.label}</text>
+                </g>
+              );
+            })}
           </g>
         );
       })}

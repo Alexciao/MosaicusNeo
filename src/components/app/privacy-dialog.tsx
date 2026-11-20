@@ -44,7 +44,7 @@ function PrivacyText() {
   const t = useTranslations("app.privacy");
   return (
     <div className="flex flex-col gap-6">
-      <div className="rounded-xl border bg-muted/40 p-4 text-sm leading-relaxed">
+      <div className="rounded-md bg-muted/60 p-4 text-sm leading-relaxed">
         {t.rich("summary", { b: (c) => <b className="font-semibold">{c}</b> })}
       </div>
 

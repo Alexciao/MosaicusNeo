@@ -250,8 +250,8 @@
       "hint": "to start and stop from Arduino"
     },
     "output": {
-      "name": "Displays, LEDs and sounds",
-      "hint": "they show Arduino's status"
+      "name": "Status display",
+      "hint": "shows what Arduino is doing"
     },
     "storage": {
       "name": "Storage",
@@ -455,7 +455,7 @@
       "tip": "Heat the thermistor in hot water or in a hot potato, then let it cool in air. Use the exponential fit with asymptote, or the straight line on ln(T − Tₐ)."
     },
     "humidity": {
-      "title": "Humidity and temperature",
+      "title": "Humidity & temperature",
       "subtitle": "Dew point · DHT11",
       "simNote": "time ×5",
       "tip": "Breathe on the sensor: the humidity rises sharply and falls slowly. The exponential fit of the decay gives the time constant."
