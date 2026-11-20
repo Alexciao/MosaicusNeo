@@ -257,7 +257,7 @@
     "serialBusy": "The serial port can be opened by only one program at a time: with the IDE's Serial Monitor open, MosaicusNeo can't connect, and vice versa."
   },
   "wiring": {
-    "intro": "Every project has its own wiring diagram, made from its components and the pins you chose: open the project and go to the “Wiring” tab. There you'll find the breadboard diagram (or the compact schematic), the parts list and the steps, hole by hole.",
+    "intro": "Every project has its own wiring diagram, made from its components and the pins you chose: open the project and go to the “Wiring” tab. There you'll find the breadboard diagram (or the pin map), the parts list and the steps, hole by hole.",
     "breadboard": "The breadboard",
     "bb1": "The five holes of a column (a–e or f–j) are connected to each other; the central groove separates them.",
     "bb2": "The side rails run the whole length: red (+) for 5V, blue (−) for GND.",

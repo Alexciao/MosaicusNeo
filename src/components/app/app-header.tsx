@@ -14,7 +14,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useLab, showPage, goHome, setLim, type Page } from "@/lib/lab-store";
 import { useWorkbench } from "@/lib/workbench-store";
-import { ConnectionControls } from "./connection-controls";
+import { ConnectionControls, ConnectionDrawer } from "./connection-controls";
 import { GlideNav } from "./glide-nav";
 import { GuideButton } from "./guide-dialog";
 import { openPrivacy } from "./privacy-dialog";
@@ -105,6 +105,7 @@ export function AppHeader() {
         <NavTabs className="hidden md:flex" />
         <div className="ml-auto flex items-center gap-1">
           <ConnectionControls className="mr-2 hidden lg:flex" />
+          <ConnectionDrawer className="mr-1 lg:hidden" />
           <GuideButton />
           <SettingsMenu />
           <AccountMenu />

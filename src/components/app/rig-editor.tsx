@@ -4,7 +4,7 @@
 // progetti dell'utente.
 
 import { Fragment, useRef, useState } from "react";
-import { Check, ChevronDown, CopyPlus, Plus, RotateCcw, Search, Trash, TriangleExclamationPoint, X } from "lucide-react";
+import { Check, ChevronDown, CopyPlus, Plus, Search, Trash, TriangleExclamationPoint, X } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -17,7 +17,7 @@ import { validateRig, usedPins, sensorLabel, inputsOf, indicatorsOf, type Sensor
 import { QUANTITIES } from "@/lib/sensors/quantities";
 import type { Param } from "@/lib/sensors/types";
 import {
-  useLab, labInfo, updateSensor, addSensor, checkAdd, removeSensor, pressSimButton, resetPreset, renameRig, newRig, testOutputs, openGuide,
+  useLab, labInfo, updateSensor, addSensor, checkAdd, removeSensor, pressSimButton, newRig, testOutputs,
 } from "@/lib/lab-store";
 import { confirm } from "@/lib/confirm";
 import { cn } from "@/lib/utils";
@@ -449,7 +449,6 @@ export function ComponentPicker({ open, onOpenChange }: { open: boolean; onOpenC
 export function RigEditor() {
   const t = useTranslations("rig.editor");
   const rig = useLab((s) => s.rig);
-  const modified = useLab((s) => s.modified);
   const running = useLab((s) => s.running);
   const labId = useLab((s) => s.labId);
   const [picker, setPicker] = useState(false);
@@ -461,18 +460,13 @@ export function RigEditor() {
 
   return (
     <div className="flex flex-col gap-3">
-      {custom ? (
-        <div className="flex items-end gap-2">
-          <div className="flex flex-1 flex-col gap-1.5">
-            <Label htmlFor="rig-name" className="text-xs text-muted-foreground">{t("projectName")}</Label>
-            <Input key={rig.id} id="rig-name" defaultValue={rig.name} onBlur={(e) => renameRig(e.target.value)} className="h-8" />
+      {!custom && (
+        <div className="flex flex-col gap-1">
+          <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+            <span className="mr-auto">{t("componentsOf", { title: info.title })}</span>
+            <Button size="xs" variant="outline" disabled={running} onClick={() => newRig({ copy: true })} title={t("copyTitle")}><CopyPlus /> {t("copy")}</Button>
           </div>
-        </div>
-      ) : (
-        <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-          <span className="mr-auto">{modified ? t("personal", { title: info.title }) : t("componentsOf", { title: info.title })}</span>
-          {modified && <Button size="xs" variant="outline" disabled={running} onClick={resetPreset}><RotateCcw /> {t("reset")}</Button>}
-          <Button size="xs" variant="outline" disabled={running} onClick={() => newRig({ copy: true })} title={t("copyTitle")}><CopyPlus /> {t("copy")}</Button>
+          <p className="text-xs text-muted-foreground">{t("forkHint")}</p>
         </div>
       )}
 
@@ -494,9 +488,6 @@ export function RigEditor() {
           <Button variant="ghost" disabled={running || !linked} onClick={() => void testOutputs()} title={linked ? t("testTitle") : t("connectFirst")}>{t("test")}</Button>
         )}
       </div>
-      {!!inputs.length && !outs.length && (
-        <p className="text-xs text-muted-foreground">{t("outputsHint")} <button type="button" className="underline underline-offset-2" onClick={() => openGuide("outputs")}>{t("howItWorks")}</button></p>
-      )}
       <ComponentPicker open={picker} onOpenChange={setPicker} />
       <details className="text-xs text-muted-foreground">
         <summary className="cursor-pointer font-medium hover:text-foreground">{t("quantities")}</summary>

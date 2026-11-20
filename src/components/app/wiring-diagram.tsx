@@ -9,7 +9,7 @@
 // Ogni blocco è una sezione richiudibile (WiringSection), come i consigli degli strumenti.
 
 import { useState } from "react";
-import { ArrowRight, Bluetooth, BluetoothSearching, Check, ChevronDown, ListChecks, Maximize2, MemoryStick, Plus, RotateCcw, X } from "lucide-react";
+import { ArrowRight, Bluetooth, BluetoothSearching, Check, ChevronDown, ChevronLeft, ChevronRight, ListChecks, Maximize2, MemoryStick, Unplug, X } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogClose, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
@@ -17,7 +17,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { btOf, type SensorInstance } from "@/lib/sensors/rig";
 import { SENSORS, type SensorType } from "@/lib/sensors/catalog";
 import { useLab, bluetoothSetup, addSensor } from "@/lib/lab-store";
-import { prefs, isPhoneWidth } from "@/lib/prefs";
+import { prefs } from "@/lib/prefs";
 import { cn } from "@/lib/utils";
 import { GlideNav } from "./glide-nav";
 import { PanZoom } from "./pan-zoom";
@@ -173,20 +173,16 @@ function useSteps(sensors: SensorInstance[], bt: BtModule, style: Style): StepDa
   ];
 }
 
-/** Passi fatti, salvati per questo montaggio (cambiando sensori, pin o tipo di schema si riparte da capo). */
-function useDone(steps: StepData[], style: Style) {
+/** Il passo sullo schermo (per questa sessione, condiviso tra la scheda e lo schermo intero):
+ *  niente da spuntare, si va avanti e indietro. Cambiando circuito si riparte dal primo. */
+function useStepNav(steps: StepData[], style: Style) {
   const sig = hashKey(style + steps.map((s) => s.title + s.wires.map((w) => w.from + w.to).join(",")).join("|"));
-  const key = `mosaicus.steps.${sig}`;
-  const [store, setStore] = useState(() => ({ sig, done: prefs.get<number[]>(key, []) }));
-  if (store.sig !== sig) setStore({ sig, done: prefs.get<number[]>(key, []) });
-  const done = new Set((store.sig === sig ? store.done : []).filter((i) => i < steps.length));
-  const save = (next: Set<number>) => { const arr = [...next].sort((a, b) => a - b); setStore({ sig, done: arr }); prefs.set(key, arr); };
-  const toggle = (i: number, on = !done.has(i)) => { const n = new Set(done); if (on) n.add(i); else n.delete(i); save(n); };
-  const reset = () => save(new Set());
-  const current = steps.findIndex((_, i) => !done.has(i));
-  return { done, toggle, reset, current };
+  const [nav, setNav] = useState({ sig, i: 0 });
+  const current = nav.sig === sig ? Math.min(nav.i, Math.max(0, steps.length - 1)) : 0;
+  const go = (i: number) => setNav({ sig, i: Math.max(0, Math.min(steps.length - 1, i)) });
+  return { current, go };
 }
-type DoneState = ReturnType<typeof useDone>;
+type StepNav = ReturnType<typeof useStepNav>;
 
 function StepBody({ s }: { s: StepData }) {
   return (
@@ -206,98 +202,81 @@ function StepBody({ s }: { s: StepData }) {
   );
 }
 
-/** Il cerchio del passo: il numero, o la spunta quando è fatto. Area da toccare di 40 px. */
-function StepCheck({ n, current, done, label, onClick }: { n: number; current: boolean; done: boolean; label: string; onClick: () => void }) {
+/** Il numero del passo: in inchiostro quello sullo schermo. */
+function StepNum({ n, current }: { n: number; current: boolean }) {
   return (
-    <button type="button" onClick={onClick} aria-pressed={done} aria-label={label} title={label}
-      className="group/chk -m-2 grid size-10 shrink-0 place-items-center rounded-full outline-none focus-visible:ring-2 focus-visible:ring-ring/50">
-      <span className={cn("grid size-6 place-items-center rounded-full text-xs font-medium tabular transition-[background-color,color,transform] duration-150 group-active/chk:scale-90",
-        done ? "bg-foreground/[0.08] text-foreground" : current ? "bg-foreground text-background" : "text-muted-foreground ring-1 ring-border ring-inset group-hover/chk:text-foreground")}>
-        {done ? <Check className="size-3.5" strokeWidth={2.5} /> : n}
-      </span>
-    </button>
+    <span aria-hidden className={cn("grid size-6 shrink-0 place-items-center rounded-full text-xs font-medium tabular transition-colors duration-150",
+      current ? "bg-foreground text-background" : "text-muted-foreground ring-1 ring-border ring-inset")}>{n}</span>
   );
 }
 
-function StepsChecklist({ steps, state }: { steps: StepData[]; state: DoneState }) {
+/** I passi uno alla volta: si apre il passo corrente, con Precedente / Avanti; un clic su un titolo
+ *  porta a quel passo. */
+function StepsWalkthrough({ steps, nav }: { steps: StepData[]; nav: StepNav }) {
   const t = useTranslations("rig.guide");
-  const { done, toggle, reset, current } = state;
-  // aperto: di solito il passo corrente; un clic sull'intestazione apre (o chiude) un altro passo
-  const [open, setOpen] = useState<number | null | "auto">("auto");
-  const isOpen = (i: number) => (open === "auto" ? i === current : open === i);
-  const total = steps.length, nDone = done.size;
-  const progress = t("stepsProgress", { done: nDone, total });
+  const { current, go } = nav;
+  const total = steps.length;
   return (
-    <div className="flex flex-col gap-2">
-      {nDone > 0 && (
-        <div className="flex h-7 items-center gap-3">
-          <div className="h-1 flex-1 overflow-hidden rounded-full bg-muted" role="progressbar" aria-valuemin={0} aria-valuemax={total} aria-valuenow={nDone} aria-label={progress}>
-            <div className="h-full rounded-full bg-foreground transition-[width] duration-300 ease-out" style={{ width: `${total ? (nDone / total) * 100 : 0}%` }} />
-          </div>
-          <Button size="xs" variant="ghost" className="-mr-2 text-muted-foreground" onClick={() => { reset(); setOpen("auto"); }}><RotateCcw /> {t("stepsReset")}</Button>
-        </div>
-      )}
-      {current === -1 && (
-        <p className="flex items-start gap-2 py-1 text-sm text-pretty"><Check className="mt-0.5 size-4 shrink-0 text-success" aria-hidden /> {t("allDone")}</p>
-      )}
-      <ol className="flex flex-col gap-0.5">
-        {steps.map((s, i) => {
-          const isDone = done.has(i), cur = i === current, exp = isOpen(i);
-          const summary = s.wires.length ? t("stepWires", { n: s.wires.length }) : undefined;
-          return (
-            <li key={i} className={cn("rounded-lg transition-colors duration-200", exp && "bg-foreground/[0.03]")}>
-              <div className="flex items-center gap-2.5 py-1 pr-1 pl-2.5">
-                <StepCheck n={i + 1} current={cur} done={isDone} label={isDone ? t("stepUndo") : t("stepMark")} onClick={() => toggle(i)} />
-                <button type="button" onClick={() => setOpen(exp ? null : i)} aria-expanded={exp}
-                  className="flex min-h-10 min-w-0 flex-1 items-center gap-2 rounded-md px-1 text-left outline-none focus-visible:ring-2 focus-visible:ring-ring/50">
-                  {s.wires.length > 0 && <Swatch color={s.color} className="h-3 w-[3px]" />}
-                  <span className={cn("min-w-0 flex-1 truncate text-sm font-medium", isDone && "text-muted-foreground line-through decoration-foreground/25")}>{s.title}</span>
-                  {!exp && summary && <span className="shrink-0 text-xs text-muted-foreground tabular">{summary}</span>}
-                  <ChevronDown className={cn("size-4 shrink-0 text-muted-foreground transition-transform duration-200", !exp && "-rotate-90")} aria-hidden />
-                </button>
-              </div>
-              {exp && (
-                <div className="flex gap-3 pr-3 pb-3 pl-2.5">
-                  {s.thumb && <span className="mt-1 hidden size-10 shrink-0 place-items-center rounded-md bg-muted/60 p-1 sm:grid" aria-hidden><ComponentThumb type={s.thumb} className="size-full" /></span>}
-                  <div className={cn("flex min-w-0 flex-1 flex-col gap-3", !s.thumb && "sm:pl-[2.125rem]")}>
-                    <StepBody s={s} />
-                    <div className="flex">
-                      {isDone
-                        ? <Button size="sm" variant="ghost" className="-ml-2 text-muted-foreground" onClick={() => toggle(i, false)}><RotateCcw /> {t("stepUndo")}</Button>
-                        : <Button size="sm" variant="outline" onClick={() => { toggle(i, true); setOpen("auto"); }}>
-                          <Check /> {i === total - 1 ? t("stepFinish") : t("stepDone")}
-                        </Button>}
-                    </div>
+    <ol className="flex flex-col gap-0.5">
+      {steps.map((s, i) => {
+        const cur = i === current;
+        const summary = s.wires.length ? t("stepWires", { n: s.wires.length }) : undefined;
+        return (
+          <li key={i} className={cn("rounded-lg transition-colors duration-200", cur && "bg-foreground/[0.03]")}>
+            <button type="button" onClick={() => go(i)} aria-current={cur ? "step" : undefined}
+              className="flex min-h-11 w-full items-center gap-3 rounded-lg px-2.5 text-left outline-none focus-visible:ring-2 focus-visible:ring-ring/50">
+              <StepNum n={i + 1} current={cur} />
+              {s.wires.length > 0 && <Swatch color={s.color} className="h-3 w-[3px]" />}
+              <span className={cn("min-w-0 flex-1 truncate text-sm", cur ? "font-semibold" : "font-medium text-muted-foreground")}>{s.title}</span>
+              {!cur && summary && <span className="shrink-0 text-xs text-muted-foreground tabular">{summary}</span>}
+            </button>
+            {cur && (
+              <div className="flex gap-3 pr-3 pb-3 pl-2.5">
+                {s.thumb && <span className="mt-1 hidden size-10 shrink-0 place-items-center rounded-md bg-muted/60 p-1 sm:grid" aria-hidden><ComponentThumb type={s.thumb} className="size-full" /></span>}
+                <div className={cn("flex min-w-0 flex-1 flex-col gap-3", !s.thumb && "sm:pl-9")}>
+                  <StepBody s={s} />
+                  <div className="flex items-center gap-2 border-t pt-3">
+                    <Button size="sm" variant="ghost" className="-ml-2" disabled={i === 0} onClick={() => go(i - 1)}><ChevronLeft /> {t("prevStep")}</Button>
+                    <span className="flex-1 text-center text-xs text-muted-foreground tabular">{t("stepOf", { n: i + 1, total })}</span>
+                    <Button size="sm" variant="outline" disabled={i === total - 1} onClick={() => go(i + 1)}>{t("nextStep")} <ChevronRight /></Button>
                   </div>
                 </div>
-              )}
-            </li>
-          );
-        })}
-      </ol>
-    </div>
-  );
-}
-
-/** I passi in breve, accanto allo schema a tutto schermo: i fili solo per il passo corrente. */
-function StepsCompact({ steps, state }: { steps: StepData[]; state: DoneState }) {
-  const t = useTranslations("rig.guide");
-  const { done, toggle, current } = state;
-  return (
-    <ol className="flex flex-col gap-1">
-      {steps.map((s, i) => {
-        const isDone = done.has(i), cur = i === current;
-        return (
-          <li key={i} className={cn("rounded-lg px-2.5 py-1", cur && "bg-foreground/[0.04]")}>
-            <div className="flex items-center gap-2.5">
-              <StepCheck n={i + 1} current={cur} done={isDone} label={isDone ? t("stepUndo") : t("stepMark")} onClick={() => toggle(i)} />
-              <span className={cn("min-w-0 flex-1 truncate text-[13px] font-medium", isDone && "text-muted-foreground line-through decoration-foreground/25")}>{s.title}</span>
-            </div>
-            {cur && !!s.wires.length && <ul className="mt-0.5 mb-1 flex flex-col divide-y divide-border pl-[2.125rem]">{s.wires.map((w, k) => <WireLine key={k} {...w} compact />)}</ul>}
+              </div>
+            )}
           </li>
         );
       })}
     </ol>
+  );
+}
+
+/** I passi in breve, accanto allo schema a tutto schermo: i fili solo per il passo sullo schermo. */
+function StepsCompact({ steps, nav }: { steps: StepData[]; nav: StepNav }) {
+  const t = useTranslations("rig.guide");
+  const { current, go } = nav;
+  return (
+    <div className="flex flex-col gap-2">
+      <ol className="flex flex-col gap-0.5">
+        {steps.map((s, i) => {
+          const cur = i === current;
+          return (
+            <li key={i} className={cn("rounded-lg", cur && "bg-foreground/[0.04]")}>
+              <button type="button" onClick={() => go(i)} aria-current={cur ? "step" : undefined}
+                className="flex min-h-9 w-full items-center gap-2.5 rounded-lg px-2.5 text-left outline-none focus-visible:ring-2 focus-visible:ring-ring/50">
+                <StepNum n={i + 1} current={cur} />
+                <span className={cn("min-w-0 flex-1 truncate text-[13px]", cur ? "font-semibold" : "font-medium text-muted-foreground")}>{s.title}</span>
+              </button>
+              {cur && !!s.wires.length && <ul className="mb-1 flex flex-col divide-y divide-border pr-2.5 pl-11">{s.wires.map((w, k) => <WireLine key={k} {...w} compact />)}</ul>}
+            </li>
+          );
+        })}
+      </ol>
+      <div className="flex items-center gap-2 px-1">
+        <Button size="icon-sm" variant="ghost" aria-label={t("prevStep")} disabled={current === 0} onClick={() => go(current - 1)}><ChevronLeft /></Button>
+        <span className="flex-1 text-center text-xs text-muted-foreground tabular">{t("stepOf", { n: current + 1, total: steps.length })}</span>
+        <Button size="icon-sm" variant="ghost" aria-label={t("nextStep")} disabled={current === steps.length - 1} onClick={() => go(current + 1)}><ChevronRight /></Button>
+      </div>
+    </div>
   );
 }
 
@@ -326,7 +305,7 @@ function Legend({ real, boards }: { real: boolean; boards: number }) {
 export function WiringGuide({ sensors: all, editable = false }: { sensors: SensorInstance[]; editable?: boolean }) {
   const t = useTranslations("rig.guide");
   const sensors = all.filter((s) => !SENSORS[s.type].phone);     // il telefono non si collega
-  const [style, setStyleState] = useState<Style>(() => prefs.get<Style>("mosaicus.diagram", isPhoneWidth() ? "schema" : "real"));
+  const [style, setStyleState] = useState<Style>(() => prefs.get<Style>("mosaicus.diagram", "real"));
   const setStyle = (s: Style) => { setStyleState(s); prefs.set("mosaicus.diagram", s); };
   const bt: BtModule = btOf(sensors);
   const sd = sensors.some((s) => s.type === "sd");
@@ -338,7 +317,7 @@ export function WiringGuide({ sensors: all, editable = false }: { sensors: Senso
   const mods = sensors.length ? buildModules(sensors, bt) : [];
   const parts = useParts({ mods, count: style === "real" && plan ? plan.count : null, nCols: plan?.nCols ?? 30, boards: plan?.boards ?? 1, bt, sd });
   const steps = useSteps(sensors, bt, style);
-  const state = useDone(steps, style);
+  const nav = useStepNav(steps, style);
   if (!sensors.length) {
     return (
       <p className="py-6 text-center text-sm text-muted-foreground">{t("empty")}</p>
@@ -351,7 +330,7 @@ export function WiringGuide({ sensors: all, editable = false }: { sensors: Senso
     <GlideNav label={t("styleLabel")} value={style} size="sm"
       items={[{ id: "real", content: t("styleReal"), onSelect: () => setStyle("real") }, { id: "schema", content: t("styleSchema"), onSelect: () => setStyle("schema") }]} />
   );
-  const stepsMeta = t("stepsMeta", { done: state.done.size, total: steps.length });
+  const stepsMeta = t("stepsCount", { n: steps.length });
   return (
     <div className="@container flex flex-col">
       <WiringSection id="diagram" title={t("diagram")}>
@@ -373,9 +352,10 @@ export function WiringGuide({ sensors: all, editable = false }: { sensors: Senso
             <div className="flex items-center gap-3">
               <DropdownMenu>
                 <DropdownMenuTrigger render={<Button size="sm" variant="outline" disabled={running} />}>
-                  <Plus /> {t("addModule")} <ChevronDown className="text-muted-foreground" />
+                  <Unplug /> {t("addModule")} <ChevronDown className="text-muted-foreground" />
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="start" className="w-64">
+                <DropdownMenuContent align="start" className="w-72">
+                  <p className="px-2 pt-1.5 pb-2 text-xs text-pretty text-muted-foreground">{t("noCable")}</p>
                   <DropdownMenuItem className="items-start" onClick={() => addSensor("hc06")}>
                     <Bluetooth className="mt-0.5" />
                     <span className="flex flex-col"><span>HC-06</span><span className="text-xs text-muted-foreground">{t("moduleHc06")}</span></span>
@@ -390,7 +370,6 @@ export function WiringGuide({ sensors: all, editable = false }: { sensors: Senso
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
-              <span className="text-xs text-pretty text-muted-foreground">{t("noCable")}</span>
             </div>
           )}
         </div>
@@ -401,7 +380,7 @@ export function WiringGuide({ sensors: all, editable = false }: { sensors: Senso
       </WiringSection>
 
       <WiringSection id="steps" title={t("steps")} meta={stepsMeta}>
-        <StepsChecklist steps={steps} state={state} />
+        <StepsWalkthrough steps={steps} nav={nav} />
       </WiringSection>
 
       <Dialog open={big} onOpenChange={setBig}>
@@ -433,7 +412,7 @@ export function WiringGuide({ sensors: all, editable = false }: { sensors: Senso
                     <h3 className="text-[13px] font-semibold">{t("steps")}</h3>
                     <span className="text-[13px] text-muted-foreground tabular">{stepsMeta}</span>
                   </div>
-                  <StepsCompact steps={steps} state={state} />
+                  <StepsCompact steps={steps} nav={nav} />
                 </section>
               </aside>
             )}

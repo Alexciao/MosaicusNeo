@@ -1,7 +1,8 @@
 "use client";
 
+import { useState } from "react";
 import { useTranslations } from "next-intl";
-import { Cable, LayoutGrid, Plus, SlidersHorizontal, TriangleExclamationPoint } from "lucide-react";
+import { Cable, LayoutGrid, Pencil, Plus, Search, SlidersHorizontal, TriangleExclamationPoint } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Sidebar, SidebarInset, SidebarProvider, SidebarRail, SidebarTrigger } from "@/components/ui/sidebar";
@@ -9,14 +10,15 @@ import { useLab, labInfo, needsArduino, hasMap, openGuide, showWiring, setLabsSi
 import { SENSORS, pinName, type SensorType } from "@/lib/sensors/catalog";
 import { sensorLabel, isPhoneRig, type SensorInstance } from "@/lib/sensors/rig";
 import { audioSupported } from "@/lib/mosaicus/audio.js";
-import { LabPicker } from "./lab-picker";
+import { LabPicker, RigMenu } from "./lab-picker";
 import { ResponsivePanel } from "./responsive-panel";
 import { RunCard } from "./run-card";
 import { ChartCard } from "./chart-card";
 import { MapCard } from "./map-card";
 import { SidePanel } from "./side-panel";
-import { RigEditor } from "./rig-editor";
-import { ConnectionControls, canReachArduino } from "./connection-controls";
+import { ComponentPicker, RigEditor } from "./rig-editor";
+import { ComponentThumb } from "./board-diagram";
+import { canReachArduino } from "./connection-controls";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { ScopePanel } from "@/components/instruments/scope-panel";
 import { SynthPanel } from "@/components/instruments/synth-panel";
@@ -61,7 +63,9 @@ export function LabHeading({ onPick, onSensors }: { onPick: () => void; onSensor
   const labId = useLab((s) => s.labId);
   const rig = useLab((s) => s.rig);
   const modified = useLab((s) => s.modified);
+  const project = useLab((s) => s.customRigs.find((r) => r.id === s.labId));
   const t = useTranslations("app.measure");
+  const tp = useTranslations("rig.picker");
   const info = labInfo(labId);
   // esperimenti pronti col solo telefono: niente da collegare né da cambiare, solo come si usano
   const phoneLab = info.kind === "preset" && isPhoneRig(rig);
@@ -69,10 +73,20 @@ export function LabHeading({ onPick, onSensors }: { onPick: () => void; onSensor
     <div className="flex flex-col gap-1.5">
       <div className="flex min-h-9 items-center gap-2">
         <SidebarTrigger className="-ml-1.5 hidden text-muted-foreground lg:inline-flex" title={t("toggleLabs")} />
-        <h2 className="flex min-w-0 flex-1 items-baseline gap-2 text-xl leading-tight font-semibold tracking-[-0.015em]">
-          <span className="truncate">{info.title}</span>
-          {modified && <span className="shrink-0 text-[13px] font-normal tracking-normal text-muted-foreground">{t("custom")}</span>}
-        </h2>
+        <div className="group/title flex min-w-0 flex-1 items-center gap-1.5">
+          <h2 className="flex min-w-0 items-baseline gap-2 text-xl leading-tight font-semibold tracking-[-0.015em]">
+            <span className="truncate">{info.title}</span>
+            {modified && <span className="shrink-0 text-[13px] font-normal tracking-normal text-muted-foreground">{t("custom")}</span>}
+          </h2>
+          {project && (
+            <RigMenu rig={project} side="bottom" trigger={
+              <Button variant="ghost" size="icon-sm" aria-label={tp("actionsFor", { name: project.name })} title={tp("actionsFor", { name: project.name })}
+                className="shrink-0 text-muted-foreground opacity-0 group-hover/title:opacity-100 focus-visible:opacity-100 aria-expanded:opacity-100 pointer-coarse:opacity-100">
+                <Pencil />
+              </Button>
+            } />
+          )}
+        </div>
         <Button variant="outline" size="sm" className="hidden md:inline-flex lg:hidden" onClick={onPick}><LayoutGrid /> {t("changeLab")}</Button>
       </div>
       {!info.instrument && (
@@ -108,36 +122,29 @@ export function LabHeading({ onPick, onSensors }: { onPick: () => void; onSensor
 /** I componenti più usati, da aggiungere con un clic quando il progetto è vuoto. */
 const QUICK: SensorType[] = ["sonar", "ntc", "dht", "ldr", "button", "imu"];
 
-function QuickPick({ onAll }: { onAll: () => void }) {
+/** Progetto vuoto: non si può misurare. Un avviso (non un pannello qualsiasi) con i componenti
+ *  più usati da aggiungere con un clic e il catalogo intero. */
+function NoComponents({ onAll }: { onAll: () => void }) {
   const t = useTranslations("app.measure");
   const running = useLab((s) => s.running);
   return (
-    <section className="overflow-hidden rounded-xl border bg-card">
-      <div className="px-5 pt-5 pb-4">
-        <h3 className="text-base font-semibold">{t("noComponents")}</h3>
-        <p className="mt-1 text-sm text-muted-foreground">{t("quickPickHint")}</p>
+    <section role="status" className="flex flex-col gap-4 rounded-xl border border-warning/35 bg-warning/[0.06] p-4 sm:p-5">
+      <div className="flex gap-3">
+        <TriangleExclamationPoint aria-hidden className="mt-0.5 size-4 shrink-0 text-warning" />
+        <div className="min-w-0">
+          <h3 className="text-sm font-semibold">{t("noComponents")}</h3>
+          <p className="mt-0.5 text-sm text-muted-foreground">{t("quickPickHint")}</p>
+        </div>
       </div>
-      <ul className="grid grid-cols-1 gap-px border-t bg-border min-[480px]:grid-cols-2 lg:grid-cols-3">
-        {QUICK.map((type) => {
-          const def = SENSORS[type];
-          const SIcon = def.icon;
-          return (
-            <li key={type} className="bg-card">
-              <button type="button" disabled={running} onClick={() => addSensor(type)}
-                className="group/q flex w-full items-center gap-3 px-5 py-3.5 text-left transition-colors outline-none hover:bg-muted/60 focus-visible:bg-muted/60 disabled:opacity-50">
-                <SIcon aria-hidden className="size-4 shrink-0 text-muted-foreground" />
-                <span className="min-w-0 flex-1">
-                  <span className="block truncate text-sm font-medium">{def.short}</span>
-                  <span className="block truncate text-xs text-muted-foreground">{def.measures}</span>
-                </span>
-                <Plus aria-hidden className="size-4 shrink-0 text-muted-foreground opacity-0 transition-opacity group-hover/q:opacity-100 group-focus-visible/q:opacity-100" />
-              </button>
-            </li>
-          );
-        })}
-      </ul>
-      <div className="border-t px-3 py-2">
-        <Button variant="ghost" size="sm" onClick={onAll}>{t("allComponents")}</Button>
+      <div className="flex flex-wrap items-center gap-2 sm:pl-7">
+        {QUICK.map((type) => (
+          <Button key={type} variant="outline" size="sm" disabled={running} onClick={() => addSensor(type)} className="bg-card pl-1.5"
+            title={SENSORS[type].measures}>
+            <span className="grid size-5 place-items-center" aria-hidden><ComponentThumb type={type} className="size-full" /></span>
+            {SENSORS[type].short}
+          </Button>
+        ))}
+        <Button variant="ghost" size="sm" onClick={onAll}><Search /> {t("allComponents")}</Button>
       </div>
     </section>
   );
@@ -153,6 +160,7 @@ export function MeasurePage() {
   const ins = info.instrument;
   const setLabs = (open: boolean) => useLab.setState({ labsOpen: open });
   const setRig = (open: boolean) => useLab.setState({ rigOpen: open });
+  const [picker, setPicker] = useState(false);
   // sul computer la barra dei lab resta aperta o chiusa come l'hai lasciata
   const side = useLab((s) => s.labsSidebar);
   // sugli schermi larghi l'elenco dei componenti è già nella colonna a destra: si apre lì
@@ -174,11 +182,10 @@ export function MeasurePage() {
         <div className="mx-auto grid w-full max-w-[1600px] gap-4 p-3 sm:p-4 2xl:grid-cols-[minmax(0,1fr)_24rem]">
           <section className="flex min-w-0 flex-col gap-4">
             <LabHeading onPick={() => setLabs(true)} onSensors={editComponents} />
-            {ins && <ConnectionControls className="flex-wrap empty:hidden lg:hidden" />}
             <SupportBanner />
             {ins?.kind === "scope" ? <ScopePanel key={ins.id} exp={ins} />
               : ins?.kind === "synth" ? <SynthPanel key={ins.id} exp={ins} />
-                : !rig.sensors.length ? <QuickPick onAll={editComponents} /> : (
+                : !rig.sensors.length ? <NoComponents onAll={() => setPicker(true)} /> : (
                   <>
                     <RunCard />
                     {hasMap(rig) && <MapCard />}
@@ -196,6 +203,8 @@ export function MeasurePage() {
       <ResponsivePanel open={rigOpen} onOpenChange={setRig} title={t("components")}>
         <RigEditor />
       </ResponsivePanel>
+      {/* «Sfoglia tutti i componenti» dal progetto vuoto: il catalogo direttamente, senza il pannello */}
+      <ComponentPicker open={picker} onOpenChange={setPicker} />
     </SidebarProvider>
   );
 }

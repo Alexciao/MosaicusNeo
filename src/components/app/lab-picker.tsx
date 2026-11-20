@@ -56,7 +56,9 @@ function Item({ id, title, icon: Icon, tone, menu }: Entry) {
 }
 
 /** Menu «⋯» di un progetto: rinomina, duplica, elimina. */
-function RigMenu({ rig }: { rig: Rig }) {
+/** Menu di un progetto: rinomina, colore e icona, duplica, elimina. trigger: il pulsante che lo apre
+ *  (di serie i «⋯» della barra dei lab; accanto al titolo del lab, una matita). */
+export function RigMenu({ rig, trigger, side = "right" }: { rig: Rig; trigger?: React.ReactElement; side?: "right" | "bottom" }) {
   const t = useTranslations("rig.picker");
   const running = useLab((s) => s.running);
   const isOpen = useLab((s) => s.labId === rig.id);
@@ -67,10 +69,12 @@ function RigMenu({ rig }: { rig: Rig }) {
   return (
     <>
       <DropdownMenu>
-        <DropdownMenuTrigger render={<SidebarMenuAction showOnHover aria-label={t("actionsFor", { name: rig.name })} className="top-1/2! -translate-y-1/2 pointer-coarse:opacity-100" />}>
-          <Ellipsis />
-        </DropdownMenuTrigger>
-        <DropdownMenuContent side="right" align="start" className="w-48">
+        {trigger ? <DropdownMenuTrigger render={trigger} /> : (
+          <DropdownMenuTrigger render={<SidebarMenuAction showOnHover aria-label={t("actionsFor", { name: rig.name })} className="top-1/2! -translate-y-1/2 pointer-coarse:opacity-100" />}>
+            <Ellipsis />
+          </DropdownMenuTrigger>
+        )}
+        <DropdownMenuContent side={side} align="start" className="w-48">
           <DropdownMenuItem onClick={() => { setName(rig.name); setRenaming(true); }}><Pencil /> {t("rename")}</DropdownMenuItem>
           <DropdownMenuItem onClick={() => setStyling(true)}><Palette /> {t("customize")}</DropdownMenuItem>
           <DropdownMenuItem disabled={running} onClick={() => duplicateRig(rig.id)}><Copy /> {t("duplicate")}</DropdownMenuItem>

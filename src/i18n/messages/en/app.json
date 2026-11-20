@@ -32,6 +32,9 @@
     "stop": "Turn off the synth"
   },
   "connect": {
+    "connection": "Connection",
+    "connect": "Connect",
+    "phoneShort": "Phone",
     "usb": "Connect Arduino",
     "bt": "Connect via Bluetooth",
     "ble": "Connect via Bluetooth LE",
@@ -90,9 +93,9 @@
     "addComponents": "Add components",
     "howToWire": "Wiring",
     "howToUse": "How to use",
-    "noComponents": "No components",
-    "quickPickHint": "Pick what you connected to Arduino. You can add more later; all readings share the same charts.",
-    "allComponents": "All components…",
+    "noComponents": "This project has no components",
+    "quickPickHint": "Add at least one sensor to start measuring. The most common:",
+    "allComponents": "Browse all components",
     "components": "Components"
   },
   "chart": {
@@ -162,8 +165,8 @@
     "stop": "Stop",
     "start": "Start",
     "zeroTitle": "Use the current position as the origin",
-    "needLink": "Connect Arduino or start the simulator to begin.",
-    "needPhone": "Turn on the phone sensors to begin.",
+    "needLink": "Connect Arduino or start the simulator from the top bar to begin.",
+    "needPhone": "Turn on the phone sensors from the top bar to begin.",
     "zeroShort": "Zero",
     "startAgain": "New measurement",
     "status": {

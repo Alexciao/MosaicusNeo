@@ -428,17 +428,35 @@ export function selectLab(id: string, { keepData = false } = {}) {
   applyRig(rig, modified, { keepData });
 }
 
-/** Modifica del montaggio: per un preset diventa una sua versione personale, per un montaggio libero si salva. */
+/** Un esperimento pronto modificato diventa un progetto «Modifica di …» (l'originale resta com'è):
+ *  colore dell'argomento, grafici scelti copiati. Restituisce il progetto, già salvato nell'elenco. */
+function forkPreset(p: Preset, sensors: SensorInstance[]): Rig {
+  const id = `rig-${newId()}`;
+  const fork: Rig = { id, name: t("lab.info.editOf", { name: p.title }), tone: p.tone, sensors: sensors.map((s) => ({ ...s, options: { ...s.options }, pins: { ...s.pins } })) };
+  const vis = prefs.get<string[] | null>(`mosaicus.visible.${p.id}`, null);
+  if (vis) prefs.set(`mosaicus.visible.${id}`, vis);
+  const list = [...get().customRigs, fork];
+  set({ customRigs: list });
+  prefs.set("mosaicus.rigs", list);
+  return fork;
+}
+
+/** Modifica del montaggio: un esperimento pronto diventa un progetto nuovo, un progetto si salva. */
 function commitRig(rig: Rig) {
   if (get().running) { toast(t("lab.toast.stopBeforeComponents")); return false; }
   const p = presetById(rig.id);
-  if (p) prefs.set(rigKey(rig.id), rig.sensors);
-  else {
+  if (p) {
+    const fork = forkPreset(p, rig.sensors);
+    selectLab(fork.id, { keepData: true });
+    toast(t("lab.toast.forked", { name: fork.name }));
+    return true;
+  }
+  {
     const list = get().customRigs.map((r) => (r.id === rig.id ? rig : r));
     set({ customRigs: list });
     prefs.set("mosaicus.rigs", list);
   }
-  applyRig(rig, !!p, { keepData: true });
+  applyRig(rig, false, { keepData: true });
   return true;
 }
 
@@ -533,7 +551,19 @@ export function renameRigById(id: string, name: string) {
 function loadRigs(): Rig[] {
   const raw = prefs.get<Rig[]>("mosaicus.rigs", []);
   const list = raw.map(normalizeRig);
-  if (list.some((r, i) => r !== raw[i])) prefs.set("mosaicus.rigs", list);
+  // versioni personali degli esperimenti pronti (prima di «Modifica di …»): diventano progetti
+  let changed = list.some((r, i) => r !== raw[i]);
+  for (const p of PRESETS) {
+    const saved = prefs.get<SensorInstance[] | null>(rigKey(p.id), null);
+    if (!saved) continue;
+    const id = `rig-${newId()}`;
+    list.push(normalizeRig({ id, name: t("lab.info.editOf", { name: p.title }), tone: p.tone, sensors: saved }));
+    const vis = prefs.get<string[] | null>(`mosaicus.visible.${p.id}`, null);
+    if (vis) prefs.set(`mosaicus.visible.${id}`, vis);
+    prefs.set(rigKey(p.id), null);
+    changed = true;
+  }
+  if (changed) prefs.set("mosaicus.rigs", list);
   return list;
 }
 /** Colore e icona di un progetto (si possono cambiare anche durante una misura: è solo aspetto). */

@@ -6,13 +6,12 @@
 // Mentre registra cambiano solo la spia (rossa), la parola e il pulsante: niente altro grida.
 
 import { useTranslations } from "next-intl";
-import { Crosshair, LoaderCircle, Pencil, Play, Square, Unplug } from "lucide-react";
+import { Crosshair, LoaderCircle, Pencil, Play, Square } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Diagnostics, DeviceMirror } from "./device-status";
-import { ConnectButton, PhoneButton, SimButton, SimSpeed } from "./connection-controls";
 import {
-  useLab, start, stop, zeroPosition, setSessionName, commitSessionName, readoutsOf, canStart, rigHas, guideStep, disconnect,
+  useLab, start, stop, zeroPosition, setSessionName, commitSessionName, readoutsOf, canStart, rigHas, guideStep,
 } from "@/lib/lab-store";
 import { sensorLabel, isPhoneRig } from "@/lib/sensors/rig";
 import { fmtVal } from "@/lib/prefs";
@@ -89,13 +88,11 @@ export function RunCard() {
   const running = useLab((s) => s.running);
   const name = useLab((s) => s.sessionName);
   const hasRows = useLab((s) => s.rows.length > 0);
-  const linkKind = useLab((s) => s.linkKind);
   const startable = useLab(canStart);
   const step = useLab(guideStep);
   const sonar = useLab((s) => rigHas(["sonar"], s.rig));
   const phone = useLab((s) => isPhoneRig(s.rig));
   const t = useTranslations("app.run");
-  const tc = useTranslations("app.connect");
   const status: Status = step === "link" ? "off" : step === "wait" ? "connecting" : running ? "recording" : hasRows ? "done" : "ready";
   return (
     <Card className="gap-0 p-0">
@@ -114,12 +111,7 @@ export function RunCard() {
 
         <div className="flex shrink-0 items-center gap-2">
           {step === "link" ? (
-            phone ? <PhoneButton variant="brand" /> : (
-              <>
-                <SimButton />
-                <ConnectButton />
-              </>
-            )
+            <Button variant="brand" className="min-w-24" disabled><Play className="fill-current" /> {t("start")}</Button>
           ) : step === "wait" ? (
             <Button variant="outline" disabled><LoaderCircle className="animate-spin" /> {t("connecting")}</Button>
           ) : running ? (
@@ -128,15 +120,9 @@ export function RunCard() {
             </Button>
           ) : (
             <>
-              {linkKind === "simulatore" && <SimSpeed />}
               {sonar && <Button variant="ghost" onClick={zeroPosition} title={t("zeroTitle")}><Crosshair /> {t("zeroShort")}</Button>}
               <Button variant="brand" className="min-w-24" disabled={!startable} onClick={() => void start()}>
                 <Play className="fill-current" /> {hasRows ? t("startAgain") : t("start")}
-              </Button>
-              <Button variant="ghost" size="icon" className="text-muted-foreground"
-                aria-label={linkKind === "telefono" ? tc("phoneOff") : tc("disconnect")} title={linkKind === "telefono" ? tc("phoneOff") : tc("disconnect")}
-                onClick={() => void disconnect()}>
-                <Unplug />
               </Button>
             </>
           )}

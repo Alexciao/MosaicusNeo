@@ -32,6 +32,9 @@
     "stop": "Spegni il synth"
   },
   "connect": {
+    "connection": "Collegamento",
+    "connect": "Collega",
+    "phoneShort": "Telefono",
     "usb": "Collega Arduino",
     "bt": "Collega via Bluetooth",
     "ble": "Collega via Bluetooth LE",
@@ -90,9 +93,9 @@
     "addComponents": "Aggiungi componenti",
     "howToWire": "Collegamenti",
     "howToUse": "Come si usa",
-    "noComponents": "Nessun componente",
-    "quickPickHint": "Scegli che cosa hai collegato ad Arduino. Puoi aggiungerne altri dopo: le letture finiscono sugli stessi grafici.",
-    "allComponents": "Tutti i componenti…",
+    "noComponents": "Questo progetto non ha componenti",
+    "quickPickHint": "Aggiungi almeno un sensore per poter misurare. I più usati:",
+    "allComponents": "Sfoglia tutti i componenti",
     "components": "Componenti"
   },
   "chart": {
@@ -162,8 +165,8 @@
     "stop": "Ferma",
     "start": "Avvia",
     "zeroTitle": "Usa la posizione attuale come origine",
-    "needLink": "Collega Arduino o avvia il simulatore per iniziare.",
-    "needPhone": "Attiva i sensori del telefono per iniziare.",
+    "needLink": "Collega Arduino o avvia il simulatore dalla barra in alto per iniziare.",
+    "needPhone": "Attiva i sensori del telefono dalla barra in alto per iniziare.",
     "zeroShort": "Azzera",
     "startAgain": "Nuova misura",
     "status": {

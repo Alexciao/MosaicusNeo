@@ -109,6 +109,7 @@
   --tone-rose: #ffe4e6;
   --tone-saffron: #fef3c7;
   --tone-violet: #ede9fe;
+  --logo-accent: #65a30d;
   /* icone sulle piastrelle colorate: la stessa tinta, più scura */
   --tone-lime-fg: #4d7c0f;
   --tone-sky-fg: #0369a1;
@@ -184,6 +185,7 @@
   --tone-rose: rgba(244, 114, 182, 0.12);
   --tone-saffron: rgba(251, 191, 36, 0.12);
   --tone-violet: rgba(167, 139, 250, 0.14);
+  --logo-accent: #c6f432;
   --tone-lime-fg: #bef264;
   --tone-sky-fg: #7dd3fc;
   --tone-rose-fg: #fda4af;
@@ -372,10 +374,11 @@ html.lim *::after {
 
 /* pagine, capitoli della guida, cambio di schema: dissolvenza appena visibile all'ingresso */
 .mz-enter {
-  transition: opacity 180ms var(--ease-out), transform 180ms var(--ease-out);
+  /* solo opacità: una trasformazione farebbe da riferimento agli elementi fissi dentro la pagina
+     (la barra dei lab) e li sposterebbe insieme alla pagina per un attimo */
+  transition: opacity 180ms var(--ease-out);
   @starting-style {
     opacity: 0;
-    transform: translateY(4px);
   }
 }
 
@@ -495,3 +498,19 @@ html.lim *::after {
   .mz-boot-bar span { animation: none; left: 30%; }
 }
 
+
+/* una finestra aperta sopra un pannello (es. il catalogo dei componenti sopra il pannello dei
+   componenti): il pannello si scurisce e non risponde; un clic lì chiude la finestra */
+[data-slot="sheet-content"][data-nested-dialog-open]::after,
+[data-slot="drawer-content"][data-nested-dialog-open]::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 60;
+  border-radius: inherit;
+  background: rgb(0 0 0 / 0.4);
+  animation: mz-dim 200ms var(--ease-out);
+}
+.dark [data-slot="sheet-content"][data-nested-dialog-open]::after,
+.dark [data-slot="drawer-content"][data-nested-dialog-open]::after { background: rgb(0 0 0 / 0.6); }
+@keyframes mz-dim { from { opacity: 0; } }

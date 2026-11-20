@@ -257,7 +257,7 @@
     "serialBusy": "La porta seriale si apre da un solo programma alla volta: con il Monitor seriale dell'IDE aperto, MosaicusNeo non si collega, e viceversa."
   },
   "wiring": {
-    "intro": "Ogni progetto ha il suo schema dei collegamenti, fatto dai suoi componenti e dai pin che hai scelto: apri il progetto e vai nella scheda «Collegamenti». Lì trovi lo schema sulla breadboard (o quello compatto), l'occorrente e i passi, foro per foro.",
+    "intro": "Ogni progetto ha il suo schema dei collegamenti, fatto dai suoi componenti e dai pin che hai scelto: apri il progetto e vai nella scheda «Collegamenti». Lì trovi lo schema sulla breadboard (o la mappa dei pin), l'occorrente e i passi, foro per foro.",
     "breadboard": "La breadboard",
     "bb1": "I cinque fori di una colonna (a–e oppure f–j) sono collegati tra loro; il solco centrale li separa.",
     "bb2": "I binari laterali corrono per tutta la lunghezza: rosso (+) per il 5V, blu (−) per il GND.",
