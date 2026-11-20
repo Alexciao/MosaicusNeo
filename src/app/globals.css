@@ -239,6 +239,24 @@ html.lim *::after {
   html {
     @apply font-sans;
     font-feature-settings: "cv11", "ss01";
+    /* niente lampo grigio al tocco: ogni comando ha già il suo stato premuto */
+    -webkit-tap-highlight-color: transparent;
+  }
+  /* niente attesa del doppio tocco sui comandi (lo zoom con due dita resta) */
+  a, button, input, label, select, textarea, summary, [role="button"], [role="tab"], [role="option"] {
+    touch-action: manipulation;
+  }
+  /* sul tocco i pulsanti piccoli (28–32 px) ricevono il dito su un'area più grande, invisibile;
+     in base così un "absolute" del pulsante vince */
+  @media (pointer: coarse) {
+    [data-slot="button"] {
+      position: relative;
+    }
+    [data-slot="button"]::after {
+      content: "";
+      position: absolute;
+      inset: -6px -4px;
+    }
   }
   ::selection {
     background: color-mix(in oklab, var(--primary) 22%, transparent);
@@ -339,10 +357,18 @@ html.lim *::after {
   opacity: 0;
   transform: scale(0.96);   /* il centraggio usa la proprietà translate, che si somma */
 }
+[data-slot="dialog-content"][data-ending-style],
+[data-slot="alert-dialog-content"][data-ending-style] {
+  transition-duration: 150ms;
+}
 [data-slot="dialog-overlay"],
 [data-slot="alert-dialog-overlay"],
 [data-slot="sheet-overlay"] {
   transition: opacity 250ms var(--ease-out);
+}
+[data-slot="dialog-overlay"][data-ending-style],
+[data-slot="alert-dialog-overlay"][data-ending-style] {
+  transition-duration: 150ms;
 }
 [data-slot="dialog-overlay"]:is([data-starting-style], [data-ending-style]),
 [data-slot="alert-dialog-overlay"]:is([data-starting-style], [data-ending-style]),
@@ -402,6 +428,15 @@ html.lim *::after {
   }
   [data-slot="collapsible-content"] {
     transition-property: opacity;
+  }
+  /* cassetto dal basso (connessione, elenco dei lab sul telefono): solo dissolvenza; il
+     trascinamento col dito resta 1:1 perché lo guida l'utente */
+  [data-slot="drawer-popup"]:not([data-swiping]) {
+    transition-property: opacity, height;
+  }
+  [data-slot="drawer-popup"]:is([data-starting-style], [data-ending-style]) {
+    transform: none !important;
+    opacity: 0 !important;
   }
   .mz-enter {
     @starting-style {
@@ -510,3 +545,24 @@ html.lim *::after {
 .dark [data-slot="sheet-content"][data-nested-dialog-open]::after,
 .dark [data-slot="drawer-content"][data-nested-dialog-open]::after { background: rgb(0 0 0 / 0.6); }
 @keyframes mz-dim { from { opacity: 0; } }
+
+/* ------------------------------------------------------------------------------------------
+   Barre traslucide (intestazione, barra in basso): con «riduci trasparenza» o «aumenta
+   contrasto» diventano piene, con un filo più deciso.
+   ------------------------------------------------------------------------------------------ */
+@media (prefers-reduced-transparency: reduce) {
+  .mz-glass {
+    background-color: var(--background) !important;
+    backdrop-filter: none !important;
+  }
+  [data-slot="drawer-overlay"] {
+    backdrop-filter: none !important;
+  }
+}
+@media (prefers-contrast: more) {
+  .mz-glass {
+    background-color: var(--background) !important;
+    backdrop-filter: none !important;
+    border-color: color-mix(in oklab, var(--foreground) 45%, transparent) !important;
+  }
+}
