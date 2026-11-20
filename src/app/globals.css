@@ -398,7 +398,8 @@ html.lim *::after {
   opacity: 0;
 }
 
-/* pagine, capitoli della guida, cambio di schema: dissolvenza appena visibile all'ingresso */
+/* capitoli della guida, cambio di schema, strumenti dell'analisi: dissolvenza appena visibile
+   all'ingresso (non le pagine: si cambiano decine di volte al giorno, meglio all'istante) */
 .mz-enter {
   /* solo opacità: una trasformazione farebbe da riferimento agli elementi fissi dentro la pagina
      (la barra dei lab) e li sposterebbe insieme alla pagina per un attimo */

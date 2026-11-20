@@ -21,6 +21,9 @@ export const metadata: Metadata = {
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
+  // con la barra di stato traslucida (iPhone, app installata) la pagina passa sotto la tacca:
+  // le barre in alto e in basso aggiungono i margini di sicurezza (env(safe-area-inset-*))
+  viewportFit: "cover",
   themeColor: [
     { media: "(prefers-color-scheme: light)", color: "#fafafa" },
     { media: "(prefers-color-scheme: dark)", color: "#09090b" },

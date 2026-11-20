@@ -27,13 +27,13 @@ function MobileNav() {
   const n = useWorkbench((s) => s.boxes.length);
   const t = useTranslations("app.nav");
   const item = (active: boolean, label: string, Icon: typeof FlaskConical, onClick: () => void, badge?: number) => (
-    <button type="button" onClick={onClick} aria-current={active ? "page" : undefined} className={cn("relative flex flex-1 flex-col items-center gap-0.5 py-2 text-[0.7rem] font-medium transition-colors", active ? "text-foreground" : "text-muted-foreground")}>
-      <Icon className="size-5" strokeWidth={active ? 2.25 : 1.75} />{label}
+    <button type="button" onClick={onClick} aria-current={active ? "page" : undefined} className={cn("relative flex min-w-0 flex-1 flex-col items-center gap-0.5 py-2 text-[0.7rem] font-medium transition-colors select-none active:bg-foreground/[0.04]", active ? "text-foreground" : "text-muted-foreground")}>
+      <Icon className="size-5" strokeWidth={active ? 2.25 : 1.75} /><span className="max-w-full truncate px-1">{label}</span>
       {!!badge && <span className="absolute top-1 left-1/2 ml-2.5 min-w-4 rounded-[5px] bg-foreground px-1 text-center text-[10px] leading-4 font-medium text-background tabular">{badge}</span>}
     </button>
   );
   return (
-    <nav aria-label={t("mobile")} className="fixed inset-x-0 bottom-0 z-40 flex border-t bg-background/95 pb-[env(safe-area-inset-bottom)] backdrop-blur-md md:hidden">
+    <nav aria-label={t("mobile")} className="mz-glass fixed inset-x-0 bottom-0 z-40 flex border-t bg-background/95 pr-[env(safe-area-inset-right)] pb-[env(safe-area-inset-bottom)] pl-[env(safe-area-inset-left)] backdrop-blur-md md:hidden">
       {item(false, t("labs"), LayoutGrid, () => { showPage("misura"); useLab.setState({ labsOpen: true }); })}
       {item(page === "misura", t("misura"), FlaskConical, () => showPage("misura"))}
       {item(page === "quaderno", t("quaderno"), BookOpen, () => showPage("quaderno"))}
@@ -52,9 +52,9 @@ function GenChip() {
   const G = generatorState();
   if (!G.on || (labId === "synth" && page === "misura")) return null;
   return (
-    <div className="fixed right-4 bottom-20 z-40 flex items-center gap-1 rounded-full border bg-screen p-1 pl-3 text-lime shadow-lg md:bottom-4">
+    <div className="fixed right-[max(1rem,env(safe-area-inset-right))] bottom-[calc(5rem+env(safe-area-inset-bottom))] z-40 flex items-center gap-1 rounded-full border bg-screen p-1 pl-3 text-lime shadow-lg md:bottom-4">
       <button type="button" className="flex items-center gap-2 text-sm font-semibold" onClick={() => { showPage("misura"); selectLab("synth"); }} title={t("open")}>
-        <Volume2 className="size-4" />
+        <Volume2 aria-hidden className="size-4" />
         {fmtVal(G.f, G.f < 100 ? 1 : 0)} Hz{G.two ? ` + ${fmtVal(G.f + G.df, 1)} Hz` : ""}
       </button>
       <Button size="icon-sm" variant="ghost" className="rounded-full text-lime hover:bg-white/10 hover:text-lime" onClick={() => stopGenerator()} aria-label={t("stop")}><Square className="fill-current" /></Button>
@@ -65,8 +65,8 @@ function GenChip() {
 export function MosaicusApp() {
   const page = useLab((s) => s.page);
   const t = useTranslations("app.footer");
-  // Le due pagine restano montate (si nasconde quella non attiva): cambiare pagina è istantaneo
-  // e i grafici non si ricostruiscono. Elaborazione si monta alla prima visita.
+  // Le due pagine restano montate (si nasconde quella non attiva): cambiare pagina è istantaneo,
+  // senza dissolvenza (lo si fa decine di volte al giorno), e i grafici non si ricostruiscono. Elaborazione si monta alla prima visita.
   const [seen, setSeen] = useState<Record<string, boolean>>({ [page]: true });
   if (!seen[page]) setSeen({ ...seen, [page]: true });
   useEffect(() => {
@@ -82,12 +82,12 @@ export function MosaicusApp() {
     }
   }, []);
   return (
-    <div className="flex min-h-svh flex-col pb-16 md:pb-0">
+    <div className="flex min-h-svh flex-col pb-[calc(4rem+env(safe-area-inset-bottom))] md:pb-0">
       <AppHeader />
-      <main className="flex-1">
-        <div hidden={page !== "misura"} className="mz-enter"><ErrorBoundary where="misura"><MeasurePage /></ErrorBoundary></div>
-        {seen.quaderno && <div hidden={page !== "quaderno"} className="mz-enter"><ErrorBoundary where="quaderno"><NotebookPage /></ErrorBoundary></div>}
-        {seen.elab && <div hidden={page !== "elab"} className="mz-enter"><ErrorBoundary where="elab"><WorkbenchPage /></ErrorBoundary></div>}
+      <main id="main" tabIndex={-1} className="flex-1 pr-[env(safe-area-inset-right)] pl-[env(safe-area-inset-left)] outline-none">
+        <div hidden={page !== "misura"}><ErrorBoundary where="misura"><MeasurePage /></ErrorBoundary></div>
+        {seen.quaderno && <div hidden={page !== "quaderno"}><ErrorBoundary where="quaderno"><NotebookPage /></ErrorBoundary></div>}
+        {seen.elab && <div hidden={page !== "elab"}><ErrorBoundary where="elab"><WorkbenchPage /></ErrorBoundary></div>}
       </main>
       <footer className="mx-auto flex w-full max-w-[1600px] flex-wrap items-center justify-center gap-x-4 gap-y-1 px-4 py-6 text-xs text-muted-foreground">
         <span>{t("credits")}</span>
