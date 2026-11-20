@@ -727,7 +727,17 @@ export async function connect(kind: "arduino" | "ble" | "sim" | "phone") {
     await l.open();
   } catch (err) {
     const e = err as Error;
-    if (e?.name !== "NotFoundError") toast.error(t(kind === "ble" ? "lab.toast.bleError" : kind === "phone" ? "lab.toast.phoneError" : "lab.toast.portError", { msg: e.message }));
+    // nessun dispositivo scelto nella finestra del browser: non è un errore, nessun messaggio
+    if (e?.name === "NotFoundError") return;
+    const retry = { label: t("lab.action.retry"), onClick: () => void connect(kind) };
+    // permesso negato: lo stato resta visibile nella barra e la notifica dice cosa fare
+    if (e?.name === "NotAllowedError" || e?.name === "SecurityError") {
+      setStatus(t("lab.status.denied"), "err");
+      toast.error(t(kind === "phone" ? "lab.toast.deniedPhone" : "lab.toast.deniedDevice"), { duration: 10000, action: retry });
+      return;
+    }
+    setStatus(t("lab.status.failed"), "err");
+    toast.error(t(kind === "ble" ? "lab.toast.bleError" : kind === "phone" ? "lab.toast.phoneError" : "lab.toast.portError", { msg: e.message }), { action: retry });
     return;
   }
   link = l;

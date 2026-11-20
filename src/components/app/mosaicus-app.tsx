@@ -9,6 +9,8 @@ import { useWorkbench } from "@/lib/workbench-store";
 import { generatorState, onGeneratorChange, stopGenerator } from "@/lib/mosaicus/synth-engine.js";
 import { fmtVal } from "@/lib/prefs";
 import { cn } from "@/lib/utils";
+import { toast } from "@/lib/toast";
+import { t as tr } from "@/i18n";
 import { AppHeader } from "./app-header";
 import { MeasurePage } from "./measure-page";
 import { ConfirmHost } from "./confirm-host";
@@ -78,6 +80,14 @@ export function MosaicusApp() {
     }
     void boot();
     if ("serviceWorker" in navigator && process.env.NODE_ENV === "production") {
+      // una versione nuova prende il posto della vecchia da sola (skipWaiting): se la pagina era già
+      // servita da un service worker, lo si dice e si propone di ricaricare, senza farlo d'autorità
+      // (potrebbe esserci una misura in corso)
+      const hadController = !!navigator.serviceWorker.controller;
+      navigator.serviceWorker.addEventListener("controllerchange", () => {
+        if (!hadController) return;
+        toast.info(tr("app.update.ready"), { duration: Infinity, action: { label: tr("app.update.reload"), onClick: () => location.reload() } });
+      }, { once: true });
       navigator.serviceWorker.register("/sw.js").catch(() => { /* offline non disponibile */ });
     }
   }, []);

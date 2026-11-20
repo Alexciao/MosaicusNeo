@@ -376,7 +376,8 @@
     "tonic": "Tonica",
     "speakerHint": "I timbri si distinguono meglio tra 300 e 1000 Hz: l'altoparlante del telefono riproduce poco le note basse.",
     "stepDown": "Abbassa di 1 Hz",
-    "stepUp": "Alza di 1 Hz"
+    "stepUp": "Alza di 1 Hz",
+    "keysHint": "Dalla tastiera del computer: i tasti da A a L suonano i tasti bianchi, W E T Y U O P i neri."
   },
   "diag": {
     "title": "Diagnostica",
@@ -409,5 +410,9 @@
     "copy": "Copia i dettagli",
     "copied": "Dettagli copiati",
     "report": "Segnala il problema"
+  },
+  "update": {
+    "ready": "È disponibile una nuova versione",
+    "reload": "Ricarica"
   }
 }

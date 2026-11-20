@@ -9,7 +9,9 @@
     "firmwareNotFound": "Firmware not found",
     "phoneReady": "Phone sensors ready",
     "arduinoReady": "Arduino ready · firmware {fw}",
-    "arduinoReadyBle": "Arduino ready (Bluetooth LE) · firmware {fw}"
+    "arduinoReadyBle": "Arduino ready (Bluetooth LE) · firmware {fw}",
+    "denied": "Permission denied",
+    "failed": "Connection failed"
   },
   "info": {
     "editOf": "Edit of {name}",
@@ -29,7 +31,8 @@
     "open": "Open",
     "enable": "Enable",
     "wiring": "Wiring",
-    "analyze": "Analyze"
+    "analyze": "Analyze",
+    "retry": "Try again"
   },
   "lim": {
     "title": "Interactive whiteboard detected",
@@ -99,7 +102,9 @@
     "cantAdd": "Can’t add {name}",
     "addrMove": "{sensor} → address 0x{addr}",
     "btPlug": "Now connect the module’s TXD wire to D0. Arduino waits for the module to answer for about 30 seconds.",
-    "btUnplugFirst": "Arduino didn’t receive “Configure”. Unplug the TXD → D0 wire (on the Uno it drowns out the USB cable’s commands) and press “Configure” again: the app will tell you when to plug it back in."
+    "btUnplugFirst": "Arduino didn’t receive “Configure”. Unplug the TXD → D0 wire (on the Uno it drowns out the USB cable’s commands) and press “Configure” again: the app will tell you when to plug it back in.",
+    "deniedPhone": "Sensor permission denied. Allow it in the browser’s site settings, then try again.",
+    "deniedDevice": "The browser blocked access to the device. Allow it in the site settings, then try again."
   },
   "outErr": {
     "PIN": "invalid pin",

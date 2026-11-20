@@ -9,7 +9,9 @@
     "firmwareNotFound": "Firmware non trovato",
     "phoneReady": "Sensori del telefono pronti",
     "arduinoReady": "Arduino pronto · firmware {fw}",
-    "arduinoReadyBle": "Arduino pronto (Bluetooth LE) · firmware {fw}"
+    "arduinoReadyBle": "Arduino pronto (Bluetooth LE) · firmware {fw}",
+    "denied": "Permesso negato",
+    "failed": "Collegamento non riuscito"
   },
   "info": {
     "editOf": "Modifica di {name}",
@@ -29,7 +31,8 @@
     "open": "Apri",
     "enable": "Attiva",
     "wiring": "Collegamenti",
-    "analyze": "Analizza"
+    "analyze": "Analizza",
+    "retry": "Riprova"
   },
   "lim": {
     "title": "Lavagna interattiva rilevata",
@@ -99,7 +102,9 @@
     "cantAdd": "Impossibile aggiungere {name}",
     "addrMove": "{sensor} → indirizzo 0x{addr}",
     "btPlug": "Ora collega il filo TXD del modulo a D0. Arduino aspetta la risposta del modulo per circa 30 secondi.",
-    "btUnplugFirst": "Arduino non ha ricevuto «Configura». Stacca il filo TXD → D0 (sull'Uno copre i comandi del cavo USB) e premi di nuovo «Configura»: l'app ti dirà quando riattaccarlo."
+    "btUnplugFirst": "Arduino non ha ricevuto «Configura». Stacca il filo TXD → D0 (sull'Uno copre i comandi del cavo USB) e premi di nuovo «Configura»: l'app ti dirà quando riattaccarlo.",
+    "deniedPhone": "Permesso negato per i sensori. Consentili nelle impostazioni del sito nel browser, poi riprova.",
+    "deniedDevice": "Il browser ha bloccato l’accesso al dispositivo. Consentilo nelle impostazioni del sito, poi riprova."
   },
   "outErr": {
     "PIN": "pin non valido",
