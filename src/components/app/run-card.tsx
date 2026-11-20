@@ -73,7 +73,10 @@ function Readouts() {
             <div key={c.key} className={cn("flex min-w-0 flex-col gap-2 bg-card px-4 py-3.5", odd && i === cells.length - 1 && "col-span-2 sm:col-span-1")}>
               <dt className="truncate text-xs text-muted-foreground" title={c.label}>{c.label}</dt>
               <dd className="flex flex-wrap items-baseline gap-x-1 gap-y-1 leading-none tabular">
-                <span className={cn("text-[1.625rem] font-medium tracking-[-0.02em] whitespace-nowrap sm:text-[1.875rem]", empty && "text-muted-foreground/50")}>{c.value}</span>
+                <span className={cn("font-medium tracking-[-0.02em] whitespace-nowrap sm:text-[1.875rem]",
+                  // sul telefono la cella è mezza larghezza: i valori lunghi rimpiccioliscono invece di uscire
+                  c.value.length <= 6 ? "text-[1.625rem]" : c.value.length <= 8 ? "text-[1.375rem]" : "text-[1.125rem]",
+                  empty && "text-muted-foreground/50")}>{c.value}</span>
                 {c.unit && <span className="text-sm text-muted-foreground">{c.unit}</span>}
               </dd>
             </div>
