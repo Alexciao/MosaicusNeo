@@ -18,7 +18,7 @@ import { prefs, isPhoneWidth } from "@/lib/prefs";
 import { cn } from "@/lib/utils";
 import { GlideNav } from "./glide-nav";
 import { BoardDiagram, ComponentThumb, boardPlan, ardName, type StepGroup } from "./board-diagram";
-import { RigDiagram, buildModules, type BtModule, type Mod } from "./rig-diagram";
+import { RigDiagram, buildModules, resistorsOf, OHMS, BAND_NAMES, type BtModule, type Mod, type ModRow } from "./rig-diagram";
 
 type Style = "real" | "schema";
 type BtKind = "hc06" | "ble";
@@ -31,6 +31,12 @@ export const useBtModule = (): BtModule => useBt((s) => (s.on ? s.kind : null));
 
 const RED = "#dc2626", BLK = "#27272a";
 const connName = (c: "5V" | "GND" | number) => (typeof c === "number" ? ardName(c) : c);
+/** Il componente in più di un piedino, a parole (schema compatto). */
+const viaPart = (r: ModRow) =>
+  r.via === "divider" ? "(con il partitore 1 kΩ + 2 kΩ)"
+  : r.via === "series" ? `(attraverso una resistenza da ${OHMS[r.res ?? "220"]})`
+  : r.via === "pullup" ? `(più ${OHMS[r.res ?? "10k"]} tra il piedino e 5V)`
+  : undefined;
 
 // ---------------------------------------------------------------------------
 // Occorrente
@@ -46,9 +52,9 @@ function Parts({ mods, count, nCols, bt }: { mods: Mod[]; count: { red: number; 
     if (e) e.qty++; else byTitle.set(name, { qty: 1, kind: m.kind });
   }
   for (const [name, { qty, kind }] of byTitle) items.push({ qty, name, thumb: kind as SensorType });
-  const r10 = mods.filter((m) => m.kind === "ntc" || m.kind === "ldr").length;
-  if (r10) items.push({ qty: r10, name: "Resistenza da 10 kΩ", note: "marrone, nero, arancio" });
-  if (bt) items.push({ qty: 1, name: "Resistenza da 1 kΩ", note: "marrone, nero, rosso" }, { qty: 1, name: "Resistenza da 2 kΩ", note: "rosso, nero, rosso" });
+  const res = resistorsOf(mods);
+  for (const v of ["10k", "4k7", "2k", "1k", "220", "100"] as const)
+    if (res[v]) items.push({ qty: res[v], name: `Resistenz${res[v] > 1 ? "e" : "a"} da ${OHMS[v]}`, note: BAND_NAMES[v] });
   if (count) items.push({ qty: count.red + count.black + count.signal, name: "Ponticelli", note: `${count.red} rossi, ${count.black} neri, ${count.signal} colorati` });
   if (bt) items.push({ qty: 1, name: "Power bank", note: "per alimentare Arduino senza computer" });
   return (
@@ -140,7 +146,7 @@ function Steps({ sensors, bt, style }: { sensors: SensorInstance[]; bt: BtModule
   let n = 0;
   const wiresOf = (g: StepGroup) => real
     ? g.wires
-    : g.mod!.rows.map((r) => ({ color: r.conn === "5V" ? RED : r.conn === "GND" ? BLK : g.color, from: r.label, to: connName(r.conn), dashed: r.dashed, part: r.via === "divider" ? "(con il partitore)" : undefined }));
+    : g.mod!.rows.map((r) => ({ color: r.conn === "5V" ? RED : r.conn === "GND" ? BLK : g.color, from: r.label, to: connName(r.conn), dashed: r.dashed, part: viaPart(r) }));
   return (
     <ol className="flex flex-col gap-2">
       <StepCard n={++n} title={real ? "Alimentazione" : "5V e GND"} color={RED}

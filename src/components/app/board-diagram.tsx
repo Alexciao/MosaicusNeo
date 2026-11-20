@@ -5,13 +5,15 @@
 // • una breadboard con le colonne numerate e le righe a…j, come quelle vere;
 // • i moduli INFILATI nella breadboard (piedini nella riga e), i ponticelli che partono dalla
 //   riga a della stessa colonna: corti verso i binari (rosso 5V, nero GND), colorati verso Arduino;
-// • l'elenco dei fili «da foro a foro» (BoardSteps), generato dalla stessa disposizione.
+// • l'elenco dei fili «da foro a foro» (BoardSteps), generato dalla stessa disposizione;
+// • i componenti che servono perché funzioni davvero così com'è: pull-up (DHT, DS18B20),
+//   resistenze in serie (LED RGB, cicalino passivo), partitori per gli ingressi a 3,3 V.
 // Si genera dai sensori e dai pin scelti.
 
 import { Fragment, useEffect, useId, useRef, useState } from "react";
 import { Tooltip, TooltipContent } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
-import { buildModules, type BtModule, type Mod } from "./rig-diagram";
+import { buildModules, OHMS, type BtModule, type Mod, type ResValue } from "./rig-diagram";
 import { makeSensor, type SensorInstance } from "@/lib/sensors/rig";
 import type { SensorType } from "@/lib/sensors/catalog";
 
@@ -79,20 +81,26 @@ const End = ({ x, y, color, title }: { x: number; y: number; color: string; titl
   </g>
 );
 
-const BANDS: Record<string, string[]> = {
+// codice dei colori: prima cifra, seconda cifra, moltiplicatore (più la fascia oro della tolleranza)
+const BANDS: Record<ResValue, string[]> = {
   "10k": ["#7c2d12", "#111", "#ea580c"], "1k": ["#7c2d12", "#111", "#dc2626"], "2k": ["#dc2626", "#111", "#dc2626"], "4k7": ["#eab308", "#7c3aed", "#dc2626"],
+  "220": ["#dc2626", "#dc2626", "#7c2d12"], "100": ["#7c2d12", "#111", "#7c2d12"],
 };
-/** Resistenza tra due fori (orizzontale o verticale). */
-function Resistor({ x1, y1, x2, y2, value, title }: { x1: number; y1: number; x2: number; y2: number; value: keyof typeof BANDS; title?: string }) {
+/** Resistenza tra due fori (orizzontale o verticale): corpo grande, contorno scuro e ombra, per staccarsi dalla breadboard chiara. */
+function Resistor({ x1, y1, x2, y2, value, title }: { x1: number; y1: number; x2: number; y2: number; value: ResValue; title?: string }) {
   const len = Math.hypot(x2 - x1, y2 - y1), ang = (Math.atan2(y2 - y1, x2 - x1) * 180) / Math.PI;
-  const bw = Math.min(18, len - 6);
+  const bw = Math.min(22, len - 4), bh = 9.5, bx = len / 2 - bw / 2;
   return (
     <g transform={`translate(${x1} ${y1}) rotate(${ang})`} className={title ? "cursor-help" : undefined} data-tip={title}>
-      <line x1={0} y1={0} x2={len} y2={0} stroke="#a1a1aa" strokeWidth={1.6} strokeLinecap="round" />
-      <rect x={len / 2 - bw / 2} y={-3.8} width={bw} height={7.6} rx={3.4} fill="#e2cfa3" stroke="#a8916a" strokeWidth={0.6} />
-      {BANDS[value].map((c, i) => <rect key={i} x={len / 2 - bw / 2 + 3.6 + i * 3.4} y={-3.6} width={1.8} height={7.2} fill={c} />)}
-      <rect x={len / 2 + bw / 2 - 4.6} y={-3.6} width={1.6} height={7.2} fill="#ca8a04" />
-      <rect x={len / 2 - bw / 2 + 1} y={-3} width={bw - 2} height={1.6} rx={0.8} fill="#fff" opacity={0.35} />
+      <line x1={0} y1={0.8} x2={len} y2={0.8} stroke="#000" strokeOpacity={0.18} strokeWidth={3} strokeLinecap="round" />
+      <line x1={0} y1={0} x2={len} y2={0} stroke="#4b5563" strokeWidth={2} strokeLinecap="round" />
+      <circle cx={0} cy={0} r={1.8} fill="#4b5563" />
+      <circle cx={len} cy={0} r={1.8} fill="#4b5563" />
+      <rect x={bx + 0.6} y={-bh / 2 + 1.4} width={bw} height={bh} rx={4} fill="#000" opacity={0.22} />
+      <rect x={bx} y={-bh / 2} width={bw} height={bh} rx={4} fill="#f3cf8e" stroke="#5c3d12" strokeWidth={1.1} />
+      {BANDS[value].map((c, i) => <rect key={i} x={bx + 4 + (i * (bw - 8)) / 4.2} y={-bh / 2 + 0.55} width={2.4} height={bh - 1.1} fill={c} />)}
+      <rect x={bx + bw - 5} y={-bh / 2 + 0.55} width={2} height={bh - 1.1} fill="#ca8a04" />
+      <rect x={bx + 2} y={-bh / 2 + 1.5} width={bw - 4} height={1.6} rx={0.8} fill="#fff" opacity={0.35} />
     </g>
   );
 }
@@ -190,18 +198,16 @@ export function ModuleArt({ kind, options, x, y, w, h, uid }: { kind: string; op
       );
     }
     case "ds18b20": {
-      const bh = LZ + 24, cx = x + w / 2;
+      // sonda «nuda»: connettore a 3 vie con i fili rosso, giallo e nero; la resistenza da 4,7 kΩ è sulla breadboard
+      const bh = LZ + 10, cx = x + w / 2, cw = 34;
       return (
         <g>
-          {pcb("#15803d", bh)}
-          {[0, 1, 2].map((i) => (
-            <g key={i}>
-              <rect x={x + 8 + i * ((w - 16) / 3)} y={top + 1} width={(w - 16) / 3 - 2} height={10} rx={1} fill="#22c55e" stroke="#14532d" strokeWidth={0.6} />
-              <circle cx={x + 8 + i * ((w - 16) / 3) + ((w - 16) / 3 - 2) / 2} cy={top + 6} r={2.6} fill="#a1a1aa" stroke="#3f3f46" strokeWidth={0.5} />
-            </g>
+          <rect x={cx - cw / 2 + 1} y={y + 2} width={cw} height={bh} rx={2.5} fill="#000" opacity={0.22} />
+          <rect x={cx - cw / 2} y={y} width={cw} height={bh} rx={2.5} fill="#18181b" stroke="#00000066" strokeWidth={0.8} />
+          {["#dc2626", "#eab308", "#18181b"].map((c, i) => (
+            <path key={c} d={`M${cx - 8 + i * 8} ${y + bh} C ${cx - 8 + i * 8} ${y + bh + 6}, ${cx} ${y + bh + 4}, ${cx} ${y + bh + 10}`} fill="none" stroke={c} strokeWidth={2.2} strokeLinecap="round" />
           ))}
-          <Resistor x1={x + 14} y1={top + 18} x2={x + w - 14} y2={top + 18} value="4k7" />
-          <path d={`M${cx} ${y + bh} C ${cx} ${y + bh + 16}, ${x + 12} ${y + bh + 10}, ${x + 14} ${y + h - 18}`} fill="none" stroke="#18181b" strokeWidth={5} strokeLinecap="round" />
+          <path d={`M${cx} ${y + bh + 10} C ${cx} ${y + bh + 24}, ${x + 12} ${y + bh + 16}, ${x + 14} ${y + h - 18}`} fill="none" stroke="#18181b" strokeWidth={5} strokeLinecap="round" />
           <rect x={x + 8} y={y + h - 20} width={12} height={20} rx={4} fill="#d4d4d8" stroke="#71717a" />
           <rect x={x + 10} y={y + h - 18} width={3} height={16} rx={1.5} fill="#fff" opacity={0.5} />
           <text x={x + w - 4} y={y + h - 4} textAnchor="end" fontSize={6} fontWeight={700} fill={INK}>DS18B20</text>
@@ -487,7 +493,9 @@ function ArduinoArt({ x, y, used, uid, tips }: { x: number; y: number; used: Map
 export interface StepWire { color: string; from: string; to: string; part?: string; dashed?: boolean }
 export interface StepGroup { title: string; color: string; place: string; wires: StepWire[]; mod?: Mod }
 
-interface Placed { m: Mod; x: number; y: number; w: number; h: number; pinX: number[]; pinCol: number[]; onBoard: boolean }
+/** Dove sta il componente in più di un piedino: la resistenza va dalla colonna del piedino alla colonna `col`, nella riga `row`. */
+interface Cond { col: number; row: RowKey }
+interface Placed { m: Mod; x: number; y: number; w: number; h: number; pinX: number[]; pinCol: number[]; onBoard: boolean; cond: Map<number, Cond> }
 
 const hole = (row: RowKey, col: number) => `${row}${col + 1}`;
 export const ardName = (pin: number) => (pin >= 14 ? `A${pin - 14}` : pin === 0 ? "D0 (RX←0)" : pin === 1 ? "D1 (TX→1)" : `D${pin}`);
@@ -503,21 +511,27 @@ function layout(sensors: SensorInstance[], bt: BtModule) {
     const onBoard = ON_BOARD.has(m.kind);
     const [w, h] = onBoard ? [0, 0] : SIZE[m.kind] ?? [56, 56];
     const n = onBoard ? 5 : m.rows.length;
-    const extra = !onBoard && m.rows.some((r) => r.via === "divider") ? 2 : 0;
+    // piedini con un componente in più: ognuno prende una colonna libera a destra dei piedini
+    const conds = onBoard ? [] : m.rows.map((r, ri) => ({ r, ri })).filter((c) => c.r.via);
+    const extra = conds.length ? conds.length + 1 : 0;
     const span = Math.max(n + extra, Math.ceil((w + 10) / P));
     const first = col + Math.floor((span - n - extra) / 2);
-    const out = { m, w, h, onBoard, first, n, span, start: col };
+    // il piedino più a destra usa la colonna più vicina e la riga più in alto (b, poi c, d):
+    // le resistenze si annidano senza incrociare i fili che salgono dalla riga a
+    const cond = new Map<number, Cond>();
+    [...conds].reverse().forEach((c, k) => cond.set(c.ri, { col: first + n + 1 + k, row: (["b", "c", "d"] as const)[Math.min(k, 2)] }));
+    const out = { m, w, h, onBoard, first, n, span, start: col, cond };
     col += span + 1;
     return out;
   });
   const nCols = Math.max(30, col + 2);
 
-  // --- fili dei segnali
+  // --- fili dei segnali (con una resistenza in serie o un partitore, il filo parte dall'altro capo della resistenza)
   type Sig = { mi: number; ri: number; pin: number; color: string; dashed?: boolean; col: number };
   const sigs: Sig[] = [];
   cols.forEach((c, mi) => c.m.rows.forEach((r, ri) => {
     if (typeof r.conn !== "number") return;
-    const sc = c.onBoard ? c.first + 2 : r.via === "divider" ? c.first + ri + 2 : c.first + ri;
+    const sc = c.onBoard ? c.first + 2 : r.via === "divider" || r.via === "series" ? c.cond.get(ri)!.col : c.first + ri;
     sigs.push({ mi, ri, pin: r.conn, color: c.m.color, dashed: r.dashed, col: sc });
   }));
   const ordered = [...sigs].sort((a, b) => a.col - b.col);
@@ -544,7 +558,7 @@ function layout(sensors: SensorInstance[], bt: BtModule) {
     const pinCol = c.onBoard ? [c.first, c.first + 2, c.first + 4] : c.m.rows.map((_, i) => c.first + i);
     const pinX = pinCol.map(colX);
     const mid = (pinX[0] + pinX[pinX.length - 1]) / 2;
-    return { m: c.m, w: c.w, h: c.h, onBoard: c.onBoard, pinCol, pinX, x: mid - c.w / 2, y: bodyTop };
+    return { m: c.m, w: c.w, h: c.h, onBoard: c.onBoard, pinCol, pinX, x: mid - c.w / 2, y: bodyTop, cond: c.cond };
   });
 
   // --- pin dell'Arduino
@@ -628,16 +642,33 @@ function layout(sensors: SensorInstance[], bt: BtModule) {
         ends.push(<End key={`pwa${mi}-${ri}`} x={x} y={R.a} color={color} title={t} />, <End key={`pwb${mi}-${ri}`} x={x} y={yy} color={color} title={t} />);
         g.wires.push({ color, from: hole("a", c), to: railName(r.conn) });
       }
+      const cd = p.cond.get(ri);
+      if (!cd) return;
+      const RES = "#a16207", pin = r.label.split(" ")[0].replace(/[()]/g, "");
+      const tx = colX(cd.col), ty = R[cd.row], pinName = typeof r.conn === "number" ? ardName(r.conn) : r.conn;
       if (r.via === "divider") {
-        // RXD del modulo: 2 kΩ verso GND, 1 kΩ verso il ponticello che viene da D1 → 3,3 V
-        parts.push(<g key={`dv${mi}`}>
-          <Resistor x1={x} y1={R.a} x2={x} y2={R.n1} value="2k" title={`Partitore del ${p.m.title}: resistenza 2 kΩ da ${hole("a", c)} (RXD) al binario − (GND)`} />
-          <Resistor x1={x} y1={R.c} x2={x + 2 * P} y2={R.c} value="1k" title={`Partitore del ${p.m.title}: resistenza 1 kΩ tra ${hole("c", c)} (RXD) e ${hole("c", c + 2)} (filo da D1)`} />
+        // ingresso a 3,3 V del modulo: 2 kΩ verso GND, 1 kΩ verso il ponticello che viene dal pin di Arduino
+        parts.push(<g key={`dv${mi}-${ri}`}>
+          <Resistor x1={x} y1={R.a} x2={x} y2={R.n1} value="2k" title={`Partitore del ${p.m.title}: resistenza 2 kΩ da ${hole("a", c)} (${pin}) al binario − (GND)`} />
+          <Resistor x1={x} y1={ty} x2={tx} y2={ty} value="1k" title={`Partitore del ${p.m.title}: resistenza 1 kΩ tra ${hole(cd.row, c)} (${pin}) e ${hole(cd.row, cd.col)} (filo da ${pinName})`} />
         </g>);
         g.wires.push(
-          { color: "#a16207", from: hole("a", c), to: railName("GND"), part: "resistenza 2 kΩ" },
-          { color: "#a16207", from: hole("c", c), to: hole("c", c + 2), part: "resistenza 1 kΩ" },
+          { color: RES, from: hole("a", c), to: railName("GND"), part: "resistenza 2 kΩ" },
+          { color: RES, from: hole(cd.row, c), to: hole(cd.row, cd.col), part: "resistenza 1 kΩ" },
         );
+        return;
+      }
+      const v = r.res ?? (r.via === "pullup" ? "10k" : "220");
+      const why = r.via === "pullup" ? "verso 5V" : `filo verso ${pinName}`;
+      parts.push(<Resistor key={`rs${mi}-${ri}`} x1={x} y1={ty} x2={tx} y2={ty} value={v}
+        title={`${p.m.title}: resistenza ${OHMS[v]} tra ${hole(cd.row, c)} (${pin}) e ${hole(cd.row, cd.col)} (${why})`} />);
+      g.wires.push({ color: RES, from: hole(cd.row, c), to: hole(cd.row, cd.col), part: `resistenza ${OHMS[v]}${r.via === "pullup" ? " (pull-up)" : ""}` });
+      if (r.via === "pullup") {
+        // l'altro capo della resistenza va al binario + con un ponticello rosso
+        const t = `${p.m.title} · pull-up di ${pin}: ${hole("a", cd.col)} → binario + in alto (5V)`;
+        wires.push(<Wire key={`pu${mi}-${ri}`} color={RED} title={t} d={ortho([[tx, R.a], [tx, R.p1]])} />);
+        ends.push(<End key={`pua${mi}-${ri}`} x={tx} y={R.a} color={RED} title={t} />, <End key={`pub${mi}-${ri}`} x={tx} y={R.p1} color={RED} title={t} />);
+        g.wires.push({ color: RED, from: hole("a", cd.col), to: railName("5V") });
       }
     });
   });
@@ -772,7 +803,7 @@ export function BoardDiagram({ sensors, bt = null, className }: { sensors: Senso
           <ModuleArt kind={p.m.kind} options={p.m.options} x={p.x} y={p.y} w={p.w} h={p.h} uid={uid} />
           {p.m.rows.map((r, ri) => (
             <g key={ri} className="cursor-help"
-              data-tip={`${p.m.title} · piedino ${r.label}: foro ${hole("e", p.pinCol[ri])} → ${typeof r.conn === "number" ? ardName(r.conn) : r.conn === "5V" ? "binario + (5V)" : "binario − (GND)"}${r.via === "divider" ? " attraverso il partitore" : ""}`}>
+              data-tip={`${p.m.title} · piedino ${r.label}: foro ${hole("e", p.pinCol[ri])} → ${typeof r.conn === "number" ? ardName(r.conn) : r.conn === "5V" ? "binario + (5V)" : "binario − (GND)"}${r.via === "divider" ? " attraverso il partitore" : r.via === "series" ? ` attraverso ${OHMS[r.res ?? "220"]}` : r.via === "pullup" ? `, con ${OHMS[r.res ?? "10k"]} verso 5V` : ""}`}>
               <rect x={p.pinX[ri] - 1.8} y={R.e - 1} width={3.6} height={p.y - R.e + 3} fill="#d4a017" stroke="#92400e" strokeWidth={0.4} />
               <rect x={p.pinX[ri] - 3} y={p.y + 1} width={6} height={4} fill="#18181b" />
               <text transform={`translate(${p.pinX[ri] - 2} ${p.y + 7}) rotate(90)`} fontSize={5.2} fontWeight={700} fill="#ffffffe6">{r.label.split(" ")[0].replace(/[()]/g, "")}</text>
