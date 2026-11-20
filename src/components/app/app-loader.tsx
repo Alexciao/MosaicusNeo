@@ -9,7 +9,7 @@ const MosaicusApp = dynamic(() => import("./mosaicus-app").then((m) => m.Mosaicu
     <div className="flex min-h-svh items-center justify-center">
       <div className="flex items-center gap-3 text-muted-foreground">
         <img src="/icons/icon.svg" alt="" width={36} height={36} className="animate-pulse rounded-lg" />
-        <span className="text-sm font-medium">Avvio di MosaicusNeo…</span>
+        <span className="text-sm font-medium">MosaicusNeo…</span>
       </div>
     </div>
   ),

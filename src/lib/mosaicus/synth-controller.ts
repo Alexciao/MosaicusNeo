@@ -14,6 +14,7 @@ import {
   SY, WAVES, save, retimbre, classicTail, ensureVoices, noteOn, noteOff, glideTo, voices, voice2, fullCoefs, notify, onGeneratorChange,
 } from "./synth-engine.js";
 import type { InstrumentApi } from "@/lib/lab-store";
+import { t } from "@/i18n";
 
 export const SCALES = SCALES_JS as Record<string, number[] | null>;
 export const FMIN = 20, FMAX = 4000;
@@ -21,19 +22,23 @@ export const toSlider = (f: number) => Math.round((1000 * Math.log(f / FMIN)) / 
 export const fromSlider = (u: number) => FMIN * Math.pow(FMAX / FMIN, u / 1000);
 const roundF = (f: number) => (f < 100 ? Math.round(f * 10) / 10 : Math.round(f));
 export const RANGES: Record<string, [number, number]> = { "Do3–Do5": [-21, 3], "Do4–Do6": [-9, 15], "Do2–Do4": [-33, -9] };
+/** Le chiavi di RANGES restano in italiano (salvate in SY.range): questa è l'etichetta da mostrare. */
+export const rangeLabel = (r: string) => r.replace(/Do/g, NOTE_IT[0]);
 /** Scale per "umore": [icona, gruppo, [[chiave, etichetta], …]]. Con « · » il secondo nome è un sinonimo. */
 export const SCALE_UI: [string, string, [string, string][]][] = [
-  ["☀", "luminose", [["maggiore", "maggiore · ionica"], ["lidia", "lidia"], ["misolidia", "misolidia"], ["pentatonica", "pentatonica"]]],
-  ["☾", "malinconiche", [["minore", "minore · eolia"], ["dorica", "dorica"], ["frigia", "frigia"], ["locria", "locria"], ["minoreArmonica", "minore armonica"], ["minoreMelodica", "minore melodica"], ["pentatonicaMin", "pentatonica minore"]]],
-  ["✦", "esotiche", [["araba", "araba"], ["napoletana", "napoletana"], ["ungherese", "ungherese"], ["giapponese", "giapponese"], ["spagnola", "spagnola"]]],
-  ["♪", "blues", [["blues", "blues"], ["bluesMag", "blues maggiore"]]],
-  ["∿", "altre", [["esatonale", "esatonale"], ["diminuita", "diminuita"], ["cromatica", "cromatica"], ["continua", "continua"]]],
-];
+  ["☀", "bright", ["maggiore", "lidia", "misolidia", "pentatonica"]],
+  ["☾", "melancholic", ["minore", "dorica", "frigia", "locria", "minoreArmonica", "minoreMelodica", "pentatonicaMin"]],
+  ["✦", "exotic", ["araba", "napoletana", "ungherese", "giapponese", "spagnola"]],
+  ["♪", "blues", ["blues", "bluesMag"]],
+  ["∿", "other", ["esatonale", "diminuita", "cromatica", "continua"]],
+].map(([icon, group, keys]) => [icon as string, t(`engine.synth.scaleGroups.${group as "bright"}`), (keys as string[]).map((k) => [k, t(`engine.synth.scales.${k as "maggiore"}`)] as [string, string])]);
 export const SCALE_NAME: Record<string, string> = Object.fromEntries(SCALE_UI.flatMap(([, , l]) => l.map(([k, n]) => [k, n.split(" · ")[0]])));
 export const D_NEAR = 0.05, D_FAR = 0.5;
 const V_SOUND = 343;
 export type SynthMode = "keys" | "ribbon" | "tilt" | "sonar";
-export const MODES: [SynthMode, string][] = [["keys", "Tastiera"], ["ribbon", "Nastro"], ["tilt", "Inclinazione"], ["sonar", "Ultrasuoni"]];
+export const MODES: [SynthMode, string][] = (["keys", "ribbon", "tilt", "sonar"] as const).map((m) => [m, t(`engine.synth.modes.${m}`)]);
+// testi dello schermo, ridisegnato a ogni fotogramma: tradotti una volta sola
+const TXT = { live: t("engine.synth.screen.live"), computed: t("engine.synth.screen.computed"), periods: t("engine.synth.screen.twoPeriods") };
 
 export interface HandState {
   u: number | null; n: number; d: number; tilt: number | null; dBuf: number[];
@@ -71,7 +76,7 @@ export function createSynthController(api: InstrumentApi & { toast: (m: string) 
   }
   function pressKey(n: number) {
     setF(noteFreq(n), true);
-    if (!noteOn(SY.f)) api.toast("Questo browser non supporta l'audio.");
+    if (!noteOn(SY.f)) api.toast(t("engine.synth.noAudio"));
     paint();
   }
   function setTwo(on: boolean) { SY.two = on; save(); const was = SY.on; ensureVoices(); if (was) noteOn(SY.f); paint(); }
@@ -105,11 +110,11 @@ export function createSynthController(api: InstrumentApi & { toast: (m: string) 
 
   const onTilt = (e: DeviceOrientationEvent) => { if (e.gamma == null) return; L.tilt = e.gamma; setU((Math.max(-45, Math.min(45, e.gamma)) + 45) / 90); };
   async function startTilt() {
-    if (!("DeviceOrientationEvent" in window)) { api.toast("Questo dispositivo non ha il sensore di inclinazione."); return false; }
-    if (!window.isSecureContext) { api.toast("Il sensore di inclinazione funziona solo da una pagina sicura (https)."); return false; }
+    if (!("DeviceOrientationEvent" in window)) { api.toast(t("engine.synth.noTilt")); return false; }
+    if (!window.isSecureContext) { api.toast(t("engine.synth.tiltNeedsHttps")); return false; }
     const DOE = DeviceOrientationEvent as any;
     if (typeof DOE.requestPermission === "function") {
-      try { if ((await DOE.requestPermission()) !== "granted") { api.toast("Accesso ai sensori di movimento negato: consentilo nelle impostazioni del browser."); return false; } } catch { return false; }
+      try { if ((await DOE.requestPermission()) !== "granted") { api.toast(t("engine.synth.motionDenied")); return false; } } catch { return false; }
     }
     window.addEventListener("deviceorientation", onTilt); L.tiltOn = true;
     return true;
@@ -137,13 +142,13 @@ export function createSynthController(api: InstrumentApi & { toast: (m: string) 
   async function play() {
     stopHear();
     if (SY.mode === "keys") {
-      if (SY.on) noteOff(); else if (!noteOn(SY.f)) api.toast("Questo browser non supporta l'audio.");
+      if (SY.on) noteOff(); else if (!noteOn(SY.f)) api.toast(t("engine.synth.noAudio"));
       paint(); return;
     }
     if (L.playing || L.acq || L.tiltOn) { await stopHand(); noteOff(); paint(); return; }
     if (SY.mode === "tilt") { if (!(await startTilt())) return; L.playing = true; setU(L.u ?? 0.5, true); }
     if (SY.mode === "sonar") {
-      if (!api.ready()) { api.toast("Collega prima Arduino o il «Simulatore»."); return; }
+      if (!api.ready()) { api.toast(t("engine.common.connectFirst")); return; }
       L.acq = true; L.dBuf = []; L.playing = true; // un HC-SR04 con TRIG su D12 ed ECHO su D11, letto ogni 30 ms
       await api.send("CFG,CLEAR"); await api.send("CFG,ADD,0,SONAR,30,12,11,0"); await api.send("START"); noteOn(SY.f);
     }
@@ -220,16 +225,16 @@ export function createSynthController(api: InstrumentApi & { toast: (m: string) 
         const i0 = Math.floor(t);
         x = []; y = [];
         for (let i = 0; i <= span && i0 + i < N; i++) { x.push((i - (t - i0)) / per); y.push(buf[i0 + i] / pk); }
-        note = "dal vivo";
+        note = TXT.live;
       }
     }
     if (!x) {
       const n = 400;
       const yy = synth(fullCoefs().slice(0, 96), 2, n, n); // 2 periodi su 400 punti: oltre la 96ª armonica ci sarebbe aliasing
       x = Array.from({ length: n }, (_, i) => (i / n) * 2); y = Array.from(yy);
-      note = "calcolata";
+      note = TXT.computed;
     }
-    scr?.draw({ x0: 0, x1: 2, y0: -1.25, y1: 1.25, traces: [{ x, y, color: "#C6F432", width: 2.2, glow: true }], xLabel: "2 periodi", yLabel: "", note });
+    scr?.draw({ x0: 0, x1: 2, y0: -1.25, y1: 1.25, traces: [{ x, y, color: "#C6F432", width: 2.2, glow: true }], xLabel: TXT.periods, yLabel: "", note });
   }
   function loop(now: number) {
     if (L.dead) return;

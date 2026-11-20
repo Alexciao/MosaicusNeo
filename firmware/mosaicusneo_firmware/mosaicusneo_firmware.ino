@@ -16,7 +16,7 @@
   Pin: D0 e D1 sono della porta seriale (cavo USB e, in parallelo, Bluetooth): non vanno
   usati per i sensori. I sensori analogici vanno su A0…A5 (numeri 14…19); quelli digitali su
   D2…D13 o anche su A0…A5. Il LED su D13 si accende durante la misura, a meno che D13 non sia
-  usato. I dispositivi I2C (display OLED, MPU-6050, MLX90614) possono condividere gli stessi due pin.
+  usato. I dispositivi I2C (display OLED, MPU-6050, MLX90614, SPS30) possono condividere gli stessi due pin.
   Con il modulo microSD, D10…D13 sono suoi (SPI: D11 MOSI, D12 MISO, D13 SCK; D10 deve restare
   un'uscita perché l'SPI funzioni; CS su D10 o su un altro pin).
 
@@ -42,7 +42,10 @@
                                                                                  → <ax>,<ay>,<az>,<gx>,<gy>,<gz>,<err>
               MLX    pinA = SDA, pinB = SCL (termometro a infrarossi MLX90614 / GY-906, 0x5A)
                                                                                  → <oggetto>,<ambiente>,<err>   (in 0,02 K)
-        motivi  SLOT, TIPO, PIN, ANALOGICO, DOPPIO (pin già usato), GPS (ce n'è già uno)
+              SPS    pinA = SDA, pinB = SCL (polveri sottili Sensirion SPS30, I2C 0x69, SEL a GND)
+                                                                                 → <pm1>,<pm2.5>,<pm4>,<pm10>,<nc0.5>,<nc1>,<nc2.5>,<nc4>,<nc10>,<tps>,<err>
+                     (µg/m³, #/cm³, µm; err 2 = nessuna risposta o CRC errato)
+        motivi  SLOT, TYPE, PIN, ANALOG, DUPLICATE (pin già usato), GPS (ce n'è già uno), ARGS
     START                                       #ACK,START
                                                 D,<slot>,<t_ms>,<valori…>   una riga per lettura
         t_ms con tre decimali (µs), dall'istante di START. Per il sonar è l'istante a metà del
@@ -60,14 +63,14 @@
         SD    p1 = CS del modulo microSD (MOSI D11, MISO D12, SCK D13 fissi; D10 riservato);
               opz bit0 = registra appena acceso (vale solo senza pulsante)
     OUT,SAVE                                    #ACK,OUT,SAVE   (gli indicatori restano anche dopo lo spegnimento)
-    CFG,SAVE,<id>                               #ACK,CFG,SAVE   oppure   #ERR,CFG,-1,VUOTO
+    CFG,SAVE,<id>                               #ACK,CFG,SAVE   oppure   #ERR,CFG,-1,EMPTY
         salva in EEPROM i sensori configurati e il codice del progetto (fino a 12 caratteri):
         servono per registrare sulla scheda SD senza l'app
     SD,TEST                                     #SD,OK,<MB della partizione>   oppure   #SD,ERR,<NOOUT|CARD|FAT32|FILE>
         prova la scheda (FAT32, al massimo 32 GB formattati così) senza creare file
                                                 #KEY   pulsante premuto con l'app collegata: l'app avvia o ferma la misura
     OUT,L,<1|2>,<testo>                         (righe del display durante la misura: valore grande e riga piccola)
-    OUT,TEST                                    #ACK,OUT,TEST   (prova: colori, bip, scritta)
+    OUT,TEST                                    #ACK,OUT,TEST   (prova: colori, bip, scritta «HELLO»)
                                                 #ST,<stato>,<slot>,<problema>,<k>,<n>,<bt>,<link>   a ogni cambio
         stato  W attesa dell'app · I pronto · S in ricerca (GPS, eco) · E errore di un sensore ·
                T misura in corso e tutto a posto · O oscilloscopio ·
@@ -117,20 +120,21 @@
 #include <SPI.h>
 #include <EEPROM.h>
 
-const char *FW_VERSION = "1.5";
+const char *FW_VERSION = "1.6";
 
 const uint8_t MAX_SLOTS = 6;
 const uint8_t ADC_SAMPLES = 16;                 // sovracampionamento per ridurre il rumore
 const unsigned long ECHO_TIMEOUT_US = 30000UL;  // ~5 m andata e ritorno
 
-enum SensorType : uint8_t { S_NONE, S_NTC, S_ANA, S_DHT, S_SONAR, S_GPS, S_DS18, S_GATE, S_HX711, S_IMU, S_MLX };
+enum SensorType : uint8_t { S_NONE, S_NTC, S_ANA, S_DHT, S_SONAR, S_GPS, S_DS18, S_GATE, S_HX711, S_IMU, S_MLX, S_SPS };
+const uint8_t S_LAST = S_SPS;
 
 struct Slot {
   uint8_t type;
   uint8_t pinA, pinB, opt;
   unsigned long intervalMs;
   unsigned long nextMs;
-  uint8_t st;      // stato interno (DS18: conversione avviata; GATE: ultimo livello; IMU: inizializzato)
+  uint8_t st;      // stato interno (DS18: conversione avviata; GATE: ultimo livello; IMU: inizializzato; SPS: misura avviata)
   uint8_t bad;     // letture cattive di fila
   uint8_t issue;   // 0 a posto, 1 in ricerca, 2 errore
 };
@@ -393,6 +397,44 @@ bool mlxRead(const Slot &s, uint8_t reg, uint16_t &v) {
   return true;
 }
 
+// ---------- SPS30 (polveri sottili, Sensirion) ----------
+// I2C a 0x69, al massimo 100 kHz, niente clock stretching e niente repeated start: ogni lettura è
+// «imposta il puntatore» (STOP) e poi una lettura nuova. I dati arrivano a parole di 2 byte, ognuna
+// seguita dal suo CRC-8 (polinomio 0x31, partenza 0xFF). Valori in float big-endian (formato 0x03).
+const uint8_t SPS_ADDR = 0x69;
+uint8_t crcSps(const uint8_t *d) {
+  uint8_t c = 0xFF;
+  for (uint8_t i = 0; i < 2; i++) {
+    c ^= d[i];
+    for (uint8_t k = 0; k < 8; k++) c = (c & 0x80) ? (uint8_t)((c << 1) ^ 0x31) : (uint8_t)(c << 1);
+  }
+  return c;
+}
+// comando a 16 bit; start: in più l'argomento «uscita in float» (0x03, 0x00) con il suo CRC (0xAC)
+bool spsCmd(const Slot &s, uint16_t ptr, bool start) {
+  i2cBus(s.pinA, s.pinB);
+  i2cStart();
+  bool ok = i2cWrite(SPS_ADDR << 1) && i2cWrite(ptr >> 8) && i2cWrite(ptr & 0xFF)
+         && (!start || (i2cWrite(0x03) && i2cWrite(0x00) && i2cWrite(0xAC)));
+  i2cStop();
+  return ok;
+}
+// i 10 valori (0x0300): 20 parole da 2 byte, ognuna con il suo CRC; false se non risponde o un CRC non torna
+bool spsRead(const Slot &s, uint8_t *out) {
+  if (!spsCmd(s, 0x0300, false)) return false;
+  i2cStart();
+  if (!i2cWrite((SPS_ADDR << 1) | 1)) { i2cStop(); return false; }
+  bool ok = true;
+  for (uint8_t w = 0; w < 20; w++) {
+    uint8_t b[3];
+    for (uint8_t k = 0; k < 3; k++) b[k] = i2cRead(w < 19 || k < 2);
+    if (crcSps(b) != b[2]) ok = false;
+    out[2 * w] = b[0]; out[2 * w + 1] = b[1];
+  }
+  i2cStop();
+  return ok;
+}
+
 // ---------- MPU-6050 (accelerometro e giroscopio) ----------
 uint8_t imuAddr(const Slot &s) { return (s.opt & 4) ? 0x69 : 0x68; }
 bool imuInit(const Slot &s) {
@@ -616,9 +658,9 @@ void barCount(char *bar, const char *pre) {
   bar[n++] = ' '; bar[n++] = '0' + stK; bar[n++] = '/'; bar[n++] = '0' + stN; bar[n] = 0;
 }
 
-const char TYPE_NAMES[] PROGMEM = "?    NTC  ANA  DHT  SONARGPS  DS18 GATE HX711IMU  MLX  ";
+const char TYPE_NAMES[] PROGMEM = "?    NTC  ANA  DHT  SONARGPS  DS18 GATE HX711IMU  MLX  SPS  ";
 void typeName(uint8_t t, char *dst) {
-  if (t > S_MLX) t = 0;
+  if (t > S_LAST) t = 0;
   for (uint8_t k = 0; k < 5; k++) dst[k] = pgm_read_byte(&TYPE_NAMES[t * 5 + k]);
   dst[5] = 0;
   for (int8_t k = 4; k >= 0 && dst[k] == ' '; k--) dst[k] = 0;
@@ -631,18 +673,18 @@ void screenTexts(char *bar, char *big, char *small) {
   big[0] = small[0] = 0;
   switch (state) {
     case ST_WAIT:
-      if (mode == RUN) { strcpy_P(bar, PSTR("APP PERSA")); strcpy_P(big, linkBt ? PSTR("BT?") : PSTR("USB?")); strcpy_P(small, PSTR("ricollega")); }
+      if (mode == RUN) { strcpy_P(bar, PSTR("APP LOST")); strcpy_P(big, linkBt ? PSTR("BT?") : PSTR("USB?")); strcpy_P(small, PSTR("reconnect")); }
       else {
         // in attesa: come collegarsi (il cavo sempre, il Bluetooth se il modulo ha risposto a
         // BT,SETUP) e la versione del firmware: «USB v1.3» oppure «USB/BT 1.3»
-        strcpy_P(bar, PSTR("ATTESA")); strcpy_P(big, PSTR("APP"));
+        strcpy_P(bar, PSTR("WAITING")); strcpy_P(big, PSTR("APP"));
         strcpy_P(small, btKind ? PSTR("USB/BT ") : PSTR("USB v"));
         strncat(small, FW_VERSION, 4);
       }
       break;
-    case ST_IDLE: strcpy_P(bar, PSTR("COLLEGATO")); strcpy_P(big, PSTR("OK")); strcpy_P(small, linkBt ? PSTR("BT ~ Avvia") : PSTR("~ Avvia")); break;
+    case ST_IDLE: strcpy_P(bar, PSTR("CONNECTED")); strcpy_P(big, PSTR("OK")); strcpy_P(small, linkBt ? PSTR("BT ~ Start") : PSTR("~ Start")); break;
     case ST_CFG: {
-      static const char WHY[] PROGMEM = "?         pin erratopin A0-A5 pin doppio1 solo GPStipo?     comando?  ";
+      static const char WHY[] PROGMEM = "?         bad pin   pin A0-A5 pin twice 1 GPS onlytype?     command?  ";
       strcpy_P(bar, PSTR("CONFIG"));
       if (cfgBad) { if (cfgBadType) typeName(cfgBadType, big); else strcpy_P(big, PSTR("?")); }
       else strcpy_P(big, PSTR("OUT"));
@@ -652,37 +694,37 @@ void screenTexts(char *bar, char *big, char *small) {
       for (int8_t k = 9; k >= 0 && small[k] == ' '; k--) small[k] = 0;
       break;
     }
-    case ST_SCOPE: strcpy_P(bar, PSTR("OSCILLOSC.")); strcpy_P(big, PSTR("SCOPE")); strcpy_P(small, PSTR("segnale A0")); break;
-    case ST_READY: strcpy_P(bar, PSTR("SD PRONTA")); strcpy_P(big, PSTR("PREMI")); strcpy_P(small, PSTR("pulsante")); break;
+    case ST_SCOPE: strcpy_P(bar, PSTR("OSCILLOSC.")); strcpy_P(big, PSTR("SCOPE")); strcpy_P(small, PSTR("signal A0")); break;
+    case ST_READY: strcpy_P(bar, PSTR("SD READY")); strcpy_P(big, PSTR("PRESS")); strcpy_P(small, PSTR("button")); break;
     case ST_SEARCH:
     case ST_ERR: {
-      if (stSlot < 0) { strcpy_P(bar, PSTR("PROBLEMA")); strcpy_P(big, PSTR("SD")); strcpy_P(small, PSTR("scheda SD?")); break; }
+      if (stSlot < 0) { strcpy_P(bar, PSTR("PROBLEM")); strcpy_P(big, PSTR("SD")); strcpy_P(small, PSTR("SD card?")); break; }
       // il testo segue il sensore mostrato in questo turno (lo stato segue il più grave)
       const Slot &s = slots[stSlot];
       uint8_t ord, same = sameType(stSlot, ord);
       char *q = small;
       if (same > 1) { *q++ = '#'; *q++ = '0' + ord; *q++ = ' '; }
       if (stIssue == 1 && s.type == S_GPS) {
-        if (stN > 1) barCount(bar, PSTR("CERCO")); else strcpy_P(bar, PSTR("CERCO GPS"));
+        if (stN > 1) barCount(bar, PSTR("SEARCH")); else strcpy_P(bar, PSTR("GPS SEARCH"));
         uint8_t n = 0; while (gSats[n] && n < 2) { big[n] = gSats[n]; n++; }
         if (!n) big[n++] = '0';
         strcpy_P(big + n, PSTR(" sat"));
-        strcpy_P(small, PSTR("all'aperto"));
+        strcpy_P(small, PSTR("go outside"));
       } else if (stIssue == 1) {
-        if (stN > 1) barCount(bar, PSTR("CERCO")); else strcpy_P(bar, s.type == S_SONAR ? PSTR("NO ECO") : PSTR("ATTENDO"));
+        if (stN > 1) barCount(bar, PSTR("SEARCH")); else strcpy_P(bar, s.type == S_SONAR ? PSTR("NO ECHO") : PSTR("WAITING"));
         typeName(s.type, big);
-        strcpy_P(q, s.type == S_SONAR ? (same > 1 ? PSTR("eco?") : PSTR("bersaglio?")) : PSTR("attendo"));
+        strcpy_P(q, s.type == S_SONAR ? (same > 1 ? PSTR("echo?") : PSTR("target?")) : PSTR("waiting"));
       } else {
-        if (stN > 1) barCount(bar, PSTR("PROBL")); else strcpy_P(bar, PSTR("PROBLEMA"));
+        if (stN > 1) barCount(bar, PSTR("ERROR")); else strcpy_P(bar, PSTR("PROBLEM"));
         typeName(s.type, big);
         // con il numero davanti c'è spazio solo per un suggerimento corto
         switch (s.type) {
-          case S_GPS: strcpy_P(q, PSTR("fili GPS?")); break;
-          case S_NTC: strcpy_P(q, PSTR("sonda?")); break;
-          case S_DS18: strcpy_P(q, same > 1 ? PSTR("4,7k?") : PSTR("fili 4,7k?")); break;
-          case S_IMU: case S_MLX: strcpy_P(q, same > 1 ? PSTR("SDA?") : PSTR("fili SDA?")); break;
-          case S_HX711: strcpy_P(q, same > 1 ? PSTR("DT?") : PSTR("fili DT?")); break;
-          default: strcpy_P(q, PSTR("fili?"));
+          case S_GPS: strcpy_P(q, PSTR("GPS wires?")); break;
+          case S_NTC: strcpy_P(q, PSTR("probe?")); break;
+          case S_DS18: strcpy_P(q, same > 1 ? PSTR("4.7k?") : PSTR("4.7k wire?")); break;
+          case S_IMU: case S_MLX: case S_SPS: strcpy_P(q, same > 1 ? PSTR("SDA?") : PSTR("SDA wires?")); break;
+          case S_HX711: strcpy_P(q, same > 1 ? PSTR("DT?") : PSTR("DT wires?")); break;
+          default: strcpy_P(q, PSTR("wires?"));
         }
       }
       break;
@@ -710,7 +752,7 @@ void screenTexts(char *bar, char *big, char *small) {
         for (int8_t k = 7; k >= 3; k--) { small[k] = '0' + n % 10; n /= 10; }
         small[8] = 0;
       } else if (appBig[0]) { strcpy(big, appBig); strcpy(small, appSmall); }
-      else { strcpy_P(big, PSTR("REC")); strcpy_P(small, PSTR("misuro...")); }
+      else { strcpy_P(big, PSTR("REC")); strcpy_P(small, PSTR("measuring")); }
       sp = (millis() / 500) % 2 ? '*' : ' ';
       break;
     }
@@ -816,22 +858,22 @@ void outAdd(char *args) {
   char *f[5]; uint8_t n = 0;
   f[n++] = args;
   for (char *p = args; *p && n < 5; p++) if (*p == ',') { *p = '\0'; f[n++] = p + 1; }
-  if (n < 5) { outBad = 6; Serial.println(F("#ERR,OUT,ARGOMENTI")); return; }
+  if (n < 5) { outBad = 6; Serial.println(F("#ERR,OUT,ARGS")); return; }
   uint8_t t = strcmp_P(f[0], PSTR("OLED")) == 0 ? O_OLED : strcmp_P(f[0], PSTR("RGB")) == 0 ? O_RGB : strcmp_P(f[0], PSTR("BUZ")) == 0 ? O_BUZ
             : strcmp_P(f[0], PSTR("BTN")) == 0 ? O_BTN : strcmp_P(f[0], PSTR("SD")) == 0 ? O_SD : O_NONE;
-  if (t == O_NONE) { outBad = 5; Serial.println(F("#ERR,OUT,TIPO")); return; }
+  if (t == O_NONE) { outBad = 5; Serial.println(F("#ERR,OUT,TYPE")); return; }
   uint8_t np = t == O_RGB ? 3 : t == O_OLED ? 2 : 1;
   uint8_t pins[3];
   for (uint8_t k = 0; k < 3; k++) pins[k] = (uint8_t)atoi(f[1 + k]);
   for (uint8_t k = 0; k < np; k++) {
     if (pins[k] < 2 || pins[k] > 19) { outBad = 1; Serial.println(F("#ERR,OUT,PIN")); return; }
-    if (!outPinFree(pins[k], t == O_OLED)) { outBad = 3; Serial.println(F("#ERR,OUT,DOPPIO")); return; }
+    if (!outPinFree(pins[k], t == O_OLED)) { outBad = 3; Serial.println(F("#ERR,OUT,DUPLICATE")); return; }
   }
   // il modulo SD prende anche D10…D13 (SPI)
-  if (t == O_SD) for (uint8_t q = 10; q <= 13; q++) if (q != pins[0] && !outPinFree(q, false)) { outBad = 3; Serial.println(F("#ERR,OUT,DOPPIO")); return; }
+  if (t == O_SD) for (uint8_t q = 10; q <= 13; q++) if (q != pins[0] && !outPinFree(q, false)) { outBad = 3; Serial.println(F("#ERR,OUT,DUPLICATE")); return; }
   int8_t slot = -1;
   for (uint8_t i = 0; i < MAX_OUTS; i++) if (outs[i].type == t || (slot < 0 && outs[i].type == O_NONE)) slot = i;
-  if (slot < 0) { outBad = 6; Serial.println(F("#ERR,OUT,PIENO")); return; }
+  if (slot < 0) { outBad = 6; Serial.println(F("#ERR,OUT,FULL")); return; }
   Out &o = outs[slot];
   o.type = t; o.p[0] = pins[0]; o.p[1] = pins[1]; o.p[2] = pins[2]; o.opt = (uint8_t)atoi(f[4]);
   outApply(slot);
@@ -870,9 +912,9 @@ void outsTest() {
     if (outs[i].type == O_OLED) {
       i2cBus(outs[i].p[0], outs[i].p[1]);
       char a[11], b[6];
-      strcpy_P(a, PSTR("PROVA")); oledText(0, a, true);
-      strcpy_P(b, PSTR("CIAO")); oledBig(1, b);
-      strcpy_P(a, PSTR("funziona!")); oledText(3, a, false);
+      strcpy_P(a, PSTR("TEST")); oledText(0, a, true);
+      strcpy_P(b, PSTR("HELLO")); oledBig(1, b);
+      strcpy_P(a, PSTR("it works!")); oledText(3, a, false);
       for (uint8_t p = 0; p < 4; p++) oledHash[p] = 0xFFFF;
     }
   }
@@ -1016,7 +1058,7 @@ void gpsStop() {
 // =====================================================================================
 bool isAnalog(uint8_t p) { return p >= 14 && p <= 19; }
 bool pinOk(uint8_t p) { return p >= 2 && p <= 19; }
-bool isI2c(uint8_t t) { return t == S_IMU || t == S_MLX; }
+bool isI2c(uint8_t t) { return t == S_IMU || t == S_MLX || t == S_SPS; }
 bool twoPins(uint8_t t) { return t == S_SONAR || t == S_GPS || t == S_HX711 || isI2c(t); }
 
 // pin già usato da un altro slot? (i2c: i pin I2C si possono condividere con altri I2C)
@@ -1081,7 +1123,7 @@ uint8_t cfgApply(uint8_t slot, uint8_t type, long ms, uint8_t a, uint8_t b, uint
   if (type == S_GPS && gpsSlot >= 0 && gpsSlot != slot) return 4;
   // intervalli minimi: oltre, il sensore non ce la fa
   long minMs = type == S_DHT ? (opt == 22 ? 2000 : 1000) : type == S_GPS ? 1000 : type == S_SONAR ? 30
-             : type == S_DS18 ? 1000 : type == S_HX711 || type == S_MLX ? 100 : type == S_IMU ? 10 : 5;
+             : type == S_DS18 || type == S_SPS ? 1000 : type == S_HX711 || type == S_MLX ? 100 : type == S_IMU ? 10 : 5;
   if (ms < minMs) ms = minMs;
   if (ms > 600000L) ms = 600000L;
   Slot &s = slots[slot];
@@ -1105,16 +1147,16 @@ void cfgAdd(char *args) {
   cfgPendingType = S_NONE;
   f[n++] = args;
   for (char *p = args; *p && n < 6; p++) if (*p == ',') { *p = '\0'; f[n++] = p + 1; }
-  if (n < 6) { cfgError(-1, F("ARGOMENTI"), 6); return; }
+  if (n < 6) { cfgError(-1, F("ARGS"), 6); return; }
   int slot = atoi(f[0]);
   if (slot < 0 || slot >= MAX_SLOTS) { cfgError(slot, F("SLOT"), 6); return; }
   uint8_t type = S_NONE;
   char nm[6];
-  for (uint8_t t = S_NTC; t <= S_MLX; t++) { typeName(t, nm); if (strcmp(nm, f[1]) == 0) type = t; }
-  if (type == S_NONE) { cfgError(slot, F("TIPO"), 5); return; }
+  for (uint8_t t = S_NTC; t <= S_LAST; t++) { typeName(t, nm); if (strcmp(nm, f[1]) == 0) type = t; }
+  if (type == S_NONE) { cfgError(slot, F("TYPE"), 5); return; }
   cfgPendingType = type;
   uint8_t e = cfgApply(slot, type, atol(f[2]), (uint8_t)atoi(f[3]), (uint8_t)atoi(f[4]), (uint8_t)atoi(f[5]));
-  if (e) { cfgError(slot, e == 1 ? F("PIN") : e == 2 ? F("ANALOGICO") : e == 3 ? F("DOPPIO") : F("GPS"), e); return; }
+  if (e) { cfgError(slot, e == 1 ? F("PIN") : e == 2 ? F("ANALOG") : e == 3 ? F("DUPLICATE") : F("GPS"), e); return; }
   Serial.print(F("#ACK,CFG,ADD,"));
   Serial.println(slot);
 }
@@ -1123,7 +1165,7 @@ void cfgAdd(char *args) {
 void cfgSave(const char *id) {
   bool any = false;
   for (uint8_t i = 0; i < MAX_SLOTS; i++) if (slots[i].type != S_NONE) any = true;
-  if (!any) { Serial.println(F("#ERR,CFG,-1,VUOTO")); return; }
+  if (!any) { Serial.println(F("#ERR,CFG,-1,EMPTY")); return; }
   EEPROM.update(E_CFG, 'C');
   bool end = false;
   for (uint8_t k = 0; k < 12; k++) {
@@ -1146,7 +1188,7 @@ bool cfgLoad() {
   for (uint8_t i = 0; i < MAX_SLOTS; i++) {
     int b = E_SLOTS + i * 8;
     uint8_t t = EEPROM.read(b);
-    if (t == S_NONE || t > S_MLX) continue;
+    if (t == S_NONE || t > S_LAST) continue;
     uint32_t ms = 0;
     for (int8_t k = 3; k >= 0; k--) ms = (ms << 8) | EEPROM.read(b + 4 + k);
     if (!cfgApply(i, t, ms, EEPROM.read(b + 1), EEPROM.read(b + 2), EEPROM.read(b + 3))) any = true;
@@ -1157,7 +1199,7 @@ bool cfgLoad() {
 void startRun() {
   bool any = false;
   for (uint8_t i = 0; i < MAX_SLOTS; i++) if (slots[i].type != S_NONE) any = true;
-  if (!any) { Serial.println(F("#ERR,START,VUOTO")); return; }
+  if (!any) { Serial.println(F("#ERR,START,EMPTY")); return; }
   adcFast(false);
   t0Us = nowUs();
   unsigned long now = millis();
@@ -1172,6 +1214,8 @@ void startRun() {
     s.nextMs = now + ((s.type == S_DHT || s.type == S_GPS) ? 1000 : s.type == S_DS18 ? 800 : 0);
     if (s.type == S_DS18) { s.st = ds18Convert(s.pinA); if (!s.st) s.issue = 2; }
     if (s.type == S_IMU) { s.st = imuInit(s); if (!s.st) s.issue = 2; }
+    // SPS30: il ventilatore parte e il primo dato arriva dopo circa un secondo
+    if (s.type == S_SPS) { s.st = spsCmd(s, 0x0010, true); s.issue = s.st ? 1 : 2; s.nextMs = now + 1000; }
     if (s.type == S_GATE) {
       s.st = digitalRead(s.pinA) ^ (s.opt & 1);
       gatePush(i, s.st, t0Us);                 // livello di partenza
@@ -1194,6 +1238,7 @@ void stopAll() {
   bool wasRun = mode == RUN;
   if (gpsSerial) gpsSerial->end();
   gateDetach();
+  for (uint8_t i = 0; i < MAX_SLOTS; i++) if (slots[i].type == S_SPS && slots[i].st) { spsCmd(slots[i], 0x0104, false); slots[i].st = 0; }   // ferma il ventilatore
   if (mode == SCOPE) adcFast(false);
   mode = IDLE;
   led(false);
@@ -1291,6 +1336,22 @@ bool readSlot(uint8_t i) {
       dataHead(i, stamp);
       if (ok) { dout.print(','); dout.print(obj); dout.print(','); dout.print(amb); dout.println(F(",0")); }
       else dout.println(F(",nan,nan,1"));
+      markBad(s, !ok, 2, 2);
+      return true;
+    }
+    case S_SPS: {
+      // legge gli ultimi valori (il sensore li aggiorna ogni secondo); float big-endian → float dell'AVR
+      if (!s.st) s.st = spsCmd(s, 0x0010, true);
+      uint8_t b[40];
+      bool ok = s.st && spsRead(s, b);
+      dataHead(i, stamp);
+      for (uint8_t k = 0; k < 10; k++) {
+        dout.print(',');
+        union { float f; uint8_t c[4]; } v;
+        for (uint8_t j = 0; j < 4; j++) v.c[j] = b[4 * k + 3 - j];
+        if (ok) dout.print(v.f, k == 9 ? 3 : 2); else dout.print(F("nan"));
+      }
+      dout.print(','); dout.println(ok ? 0 : 2);
       markBad(s, !ok, 2, 2);
       return true;
     }

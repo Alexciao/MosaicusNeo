@@ -4,6 +4,7 @@
 
 import { useMemo, useState } from "react";
 import { ChevronDown } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { colInfo, type Box } from "@/lib/workbench-store";
 import { fmtNum } from "@/lib/prefs";
@@ -11,6 +12,7 @@ import { cn } from "@/lib/utils";
 import { TrackMap, type MapPoint } from "@/components/app/track-map";
 
 export function BoxMap({ box, rows, selection }: { box: Box; rows: Record<string, number>[]; selection: [number, number] | null }) {
+  const t = useTranslations("workbench.map");
   const [open, setOpen] = useState(true);
   const cy = colInfo(box, box.yKey);
   const cols = [...box.columns, ...box.computed];
@@ -25,8 +27,8 @@ export function BoxMap({ box, rows, selection }: { box: Box; rows: Record<string
   return (
     <Collapsible open={open} onOpenChange={setOpen} className="border-t">
       <CollapsibleTrigger className="flex w-full items-center gap-2 px-4 py-3 text-sm font-semibold">
-        <ChevronDown className={cn("size-4 transition-transform", !open && "-rotate-90")} /> Mappa
-        <span className="font-normal text-muted-foreground">· colore: {cy.sym}{cy.unit ? ` (${cy.unit})` : ""}, come l&apos;asse verticale</span>
+        <ChevronDown className={cn("size-4 transition-transform", !open && "-rotate-90")} /> {t("title")}
+        <span className="font-normal text-muted-foreground">{t("color", { q: `${cy.sym}${cy.unit ? ` (${cy.unit})` : ""}` })}</span>
       </CollapsibleTrigger>
       <CollapsibleContent className="px-4 pb-4">
         {open && <TrackMap className="h-[clamp(260px,44vh,480px)]" points={points} label={cy.sym} unit={cy.unit}

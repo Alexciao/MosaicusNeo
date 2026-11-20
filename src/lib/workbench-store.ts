@@ -9,6 +9,7 @@ import { toast } from "sonner";
 import * as repo from "@/lib/cloud/repo";
 import { compile } from "@/lib/mosaicus/formula.js";
 import { toXLSX, download } from "@/lib/mosaicus/export.js";
+import { t } from "@/i18n";
 
 export interface BoxColumn { key: string; sym: string; unit: string; name?: string }
 export interface ComputedColumn { key: string; sym: string; unit: string; formula: string }
@@ -101,7 +102,7 @@ const timers = new Map<number, ReturnType<typeof setTimeout>>();
 function persist(box: Box) {
   clearTimeout(timers.get(box.id));
   timers.set(box.id, setTimeout(() => {
-    repo.save("boxes", box as unknown as Record<string, unknown>).catch((e: Error) => toast.error(`Salvataggio non riuscito: ${e.message}`));
+    repo.save("boxes", box as unknown as Record<string, unknown>).catch((e: Error) => toast.error(t("lab.toast.saveFailed", { msg: e.message })));
   }, 250));
 }
 
@@ -138,7 +139,7 @@ export const useWorkbench = create<WorkbenchState>((set, get) => ({
     if (!b) return;
     const { id: _id, created: _c, ...rest } = b;
     void _id; void _c;
-    const box = await get().addBox({ ...rest, title: `${b.title} (copia)`, collapsed: false } as NewBox);
+    const box = await get().addBox({ ...rest, title: t("lab.workbench.copyOf", { title: b.title }), collapsed: false } as NewBox);
     set({ focusId: box.id });
   },
   setAllChecked(checked) {
@@ -164,7 +165,7 @@ export const useWorkbench = create<WorkbenchState>((set, get) => ({
 // Export dei riquadri spuntati: Riepilogo + Analisi + un foglio per riquadro
 // ---------------------------------------------------------------------------
 function sheetName(title: string, used: Set<string>) {
-  const base = String(title).replace(/[[\]:*?/\\]/g, " ").slice(0, 28).trim() || "Riquadro";
+  const base = String(title).replace(/[[\]:*?/\\]/g, " ").slice(0, 28).trim() || t("lab.workbench.sheetFallback");
   let name = base, k = 2;
   while (used.has(name.toLowerCase())) name = `${base.slice(0, 26)} ${k++}`;
   used.add(name.toLowerCase());
@@ -174,9 +175,12 @@ function sheetName(title: string, used: Set<string>) {
 export function exportCheckedBoxes() {
   const sel = useWorkbench.getState().boxes.filter((b) => b.checked);
   if (!sel.length) return;
-  const used = new Set(["riepilogo", "analisi"]);
-  const summary: unknown[][] = [["Riquadro", "Foglio", "Lab", "Misura di origine", "Da", "A", "Unità", "Punti", "Note", "Colonne calcolate"]];
-  const analyses: unknown[][] = [["Riquadro", "Analisi", "Grafico", "Grandezza", "Valore", "Incertezza σ", "Unità", "Equazione", "Dettagli"]];
+  const summaryName = t("lab.workbench.sheetSummary"), analysesName = t("lab.workbench.sheetAnalyses");
+  const used = new Set([summaryName.toLowerCase(), analysesName.toLowerCase()]);
+  const S = (k: "box" | "sheet" | "lab" | "session" | "from" | "to" | "unit" | "points" | "notes" | "computed") => t(`lab.workbench.summary.${k}`);
+  const A = (k: "box" | "analysis" | "chart" | "quantity" | "value" | "sigma" | "unit" | "equation" | "details") => t(`lab.workbench.analyses.${k}`);
+  const summary: unknown[][] = [[S("box"), S("sheet"), S("lab"), S("session"), S("from"), S("to"), S("unit"), S("points"), S("notes"), S("computed")]];
+  const analyses: unknown[][] = [[A("box"), A("analysis"), A("chart"), A("quantity"), A("value"), A("sigma"), A("unit"), A("equation"), A("details")]];
   const sheets: { name: string; rows: unknown[][] }[] = [];
   const sig = (s: number) => (Number.isFinite(s) ? s : "");
   for (const b of sel) {
@@ -188,11 +192,11 @@ export function exportCheckedBoxes() {
     for (const a of b.analyses) {
       analyses.push([b.title, a.title, a.axes, a.main.label, a.main.value, sig(a.main.sigma), a.main.unit, a.eq, a.detail]);
       for (const p of a.physics?.slice(1) || []) analyses.push([b.title, a.title, a.axes, p.label, p.value, sig(p.sigma), p.unit, "", ""]);
-      for (const p of a.params || []) analyses.push([b.title, a.title, a.axes, `parametro ${p.sym}`, p.value, sig(p.sigma), p.unit, "", ""]);
+      for (const p of a.params || []) analyses.push([b.title, a.title, a.axes, t("lab.workbench.param", { sym: p.sym }), p.value, sig(p.sigma), p.unit, "", ""]);
     }
   }
-  const all = [{ name: "Riepilogo", rows: summary }, ...(analyses.length > 1 ? [{ name: "Analisi", rows: analyses }] : []), ...sheets];
+  const all = [{ name: summaryName, rows: summary }, ...(analyses.length > 1 ? [{ name: analysesName, rows: analyses }] : []), ...sheets];
   const d = new Date(), p2 = (n: number) => String(n).padStart(2, "0");
-  download(toXLSX(all), `mosaicusneo_elaborazione_${d.getFullYear()}-${p2(d.getMonth() + 1)}-${p2(d.getDate())}_${p2(d.getHours())}-${p2(d.getMinutes())}.xlsx`);
-  toast.success(sel.length === 1 ? "Riquadro esportato in Excel." : `${sel.length} riquadri esportati in Excel.`);
+  download(toXLSX(all), `${t("lab.workbench.filePrefix")}_${d.getFullYear()}-${p2(d.getMonth() + 1)}-${p2(d.getDate())}_${p2(d.getHours())}-${p2(d.getMinutes())}.xlsx`);
+  toast.success(t("lab.workbench.exported", { n: sel.length }));
 }

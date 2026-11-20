@@ -1,6 +1,8 @@
 // MosaicusNeo — che dispositivo e che browser sta usando la persona, e che cosa può fare.
 // Serve alla guida per mostrare subito le istruzioni giuste (con la possibilità di sceglierne altre).
 
+import { t } from "@/i18n";
+
 export type GuideDevice = "pc" | "android" | "ios" | "board";
 export type Os = "windows" | "mac" | "linux" | "chromeos" | "android" | "ios" | "other";
 export type BrowserName = "chrome" | "edge" | "opera" | "samsung" | "firefox" | "safari" | "bluefy" | "other";
@@ -21,18 +23,18 @@ export interface DeviceInfo {
 }
 
 export const DEVICE_LABEL: Record<GuideDevice, string> = {
-  pc: "Computer",
-  android: "Telefono o tablet Android",
-  ios: "iPhone o iPad",
-  board: "Lavagna interattiva (LIM)",
+  pc: t("engine.device.pc"),
+  android: t("engine.device.android"),
+  ios: t("engine.device.ios"),
+  board: t("engine.device.board"),
 };
 
 export const OS_LABEL: Record<Os, string> = {
-  windows: "Windows", mac: "macOS", linux: "Linux", chromeos: "ChromeOS", android: "Android", ios: "iOS / iPadOS", other: "sistema sconosciuto",
+  windows: "Windows", mac: "macOS", linux: "Linux", chromeos: "ChromeOS", android: "Android", ios: "iOS / iPadOS", other: t("engine.device.unknownOs"),
 };
 
 export const BROWSER_LABEL: Record<BrowserName, string> = {
-  chrome: "Chrome", edge: "Edge", opera: "Opera", samsung: "Samsung Internet", firefox: "Firefox", safari: "Safari", bluefy: "Bluefy", other: "un browser sconosciuto",
+  chrome: "Chrome", edge: "Edge", opera: "Opera", samsung: "Samsung Internet", firefox: "Firefox", safari: "Safari", bluefy: "Bluefy", other: t("engine.device.unknownBrowser"),
 };
 
 export function detectDevice(): DeviceInfo {

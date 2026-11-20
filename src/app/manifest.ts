@@ -4,11 +4,11 @@ export const dynamic = "force-static";
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: "MosaicusNeo · micro-laboratorio di fisica",
+    name: "MosaicusNeo · physics micro-lab",
     short_name: "MosaicusNeo",
     description:
-      "Esperimenti di fisica con Arduino e con i sensori del telefono: grafici in tempo reale, analisi dei dati, esportazione in Excel. Funziona anche offline.",
-    lang: "it",
+      "Physics experiments with Arduino and your phone's sensors: real-time charts, data analysis, Excel export. Works offline too.",
+    lang: "en",
     start_url: "/",
     scope: "/",
     display: "standalone",

@@ -4,6 +4,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useTheme } from "next-themes";
+import { useTranslations } from "next-intl";
 import { toast } from "sonner";
 import { ArrowLeftRight, ChevronDown, Copy, Eye, EyeOff, Maximize2, MousePointer2, Ruler, Spline, TrendingUp, Trash, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -46,6 +47,7 @@ function niceStep(v: number) {
 }
 
 export function BoxCard({ box }: { box: Box }) {
+  const t = useTranslations("workbench");
   const updateBox = useWorkbench((s) => s.updateBox);
   const focusId = useWorkbench((s) => s.focusId);
   const { resolvedTheme } = useTheme();
@@ -72,21 +74,21 @@ export function BoxCard({ box }: { box: Box }) {
   const finiteX = useMemo(() => x.filter(Number.isFinite), [x]);
 
   // --- strumenti: a ogni cambio di strumento o di assi si riparte da capo
-  const initTool = (t: Tool) => {
+  const initTool = (tl: Tool) => {
     setTangentPick(null); setShowResid(false);
-    if (t !== "fit") setFitModel(null);
-    if (t === "line") {
+    if (tl !== "fit") setFitModel(null);
+    if (tl === "line") {
       const ys = y.filter(Number.isFinite);
       const x0 = Math.min(...finiteX), x1 = Math.max(...finiteX);
       const ym = ys.reduce((s, q) => s + q, 0) / (ys.length || 1);
       setEye({ step: 1, h1: { x: x0 + 0.2 * (x1 - x0), y: ym }, h2: { x: x0 + 0.8 * (x1 - x0), y: ym }, pts: [], cmp: null });
     } else setEye(null);
-    if (t === "ruler") {
+    if (tl === "ruler") {
       const a = Math.min(...finiteX), b = Math.max(...finiteX);
       setRuler((keep) => (keep && keep.x1 >= a && keep.x2 <= b ? keep : { x1: a + 0.2 * (b - a), x2: a + 0.6 * (b - a), n: 1 }));
     }
   };
-  const setTool = (t: Tool) => { setToolState(t); initTool(t); };
+  const setTool = (tl: Tool) => { setToolState(tl); initTool(tl); };
   // cambiati gli assi: lo strumento riparte sui dati nuovi (aggiustamento dello stato durante il render)
   const axesKey = `${box.xKey}|${box.yKey}`;
   const [prevAxes, setPrevAxes] = useState(axesKey);
@@ -120,7 +122,7 @@ export function BoxCard({ box }: { box: Box }) {
     const q = box.xKey === "t" ? quantityOf(box.yKey) : null;
     const phys: PhysicsValue[] = (q?.physics?.[fitModel] || []).map((p) => { const [v, s] = p.calc(fit); return { label: p.label, unit: p.unit, value: v, sigma: s }; });
     const N = 300, X: number[] = [], Yc: number[] = [];
-    for (let i = 0; i <= N; i++) { const t = fit.t1 + ((fit.t2 - fit.t1) * i) / N; X.push(t); Yc.push(fit.curve(t)); }
+    for (let i = 0; i <= N; i++) { const tt = fit.t1 + ((fit.t2 - fit.t1) * i) / N; X.push(tt); Yc.push(fit.curve(tt)); }
     return { fit, T, phys, curve: { x: X, y: Yc } };
   }, [tool, fitModel, fitPoints, units, box.xKey, box.yKey]);
 
@@ -260,7 +262,7 @@ export function BoxCard({ box }: { box: Box }) {
   // --- salvataggio delle analisi
   const saveAnalysis = (a: Omit<Analysis, "id" | "xKey" | "yKey" | "axes">) => {
     updateBox(box.id, (b) => ({ analyses: [...b.analyses, { ...a, id: Date.now(), xKey: b.xKey, yKey: b.yKey, axes: `${colInfo(b, b.yKey).sym}(${colInfo(b, b.xKey).sym})` } as Analysis] }));
-    toast.success("Risultato salvato.");
+    toast.success(t("box.savedToast"));
   };
 
   const eyeCompare = () => {
@@ -284,27 +286,22 @@ export function BoxCard({ box }: { box: Box }) {
   const swapAxes = () => updateBox(box.id, { xKey: box.yKey, yKey: box.xKey });
   const collapsed = !!box.collapsed;
   const fmtResult = (a: Analysis) => Number.isFinite(a.main.sigma) ? formatMeasure(a.main.value, a.main.sigma, a.main.unit) : `${n4(a.main.value)} ${a.main.unit}`;
-  const INTRO: Record<Tool, [string, string]> = {
-    select: ["Tratto", "Trascina sul grafico per scegliere una parte dei dati: media, dispersione e variazione si aggiornano."],
-    line: ["Retta a occhio", "Traccia a mano la retta che segue meglio i punti, poi misurane la pendenza con due punti."],
-    tangent: ["Tangente", "Pendenza della curva in un punto, per esempio la velocità in un istante. Tocca un punto del grafico."],
-    fit: ["Fit", "Curva più vicina ai punti (minimi quadrati), con parametri e incertezze. Trascina sul grafico per limitarlo a un tratto."],
-    ruler: ["Righello", "Periodo di un'onda: porta le due linee su due creste e indica quanti periodi ci sono in mezzo."],
-  };
+  const intro = (k: Tool): [string, string] => [t(`intro.${k}.title`), t(`intro.${k}.text`)];
+  const INTRO: Record<Tool, [string, string]> = { select: intro("select"), line: intro("line"), tangent: intro("tangent"), fit: intro("fit"), ruler: intro("ruler") };
 
   return (
     <Card ref={rootRef as any} id={`box-${box.id}`} className="scroll-mt-20 gap-0 p-0">
       <header className={cn("flex items-start gap-2 p-3 sm:gap-3 sm:p-4", !collapsed && "border-b")}>
-        <Button size="icon-sm" variant="ghost" className="mt-0.5 text-muted-foreground" aria-expanded={!collapsed} aria-label={collapsed ? "Apri il riquadro" : "Chiudi il riquadro"}
+        <Button size="icon-sm" variant="ghost" className="mt-0.5 text-muted-foreground" aria-expanded={!collapsed} aria-label={collapsed ? t("box.expand") : t("box.collapse")}
           onClick={() => updateBox(box.id, { collapsed: !collapsed })}>
           <ChevronDown className={cn("transition-transform duration-200", collapsed && "-rotate-90")} />
         </Button>
         <div className="min-w-0 flex-1">
-          <Input key={box.title} defaultValue={box.title} aria-label="Nome del riquadro"
-            onBlur={(e) => { const t = e.target.value.trim(); if (t && t !== box.title) updateBox(box.id, { title: t }); }}
+          <Input key={box.title} defaultValue={box.title} aria-label={t("box.name")}
+            onBlur={(e) => { const v = e.target.value.trim(); if (v && v !== box.title) updateBox(box.id, { title: v }); }}
             className="h-8 border-transparent bg-transparent px-1 text-base font-semibold shadow-none hover:border-input focus-visible:border-ring dark:bg-transparent" />
           <p className="truncate px-1 text-xs text-muted-foreground">
-            {box.expTitle}{box.sessionName ? ` · ${box.sessionName}` : ""} · {fmtNum(box.t1, 2)}–{fmtNum(box.t2, 2)} {box.tUnit || "s"} · {box.rows.length} punti
+            {box.expTitle}{box.sessionName ? ` · ${box.sessionName}` : ""} · {fmtNum(box.t1, 2)}–{fmtNum(box.t2, 2)} {box.tUnit || "s"} · {t("box.points", { n: box.rows.length })}
           </p>
           {box.subtitle && <p className="truncate px-1 text-xs text-muted-foreground">{box.subtitle}</p>}
           {collapsed && !!box.analyses.length && (
@@ -315,17 +312,17 @@ export function BoxCard({ box }: { box: Box }) {
             </ul>
           )}
         </div>
-        <label className="mt-1.5 flex items-center gap-1.5 text-xs text-muted-foreground" title="Includi nell'export Excel">
-          <Checkbox checked={box.checked} onCheckedChange={(v) => updateBox(box.id, { checked: !!v })} aria-label="Includi nell'export" />
-          <span className="hidden sm:inline">Esporta</span>
+        <label className="mt-1.5 flex items-center gap-1.5 text-xs text-muted-foreground" title={t("box.exportTitle")}>
+          <Checkbox checked={box.checked} onCheckedChange={(v) => updateBox(box.id, { checked: !!v })} aria-label={t("box.exportAria")} />
+          <span className="hidden sm:inline">{t("box.export")}</span>
         </label>
-        <Button size="icon-sm" variant="ghost" aria-label="Duplica il riquadro" title="Duplica: stessi dati, un'altra analisi" className="text-muted-foreground"
+        <Button size="icon-sm" variant="ghost" aria-label={t("box.duplicate")} title={t("box.duplicateTitle")} className="text-muted-foreground"
           onClick={() => void useWorkbench.getState().duplicateBox(box.id)}>
           <Copy />
         </Button>
-        <Button size="icon-sm" variant="ghost" aria-label="Elimina il riquadro" className="text-muted-foreground hover:text-destructive"
+        <Button size="icon-sm" variant="ghost" aria-label={t("box.delete")} className="text-muted-foreground hover:text-destructive"
           onClick={async () => {
-            if (await confirm({ title: `Eliminare «${box.title}»?`, description: "La misura originale resta nel Quaderno.", action: "Elimina", destructive: true })) await useWorkbench.getState().removeBox(box.id);
+            if (await confirm({ title: t("box.deleteTitle", { title: box.title }), description: t("box.deleteDesc"), action: t("box.deleteAction"), destructive: true })) await useWorkbench.getState().removeBox(box.id);
           }}>
           <Trash />
         </Button>
@@ -335,30 +332,30 @@ export function BoxCard({ box }: { box: Box }) {
       <div className="flex flex-wrap items-center gap-2 border-b px-4 py-2.5">
         <div className="flex flex-wrap items-center gap-1.5">
           <Select value={box.yKey} onValueChange={(v) => v && setAxis("y", String(v))} items={axisItems}>
-            <SelectTrigger size="sm" className="min-w-24" aria-label="Asse verticale"><SelectValue /></SelectTrigger>
+            <SelectTrigger size="sm" className="min-w-24" aria-label={t("box.yAxis")}><SelectValue /></SelectTrigger>
             <SelectContent>{axisCols.map((c) => <SelectItem key={c.key} value={c.key}>{axisLabel(c)}</SelectItem>)}</SelectContent>
           </Select>
-          <span className="text-xs text-muted-foreground">in funzione di</span>
+          <span className="text-xs text-muted-foreground">{t("box.versus")}</span>
           <Select value={box.xKey} onValueChange={(v) => v && setAxis("x", String(v))} items={axisItems}>
-            <SelectTrigger size="sm" className="min-w-24" aria-label="Asse orizzontale"><SelectValue /></SelectTrigger>
+            <SelectTrigger size="sm" className="min-w-24" aria-label={t("box.xAxis")}><SelectValue /></SelectTrigger>
             <SelectContent>{axisCols.map((c) => <SelectItem key={c.key} value={c.key}>{axisLabel(c)}</SelectItem>)}</SelectContent>
           </Select>
-          <Button size="icon-sm" variant="ghost" aria-label="Scambia gli assi" title="Scambia gli assi" onClick={swapAxes}><ArrowLeftRight /></Button>
+          <Button size="icon-sm" variant="ghost" aria-label={t("box.swap")} title={t("box.swap")} onClick={swapAxes}><ArrowLeftRight /></Button>
         </div>
-        <Segmented<Tool> label="Strumenti" value={tool} onChange={setTool} className="md:ml-auto"
+        <Segmented<Tool> label={t("box.tools")} value={tool} onChange={setTool} className="md:ml-auto"
           items={[
-            ["select", <><MousePointer2 /><span className="hidden sm:inline">Tratto</span></>, INTRO.select[1]],
-            ["line", <><TrendingUp /><span className="hidden sm:inline">Retta</span></>, INTRO.line[1]],
-            ["tangent", <><Spline /><span className="hidden sm:inline">Tangente</span></>, INTRO.tangent[1]],
-            ["fit", <><span className="font-serif text-base leading-none">∿</span><span className="hidden sm:inline">Fit</span></>, INTRO.fit[1]],
-            ["ruler", <><Ruler /><span className="hidden sm:inline">Righello</span></>, INTRO.ruler[1]],
+            ["select", <><MousePointer2 /><span className="hidden sm:inline">{t("intro.select.short")}</span></>, INTRO.select[1]],
+            ["line", <><TrendingUp /><span className="hidden sm:inline">{t("intro.line.short")}</span></>, INTRO.line[1]],
+            ["tangent", <><Spline /><span className="hidden sm:inline">{t("intro.tangent.short")}</span></>, INTRO.tangent[1]],
+            ["fit", <><span className="font-serif text-base leading-none">∿</span><span className="hidden sm:inline">{t("intro.fit.short")}</span></>, INTRO.fit[1]],
+            ["ruler", <><Ruler /><span className="hidden sm:inline">{t("intro.ruler.short")}</span></>, INTRO.ruler[1]],
           ]} />
-        <Button size="icon-sm" variant="outline" aria-label="Mostra tutti i dati" title="Mostra tutti i dati" onClick={() => groupRef.current?.fitAll()}><Maximize2 /></Button>
+        <Button size="icon-sm" variant="outline" aria-label={t("box.fitAll")} title={t("box.fitAll")} onClick={() => groupRef.current?.fitAll()}><Maximize2 /></Button>
       </div>
 
       <div className="grid gap-4 p-4 xl:grid-cols-[minmax(0,1fr)_22rem]">
         <div className="relative h-[clamp(260px,46vh,520px)] overflow-hidden rounded-lg border bg-[var(--mz-chart-bg)]">
-          <canvas ref={canvasRef} aria-label="Grafico del riquadro" className="absolute inset-0 size-full touch-none" />
+          <canvas ref={canvasRef} aria-label={t("box.chart")} className="absolute inset-0 size-full touch-none" />
         </div>
         <aside className="flex min-w-0 flex-col gap-4">
           <div key={tool} className="mz-enter flex flex-col gap-3">
@@ -369,11 +366,11 @@ export function BoxCard({ box }: { box: Box }) {
                 onSave={() => {
                   if (!stats) return;
                   saveAnalysis({
-                    kind: "stats", title: `Media su ${fmtNum(stats.x1)}–${fmtNum(stats.x2)} ${cx.unit}`,
-                    main: { label: `media ${cy.sym}`, value: stats.mean, sigma: stats.sem, unit: cy.unit },
-                    detail: `${stats.n} punti; s = ${n4(stats.sd)} ${cy.unit}; min ${n4(stats.min)}, max ${n4(stats.max)}; Δ${cy.sym}/Δ${cx.sym} = ${n4(stats.rate)} ${su}`,
+                    kind: "stats", title: t("result.statsTitle", { a: fmtNum(stats.x1), b: fmtNum(stats.x2), unit: cx.unit }),
+                    main: { label: t("result.statsMain", { y: cy.sym }), value: stats.mean, sigma: stats.sem, unit: cy.unit },
+                    detail: t("result.statsDetail", { n: stats.n, sd: n4(stats.sd), unit: cy.unit, min: n4(stats.min), max: n4(stats.max), y: cy.sym, x: cx.sym, rate: n4(stats.rate), su }),
                     eq: `${cy.sym}̄ = ${formatMeasure(stats.mean, stats.sem, cy.unit)}`,
-                    physics: [{ label: "deviazione standard s", value: stats.sd, sigma: NaN, unit: cy.unit }, { label: meaning ? `${meaning} media` : `Δ${cy.sym}/Δ${cx.sym}`, value: stats.rate, sigma: NaN, unit: su }],
+                    physics: [{ label: t("result.sd"), value: stats.sd, sigma: NaN, unit: cy.unit }, { label: meaning ? t("result.meanMeaning", { meaning }) : `Δ${cy.sym}/Δ${cx.sym}`, value: stats.rate, sigma: NaN, unit: su }],
                     seg: { x1: stats.x1, y1: stats.mean, x2: stats.x2, y2: stats.mean },
                   });
                 }} />
@@ -384,9 +381,9 @@ export function BoxCard({ box }: { box: Box }) {
                 onBack={() => setEye({ ...eye, step: 1, pts: [], cmp: null })}
                 onCompare={eyeCompare}
                 onSave={(r) => saveAnalysis({
-                  kind: "line", title: "Retta a occhio",
-                  main: { label: meaning ? `pendenza (${meaning})` : "pendenza m", value: r.m, sigma: NaN, unit: su },
-                  detail: `A = (${fmtNum(r.A.x)}; ${fmtNum(r.A.y)}), B = (${fmtNum(r.B.x)}; ${fmtNum(r.B.y)})${eye.cmp ? `; minimi quadrati: ${n4(eye.cmp.m)} ± ${n4(eye.cmp.s)} ${su}` : ""}`,
+                  kind: "line", title: t("result.lineTitle"),
+                  main: { label: meaning ? t("result.slopeMeaning", { meaning }) : t("result.slopeM"), value: r.m, sigma: NaN, unit: su },
+                  detail: t("result.lineDetail", { ax: fmtNum(r.A.x), ay: fmtNum(r.A.y), bx: fmtNum(r.B.x), by: fmtNum(r.B.y) }) + (eye.cmp ? `; ${t("result.leastSquares", { m: n4(eye.cmp.m), s: n4(eye.cmp.s), su })}` : ""),
                   eq: `${cy.sym} = ${n4(r.m)}·${cx.sym} ${r.q < 0 ? "−" : "+"} ${n4(Math.abs(r.q))}`,
                   seg: { x1: eye.h1.x, y1: eye.h1.y, x2: eye.h2.x, y2: eye.h2.y },
                 })} />
@@ -397,17 +394,17 @@ export function BoxCard({ box }: { box: Box }) {
                   if (!tangent || tangent === "few") return;
                   const { P, m, dx, near } = tangent;
                   saveAnalysis({
-                    kind: "tangent", title: `Tangente in ${cx.sym} = ${fmtNum(P.x)} ${cx.unit}`,
-                    main: { label: meaning ? `${meaning} istantanea` : "pendenza della tangente", value: m, sigma: NaN, unit: su },
-                    detail: `P = (${fmtNum(P.x)}; ${fmtNum(P.y)}); parabola sui ${near} punti vicini`,
-                    eq: `pendenza = ${n4(m)} ${su}`,
+                    kind: "tangent", title: t("result.tangentTitle", { x: cx.sym, v: fmtNum(P.x), unit: cx.unit }),
+                    main: { label: meaning ? t("result.instantMeaning", { meaning }) : t("result.tangentSlope"), value: m, sigma: NaN, unit: su },
+                    detail: t("result.tangentDetail", { x: fmtNum(P.x), y: fmtNum(P.y), n: near }),
+                    eq: t("result.tangentEq", { m: n4(m), su }),
                     seg: { x1: P.x - dx, y1: P.y - m * dx, x2: P.x + dx, y2: P.y + m * dx },
                   });
                 }} />
             )}
             {tool === "fit" && (
               <>
-                <p className="text-xs text-muted-foreground">{selection ? <>Sul tratto {fmtNum(selection[0])} – {fmtNum(selection[1])} {cx.unit} <button className="ml-1 inline-flex items-center underline" onClick={() => groupRef.current?.setSelection(null, true)}><X className="size-3" />usa tutti i dati</button></> : <>Su tutti i dati.</>}</p>
+                <p className="text-xs text-muted-foreground">{selection ? <>{t("box.fitRange", { a: fmtNum(selection[0]), b: fmtNum(selection[1]), unit: cx.unit })} <button className="ml-1 inline-flex items-center underline" onClick={() => groupRef.current?.setSelection(null, true)}><X className="size-3" />{t("box.useAll")}</button></> : <>{t("box.fitAllData")}</>}</p>
                 <FitPanel suggested={suggested} model={fitModel} fit={fitData?.fit} phys={fitData?.phys ?? []} cx={cx} cy={cy}
                   onModel={(id) => { setFitModel(id); setShowResid(false); }}
                   compare={compare} onCompare={() => setCompareOn(!compareOn)}
@@ -417,9 +414,9 @@ export function BoxCard({ box }: { box: Box }) {
                     const p0 = fit.params[0];
                     const main = d.phys[0] || { label: p0.sym, value: p0.value, sigma: p0.sigma, unit: p0.unit };
                     saveAnalysis({
-                      kind: "fit", title: `Fit: ${fit.label}`, model: id,
+                      kind: "fit", title: t("result.fitTitle", { label: fit.label }), model: id,
                       main: { label: main.label, value: main.value, sigma: main.sigma, unit: main.unit },
-                      detail: `${fit.n} punti, ${fmtNum(fit.t1)}–${fmtNum(fit.t2)} ${cx.unit}; R² = ${Number.isFinite(fit.r2) ? fit.r2.toFixed(5) : "—"}`,
+                      detail: t("result.fitDetail", { n: fit.n, t1: fmtNum(fit.t1), t2: fmtNum(fit.t2), unit: cx.unit, r2: Number.isFinite(fit.r2) ? fit.r2.toFixed(5) : "—" }),
                       eq: fit.eq, r2: fit.r2, n: fit.n, t1: fit.t1, t2: fit.t2,
                       params: fit.params.map(({ key, sym, value, sigma, unit }: any) => ({ key, sym, value, sigma, unit })),
                       physics: d.phys,
@@ -437,12 +434,12 @@ export function BoxCard({ box }: { box: Box }) {
                   const toS = ({ s: 1, ms: 1e-3, "µs": 1e-6, us: 1e-6, min: 60 } as Record<string, number>)[cx.unit];
                   const f = toS ? 1 / (T * toS) : NaN;
                   saveAnalysis(isFreq
-                    ? { kind: "ruler", title: "Righello sullo spettro", main: { label: "distanza tra armoniche f₀", value: T, sigma: NaN, unit: cx.unit },
+                    ? { kind: "ruler", title: t("result.spectrumTitle"), main: { label: t("result.harmonics"), value: T, sigma: NaN, unit: cx.unit },
                         detail: `${fmtNum(lo, 4)}–${fmtNum(hi, 4)} ${cx.unit}, N = ${ruler.n}`, eq: `f₀ = Δ${cx.sym}/N = ${fmtNum(d, 4)}/${ruler.n} ${cx.unit}`, span: { x1: lo, x2: hi }, spanLabel: `f₀ = ${fmtNum(T, 4)} ${cx.unit}` }
-                    : { kind: "ruler", title: "Righello", main: { label: "periodo T", value: T, sigma: NaN, unit: cx.unit },
+                    : { kind: "ruler", title: t("result.rulerTitle"), main: { label: t("result.period"), value: T, sigma: NaN, unit: cx.unit },
                         detail: `${fmtNum(lo, 4)}–${fmtNum(hi, 4)} ${cx.unit}, N = ${ruler.n}${Number.isFinite(f) ? `; f = ${fmtNum(f, 2)} Hz` : ""}`,
                         eq: `T = Δ${cx.sym}/N = ${fmtNum(d, 4)}/${ruler.n} ${cx.unit}${Number.isFinite(f) ? ` → f = ${fmtNum(f, 2)} Hz` : ""}`,
-                        physics: Number.isFinite(f) ? [{ label: "periodo T", value: T, sigma: NaN, unit: cx.unit }, { label: "frequenza f", value: f, sigma: NaN, unit: "Hz" }] : [],
+                        physics: Number.isFinite(f) ? [{ label: t("result.period"), value: T, sigma: NaN, unit: cx.unit }, { label: t("result.frequency"), value: f, sigma: NaN, unit: "Hz" }] : [],
                         span: { x1: lo, x2: hi }, spanLabel: `T = ${fmtNum(T, 4)} ${cx.unit}` });
                 }} />
             )}
@@ -450,7 +447,7 @@ export function BoxCard({ box }: { box: Box }) {
 
           {!!box.analyses.length && (
             <div className="flex flex-col gap-2 border-t pt-3">
-              <h4 className="text-sm font-semibold">Risultati salvati</h4>
+              <h4 className="text-sm font-semibold">{t("box.savedTitle")}</h4>
               <ul className="flex flex-col gap-1.5">
                 {box.analyses.map((a, i) => {
                   const here = a.xKey === box.xKey && a.yKey === box.yKey;
@@ -461,12 +458,12 @@ export function BoxCard({ box }: { box: Box }) {
                         <p className="tabular">{a.main.label}: <b>{fmtResult(a)}</b></p>
                         <p className="truncate text-xs text-muted-foreground" title={a.detail}>{a.eq}</p>
                       </div>
-                      <Button size="icon-xs" variant="ghost" disabled={!here} aria-label={a.hidden ? "Mostra sul grafico" : "Nascondi dal grafico"}
-                        title={here ? (a.hidden ? "Mostra sul grafico" : "Nascondi dal grafico") : `Visibile con gli assi ${a.axes}`}
+                      <Button size="icon-xs" variant="ghost" disabled={!here} aria-label={a.hidden ? t("box.show") : t("box.hide")}
+                        title={here ? (a.hidden ? t("box.show") : t("box.hide")) : t("box.visibleWith", { axes: a.axes })}
                         onClick={() => updateBox(box.id, (b) => ({ analyses: b.analyses.map((x, j) => (j === i ? { ...x, hidden: !x.hidden } : x)) }))}>
                         {a.hidden ? <EyeOff /> : <Eye />}
                       </Button>
-                      <Button size="icon-xs" variant="ghost" aria-label="Elimina il risultato" onClick={() => updateBox(box.id, (b) => ({ analyses: b.analyses.filter((_, j) => j !== i) }))}><X /></Button>
+                      <Button size="icon-xs" variant="ghost" aria-label={t("box.deleteResult")} onClick={() => updateBox(box.id, (b) => ({ analyses: b.analyses.filter((_, j) => j !== i) }))}><X /></Button>
                     </li>
                   );
                 })}

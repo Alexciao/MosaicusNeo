@@ -5,6 +5,7 @@
 import { useEffect, useMemo, useRef } from "react";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
+import { useTranslations } from "next-intl";
 import { LocateFixed } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { heatColor } from "@/lib/mosaicus/geo";
@@ -19,6 +20,7 @@ export function TrackMap({ points, label, unit, highlight, follow, onPick, class
   points: MapPoint[]; label: string; unit: string; highlight?: [number, number] | null; follow?: boolean;
   onPick?: (t: number) => void; className?: string;
 }) {
+  const t = useTranslations("app.map");
   const el = useRef<HTMLDivElement>(null);
   const map = useRef<L.Map | null>(null);
   const layers = useRef<{ path: L.Polyline; dots: L.LayerGroup; renderer: L.Canvas } | null>(null);
@@ -96,10 +98,10 @@ export function TrackMap({ points, label, unit, highlight, follow, onPick, class
       <div ref={el} className="absolute inset-0 z-0" />
       {!points.length && (
         <div className="pointer-events-none absolute inset-0 z-[500] grid place-items-center bg-background/40 p-6 text-center text-sm font-medium text-muted-foreground">
-          Nessuna posizione. All&apos;aperto il GPS trova i satelliti in 30 s – qualche minuto.
+          {t("empty")}
         </div>
       )}
-      <Button size="icon-sm" variant="outline" onClick={recenter} aria-label="Centra la traccia" title="Centra la traccia"
+      <Button size="icon-sm" variant="outline" onClick={recenter} aria-label={t("recenter")} title={t("recenter")}
         className="absolute top-2.5 right-2.5 z-[500] bg-background shadow-sm">
         <LocateFixed />
       </Button>

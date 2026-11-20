@@ -3,6 +3,7 @@
 // In alto: quanti sono, l'indice per saltare a uno, apri/chiudi tutti, l'export di quelli spuntati.
 
 import { ArrowLeft, ChartLine, ChevronsDownUp, ChevronsUpDown, FileSpreadsheet } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -11,6 +12,7 @@ import { showPage } from "@/lib/lab-store";
 import { BoxCard } from "./box-card";
 
 export function WorkbenchPage() {
+  const t = useTranslations("workbench.page");
   const boxes = useWorkbench((s) => s.boxes);
   const loaded = useWorkbench((s) => s.loaded);
   const nChecked = boxes.filter((b) => b.checked).length;
@@ -28,26 +30,26 @@ export function WorkbenchPage() {
       <Card className="flex flex-col gap-3 p-4">
         <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
           <div className="mr-auto min-w-0">
-            <h2 className="text-xl font-bold tracking-tight">Elaborazione</h2>
+            <h2 className="text-xl font-bold tracking-tight">{t("title")}</h2>
             <p className="text-sm text-muted-foreground">
-              {boxes.length ? `${boxes.length} ${boxes.length === 1 ? "riquadro" : "riquadri"} · il più recente in cima` : "Analisi dei tratti di misura"}
+              {boxes.length ? t("count", { n: boxes.length }) : t("subtitleEmpty")}
             </p>
           </div>
           {!!boxes.length && (
             <>
               <label className="flex items-center gap-2 text-sm">
-                <Checkbox checked={all} indeterminate={some} onCheckedChange={() => useWorkbench.getState().setAllChecked(!all)} aria-label="Seleziona tutti i riquadri" />
-                Tutti
+                <Checkbox checked={all} indeterminate={some} onCheckedChange={() => useWorkbench.getState().setAllChecked(!all)} aria-label={t("selectAll")} />
+                {t("all")}
               </label>
               <Button variant="outline" size="sm" onClick={() => useWorkbench.getState().setAllCollapsed(!allCollapsed)}>
-                {allCollapsed ? <ChevronsUpDown /> : <ChevronsDownUp />} {allCollapsed ? "Apri tutti" : "Chiudi tutti"}
+                {allCollapsed ? <ChevronsUpDown /> : <ChevronsDownUp />} {allCollapsed ? t("expandAll") : t("collapseAll")}
               </Button>
-              <Button size="sm" disabled={!nChecked} onClick={exportCheckedBoxes}><FileSpreadsheet /> Esporta in Excel{nChecked ? ` (${nChecked})` : ""}</Button>
+              <Button size="sm" disabled={!nChecked} onClick={exportCheckedBoxes}><FileSpreadsheet /> {t("exportExcel", { n: nChecked })}</Button>
             </>
           )}
         </div>
         {boxes.length > 1 && (
-          <nav aria-label="Riquadri" className="-mx-1 flex gap-1.5 overflow-x-auto px-1 pb-0.5 [scrollbar-width:thin]">
+          <nav aria-label={t("nav")} className="-mx-1 flex gap-1.5 overflow-x-auto px-1 pb-0.5 [scrollbar-width:thin]">
             {list.map((b) => (
               <button key={b.id} type="button" onClick={() => jump(b.id)}
                 className="flex max-w-56 shrink-0 items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs hover:bg-muted">
@@ -63,9 +65,9 @@ export function WorkbenchPage() {
       {loaded && !boxes.length && (
         <Card className="flex flex-col items-center gap-3 p-10 text-center">
           <span className="grid size-14 place-items-center rounded-2xl bg-tone-lime text-tone-ink"><ChartLine className="size-7" /></span>
-          <h3 className="text-lg font-semibold">Nessun riquadro</h3>
-          <p className="max-w-md text-sm text-muted-foreground">In «Misura» trascina su un grafico per scegliere un tratto, poi premi «Analizza il tratto». Dal «Quaderno» puoi inviare una misura intera.</p>
-          <Button variant="outline" onClick={() => showPage("misura")}><ArrowLeft /> Vai a Misura</Button>
+          <h3 className="text-lg font-semibold">{t("emptyTitle")}</h3>
+          <p className="max-w-md text-sm text-muted-foreground">{t("emptyBody")}</p>
+          <Button variant="outline" onClick={() => showPage("misura")}><ArrowLeft /> {t("goMeasure")}</Button>
         </Card>
       )}
 

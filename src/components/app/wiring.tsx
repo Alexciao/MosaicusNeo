@@ -2,6 +2,7 @@
 // Schemi dei collegamenti in SVG, con i pin scelti nel progetto: seguono il tema e funzionano
 // offline. In più la "mappa dei pin" di Arduino Uno con i sensori collegati.
 
+import { useTranslations } from "next-intl";
 import { Bluetooth, Lightbulb, Plug, TriangleExclamationPoint } from "lucide-react";
 import type { Schematic, WiringBlock } from "@/lib/sensors/types";
 import { SENSORS, pinName } from "@/lib/sensors/catalog";
@@ -33,8 +34,9 @@ const Res = ({ x, y, w = 28, h = 18, label }: { x: number; y: number; w?: number
 );
 
 function Hcsr04({ p }: { p: P }) {
+  const t = useTranslations("rig.schematic");
   return (
-    <svg viewBox="0 0 300 132" role="img" aria-label={`HC-SR04: VCC a 5V, GND a GND, Trig a ${p.trig}, Echo a ${p.echo}`}>
+    <svg viewBox="0 0 300 132" role="img" aria-label={t("hcsr04Aria", { trig: p.trig, echo: p.echo })}>
       <Board x={4} y={6} w={96} h={120} label="Arduino" />
       <Pin x={92} y={50} end>5V</Pin><Pin x={92} y={72} end>GND</Pin><Pin x={92} y={94} end>{p.trig}</Pin><Pin x={92} y={116} end>{p.echo}</Pin>
       <Board x={200} y={6} w={96} h={120} label="HC-SR04" fill="var(--tone-sky)" />
@@ -47,8 +49,9 @@ function Hcsr04({ p }: { p: P }) {
 
 /** Partitore: componente tra 5 V e il pin, resistenza fissa tra il pin e GND (NTC, fotoresistenza). */
 function Divider({ p, part, partFill }: { p: P; part: string; partFill: string }) {
+  const t = useTranslations("rig.schematic");
   return (
-    <svg viewBox="0 0 300 132" role="img" aria-label={`Partitore: ${part} tra 5V e ${p.sig}, resistenza da 10 kilo-ohm tra ${p.sig} e GND`}>
+    <svg viewBox="0 0 300 132" role="img" aria-label={t("dividerAria", { part, sig: p.sig })}>
       <Board x={4} y={6} w={96} h={120} label="Arduino" />
       <Pin x={92} y={50} end>5V</Pin><Pin x={92} y={82} end>{p.sig}</Pin><Pin x={92} y={114} end>GND</Pin>
       <Wire d="M100 46H230V52" color={W5V} />
@@ -64,20 +67,22 @@ function Divider({ p, part, partFill }: { p: P; part: string; partFill: string }
 }
 
 function Mic() {
+  const t = useTranslations("rig.schematic");
   return (
-    <svg viewBox="0 0 300 132" role="img" aria-label="Modulo microfono: più a 5V, G a GND, AO al pin A0">
+    <svg viewBox="0 0 300 132" role="img" aria-label={t("micAria")}>
       <Board x={4} y={6} w={96} h={120} label="Arduino" />
       <Pin x={92} y={50} end>5V</Pin><Pin x={92} y={76} end>GND</Pin><Pin x={92} y={102} end>A0</Pin>
-      <Board x={200} y={6} w={96} h={120} label="microfono" fill="var(--tone-rose)" />
-      <Pin x={208} y={50}>+</Pin><Pin x={208} y={76}>G</Pin><Pin x={208} y={102}>AO</Pin><Pin x={208} y={122} muted>DO (libero)</Pin>
+      <Board x={200} y={6} w={96} h={120} label={t("mic")} fill="var(--tone-rose)" />
+      <Pin x={208} y={50}>+</Pin><Pin x={208} y={76}>G</Pin><Pin x={208} y={102}>AO</Pin><Pin x={208} y={122} muted>{t("doFree")}</Pin>
       <Wire d="M100 46H200" color={W5V} /><Wire d="M100 72H200" color={WGND} /><Wire d="M100 98H200" color={WSIG} />
     </svg>
   );
 }
 
 function Coil() {
+  const t = useTranslations("rig.schematic");
   return (
-    <svg viewBox="0 0 300 150" role="img" aria-label="Due resistenze da 10 kilo-ohm tra 5V e GND fanno 2,5 V nel punto di mezzo; la bobina va dal punto di mezzo, attraverso 1 kilo-ohm, al pin A0">
+    <svg viewBox="0 0 300 150" role="img" aria-label={t("coilAria")}>
       <Board x={4} y={6} w={80} h={138} label="Arduino" />
       <Pin x={76} y={44} end>5V</Pin><Pin x={76} y={134} end>GND</Pin><Pin x={76} y={92} end>A0</Pin>
       <Wire d="M84 40H130V48" color={W5V} />
@@ -85,10 +90,10 @@ function Coil() {
       <Wire d="M130 70V98" color={WSIG} />
       <Res x={116} y={98} h={22} label="10k" />
       <Wire d="M130 120V130H84" color={WGND} />
-      <circle cx={130} cy={84} r={3.5} fill={WSIG} /><text x={138} y={80} fontSize={10}>2,5 V</text>
+      <circle cx={130} cy={84} r={3.5} fill={WSIG} /><text x={138} y={80} fontSize={10}>{t("midVoltage")}</text>
       <Wire d="M130 84H170V60H196" color={WSIG} />
       <path d="M196 60q8-14 16 0q8-14 16 0q8-14 16 0q8-14 16 0" fill="none" stroke="#D6336C" strokeWidth={2.5} />
-      <text x={228} y={34} textAnchor="middle" fontSize={11}>bobina</text>
+      <text x={228} y={34} textAnchor="middle" fontSize={11}>{t("coil")}</text>
       <Wire d="M260 60H280V96" color={WSIG} />
       <Res x={234} y={96} w={46} label="1k" />
       <Wire d="M234 105H200V88H84" color={WSIG} dash />
@@ -97,8 +102,9 @@ function Coil() {
 }
 
 function Dht({ p }: { p: P }) {
+  const t = useTranslations("rig.schematic");
   return (
-    <svg viewBox="0 0 300 132" role="img" aria-label={`DHT: VCC a 5V, DATA a ${p.data}, GND a GND`}>
+    <svg viewBox="0 0 300 132" role="img" aria-label={t("dhtAria", { data: p.data })}>
       <Board x={4} y={6} w={96} h={120} label="Arduino" />
       <Pin x={92} y={50} end>5V</Pin><Pin x={92} y={80} end>{p.data}</Pin><Pin x={92} y={110} end>GND</Pin>
       <Board x={200} y={6} w={96} h={120} label="DHT11/22" fill="var(--tone-sky)" />
@@ -115,12 +121,13 @@ function Dht({ p }: { p: P }) {
 }
 
 function Gps({ p }: { p: P }) {
+  const t = useTranslations("rig.schematic");
   return (
-    <svg viewBox="0 0 300 132" role="img" aria-label={`GPS: TX del GPS a ${p.rx}, RX del GPS a ${p.tx} (facoltativo), VCC a 5V, GND a GND`}>
+    <svg viewBox="0 0 300 132" role="img" aria-label={t("gpsAria", { rx: p.rx, tx: p.tx })}>
       <Board x={4} y={6} w={96} h={120} label="Arduino" />
       <Pin x={92} y={50} end>5V</Pin><Pin x={92} y={72} end>GND</Pin><Pin x={92} y={94} end>{p.rx}</Pin><Pin x={92} y={116} end>{p.tx}</Pin>
       <Board x={200} y={6} w={96} h={120} label="GPS NEO-7M" fill="var(--tone-lime)" />
-      <Pin x={208} y={50}>VCC</Pin><Pin x={208} y={72}>GND</Pin><Pin x={208} y={94}>TX</Pin><Pin x={208} y={116}>RX</Pin><Pin x={250} y={116} muted>facolt.</Pin>
+      <Pin x={208} y={50}>VCC</Pin><Pin x={208} y={72}>GND</Pin><Pin x={208} y={94}>TX</Pin><Pin x={208} y={116}>RX</Pin><Pin x={250} y={116} muted>{t("optionalShort")}</Pin>
       <Wire d="M100 46H200" color={W5V} /><Wire d="M100 68H200" color={WGND} />
       <Wire d="M200 90H100" color={WSIG} /><Wire d="M100 112H200" color={WSIG} dash />
     </svg>
@@ -128,24 +135,26 @@ function Gps({ p }: { p: P }) {
 }
 
 function Analog({ p }: { p: P }) {
+  const t = useTranslations("rig.schematic");
   return (
-    <svg viewBox="0 0 300 110" role="img" aria-label={`Segnale analogico a ${p.sig}, massa in comune con GND`}>
+    <svg viewBox="0 0 300 110" role="img" aria-label={t("analogAria", { sig: p.sig })}>
       <Board x={4} y={6} w={96} h={98} label="Arduino" />
       <Pin x={92} y={50} end>{p.sig}</Pin><Pin x={92} y={84} end>GND</Pin>
-      <Board x={200} y={6} w={96} h={98} label="segnale" fill="var(--tone-saffron)" />
-      <Pin x={208} y={50}>uscita 0–5 V</Pin><Pin x={208} y={84}>massa</Pin>
+      <Board x={200} y={6} w={96} h={98} label={t("signal")} fill="var(--tone-saffron)" />
+      <Pin x={208} y={50}>{t("output05")}</Pin><Pin x={208} y={84}>{t("ground")}</Pin>
       <Wire d="M100 46H200" color={WSIG} /><Wire d="M100 80H200" color={WGND} />
     </svg>
   );
 }
 
 function Hc06({ p }: { p: P }) {
+  const t = useTranslations("rig.schematic");
   return (
-    <svg viewBox="0 0 300 150" role="img" aria-label={`${p.name ?? "HC-06"}: TXD a D0, RXD da D1 attraverso un partitore da 1 e 2 kilo-ohm, VCC a 5V, GND a GND`}>
+    <svg viewBox="0 0 300 150" role="img" aria-label={t("hc06Aria", { name: p.name ?? "HC-06" })}>
       <Board x={4} y={6} w={96} h={138} label="Arduino" />
       <Pin x={92} y={46} end>5V</Pin><Pin x={92} y={68} end>GND</Pin><Pin x={92} y={94} end>D0 (RX)</Pin><Pin x={92} y={122} end>D1 (TX)</Pin>
       <Board x={200} y={6} w={96} h={138} label={p.name ?? "HC-06"} fill="var(--tone-sky)" />
-      <Pin x={208} y={46}>VCC</Pin><Pin x={208} y={68}>GND</Pin><Pin x={208} y={94}>TXD</Pin><Pin x={208} y={122}>RXD (3,3 V)</Pin>
+      <Pin x={208} y={46}>VCC</Pin><Pin x={208} y={68}>GND</Pin><Pin x={208} y={94}>TXD</Pin><Pin x={208} y={122}>{t("rxd33")}</Pin>
       <Wire d="M100 42H200" color={W5V} /><Wire d="M100 64H200" color={WGND} />
       <Wire d="M200 90H100" color={WBT} />
       <Wire d="M100 118H120" color={WBT} dash /><Res x={120} y={111} w={24} h={14} label="1k" /><Wire d="M144 118H200" color={WBT} dash />
@@ -156,9 +165,16 @@ function Hc06({ p }: { p: P }) {
   );
 }
 
+function NtcDivider({ p }: { p: P }) {
+  return <Divider p={p} part="NTC 10 kΩ" partFill="var(--tone-rose)" />;
+}
+function LdrDivider({ p }: { p: P }) {
+  const t = useTranslations("rig.schematic");
+  return <Divider p={p} part={t("photoresistor")} partFill="var(--tone-saffron)" />;
+}
+
 const SCHEMATICS: Record<Schematic, (props: { p: P }) => React.ReactElement> = {
-  hcsr04: Hcsr04, ntc: ({ p }) => <Divider p={p} part="NTC 10 kΩ" partFill="var(--tone-rose)" />,
-  ldr: ({ p }) => <Divider p={p} part="fotoresistenza" partFill="var(--tone-saffron)" />,
+  hcsr04: Hcsr04, ntc: NtcDivider, ldr: LdrDivider,
   mic: Mic, coil: Coil, dht: Dht, gps: Gps, analog: Analog, hc06: Hc06,
 };
 
@@ -188,6 +204,7 @@ export function WiringBlocks({ blocks }: { blocks: WiringBlock[] }) {
 const COLORS = ["#2563eb", "#db2777", "#16a34a", "#d97706", "#7c3aed", "#0891b2"];
 
 export function PinMap({ rig }: { rig: Rig }) {
+  const t = useTranslations("rig.schematic");
   const arduino = rig.sensors;
   const use = new Map<number, { color: string; text: string }>();
   arduino.forEach((s, i) => {
@@ -197,7 +214,7 @@ export function PinMap({ rig }: { rig: Rig }) {
     const u = use.get(p);
     const reserved = p === 0 || p === 1;
     return (
-      <div key={p} title={u?.text ?? (reserved ? "porta seriale (USB, Bluetooth)" : "libero")} className="flex flex-col items-center gap-1">
+      <div key={p} title={u?.text ?? (reserved ? t("serialPort") : t("free"))} className="flex flex-col items-center gap-1">
         <span className={cn("grid size-6 place-items-center rounded-full border text-[0.6rem] font-bold", reserved && "border-dashed opacity-50")}
           style={u ? { background: u.color, borderColor: u.color, color: "white" } : undefined}>
           {u ? "●" : ""}
@@ -209,7 +226,7 @@ export function PinMap({ rig }: { rig: Rig }) {
   if (!arduino.length) return null;
   return (
     <div className="rounded-lg border p-3">
-      <h4 className="mb-2 text-sm font-semibold">Pin di Arduino Uno</h4>
+      <h4 className="mb-2 text-sm font-semibold">{t("pinMapTitle")}</h4>
       <div className="flex flex-col gap-2 rounded-md bg-muted/50 p-2">
         <div className="flex justify-between gap-0.5">{[13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0].map((p) => cell(p))}</div>
         <div className="flex justify-end gap-1.5">{[14, 15, 16, 17, 18, 19].map((p) => cell(p))}</div>
@@ -222,7 +239,7 @@ export function PinMap({ rig }: { rig: Rig }) {
             <span className="text-muted-foreground">{SENSORS[s.type].pins.map((p) => `${p.role} ${pinName(s.pins[p.key])}`).join(" · ")}</span>
           </li>
         ))}
-        <li className="text-muted-foreground">D0 e D1 restano liberi per il cavo USB e il Bluetooth. Ogni modulo ha anche VCC a 5 V e GND a GND.</li>
+        <li className="text-muted-foreground">{t("pinMapNote")}</li>
       </ul>
     </div>
   );

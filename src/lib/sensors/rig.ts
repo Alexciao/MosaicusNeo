@@ -10,6 +10,7 @@
 //   insieme (mappa, Elaborazione).
 
 import { cmpVersion } from "@/lib/version";
+import { t } from "@/i18n";
 import { SENSORS, MAX_ARDUINO, pinName, pinsFor, defaultOptions, isSlot, type Rec, type SensorType } from "./catalog";
 import { QUANTITIES, symOf } from "./quantities";
 import type { Options, Row } from "./types";
@@ -58,6 +59,136 @@ export function makeSensor(type: SensorType, taken: Set<number> = new Set(), ext
     taken.add(pins[spec.key]);
   }
   return { id: newId(), type, pins, options: defaultOptions(type), interval: def.interval.def, ...extra, ...(extra.options ? { options: { ...defaultOptions(type), ...extra.options } } : {}) };
+}
+
+// ---------------------------------------------------------------------------
+// Aggiungere un componente senza conflitti di pin
+// ---------------------------------------------------------------------------
+/** Dispositivi che possono stare sullo stesso filo I2C: un foro per Arduino e quattro per i moduli
+ *  nella colonna del bus sulla breadboard (una colonna ha 5 fori collegati, a–e). */
+export const MAX_ON_BUS = 4;
+
+export interface PinMove { sensor: SensorInstance; role: string; from: number; to: number }
+/** Indirizzo I2C (esadecimale) dei dispositivi I2C; null per gli altri. */
+export function i2cAddr(s: SensorInstance): string | null {
+  switch (s.type) {
+    case "oled": return "3C";
+    case "mlx": return "5A";
+    case "sps30": return "69";              // fisso: non si può cambiare
+    case "imu": return String(s.options.addr ?? "68");
+    default: return null;
+  }
+}
+/** Dispositivi I2C sullo stesso bus (stesso pin SDA). */
+const busMates = (list: SensorInstance[], sda: number) => list.filter((o) => i2cAddr(o) && o.pins.a === sda);
+export type AddPlan =
+  | { ok: true; sensor: SensorInstance; sensors: SensorInstance[]; moved: PinMove[]; readdressed: SensorInstance[] }
+  | { ok: false; error: string };
+
+/**
+ * Prepara l'aggiunta di un componente in modo che il circuito si possa montare davvero:
+ * • i pin obbligati (SPI della scheda SD, seriale del Bluetooth) e quelli del bus I2C vengono
+ *   liberati spostando su un altro pin i componenti che li occupavano;
+ * • il secondo MPU-6050 prende l'indirizzo 0x69 (AD0 a 3,3 V), altrimenti i due si sovrappongono;
+ * • se non resta nessun pin libero, o il bus I2C è pieno, l'aggiunta non si fa e si dice perché.
+ */
+export function planAdd(current: SensorInstance[], type: SensorType, extra: Partial<SensorInstance> = {}): AddPlan {
+  const def = SENSORS[type];
+  const sensors = current.map((s) => ({ ...s, pins: { ...s.pins }, options: { ...s.options } }));
+  const base = makeSensor(type, new Set(), extra);
+  const sensor: SensorInstance = { ...base, pins: { ...base.pins }, options: { ...base.options } };
+  const moved: PinMove[] = [];
+  const fail = (error: string): AddPlan => ({ ok: false, error });
+
+  // chi occupa ogni pin (escluso il nuovo componente)
+  type Use = { s: SensorInstance; key: string; role: string; bus?: "sda" | "scl"; fixed?: boolean; kind: "analog" | "digital" };
+  const owners = () => {
+    const m = new Map<number, Use[]>();
+    for (const s of sensors) for (const spec of SENSORS[s.type].pins) {
+      const p = spec.fixed ? spec.def : s.pins[spec.key];
+      m.set(p, [...(m.get(p) ?? []), { s, key: spec.key, role: spec.role, bus: spec.bus, fixed: spec.fixed, kind: spec.kind }]);
+    }
+    return m;
+  };
+
+  // 1. pin obbligati e bus I2C del nuovo componente
+  const reserved = new Map<number, "sda" | "scl" | "fixed">();
+  for (const spec of def.pins) {
+    if (!spec.fixed && !spec.bus) continue;
+    let p = spec.def;
+    if (spec.bus) {
+      // se il bus c'è già (anche su pin scelti a mano), il nuovo dispositivo si aggiunge lì
+      const on = sensors.flatMap((s) => SENSORS[s.type].pins.filter((q) => q.bus === spec.bus).map((q) => s.pins[q.key]));
+      if (on.length) p = on[0];
+      const n = on.filter((x) => x === p).length;
+      if (n + 1 > MAX_ON_BUS) return fail(t("sensors.rig.busFull", { pin: pinName(p), role: spec.role, max: MAX_ON_BUS }));
+    }
+    sensor.pins[spec.key] = p;
+    reserved.set(p, spec.bus ?? "fixed");
+  }
+  // chi sta su quei pin e non può condividerli va spostato
+  const toMove: Use[] = [];
+  for (const [p, what] of reserved) {
+    for (const u of owners().get(p) ?? []) {
+      if (u.bus && u.bus === what) continue;                     // stesso filo I2C: si condivide
+      if (u.fixed || u.bus) {
+        const who = `${sensorLabel(u.s)} · ${u.role}`;
+        return fail(t("sensors.rig.pinLocked", { pin: pinName(p), sensor: def.title, other: who }));
+      }
+      toMove.push(u);
+    }
+  }
+
+  // 2. pin liberi: prima quelli solo digitali, così gli ingressi analogici restano per i sensori analogici
+  const pending = new Set<string>(toMove.map((u) => `${u.s.id}:${u.key}`));
+  const taken = () => {
+    const s = new Set<number>(reserved.keys());
+    for (const [p, us] of owners()) if (!us.every((u) => pending.has(`${u.s.id}:${u.key}`))) s.add(p);
+    for (const spec of def.pins) if (!spec.fixed && !spec.bus && sensor.pins[spec.key] != null && assigned.has(spec.key)) s.add(sensor.pins[spec.key]);
+    return s;
+  };
+  const assigned = new Set<string>();
+  const noPin = (kind: "analog" | "digital", who: string, role: string) => {
+    const busOn = [...reserved].length || sensors.some((s) => SENSORS[s.type].pins.some((q) => q.bus));
+    return t("sensors.rig.noFreePin", { kind, sensor: who, role, i2c: busOn && kind === "analog" ? "yes" : "no" });
+  };
+  for (const spec of def.pins) {
+    if (spec.fixed || spec.bus) continue;
+    const busy = taken();
+    const p = [spec.def, ...pinsFor(spec.kind)].find((x) => !busy.has(x) && pinsFor(spec.kind).includes(x));
+    if (p == null) return fail(noPin(spec.kind, def.title, spec.role));
+    sensor.pins[spec.key] = p;
+    assigned.add(spec.key);
+  }
+  for (const u of toMove) {
+    const busy = taken();
+    const p = pinsFor(u.kind).find((x) => !busy.has(x));
+    if (p == null) return fail(t("sensors.rig.cantMove", { sensor: def.title, other: `${sensorLabel(u.s)} · ${u.role}`, pin: pinName(u.s.pins[u.key]) }));
+    moved.push({ sensor: u.s, role: u.role, from: u.s.pins[u.key], to: p });
+    u.s.pins[u.key] = p;
+    pending.delete(`${u.s.id}:${u.key}`);
+  }
+
+  // 3. indirizzi I2C: sullo stesso bus ogni dispositivo deve avere il suo. L'MPU-6050 ne ha due
+  //    (AD0 libero 0x68, AD0 a 3,3 V 0x69); l'SPS30 ha solo 0x69, il display 0x3C, l'MLX90614 0x5A.
+  const readdressed: SensorInstance[] = [];
+  const mates = i2cAddr(sensor) ? busMates(sensors, sensor.pins.a) : [];
+  const usedBy = (addr: string) => mates.find((o) => i2cAddr(o) === addr);
+  if (type === "imu") {
+    const free = ["68", "69"].find((a) => !usedBy(a));
+    if (!free) return fail(t("sensors.rig.imuNoAddr", { list: mates.filter((o) => o.type === "imu" || o.type === "sps30").map(sensorLabel).join(", ") }));
+    sensor.options = { ...sensor.options, addr: free };
+  } else if (i2cAddr(sensor)) {
+    const clash = usedBy(i2cAddr(sensor)!);
+    if (clash) {
+      // un MPU-6050 sull'indirizzo che serve si sposta sull'altro, se è libero
+      const other = clash.type === "imu" ? (i2cAddr(clash) === "68" ? "69" : "68") : null;
+      if (!other || usedBy(other)) return fail(t("sensors.rig.addrTaken", { sensor: def.title, addr: i2cAddr(sensor)!, other: sensorLabel(clash) }));
+      clash.options = { ...clash.options, addr: other };
+      readdressed.push(clash);
+    }
+  }
+  return { ok: true, sensor, sensors: [...sensors, sensor], moved, readdressed };
 }
 
 export function usedPins(rig: Rig, except?: string) {
@@ -128,34 +259,46 @@ export interface Issue { sensorId?: string; level: "error" | "warn"; text: strin
 export function validateRig(rig: Rig): Issue[] {
   const out: Issue[] = [];
   const inputs = inputsOf(rig), arduino = inputs.filter((s) => !SENSORS[s.type].phone);
-  if (phoneOf(rig).length && arduinoOf(rig).length) out.push({ level: "error", text: "I sensori del telefono non si usano insieme ai componenti di Arduino: tienili in un progetto a parte." });
-  if (!inputs.length) out.push({ level: "error", text: rig.sensors.length ? "Ci sono solo accessori (display, LED, pulsante, scheda SD, Bluetooth): aggiungi almeno un sensore." : "Il progetto è vuoto: aggiungi almeno un sensore." });
-  if (rig.sensors.filter((s) => SENSORS[s.type].link).length > 1) out.push({ level: "error", text: "Un solo modulo Bluetooth alla volta: stanno tutti su D0 e D1. Togli quello in più." });
-  if (arduino.length > MAX_ARDUINO) out.push({ level: "error", text: `Troppi sensori: Arduino ne legge al massimo ${MAX_ARDUINO}. Rimuovine qualcuno.` });
+  if (phoneOf(rig).length && arduinoOf(rig).length) out.push({ level: "error", text: t("sensors.rig.phoneMix") });
+  if (!inputs.length) out.push({ level: "error", text: rig.sensors.length ? t("sensors.rig.onlyAccessories") : t("sensors.rig.empty") });
+  if (rig.sensors.filter((s) => SENSORS[s.type].link).length > 1) out.push({ level: "error", text: t("sensors.rig.oneBluetooth") });
+  if (arduino.length > MAX_ARDUINO) out.push({ level: "error", text: t("sensors.rig.tooMany", { max: MAX_ARDUINO }) });
   const count = new Map<SensorType, number>();
   for (const s of rig.sensors) count.set(s.type, (count.get(s.type) ?? 0) + 1);
-  for (const [type, n] of count) if (n > SENSORS[type].max) out.push({ level: "error", text: SENSORS[type].max === 1 ? `Puoi usare un solo «${SENSORS[type].title}»: rimuovi quello in più.` : `Puoi usare al massimo ${SENSORS[type].max} «${SENSORS[type].title}»: rimuovi quelli in più.` });
+  for (const [type, n] of count) if (n > SENSORS[type].max) out.push({ level: "error", text: t("sensors.rig.maxType", { max: SENSORS[type].max, title: SENSORS[type].title }) });
   const seen = new Map<number, { who: string; bus?: string; fixed?: boolean; link?: boolean }>();
   for (const s of rig.sensors) {
     const def = SENSORS[s.type];
     for (const spec of def.pins) {
       const p = spec.fixed ? spec.def : s.pins[spec.key];
       if (spec.fixed) { /* pin obbligato (SPI, seriale): conta solo per i doppioni */ }
-      else if (p === 0 || p === 1) out.push({ sensorId: s.id, level: "error", text: `${sensorLabel(s)}: D0 e D1 sono riservati alla seriale (USB e Bluetooth). Scegli un altro pin.` });
-      else if (!pinsFor(spec.kind).includes(p)) out.push({ sensorId: s.id, level: "error", text: `${sensorLabel(s)}: sposta ${spec.role} su un pin analogico (A0…A5).` });
+      else if (p === 0 || p === 1) out.push({ sensorId: s.id, level: "error", text: t("sensors.rig.serialPin", { sensor: sensorLabel(s) }) });
+      else if (!pinsFor(spec.kind).includes(p)) out.push({ sensorId: s.id, level: "error", text: t("sensors.rig.analogPin", { sensor: sensorLabel(s), role: spec.role }) });
       const prev = seen.get(p);
       // due dispositivi I2C sullo stesso filo vanno bene (SDA con SDA, SCL con SCL)
       if (prev && !(spec.bus && prev.bus === spec.bus) && !(SENSORS[s.type].link && prev.link)) out.push({ sensorId: s.id, level: "error", text: spec.fixed
-        ? `${pinName(p)} serve a ${sensorLabel(s)} (${spec.role}) e non si può cambiare: sposta ${prev.who} su un altro pin.`
-        : `${pinName(p)} è usato due volte (${prev.who} e ${sensorLabel(s)} · ${spec.role}). Cambia uno dei due pin.` });
+        ? t("sensors.rig.fixedPin", { pin: pinName(p), sensor: sensorLabel(s), role: spec.role, other: prev.who })
+        : t("sensors.rig.pinTwice", { pin: pinName(p), other: prev.who, sensor: sensorLabel(s), role: spec.role }) });
       if (!prev || !prev.fixed) seen.set(p, { who: `${sensorLabel(s)} · ${spec.role}`, bus: spec.bus, fixed: spec.fixed, link: def.link });
     }
     if (def.output || def.link || def.events) continue;
     const min = def.minInterval?.(s.options) ?? def.interval.min;
-    if (s.interval < min) out.push({ sensorId: s.id, level: "warn", text: `${sensorLabel(s)}: l'intervallo minimo è ${min} ms, verrà usato quello.` });
+    if (s.interval < min) out.push({ sensorId: s.id, level: "warn", text: t("sensors.rig.minInterval", { sensor: sensorLabel(s), min }) });
   }
-  if (count.get("gps") && count.get("dht")) out.push({ level: "warn", text: "Con il GPS, il DHT viene letto tra un messaggio e l'altro del GPS: alcune letture possono arrivare in ritardo." });
-  if ((count.get("sonar") ?? 0) > 1) out.push({ level: "warn", text: "Più sensori a ultrasuoni possono captare l'eco l'uno dell'altro: puntali in direzioni diverse." });
+  // I2C: due dispositivi con lo stesso indirizzo sullo stesso bus si sovrappongono; il bus ha posto per MAX_ON_BUS moduli
+  const seenAddr = new Map<string, SensorInstance>();
+  for (const s of rig.sensors) {
+    const addr = i2cAddr(s);
+    if (!addr) continue;
+    const k = `${s.pins.a}:${addr}`, prev = seenAddr.get(k);
+    if (prev) out.push({ sensorId: s.id, level: "error", text: t("sensors.rig.addrClash", { a: sensorLabel(prev), b: sensorLabel(s), addr, imu: prev.type === "imu" || s.type === "imu" ? "yes" : "no" }) });
+    else seenAddr.set(k, s);
+  }
+  const onBus = new Map<number, { n: number; role: string }>();
+  for (const s of rig.sensors) for (const spec of SENSORS[s.type].pins) if (spec.bus) onBus.set(s.pins[spec.key], { n: (onBus.get(s.pins[spec.key])?.n ?? 0) + 1, role: spec.role });
+  for (const [p, { n, role }] of onBus) if (n > MAX_ON_BUS) out.push({ level: "error", text: t("sensors.rig.busFull", { pin: pinName(p), role, max: MAX_ON_BUS }) });
+  if (count.get("gps") && count.get("dht")) out.push({ level: "warn", text: t("sensors.rig.gpsDht") });
+  if ((count.get("sonar") ?? 0) > 1) out.push({ level: "warn", text: t("sensors.rig.sonars") });
   return out;
 }
 export const hasErrors = (issues: Issue[]) => issues.some((i) => i.level === "error");

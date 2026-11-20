@@ -1,6 +1,7 @@
 "use client";
 // La scheda della misura: il prossimo gesto (collega → avvia → ferma) e le letture in evidenza.
 
+import { useTranslations } from "next-intl";
 import { LiveChips, DeviceMirror } from "./device-status";
 import { Cpu, Crosshair, LoaderCircle, Pencil, Play, Square, Plug } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -18,6 +19,7 @@ function Readouts() {
   const rows = useLab((s) => s.rows);
   const rig = useLab((s) => s.rig);
   const readouts = readoutsOf();
+  const t = useTranslations("app.run");
   // stesso nome per due sensori (es. due temperature): aggiungo il nome del sensore
   const dup = (name: string) => readouts.filter((r) => r.name === name).length > 1;
   const label = (r: (typeof readouts)[number]) => {
@@ -42,7 +44,7 @@ function Readouts() {
         </div>
       ))}
       <div className="min-w-0">
-        <p className="text-xs text-muted-foreground">Tempo</p>
+        <p className="text-xs text-muted-foreground">{t("time")}</p>
         <p className="tabular leading-none"><b className="text-2xl font-semibold tracking-tight">{fmtVal(tEnd, 1)}</b><span className="ml-1 text-sm text-muted-foreground">s</span></p>
       </div>
     </div>
@@ -56,12 +58,13 @@ export function RunCard() {
   const step = useLab(guideStep);
   const sonar = useLab((s) => rigHas(["sonar"], s.rig));
   const phone = useLab((s) => isPhoneRig(s.rig));
+  const t = useTranslations("app.run");
   return (
     <Card className="gap-4 p-4">
       <label className="flex items-center gap-2 text-muted-foreground">
         <Pencil className="size-3.5 shrink-0" />
         <input value={name} onChange={(e) => setSessionName(e.target.value)} onBlur={() => void commitSessionName()}
-          placeholder="Nome della misura, es. Gruppo 3 · piano inclinato" aria-label="Nome della misura"
+          placeholder={t("namePlaceholder")} aria-label={t("nameLabel")}
           className="min-w-0 flex-1 bg-transparent text-sm font-medium text-foreground outline-none placeholder:font-normal placeholder:text-muted-foreground" />
       </label>
       <div className="flex flex-col gap-4 md:flex-row md:items-center">
@@ -69,18 +72,18 @@ export function RunCard() {
           {step === "link" ? (
             <>
               {phone ? <PhoneButton size="lg" /> : <ConnectButton size="lg" />}
-              <Button size="lg" variant="outline" onClick={() => void connect("sim")}><Cpu /> Simulatore</Button>
-              {!phone && <Button size="lg" variant="ghost" className="text-muted-foreground" onClick={showWiring}><Plug /> Schema dei collegamenti</Button>}
+              <Button size="lg" variant="outline" onClick={() => void connect("sim")}><Cpu /> {t("sim")}</Button>
+              {!phone && <Button size="lg" variant="ghost" className="text-muted-foreground" onClick={showWiring}><Plug /> {t("wiring")}</Button>}
             </>
           ) : step === "wait" ? (
-            <Button size="lg" variant="outline" disabled><LoaderCircle className="animate-spin" /> Collegamento…</Button>
+            <Button size="lg" variant="outline" disabled><LoaderCircle className="animate-spin" /> {t("connecting")}</Button>
           ) : running ? (
-            <Button size="lg" variant="destructive" className="min-w-32" onClick={() => void stop()}><Square className="fill-current" /> Ferma</Button>
+            <Button size="lg" variant="destructive" className="min-w-32" onClick={() => void stop()}><Square className="fill-current" /> {t("stop")}</Button>
           ) : (
-            <Button size="lg" className="min-w-32" disabled={!startable} onClick={() => void start()}><Play className="fill-current" /> Avvia</Button>
+            <Button size="lg" className="min-w-32" disabled={!startable} onClick={() => void start()}><Play className="fill-current" /> {t("start")}</Button>
           )}
           {sonar && step !== "link" && step !== "wait" && (
-            <Button size="icon-lg" variant="outline" onClick={zeroPosition} title="Usa la posizione attuale come origine" aria-label="Azzera la posizione"><Crosshair /></Button>
+            <Button size="icon-lg" variant="outline" onClick={zeroPosition} title={t("zeroTitle")} aria-label={t("zeroLabel")}><Crosshair /></Button>
           )}
         </div>
         <div className={cn("min-w-0 flex-1 md:border-l md:pl-5", step === "link" && "opacity-50")}><Readouts /></div>

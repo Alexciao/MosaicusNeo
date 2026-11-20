@@ -3,8 +3,9 @@
 
 import { useDeferredValue, useMemo, useState } from "react";
 import {
-  ArrowRight, BookOpen, ChartLine, CloudCheck, CloudUpload, Cpu, Ellipsis, FileSpreadsheet, FileText, FlaskConical, FolderOpen, MemoryStick, Pencil, Search, Trash, X,
+  ArrowRight, BookOpen, ChartLine, CloudCheck, CloudUpload, Combine, Cpu, Ellipsis, FileSpreadsheet, FileText, FlaskConical, FolderOpen, MemoryStick, Pencil, Search, Trash, X,
 } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -12,7 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import {
-  useLab, labInfo, openSession, removeSession, renameSession, sendSessionToElab, exportSession, goElab, showPage, type SessionSummary,
+  useLab, labInfo, openSession, removeSession, renameSession, sendSessionToElab, exportSession, goElab, showPage, combineSessions, canCombine, type SessionSummary,
 } from "@/lib/lab-store";
 import { useWorkbench } from "@/lib/workbench-store";
 import { useCloud } from "@/lib/cloud/sync";
@@ -21,21 +22,22 @@ import { fmtVal } from "@/lib/prefs";
 import { cn } from "@/lib/utils";
 import { toneBg } from "@/components/app/tone";
 import { SdImportButton } from "@/components/app/sd-controls";
+import { t as tr, intlLocale, locale } from "@/i18n";
 
 type Sort = "new" | "old" | "name" | "size";
-const SORTS: Record<Sort, string> = { new: "Più recenti", old: "Più vecchie", name: "Nome (A–Z)", size: "Più letture" };
+const SORTS: Record<Sort, string> = { new: tr("workbench.notebook.sort.new"), old: tr("workbench.notebook.sort.old"), name: tr("workbench.notebook.sort.name"), size: tr("workbench.notebook.sort.size") };
 type Src = "all" | "arduino" | "sd" | "sim";
-const SOURCES: Record<Src, string> = { all: "Tutte le sorgenti", arduino: "Arduino dal vivo", sd: "Scheda SD", sim: "Simulatore" };
+const SOURCES: Record<Src, string> = { all: tr("workbench.notebook.source.all"), arduino: tr("workbench.notebook.source.arduino"), sd: tr("workbench.notebook.source.sd"), sim: tr("workbench.notebook.source.sim") };
 
-const dayFmt = new Intl.DateTimeFormat("it-IT", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
-const timeFmt = new Intl.DateTimeFormat("it-IT", { hour: "2-digit", minute: "2-digit" });
+const dayFmt = new Intl.DateTimeFormat(intlLocale, { weekday: "long", day: "numeric", month: "long", year: "numeric" });
+const timeFmt = new Intl.DateTimeFormat(intlLocale, { hour: "2-digit", minute: "2-digit" });
 
 function dayLabel(ts: number) {
   const d = new Date(ts), today = new Date();
   const start = (x: Date) => new Date(x.getFullYear(), x.getMonth(), x.getDate()).getTime();
   const diff = Math.round((start(today) - start(d)) / 86400000);
-  if (diff === 0) return "Oggi";
-  if (diff === 1) return "Ieri";
+  if (diff === 0) return tr("workbench.notebook.today");
+  if (diff === 1) return tr("workbench.notebook.yesterday");
   const s = dayFmt.format(d);
   return s[0].toUpperCase() + s.slice(1);
 }
@@ -47,6 +49,7 @@ function duration(s: number) {
 }
 
 export function NotebookPage() {
+  const t = useTranslations("workbench.notebook");
   const sessions = useLab((s) => s.sessions);
   const [q, setQ] = useState("");
   const [lab, setLab] = useState("all");
@@ -57,9 +60,9 @@ export function NotebookPage() {
   const labs = useMemo(() => {
     const m = new Map<string, string>();
     for (const s of sessions ?? []) m.set(s.labId, s.labTitle);
-    return [...m].sort((a, b) => a[1].localeCompare(b[1], "it"));
+    return [...m].sort((a, b) => a[1].localeCompare(b[1], locale));
   }, [sessions]);
-  const labItems = useMemo(() => ({ all: "Tutti i lab", ...Object.fromEntries(labs) }), [labs]);
+  const labItems = useMemo(() => ({ all: t("allLabs"), ...Object.fromEntries(labs) }), [labs, t]);
 
   const list = useMemo(() => {
     const out = (sessions ?? []).filter((s) =>
@@ -68,7 +71,7 @@ export function NotebookPage() {
       (!query || `${s.name} ${s.labTitle} ${s.sensors.join(" ")}`.toLowerCase().includes(query)));
     const cmp: Record<Sort, (a: SessionSummary, b: SessionSummary) => number> = {
       new: (a, b) => b.created - a.created, old: (a, b) => a.created - b.created,
-      name: (a, b) => a.name.localeCompare(b.name, "it"), size: (a, b) => b.n - a.n,
+      name: (a, b) => a.name.localeCompare(b.name, locale), size: (a, b) => b.n - a.n,
     };
     return out.sort(cmp[sort]);
   }, [sessions, lab, src, query, sort]);
@@ -93,9 +96,9 @@ export function NotebookPage() {
       <Card className="flex flex-col gap-4 p-4">
         <div className="flex flex-wrap items-start gap-x-4 gap-y-2">
           <div className="mr-auto">
-            <h2 className="text-xl font-bold tracking-tight">Quaderno</h2>
+            <h2 className="text-xl font-bold tracking-tight">{t("title")}</h2>
             <p className="text-sm text-muted-foreground">
-              Le misure si salvano qui quando premi «Ferma». Le registrazioni della scheda SD si importano da qui.
+              {t("intro")}
             </p>
           </div>
           <SdImportButton />
@@ -103,43 +106,43 @@ export function NotebookPage() {
         <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
           <div className="relative min-w-0 flex-1 sm:min-w-56">
             <Search className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" />
-            <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Cerca per nome, lab o sensore" aria-label="Cerca nel Quaderno" className="pl-8" />
+            <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder={t("search")} aria-label={t("searchAria")} className="pl-8" />
           </div>
           <Select value={lab} onValueChange={(v) => v && setLab(String(v))} items={labItems}>
-            <SelectTrigger aria-label="Filtra per lab" className="sm:w-48"><SelectValue /></SelectTrigger>
+            <SelectTrigger aria-label={t("filterLab")} className="sm:w-48"><SelectValue /></SelectTrigger>
             <SelectContent>{Object.entries(labItems).map(([k, v]) => <SelectItem key={k} value={k}>{v}</SelectItem>)}</SelectContent>
           </Select>
           <Select value={src} onValueChange={(v) => v && setSrc(v as Src)} items={SOURCES}>
-            <SelectTrigger aria-label="Filtra per sorgente" className="sm:w-48"><SelectValue /></SelectTrigger>
+            <SelectTrigger aria-label={t("filterSource")} className="sm:w-48"><SelectValue /></SelectTrigger>
             <SelectContent>{Object.entries(SOURCES).map(([k, v]) => <SelectItem key={k} value={k}>{v}</SelectItem>)}</SelectContent>
           </Select>
           <Select value={sort} onValueChange={(v) => v && setSort(v as Sort)} items={SORTS}>
-            <SelectTrigger aria-label="Ordina" className="sm:w-40"><SelectValue /></SelectTrigger>
+            <SelectTrigger aria-label={t("sortAria")} className="sm:w-40"><SelectValue /></SelectTrigger>
             <SelectContent>{Object.entries(SORTS).map(([k, v]) => <SelectItem key={k} value={k}>{v}</SelectItem>)}</SelectContent>
           </Select>
         </div>
         {sessions && sessions.length > 0 && (
           <p className="-mt-1 text-xs text-muted-foreground">
-            {filtered ? <>{list.length} di {sessions.length} misure · <button type="button" className="underline underline-offset-2 hover:text-foreground" onClick={reset}>mostra tutte</button></> : <>{sessions.length} {sessions.length === 1 ? "misura" : "misure"}</>}
+            {filtered ? <>{t("filteredCount", { shown: list.length, total: sessions.length })} · <button type="button" className="underline underline-offset-2 hover:text-foreground" onClick={reset}>{t("showAll")}</button></> : <>{t("count", { n: sessions.length })}</>}
           </p>
         )}
       </Card>
 
-      {sessions == null && <p className="px-1 text-sm text-muted-foreground">Caricamento…</p>}
+      {sessions == null && <p className="px-1 text-sm text-muted-foreground">{t("loading")}</p>}
 
       {sessions?.length === 0 && (
         <Card className="flex flex-col items-center gap-3 p-10 text-center">
           <span className="grid size-14 place-items-center rounded-2xl bg-tone-sky text-tone-ink"><BookOpen className="size-7" /></span>
-          <h3 className="text-lg font-semibold">Nessuna misura salvata</h3>
-          <p className="max-w-md text-sm text-muted-foreground">Avvia una misura e premi «Ferma»: la trovi qui con data, sensori e letture.</p>
-          <Button variant="outline" onClick={() => showPage("misura")}><FlaskConical /> Vai a Misura</Button>
+          <h3 className="text-lg font-semibold">{t("emptyTitle")}</h3>
+          <p className="max-w-md text-sm text-muted-foreground">{t("emptyBody")}</p>
+          <Button variant="outline" onClick={() => showPage("misura")}><FlaskConical /> {t("goMeasure")}</Button>
         </Card>
       )}
 
       {sessions && sessions.length > 0 && !list.length && (
         <Card className="flex flex-col items-center gap-2 p-8 text-center">
-          <p className="text-sm text-muted-foreground">Nessuna misura corrisponde ai filtri.</p>
-          <Button size="sm" variant="outline" onClick={reset}><X /> Togli i filtri</Button>
+          <p className="text-sm text-muted-foreground">{t("noMatch")}</p>
+          <Button size="sm" variant="outline" onClick={reset}><X /> {t("clearFilters")}</Button>
         </Card>
       )}
 
@@ -154,6 +157,7 @@ export function NotebookPage() {
 }
 
 function SessionRow({ s, showDate }: { s: SessionSummary; showDate: boolean }) {
+  const t = useTranslations("workbench.notebook");
   const current = useLab((st) => st.session?.id === s.id);
   const running = useLab((st) => st.running);
   const signedIn = useCloud((st) => !!st.user);
@@ -162,8 +166,9 @@ function SessionRow({ s, showDate }: { s: SessionSummary; showDate: boolean }) {
   const info = labInfo(s.labId);
   const Icon = info.icon;
   const [renaming, setRenaming] = useState(false);
+  const [combining, setCombining] = useState(false);
   const [name, setName] = useState(s.name);
-  const when = showDate ? new Date(s.created).toLocaleString("it-IT", { dateStyle: "medium", timeStyle: "short" }) : timeFmt.format(s.created);
+  const when = showDate ? new Date(s.created).toLocaleString(intlLocale, { dateStyle: "medium", timeStyle: "short" }) : timeFmt.format(s.created);
 
   return (
     <li className={cn("flex flex-col gap-3 rounded-xl border bg-card p-3 sm:flex-row sm:items-center", current && "border-brand/40 bg-brand/5")}>
@@ -172,62 +177,98 @@ function SessionRow({ s, showDate }: { s: SessionSummary; showDate: boolean }) {
         <div className="min-w-0 flex-1">
           <p className="flex items-center gap-1.5 font-semibold">
             <span className="truncate">{s.name}</span>
-            {current && <span className="shrink-0 rounded bg-brand/15 px-1.5 text-[0.65rem] font-semibold text-brand">aperta</span>}
+            {current && <span className="shrink-0 rounded bg-brand/15 px-1.5 text-[0.65rem] font-semibold text-brand">{t("openTag")}</span>}
             {signedIn && s.cloud && (s.dirty
-              ? <CloudUpload className="size-3.5 shrink-0 text-muted-foreground" aria-label="da salvare nel cloud" />
-              : <CloudCheck className="size-3.5 shrink-0 text-success" aria-label="salvata nel cloud" />)}
+              ? <CloudUpload className="size-3.5 shrink-0 text-muted-foreground" aria-label={t("toCloud")} />
+              : <CloudCheck className="size-3.5 shrink-0 text-success" aria-label={t("inCloud")} />)}
           </p>
           <p className="truncate text-xs text-muted-foreground">
-            {s.labTitle} · {when} · {duration(s.duration)} · {s.n.toLocaleString("it-IT")} letture
+            {s.labTitle} · {when} · {duration(s.duration)} · {t("readings", { n: s.n })}
           </p>
           <div className="mt-1.5 flex flex-wrap items-center gap-1">
             {s.source === "simulatore"
-              ? <span className="rounded bg-muted px-1.5 py-0.5 text-[0.65rem] font-medium text-muted-foreground">simulatore</span>
+              ? <span className="rounded bg-muted px-1.5 py-0.5 text-[0.65rem] font-medium text-muted-foreground">{t("simTag")}</span>
               : s.source === "scheda SD"
-              ? <span className="inline-flex items-center gap-1 rounded bg-muted px-1.5 py-0.5 text-[0.65rem] font-medium text-muted-foreground"><MemoryStick className="size-3" /> scheda SD</span>
+              ? <span className="inline-flex items-center gap-1 rounded bg-muted px-1.5 py-0.5 text-[0.65rem] font-medium text-muted-foreground"><MemoryStick className="size-3" /> {t("sdTag")}</span>
+              : s.source === "combined"
+              ? <span className="inline-flex items-center gap-1 rounded bg-muted px-1.5 py-0.5 text-[0.65rem] font-medium text-muted-foreground"><Combine className="size-3" /> {t("combinedTag")}</span>
               : <span className="inline-flex items-center gap-1 rounded bg-muted px-1.5 py-0.5 text-[0.65rem] font-medium text-muted-foreground"><Cpu className="size-3" /> Arduino</span>}
             {s.sensors.map((x, i) => <span key={i} className="rounded border px-1.5 py-0.5 text-[0.65rem] font-medium text-muted-foreground">{x}</span>)}
             {boxes > 0 && (
               <button type="button" onClick={() => goElab(lastBox)}
                 className="inline-flex items-center gap-1 rounded bg-brand/10 px-1.5 py-0.5 text-[0.65rem] font-semibold text-brand hover:bg-brand/15">
-                <ChartLine className="size-3" /> {boxes === 1 ? "1 tratto" : `${boxes} tratti`} in Elaborazione
+                <ChartLine className="size-3" /> {t("inElab", { n: boxes })}
               </button>
             )}
           </div>
         </div>
       </div>
       <div className="flex shrink-0 items-center gap-1.5 sm:pl-2">
-        <Button size="sm" variant="outline" disabled={running} onClick={() => void openSession(s.id)}><FolderOpen /> Apri</Button>
-        <Button size="sm" disabled={running} onClick={() => void sendSessionToElab(s.id)}>Analizza <ArrowRight /></Button>
+        <Button size="sm" variant="outline" disabled={running} onClick={() => void openSession(s.id)}><FolderOpen /> {t("open")}</Button>
+        <Button size="sm" disabled={running} onClick={() => void sendSessionToElab(s.id)}>{t("analyze")} <ArrowRight /></Button>
         <DropdownMenu>
-          <DropdownMenuTrigger render={<Button size="icon-sm" variant="ghost" aria-label={`Altre azioni per «${s.name}»`} />}><Ellipsis /></DropdownMenuTrigger>
+          <DropdownMenuTrigger render={<Button size="icon-sm" variant="ghost" aria-label={t("moreActions", { name: s.name })} />}><Ellipsis /></DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-56">
-            <DropdownMenuItem onClick={() => { setName(s.name); setRenaming(true); }}><Pencil /> Rinomina</DropdownMenuItem>
-            <DropdownMenuItem disabled={running} onClick={() => void exportSession(s.id, "xlsx")}><FileSpreadsheet /> Esporta in Excel</DropdownMenuItem>
-            <DropdownMenuItem disabled={running} onClick={() => void exportSession(s.id, "csv")}><FileText /> Esporta CSV</DropdownMenuItem>
-            <DropdownMenuItem disabled={running} onClick={() => void exportSession(s.id, "raw-csv")}><FileText /> Dati grezzi (CSV)</DropdownMenuItem>
+            <DropdownMenuItem onClick={() => { setName(s.name); setRenaming(true); }}><Pencil /> {t("rename")}</DropdownMenuItem>
+            <DropdownMenuItem disabled={running || !canCombine(s)} onClick={() => setCombining(true)}><Combine /> {t("combine")}</DropdownMenuItem>
+            <DropdownMenuItem disabled={running} onClick={() => void exportSession(s.id, "xlsx")}><FileSpreadsheet /> {t("exportExcel")}</DropdownMenuItem>
+            <DropdownMenuItem disabled={running} onClick={() => void exportSession(s.id, "csv")}><FileText /> {t("exportCsv")}</DropdownMenuItem>
+            <DropdownMenuItem disabled={running} onClick={() => void exportSession(s.id, "raw-csv")}><FileText /> {t("rawCsv")}</DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem variant="destructive" disabled={running && current}
               onClick={async () => {
-                if (await confirm({ title: `Eliminare «${s.name}»?`, description: "I tratti già in Elaborazione restano.", action: "Elimina", destructive: true })) await removeSession(s.id);
+                if (await confirm({ title: t("deleteTitle", { name: s.name }), description: t("deleteDesc"), action: t("delete"), destructive: true })) await removeSession(s.id);
               }}>
-              <Trash /> Elimina
+              <Trash /> {t("delete")}
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
+      <CombineDialog s={s} open={combining} onOpenChange={setCombining} />
       <Dialog open={renaming} onOpenChange={setRenaming}>
         <DialogContent className="sm:max-w-sm">
-          <DialogHeader><DialogTitle>Rinomina la misura</DialogTitle></DialogHeader>
+          <DialogHeader><DialogTitle>{t("renameTitle")}</DialogTitle></DialogHeader>
           <form onSubmit={(e) => { e.preventDefault(); void renameSession(s.id, name); setRenaming(false); }} className="flex flex-col gap-4">
-            <Input autoFocus value={name} onChange={(e) => setName(e.target.value)} aria-label="Nome della misura" />
+            <Input autoFocus value={name} onChange={(e) => setName(e.target.value)} aria-label={t("nameAria")} />
             <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => setRenaming(false)}>Annulla</Button>
-              <Button type="submit">Salva</Button>
+              <Button type="button" variant="outline" onClick={() => setRenaming(false)}>{t("cancel")}</Button>
+              <Button type="submit">{t("save")}</Button>
             </DialogFooter>
           </form>
         </DialogContent>
       </Dialog>
     </li>
+  );
+}
+
+/** Combina questa misura con un'altra fatta nello stesso momento (un altro progetto, un altro Arduino). */
+function CombineDialog({ s, open, onOpenChange }: { s: SessionSummary; open: boolean; onOpenChange: (o: boolean) => void }) {
+  const t = useTranslations("workbench.notebook");
+  const sessions = useLab((st) => st.sessions);
+  const end = (x: SessionSummary) => x.created + x.duration * 1000;
+  // le altre misure dal vivo che si sovrappongono nel tempo, la più sovrapposta per prima
+  const overlap = (x: SessionSummary) => Math.min(end(s), end(x)) - Math.max(s.created, x.created);
+  const others = (sessions ?? []).filter((x) => x.id !== s.id && canCombine(x) && overlap(x) > 0).sort((a, b) => overlap(b) - overlap(a));
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader><DialogTitle>{t("combineTitle", { name: s.name })}</DialogTitle></DialogHeader>
+        <p className="text-sm text-muted-foreground">{t("combineIntro")}</p>
+        {others.length ? (
+          <ul className="flex max-h-72 flex-col gap-1.5 overflow-auto">
+            {others.map((x) => (
+              <li key={x.id}>
+                <button type="button" className="flex w-full flex-col rounded-lg border px-3 py-2 text-left text-sm hover:bg-muted"
+                  onClick={() => { onOpenChange(false); void combineSessions(s.id, x.id); }}>
+                  <span className="font-medium">{x.name}</span>
+                  <span className="text-xs text-muted-foreground">{x.labTitle} · {timeFmt.format(x.created)} · {t("overlap", { s: Math.round(overlap(x) / 1000) })}</span>
+                </button>
+              </li>
+            ))}
+          </ul>
+        ) : <p className="rounded-lg border border-dashed p-4 text-center text-sm text-muted-foreground">{t("combineNone")}</p>}
+        <DialogFooter><Button variant="outline" onClick={() => onOpenChange(false)}>{t("cancel")}</Button></DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }

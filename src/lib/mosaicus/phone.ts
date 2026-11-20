@@ -14,6 +14,7 @@
 //  • Il livello sonoro è relativo al fondo scala del microfono, non tarato in dB SPL.
 
 import { audio, micAnalyser, closeMic } from "./audio.js";
+import { t } from "@/i18n";
 
 const FW = "telefono";
 
@@ -51,7 +52,7 @@ export class PhoneLink {
 
   /** Dal clic: su iPhone chiede il permesso per i sensori di movimento e prepara l'audio. */
   async open() {
-    if (!window.isSecureContext) throw new Error("i sensori del telefono funzionano solo da una pagina sicura (https)");
+    if (!window.isSecureContext) throw new Error(t("engine.phone.needsHttps"));
     const DME = (window as unknown as { DeviceMotionEvent?: { requestPermission?: () => Promise<string> } }).DeviceMotionEvent;
     // il permesso negato blocca solo i sensori di movimento: il microfono può funzionare lo stesso
     if (typeof DME?.requestPermission === "function") {
@@ -77,7 +78,7 @@ export class PhoneLink {
     }
     if (c === "START") {
       this.stop();
-      if (!this.slots.size) return this.emit("#ERR,START,VUOTO");
+      if (!this.slots.size) return this.emit("#ERR,START,EMPTY");
       this.emit("#ACK,START");
       const t0 = performance.now();
       for (const [slot, s] of this.slots) {
@@ -91,7 +92,7 @@ export class PhoneLink {
   }
 
   private startMotion(slot: number, interval: number, t0: number) {
-    if (this.motionDenied) { this.emit("#ERR,PHONE,Permesso per i sensori di movimento negato. Su iPhone: Impostazioni → Safari → Movimento e orientamento, poi ricarica la pagina."); return; }
+    if (this.motionDenied) { this.emit(`#ERR,PHONE,${t("engine.phone.motionDenied")}`); return; }
     let last = -Infinity, got = false;
     const v = (x: number | null | undefined) => (x == null || !Number.isFinite(x) ? "nan" : (+x).toFixed(4));
     const h = (e: DeviceMotionEvent) => {
@@ -103,13 +104,13 @@ export class PhoneLink {
       this.emit(`D,${slot},${(t - t0).toFixed(3)},${v(g?.x)},${v(g?.y)},${v(g?.z)},${v(r?.beta)},${v(r?.gamma)},${v(r?.alpha)}`);
     };
     window.addEventListener("devicemotion", h);
-    const warn = setTimeout(() => { if (!got) this.emit("#ERR,PHONE,Nessun dato dai sensori di movimento: apri l'app sul telefono (i computer di solito non li hanno)."); }, 2500);
+    const warn = setTimeout(() => { if (!got) this.emit(`#ERR,PHONE,${t("engine.phone.noMotionData")}`); }, 2500);
     this.stopFns.push(() => { window.removeEventListener("devicemotion", h); clearTimeout(warn); });
   }
 
   private async startSound(slot: number, interval: number, t0: number) {
     let an: AnalyserNode;
-    try { an = await micAnalyser(); } catch (e) { this.emit(`#ERR,PHONE,Microfono non disponibile: ${(e as Error).message}.`); return; }
+    try { an = await micAnalyser(); } catch (e) { this.emit(`#ERR,PHONE,${t("engine.phone.micUnavailable", { msg: (e as Error).message })}`); return; }
     const spec = new Float32Array(an.frequencyBinCount), wave = new Float32Array(an.fftSize);
     const sr = an.context.sampleRate;
     const timer = setInterval(() => {

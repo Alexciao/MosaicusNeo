@@ -1,0 +1,529 @@
+{
+  "catalog": {
+    "yes": "sì",
+    "no": "no",
+    "offsetT": "Correzione di taratura, sommata a T",
+    "dividerOut": "uscita del partitore",
+    "usuallyA4": "Di solito A4.",
+    "usuallyA5": "Di solito A5.",
+    "nothingToConnect": "Niente da collegare",
+    "ntc": {
+      "title": "Termistore NTC",
+      "measures": "temperatura",
+      "description": "Temperatura da una resistenza che varia con il calore, in partitore con 10 kΩ. Risponde in fretta e si può immergere.",
+      "orientation": "Posizione del termistore nel partitore",
+      "ntc5v": "NTC tra 5 V e il pin (come nel kit Elegoo)",
+      "ntcgnd": "NTC tra il pin e GND",
+      "tAmb": "Temperatura ambiente Tₐ, per ln(T − Tₐ)",
+      "rSeries": "Resistenza fissa del partitore",
+      "r0": "R₀ del termistore (a T₀)",
+      "t0": "T₀ di riferimento",
+      "beta": "Coefficiente B (Beta)",
+      "wiring": "Partitore con una resistenza da 10 kΩ; il punto centrale va su {pin}."
+    },
+    "dht": {
+      "measures": "temperatura e umidità",
+      "description": "Temperatura, umidità relativa e punto di rugiada. Al massimo 1 lettura al secondo (DHT22: ogni 2 s).",
+      "model": "Modello",
+      "dht11": "DHT11 (blu, ±2 °C, ±5 %)",
+      "dht22": "DHT22 / AM2302 (bianco, ±0,5 °C, ±2 %)",
+      "offsetT": "Correzione di taratura della temperatura",
+      "offsetRH": "Correzione di taratura dell'umidità",
+      "wiring": "DATA su {pin}, VCC a 5 V, GND a GND. Il modulo a 3 pin ha già il pull-up; il sensore a 4 pin senza schedina richiede 10 kΩ tra DATA e 5 V."
+    },
+    "sonar": {
+      "title": "Ultrasuoni HC-SR04",
+      "measures": "posizione, velocità, accelerazione",
+      "description": "Distanza dal tempo di volo di un impulso a ultrasuoni, da 2 cm a 4 m; ne ricava velocità e accelerazione.",
+      "tAir": "Temperatura dell'aria, per la velocità del suono",
+      "direction": "Verso positivo",
+      "away": "Allontanamento dal sensore",
+      "toward": "Avvicinamento al sensore",
+      "window": "Smussamento di v e a (punti per lato)",
+      "origin": "Origine delle posizioni (distanza dal sensore)",
+      "dMin": "Distanza minima accettata",
+      "dMax": "Distanza massima accettata",
+      "spike": "Scarta salti anomali maggiori di",
+      "wiring": "Usa un bersaglio piatto e ampio. Più sensori a ultrasuoni si disturbano a vicenda: puntali in direzioni diverse."
+    },
+    "gps": {
+      "measures": "posizione, altitudine, velocità",
+      "description": "Posizione, altitudine e velocità da un modulo GPS seriale a 9600 baud (es. Velleman VMA430). Funziona solo all'aperto, con il cielo libero.",
+      "pinRx": "RX di Arduino ← TX del GPS",
+      "pinTx": "TX di Arduino → RX del GPS",
+      "pinTxNote": "collegamento facoltativo; il pin resta comunque occupato",
+      "minSats": "Satelliti minimi per accettare una posizione",
+      "maxHdop": "HDOP massimo accettato (più basso, più preciso)",
+      "wiring": "Antenna con la faccia di ceramica verso il cielo. Il primo fix all'aperto richiede da 30 s a qualche minuto; quando c'è, il LED del modulo lampeggia."
+    },
+    "analog": {
+      "title": "Tensione analogica",
+      "short": "Analogico",
+      "measures": "tensione (0–5 V) o una grandezza tarata",
+      "description": "Qualsiasi segnale tra 0 e 5 V (potenziometro, sensore di pressione o di forza); con una taratura lineare diventa una grandezza fisica.",
+      "pin": "segnale (0–5 V)",
+      "calibrate": "Taratura lineare y = k·V + q",
+      "calNo": "No: mostra la tensione",
+      "calYes": "Sì",
+      "sym": "Simbolo della grandezza tarata",
+      "unit": "Unità della grandezza tarata",
+      "k": "Coefficiente k",
+      "q": "Termine noto q",
+      "vref": "Tensione di riferimento",
+      "calibrated": "{sym} (tarata)",
+      "wiringTitle": "Segnale analogico",
+      "wiring": "Segnale su {pin}, GND in comune con Arduino. Solo tra 0 e 5 V: mai tensioni più alte, mai la rete elettrica."
+    },
+    "ldr": {
+      "title": "Fotoresistenza (luce)",
+      "measures": "luminosità relativa",
+      "description": "Luminosità relativa (0–100 %) da una fotoresistenza in partitore: non misura i lux.",
+      "orientation": "Posizione della fotoresistenza",
+      "ldr5v": "Tra 5 V e il pin (più luce = valore più alto)",
+      "ldrgnd": "Tra il pin e GND",
+      "wiringTitle": "Fotoresistenza",
+      "wiring": "Fotoresistenza tra 5 V e {pin}, resistenza da 10 kΩ tra {pin} e GND."
+    },
+    "ds18b20": {
+      "title": "Sonda DS18B20",
+      "measures": "temperatura (anche in acqua)",
+      "description": "Temperatura da −55 a 125 °C con ±0,5 °C, senza taratura; la versione in sonda d'acciaio si immerge in acqua.",
+      "pinNote": "Con una resistenza da 4,7 kΩ tra DATA e 5V.",
+      "wiring": "Rosso a 5V, nero a GND, giallo (DATA) su {pin}. Serve una resistenza da 4,7 kΩ tra DATA e 5V (già presente sulle schedine con morsetti)."
+    },
+    "gate": {
+      "title": "Fotocellula / ingresso digitale",
+      "short": "Fotocellula",
+      "measures": "istanti di passaggio, periodo, tempo di oscuramento",
+      "description": "Istante in cui un oggetto interrompe il raggio, per periodi, tempi di passaggio e velocità; funziona anche con un pulsante.",
+      "pinNote": "Su D2 o D3 gli istanti sono precisi al µs; sugli altri pin al ms.",
+      "blocked": "Quando il raggio è interrotto, l'uscita è",
+      "high": "alta (5 V) · quasi tutti i moduli",
+      "low": "bassa (0 V)",
+      "pullup": "Resistenza di pull-up interna",
+      "pullupNo": "no (modulo con uscita propria)",
+      "pullupYes": "sì (pulsante, uscita a collettore aperto)",
+      "width": "Larghezza dell'oggetto, per la velocità",
+      "wiringTitle": "Fotocellula",
+      "wiring": "VCC a 5V, GND a GND, OUT (o D0 del modulo) su {pin}."
+    },
+    "hx711": {
+      "title": "Cella di carico + HX711",
+      "short": "Bilancia",
+      "measures": "massa e forza",
+      "description": "Massa e forza da una cella di carico con amplificatore HX711, fino a 10 letture al secondo; va tarata con un peso noto.",
+      "scale": "Taratura: conteggi per grammo",
+      "autotare": "Azzera all'avvio (tara)",
+      "autotareYes": "sì: il carico iniziale vale 0",
+      "autotareNo": "no: usa la tara indicata",
+      "tare": "Tara (conteggi a vuoto)",
+      "g": "Accelerazione di gravità, per la forza",
+      "sign": "Verso",
+      "push": "spingere = positivo",
+      "pull": "tirare = positivo",
+      "wiring": "Cella: rosso E+, nero E−, bianco A−, verde A+ sull'HX711. HX711: VCC 5V, GND, DT su {dt}, SCK su {sck}."
+    },
+    "imu": {
+      "title": "Accelerometro MPU-6050",
+      "measures": "accelerazione sui 3 assi, rotazione",
+      "description": "Accelerazione e velocità angolare sui 3 assi, fino a 100 letture al secondo; usa il bus I2C insieme al display.",
+      "sdaNote": "Di solito A4, condiviso con il display.",
+      "range": "Fondo scala",
+      "range2": "±2 g (più preciso)",
+      "range16": "±16 g (urti)",
+      "addr": "Indirizzo",
+      "addr68": "0x68 (AD0 a GND o libero)",
+      "addr69": "0x69 (AD0 a 3,3 V)",
+      "gravity": "Sottrai la gravità dall'asse verticale",
+      "gravityZ": "sì, asse z verticale",
+      "wiring": "VCC a 5V, GND a GND, SDA su {sda}, SCL su {scl}."
+    },
+    "mlx": {
+      "title": "Termometro a infrarossi MLX90614",
+      "measures": "temperatura senza contatto (e del sensore)",
+      "description": "Temperatura di una superficie senza toccarla, da −70 a 380 °C, più la temperatura del sensore; usa il bus I2C insieme al display.",
+      "sdaNote": "Di solito A4, condiviso con il display e l'MPU-6050.",
+      "eps": "Emissività della superficie (pelle 0,98, acqua 0,96, legno e plastica 0,90–0,95)",
+      "wiring": "VIN (o VCC) a 5V, GND a GND, SDA su {sda}, SCL su {scl}. Il sensore vede un cono di circa 90°: avvicinalo alla superficie, a pochi centimetri."
+    },
+    "oled": {
+      "title": "Display OLED 64×32 (0,49\")",
+      "measures": "stato e valore principale",
+      "description": "Display I2C SSD1306 da 0,49\" (64×32 pixel): mostra lo stato di Arduino e, durante la misura, il tempo e il valore principale.",
+      "wiringTitle": "Display OLED",
+      "wiring": "VCC (o VDD) a 5V, GND a GND, SDA su {sda}, SCL su {scl}."
+    },
+    "rgb": {
+      "title": "LED RGB",
+      "measures": "stato a colori",
+      "description": "Blu: in attesa dell'app (lampeggia) o pronto · giallo lampeggiante: GPS o sensore in ricerca · rosso lampeggiante: problema · verde: misura in corso.",
+      "pinR": "R (rosso)",
+      "pinG": "G (verde)",
+      "pinB": "B (blu)",
+      "common": "Tipo di LED",
+      "cathode": "catodo comune (piedino lungo a GND)",
+      "anode": "anodo comune (piedino lungo a 5V)",
+      "wiring": "Una resistenza da 220 Ω per colore: R su {r}, G su {g}, B su {b}; piedino lungo a {common}."
+    },
+    "buzzer": {
+      "title": "Cicalino (buzzer)",
+      "short": "Cicalino",
+      "measures": "segnali acustici di stato",
+      "description": "Ogni 3 s finché qualcosa non è pronto: 1 bip in attesa o fermo, 2 GPS o sensore in ricerca, 3 problema. Silenzio: misura in corso.",
+      "pin": "+ (segnale)",
+      "kind": "Tipo",
+      "active": "attivo (suona con 5 V continui)",
+      "passive": "passivo (va pilotato con una nota)",
+      "nag": "Bip finché non è tutto pronto",
+      "confirm": "Bip di conferma all'avvio e alla fine",
+      "wiringTitle": "Cicalino",
+      "wiring": "Piedino + (il più lungo, o «S») su {pin}, piedino − a GND."
+    },
+    "button": {
+      "title": "Pulsante Avvia/Ferma",
+      "short": "Pulsante",
+      "measures": "avvia e ferma la misura da Arduino",
+      "description": "Un pulsante su Arduino che fa come «Avvia» e «Ferma»: con l'app collegata (cavo o Bluetooth) e con la scheda SD, dove avvia e ferma la registrazione senza computer.",
+      "pin": "pulsante",
+      "pinNote": "L'altro piedino va a GND: la resistenza di pull-up è dentro Arduino.",
+      "wiringTitle": "Pulsante",
+      "wiring": "Un piedino del pulsante su {pin}, l'altro a GND."
+    },
+    "sd": {
+      "title": "Scheda microSD (registra senza computer)",
+      "short": "Scheda SD",
+      "measures": "registra le misure sulla scheda",
+      "description": "Arduino registra le misure su una scheda microSD, alimentato da un power bank o da una pila: niente cavo né telefono. Con il pulsante avvii e fermi; senza, registra da quando lo accendi. Poi importi i file nel Quaderno.",
+      "wiringTitle": "Scheda microSD",
+      "wiring": "Modulo microSD (con regolatore, va a 5V): GND, VCC a 5V, MISO su D12, MOSI su D11, SCK su D13, CS su D10. Scheda formattata FAT32, fino a 32 GB."
+    },
+    "bt": {
+      "rxdNote": "Con il partitore 1 kΩ + 2 kΩ: l'RXD del modulo regge 3,3 V.",
+      "wiring": "VCC a 5V, GND a GND, TXD su D0, RXD su D1 attraverso il partitore 1 kΩ + 2 kΩ."
+    },
+    "hc06": {
+      "title": "Bluetooth HC-06 (classico)",
+      "measures": "misura senza cavo, da Android",
+      "description": "Modulo Bluetooth classico: misuri senza cavo con Chrome su Android (non su iPhone). Arduino va alimentato da un power bank."
+    },
+    "ble": {
+      "measures": "misura senza cavo, anche da iPhone",
+      "description": "Modulo Bluetooth Low Energy: misuri senza cavo con Chrome su computer e Android, e da iPhone con il browser Bluefy. Arduino va alimentato da un power bank."
+    },
+    "pmotion": {
+      "title": "Accelerometro e giroscopio del telefono",
+      "short": "Telefono",
+      "measures": "accelerazione e rotazione sui 3 assi",
+      "description": "I sensori di movimento del telefono, fino a circa 60 letture al secondo. Niente Arduino: apri l'app sul telefono.",
+      "sign": "Segno dell'accelerometro",
+      "std": "standard (sul tavolo a_z ≈ +9,8)",
+      "inv": "invertito",
+      "wiring": "Apri MosaicusNeo sul telefono (Chrome su Android, Safari su iPhone) e premi «Attiva i sensori». Su iPhone conferma il permesso.",
+      "axesTitle": "Gli assi del telefono",
+      "axes": "Telefono in verticale davanti a te: x verso destra, y verso l'alto lungo lo schermo, z uscente dallo schermo. A telefono fermo sul tavolo a_z ≈ +9,8 m/s²: l'accelerometro misura la reazione del tavolo, opposta alla gravità."
+    },
+    "psound": {
+      "title": "Microfono (frequenza e livello)",
+      "short": "Microfono",
+      "measures": "frequenza dominante e livello del suono",
+      "description": "Frequenza dominante (50 Hz – 5 kHz) e livello relativo dal microfono del telefono o del computer. L'audio non viene registrato.",
+      "wiring": "Usa il microfono del dispositivo: premi «Attiva i sensori» e consenti l'accesso al microfono."
+    },
+    "sps30": {
+      "title": "Sensore di polveri sottili SPS30",
+      "measures": "polveri sottili PM1, PM2,5, PM4, PM10",
+      "description": "Conta le particelle nell'aria con un laser e una piccola ventola: concentrazione in massa PM1,0, PM2,5, PM4 e PM10 in µg/m³, numero di particelle e dimensione tipica, un dato al secondo. Si collega in I2C con il suo cavo.",
+      "sdaNote": "Di solito A4, in comune con gli altri dispositivi I2C.",
+      "wiring": "Con il cavo JST ZHR-5: piedino 1 VDD al 5V, piedino 2 SDA a {sda}, piedino 3 SCL a {scl}, piedino 4 SEL a GND (sceglie l'I2C), piedino 5 GND a GND."
+    }
+  },
+  "groups": {
+    "sensor": {
+      "name": "Sensori",
+      "hint": "misurano: gli ingressi di Arduino"
+    },
+    "control": {
+      "name": "Comandi",
+      "hint": "per avviare e fermare da Arduino"
+    },
+    "output": {
+      "name": "Display, LED e suoni",
+      "hint": "mostrano lo stato di Arduino"
+    },
+    "storage": {
+      "name": "Memoria",
+      "hint": "registrano senza computer"
+    },
+    "comm": {
+      "name": "Bluetooth",
+      "hint": "per collegarsi senza cavo"
+    },
+    "phone": {
+      "name": "Telefono",
+      "hint": "i sensori del telefono, senza Arduino"
+    }
+  },
+  "tags": {
+    "temp": "Temperatura e clima",
+    "motion": "Movimento e tempo",
+    "light": "Luce",
+    "force": "Forza e massa",
+    "place": "Posizione",
+    "volt": "Tensione",
+    "air": "Qualità dell'aria"
+  },
+  "keywords": {
+    "pmotion": "telefono smartphone accelerometro giroscopio pendolo ascensore rotazione phyphox",
+    "psound": "telefono microfono suono frequenza doppler glissato livello decibel",
+    "dht": "umidità rugiada aria meteo clima dht11 dht22 am2302",
+    "ntc": "termistore termometro calore raffreddamento newton resistenza",
+    "ds18b20": "sonda impermeabile acqua liquido termometro onewire",
+    "sonar": "ultrasuoni distanza sonar carrello caduta moto velocità accelerazione hcsr04 hc-sr04",
+    "mlx": "infrarossi termometro senza contatto pistola termocamera superficie pelle mlx90614 gy906 gy-906 melexis",
+    "imu": "accelerometro giroscopio inclinazione vibrazioni urti oscillazioni gy521 gy-521 mpu6050",
+    "gate": "fotocellula fotoporta pendolo periodo cronometro forcella infrarossi pulsante interruttore",
+    "gps": "satelliti mappa percorso altitudine passeggiata neo6m neo-6m neo7m",
+    "ldr": "fotoresistenza luminosità buio lampada fotocellula",
+    "hx711": "bilancia peso cella di carico newton dinamometro",
+    "analog": "potenziometro voltmetro tensione segnale generico pila",
+    "oled": "schermo display ssd1306 stato scritte",
+    "rgb": "led colori luce stato semaforo",
+    "buzzer": "cicalino suono beep allarme avviso",
+    "button": "pulsante tasto bottone avvia ferma start stop interruttore",
+    "sd": "scheda sd microsd memoria registrazione datalogger senza computer power bank pila batteria file",
+    "hc06": "bluetooth classico hc06 hc-06 hc05 hc-05 android senza cavo wireless",
+    "ble": "bluetooth le low energy hm10 hm-10 at09 at-09 hc08 hc-08 bt05 iphone bluefy senza cavo wireless",
+    "sps30": "sps30 sensirion polveri sottili particolato pm2,5 pm2.5 pm10 pm1 smog inquinamento qualità dell'aria laser"
+  },
+  "quantities": {
+    "t": "tempo",
+    "x": "posizione",
+    "v": "velocità",
+    "a": "accelerazione",
+    "d": "distanza dal sensore",
+    "echo": "tempo di volo",
+    "T": "temperatura",
+    "lnT": "temperatura linearizzata",
+    "R": "resistenza",
+    "adc": "lettura grezza (0–1023)",
+    "RH": "umidità relativa",
+    "Td": "punto di rugiada",
+    "AH": "umidità assoluta",
+    "V": "tensione",
+    "Y": "grandezza tarata",
+    "light": "luminosità (relativa)",
+    "lat": "latitudine",
+    "lon": "longitudine",
+    "alt": "altitudine",
+    "s": "distanza percorsa",
+    "speed": "velocità (GPS)",
+    "sats": "satelliti in uso",
+    "hdop": "diluizione della precisione",
+    "fix": "qualità del fix",
+    "utc": "ora del satellite (hhmmss)",
+    "ok": "lettura valida",
+    "byte": "byte {n} del sensore",
+    "err": "errore del sensore",
+    "ds": "lettura grezza (1/16 °C)",
+    "Ts": "temperatura del sensore (ambiente)",
+    "Traw": "temperatura senza correzione di emissività",
+    "gate": "raggio (1 = interrotto)",
+    "n": "passaggi contati",
+    "Tp": "tempo tra due passaggi",
+    "tb": "tempo di oscuramento",
+    "vg": "velocità al passaggio",
+    "fg": "frequenza dei passaggi",
+    "m": "massa",
+    "F": "forza",
+    "cnt": "conteggi dell'HX711",
+    "axis": "accelerazione {axis}",
+    "am": "accelerazione (modulo)",
+    "gyro": "velocità angolare {axis}",
+    "freq": "frequenza dominante",
+    "level": "livello sonoro (relativo)",
+    "pm1": "concentrazione PM1,0",
+    "pm25": "concentrazione PM2,5",
+    "pm4": "concentrazione PM4",
+    "pm10": "concentrazione PM10",
+    "nc05": "particelle fino a 0,5 µm",
+    "nc1": "particelle fino a 1 µm",
+    "nc25": "particelle fino a 2,5 µm",
+    "nc4": "particelle fino a 4 µm",
+    "nc10": "particelle fino a 10 µm",
+    "tps": "dimensione tipica delle particelle"
+  },
+  "symbols": {
+    "echo": "eco",
+    "RH": "UR",
+    "sats": "sat",
+    "ok": "valido",
+    "gate": "stato"
+  },
+  "slopes": {
+    "velocity": "velocità",
+    "acceleration": "accelerazione",
+    "jerk": "variazione dell'accelerazione",
+    "rateT": "rapidità di variazione della temperatura",
+    "lnT": "opposto della costante di raffreddamento (−k)",
+    "rateRH": "rapidità di variazione dell'umidità",
+    "rateV": "rapidità di variazione della tensione",
+    "climb": "velocità di salita",
+    "avgSpeed": "velocità media",
+    "passRate": "passaggi al secondo",
+    "rateM": "rapidità di variazione della massa",
+    "rateF": "rapidità di variazione della forza",
+    "rateFreq": "rapidità di variazione della frequenza"
+  },
+  "physics": {
+    "period": "periodo T = 2π/ω",
+    "frequency": "frequenza f = ω/2π",
+    "tau": "tempo caratteristico τ = −1/k",
+    "velocityM": "velocità v = m",
+    "accel2c2": "accelerazione a = 2·c₂",
+    "amplitude": "ampiezza A",
+    "eqPosition": "posizione di equilibrio C",
+    "damping": "coefficiente di smorzamento γ",
+    "accelM": "accelerazione a = m",
+    "meanVelocity": "velocità media",
+    "maxVelocity": "velocità massima",
+    "meanAccel": "accelerazione media",
+    "maxAccel": "accelerazione massima",
+    "coolingK": "costante di raffreddamento k",
+    "theta": "tempo caratteristico θ = 1/k",
+    "ambientT": "temperatura ambiente Tₐ",
+    "rateT": "rapidità di variazione dT/dt",
+    "meanT": "temperatura media",
+    "coolingKm": "costante di raffreddamento k = −m",
+    "eqRH": "umidità di equilibrio",
+    "rateRH": "rapidità di variazione dUR/dt",
+    "meanRH": "umidità media",
+    "meanTd": "punto di rugiada medio",
+    "eqTd": "punto di rugiada di equilibrio",
+    "vapor": "vapore acqueo per metro cubo",
+    "eqAH": "umidità assoluta di equilibrio",
+    "meanV": "tensione media",
+    "finalV": "tensione finale",
+    "meanLight": "luminosità media",
+    "climbRate": "velocità di salita dh/dt",
+    "meanAlt": "altitudine media",
+    "avgSpeedM": "velocità media v = m",
+    "meanSpeed": "velocità media",
+    "meanTs": "temperatura media del sensore",
+    "rateTs": "rapidità di variazione dTₛ/dt",
+    "eqTs": "temperatura di equilibrio del sensore",
+    "passFreq": "frequenza dei passaggi",
+    "meanPeriod": "periodo medio",
+    "periodDrift": "variazione del periodo a ogni secondo",
+    "meanBlock": "tempo di oscuramento medio",
+    "meanGateVel": "velocità media al passaggio",
+    "meanFreq": "frequenza media",
+    "meanMass": "massa media",
+    "meanForce": "forza media",
+    "meanAxis": "accelerazione media {axis}",
+    "meanMagnitude": "modulo medio (fermo ≈ g)",
+    "meanLevel": "livello medio",
+    "meanPm": "concentrazione media",
+    "ratePm": "velocità di variazione della concentrazione",
+    "eqPm": "concentrazione di fondo C",
+    "meanNc": "numero medio di particelle",
+    "meanTps": "dimensione tipica media"
+  },
+  "topics": {
+    "kinematics": "Cinematica",
+    "thermo": "Termologia",
+    "field": "Sul campo"
+  },
+  "presets": {
+    "idea": "Idea",
+    "motion": {
+      "title": "Moto rettilineo",
+      "subtitle": "Uniforme e accelerato · HC-SR04",
+      "tip": "Carrello su un piano inclinato, con un bersaglio piatto tra 5 cm e 1 m dal sensore. Il fit della parabola su x(t) dà l'accelerazione."
+    },
+    "harmonic": {
+      "title": "Moto armonico",
+      "subtitle": "Oscillazioni · HC-SR04",
+      "tip": "Massa appesa a una molla, sensore a terra rivolto verso l'alto, cartoncino sotto la massa. Il fit della sinusoide smorzata dà periodo e smorzamento."
+    },
+    "cooling": {
+      "title": "Raffreddamento",
+      "subtitle": "Legge di Newton · termistore NTC",
+      "simNote": "tempo ×30",
+      "tip": "Scalda il termistore in acqua calda o in una patata calda, poi lascialo raffreddare in aria. Usa il fit esponenziale con asintoto, oppure la retta su ln(T − Tₐ)."
+    },
+    "humidity": {
+      "title": "Umidità e temperatura",
+      "subtitle": "Punto di rugiada · DHT11",
+      "simNote": "tempo ×5",
+      "tip": "Soffia sul sensore: l'umidità sale di colpo e scende lentamente. Il fit esponenziale della discesa dà il tempo caratteristico."
+    },
+    "gpsmap": {
+      "title": "Mappa della temperatura",
+      "subtitle": "GPS + DHT11 · telefono via Bluetooth",
+      "simNote": "passeggiata, tempo ×5",
+      "wirelessTitle": "Misurare senza cavo",
+      "wireless": "Attiva l'interruttore «Bluetooth» nella scheda «Collegamenti» e scegli il modulo (HC-06 o BLE): lo schema mostra come collegarlo. Alimenta Arduino con un power bank; durante la misura i dati vengono salvati nel Quaderno ogni 30 s.",
+      "fixTitle": "Il primo fix",
+      "fix": "All'aperto il GPS trova i satelliti in un tempo tra 30 s e qualche minuto. I punti senza posizione restano in tabella ma non compaiono sulla mappa."
+    },
+    "phoneAcc": {
+      "title": "Accelerometro",
+      "subtitle": "Pendolo, ascensore · telefono",
+      "tip": "Pendolo: appendi il telefono a due spaghi, schermo verso di te, e fallo oscillare; il fit della sinusoide su a_y dà il periodo. Ascensore: telefono sul pavimento, guarda a_z alla partenza e all'arrivo."
+    },
+    "phoneGyro": {
+      "title": "Giroscopio",
+      "subtitle": "Moto circolare · telefono",
+      "tip": "Telefono su una sedia girevole o un giradischi: ω_z resta costante nel moto circolare uniforme, e aₓ verso il centro vale ω²r. Nel pendolo il giroscopio oscilla con il periodo del pendolo, a_y con frequenza doppia: perché?"
+    },
+    "phoneSound": {
+      "title": "Frequenza nel tempo",
+      "subtitle": "Effetto Doppler · microfono",
+      "tip": "Un'auto o un motorino che suona passandoti davanti: la frequenza scende quando ti supera. Dal salto di frequenza ricavi la velocità: v ≈ c·Δf / (2f)."
+    }
+  },
+  "instruments": {
+    "scope": {
+      "title": "Oscilloscopio",
+      "subtitle": "Forma d'onda di un suono",
+      "wiringTitle": "Microfono del dispositivo",
+      "wiring": "Basta il microfono del telefono o del computer. L'audio non viene registrato né inviato."
+    },
+    "synth": {
+      "subtitle": "Genera un suono · tastiera, tocco, inclinazione, HC-SR04",
+      "wiringTitle": "Con Arduino (facoltativo)",
+      "wiring": "HC-SR04 con TRIG su D12 ed ECHO su D11, rivolto verso l'alto. Muovi la mano tra 5 e 50 cm sopra il sensore."
+    },
+    "escope": {
+      "title": "Oscilloscopio elettrico",
+      "subtitle": "Tensione su A0 · microfono, bobina",
+      "safeTitle": "Solo 0–5 V",
+      "safe": "Mai la rete elettrica. Il segnale va su A0.",
+      "micTitle": "Microfono del kit",
+      "coilTitle": "Bobina e magnete",
+      "coil": "Usa il trigger singolo e fai cadere il magnete nella bobina."
+    }
+  },
+  "rig": {
+    "phoneMix": "I sensori del telefono non si usano insieme ai componenti di Arduino: tienili in un progetto a parte.",
+    "onlyAccessories": "Ci sono solo accessori (display, LED, pulsante, scheda SD, Bluetooth): aggiungi almeno un sensore.",
+    "empty": "Il progetto è vuoto: aggiungi almeno un sensore.",
+    "oneBluetooth": "Un solo modulo Bluetooth alla volta: stanno tutti su D0 e D1. Togli quello in più.",
+    "tooMany": "Troppi sensori: Arduino ne legge al massimo {max}. Rimuovine qualcuno.",
+    "maxType": "{max, plural, =1 {Puoi usare un solo «{title}»: rimuovi quello in più.} other {Puoi usare al massimo # «{title}»: rimuovi quelli in più.}}",
+    "serialPin": "{sensor}: D0 e D1 sono riservati alla seriale (USB e Bluetooth). Scegli un altro pin.",
+    "analogPin": "{sensor}: sposta {role} su un pin analogico (A0…A5).",
+    "fixedPin": "{pin} serve a {sensor} ({role}) e non si può cambiare: sposta {other} su un altro pin.",
+    "pinTwice": "{pin} è usato due volte ({other} e {sensor} · {role}). Cambia uno dei due pin.",
+    "minInterval": "{sensor}: l'intervallo minimo è {min} ms, verrà usato quello.",
+    "gpsDht": "Con il GPS, il DHT viene letto tra un messaggio e l'altro del GPS: alcune letture possono arrivare in ritardo.",
+    "sonars": "Più sensori a ultrasuoni possono captare l'eco l'uno dell'altro: puntali in direzioni diverse.",
+    "busFull": "Il bus I2C su {pin} ({role}) ha già {max} dispositivi: una colonna della breadboard ha solo 5 fori collegati (uno per Arduino, {max} per i moduli). Togli un dispositivo I2C.",
+    "pinLocked": "{sensor} ha bisogno di {pin}, ma lo usa {other}, che non si può spostare. Togli uno dei due.",
+    "noFreePin": "Non resta nessun {kind, select, analog {pin analogico (A0–A5)} other {pin}} libero per {sensor} ({role}).{i2c, select, yes { A4 e A5 sono occupati dal bus I2C.} other {}} Togli un componente per liberarne uno.",
+    "cantMove": "{sensor} ha bisogno di {pin}, che usa {other}, e non c'è un pin libero dove spostarlo. Togli prima un componente.",
+    "imuNoAddr": "Nessun indirizzo I2C libero per un altro MPU-6050: 0x68 e 0x69 sono già usati ({list}).",
+    "addrTaken": "{sensor} ha bisogno dell'indirizzo I2C 0x{addr}, che sullo stesso bus usa già {other}, e non si può cambiare. Togli uno dei due.",
+    "addrClash": "{a} e {b} hanno lo stesso indirizzo I2C (0x{addr}) e si disturberebbero. {imu, select, yes {Imposta l'MPU-6050 sull'altro indirizzo nelle opzioni avanzate.} other {Togli uno dei due.}}"
+  }
+}

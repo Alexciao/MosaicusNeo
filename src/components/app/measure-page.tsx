@@ -1,5 +1,6 @@
 "use client";
 
+import { useTranslations } from "next-intl";
 import { LayoutGrid, SlidersHorizontal, TriangleExclamationPoint, Plug } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
@@ -26,24 +27,25 @@ import { SynthPanel } from "@/components/instruments/synth-panel";
 function SupportBanner() {
   const labId = useLab((s) => s.labId);
   const rig = useLab((s) => s.rig);
+  const t = useTranslations("app.measure");
   const info = labInfo(labId);
   if (info.instrument?.source === "audio") {
     if (audioSupported()) return null;
     return (
-      <Alert variant="destructive"><TriangleExclamationPoint /><AlertTitle>Audio non disponibile</AlertTitle>
-        <AlertDescription>Questo browser non supporta la Web Audio API. Usa Chrome, Edge, Firefox o Safari aggiornati.</AlertDescription></Alert>
+      <Alert variant="destructive"><TriangleExclamationPoint /><AlertTitle>{t("audioTitle")}</AlertTitle>
+        <AlertDescription>{t("audioDesc")}</AlertDescription></Alert>
     );
   }
   const arduino = info.instrument ? info.instrument.source === "arduino" && !info.instrument.optionalLink : needsArduino(rig);
   if (!arduino || canReachArduino()) return null;
   const ios = typeof navigator !== "undefined" && /iPhone|iPad|iPod/i.test(navigator.userAgent);
   return (
-    <Alert><TriangleExclamationPoint /><AlertTitle>Questo browser non si collega ad Arduino</AlertTitle>
+    <Alert><TriangleExclamationPoint /><AlertTitle>{t("noArduinoTitle")}</AlertTitle>
       <AlertDescription>
         {ios
-          ? "Su iPhone e iPad apri MosaicusNeo nel browser gratuito Bluefy, con un modulo Bluetooth LE (HM-10, AT-09, HC-08). Il simulatore funziona comunque."
-          : "Usa Chrome o Edge su computer o Android. Su Android puoi collegarti anche via Bluetooth (HC-06 o modulo BLE). Il simulatore funziona comunque."}
-        <Button size="xs" variant="outline" className="mt-2" onClick={() => openGuide("field")}>Apri la guida</Button>
+          ? t("noArduinoIos")
+          : t("noArduinoOther")}
+        <Button size="xs" variant="outline" className="mt-2" onClick={() => openGuide("field")}>{t("openGuide")}</Button>
       </AlertDescription>
     </Alert>
   );
@@ -53,22 +55,23 @@ export function LabHeading({ onPick, onSensors }: { onPick: () => void; onSensor
   const labId = useLab((s) => s.labId);
   const rig = useLab((s) => s.rig);
   const modified = useLab((s) => s.modified);
+  const t = useTranslations("app.measure");
   const info = labInfo(labId);
   const Icon = info.icon;
   return (
     <div className="flex flex-col gap-2.5">
       <div className="flex items-center gap-3">
-        <SidebarTrigger className="-ml-1 hidden text-muted-foreground lg:inline-flex" title="Mostra o nascondi i lab (Ctrl+B)" />
+        <SidebarTrigger className="-ml-1 hidden text-muted-foreground lg:inline-flex" title={t("toggleLabs")} />
         <span className={cn("grid size-11 shrink-0 place-items-center rounded-xl text-tone-ink", toneBg[info.tone])}><Icon className="size-5" /></span>
         <div className="min-w-0 flex-1">
           <p className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">{info.topic}</p>
           <h2 className="flex items-center gap-2 truncate text-xl font-bold tracking-tight">
             <span className="truncate">{info.title}</span>
-            {modified && <span className="shrink-0 rounded-md bg-muted px-1.5 py-0.5 text-[0.65rem] font-semibold tracking-normal text-muted-foreground">personalizzato</span>}
+            {modified && <span className="shrink-0 rounded-md bg-muted px-1.5 py-0.5 text-[0.65rem] font-semibold tracking-normal text-muted-foreground">{t("custom")}</span>}
           </h2>
           {info.kind !== "custom" && <p className="truncate text-sm text-muted-foreground">{info.subtitle}</p>}
         </div>
-        <Button variant="outline" size="sm" className="lg:hidden" onClick={onPick}><LayoutGrid /> <span className="hidden sm:inline">Cambia lab</span></Button>
+        <Button variant="outline" size="sm" className="lg:hidden" onClick={onPick}><LayoutGrid /> <span className="hidden sm:inline">{t("changeLab")}</span></Button>
       </div>
       {!info.instrument && (
         <div className="flex flex-wrap items-center gap-1.5">
@@ -84,11 +87,11 @@ export function LabHeading({ onPick, onSensors }: { onPick: () => void; onSensor
             );
           })}
           <Button variant="ghost" size="xs" onClick={onSensors} className="text-muted-foreground 2xl:hidden">
-            <SlidersHorizontal /> {rig.sensors.length ? "Modifica componenti" : "Aggiungi componenti"}
+            <SlidersHorizontal /> {rig.sensors.length ? t("editComponents") : t("addComponents")}
           </Button>
           {!!rig.sensors.length && (
             <Button variant="ghost" size="xs" onClick={showWiring} className="text-muted-foreground">
-              <Plug /> Come collegarli
+              <Plug /> {t("howToWire")}
             </Button>
           )}
         </div>
@@ -102,6 +105,7 @@ export function MeasurePage() {
   const rig = useLab((s) => s.rig);
   const labsOpen = useLab((s) => s.labsOpen);
   const rigOpen = useLab((s) => s.rigOpen);
+  const t = useTranslations("app.measure");
   const info = labInfo(labId);
   const ins = info.instrument;
   const setLabs = (open: boolean) => useLab.setState({ labsOpen: open });
@@ -131,9 +135,9 @@ export function MeasurePage() {
                 : !rig.sensors.length ? (
                   <Card className="flex flex-col items-center gap-3 p-10 text-center">
                     <span className="grid size-14 place-items-center rounded-2xl bg-tone-saffron text-tone-ink"><SlidersHorizontal className="size-7" /></span>
-                    <h3 className="text-lg font-semibold">Nessun componente</h3>
-                    <p className="max-w-md text-sm text-muted-foreground">Aggiungi i sensori che colleghi ad Arduino. Puoi usarne più di uno: le letture finiscono sugli stessi grafici.</p>
-                    <Button onClick={() => setRig(true)}>Aggiungi un componente</Button>
+                    <h3 className="text-lg font-semibold">{t("noComponents")}</h3>
+                    <p className="max-w-md text-sm text-muted-foreground">{t("noComponentsHint")}</p>
+                    <Button onClick={() => setRig(true)}>{t("addComponent")}</Button>
                   </Card>
                 ) : (
                   <>
@@ -150,7 +154,7 @@ export function MeasurePage() {
         </div>
       </SidebarInset>
 
-      <ResponsivePanel open={rigOpen} onOpenChange={setRig} title="Componenti">
+      <ResponsivePanel open={rigOpen} onOpenChange={setRig} title={t("components")}>
         <RigEditor />
       </ResponsivePanel>
     </SidebarProvider>

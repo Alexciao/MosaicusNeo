@@ -12,6 +12,8 @@
 // Web Bluetooth: Chrome su computer e Android; su iPhone e iPad il browser Bluefy.
 // Le scritture BLE portano al massimo 20 byte per volta: i comandi vengono spezzati.
 
+import { t } from "@/i18n";
+
 const HM10_SERVICE = 0xffe0;
 const HM10_CHAR = 0xffe1;
 const NUS_SERVICE = "6e400001-b5a3-f393-e0a9-e50e24dcca9e";
@@ -59,7 +61,7 @@ export class BleLink {
         this.tx = await svc.getCharacteristic(NUS_TX);
       } catch {
         server.disconnect();
-        throw new Error("il dispositivo non offre una seriale BLE (servizio FFE0 o Nordic UART)");
+        throw new Error(t("engine.ble.noSerial"));
       }
     }
     this.tx.addEventListener("characteristicvaluechanged", this.onData);

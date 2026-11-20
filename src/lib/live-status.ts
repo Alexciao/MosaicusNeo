@@ -5,6 +5,7 @@
 import { SENSORS } from "@/lib/sensors/catalog";
 import { inputsOf, sensorLabel, type Rig, type Resolved } from "@/lib/sensors/rig";
 import type { Row } from "@/lib/sensors/types";
+import { t } from "@/i18n";
 
 export type LiveTone = "ok" | "search" | "error";
 export interface LiveIssue { sensorId: string; tone: LiveTone; text: string; hint?: string }
@@ -23,32 +24,32 @@ export function liveStatus(rig: Rig, res: Resolved, rows: Row[], running: boolea
     const waitS = s.type === "gps" || s.type === "dht" || s.type === "ds18b20" ? 4 : 2;
     if (!mine.length) {
       if (def.events) continue;                       // la fotocellula scrive solo ai passaggi
-      if (elapsedS > waitS) out.push({ sensorId: s.id, tone: "error", text: `${name}: nessun dato`, hint: def.phone ? (s.type === "psound" ? "consenti l'accesso al microfono" : "apri l'app sul telefono: i computer di solito non hanno questi sensori") : "controlla fili e pin" });
+      if (elapsedS > waitS) out.push({ sensorId: s.id, tone: "error", text: t("lab.live.noData", { name }), hint: def.phone ? (s.type === "psound" ? t("lab.live.hintMic") : t("lab.live.hintPhone")) : t("lab.live.hintWiresPins") });
       continue;
     }
     const last = mine[0];
     switch (s.type) {
       case "gps": {
         const fix = num(last[k?.get("fix") ?? "fix"]), sats = num(last[k?.get("sats") ?? "sats"]);
-        if (!(fix > 0)) out.push({ sensorId: s.id, tone: "search", text: `${name}: ricerca dei satelliti${Number.isFinite(sats) ? ` (${sats} in vista)` : ""}`, hint: "all'aperto, cielo libero: da 30 s a qualche minuto" });
-        else out.push({ sensorId: s.id, tone: "ok", text: `${name}: posizione trovata${Number.isFinite(sats) ? ` · ${sats} satelliti` : ""}` });
+        if (!(fix > 0)) out.push({ sensorId: s.id, tone: "search", text: Number.isFinite(sats) ? t("lab.live.gpsSearchingSats", { name, n: sats }) : t("lab.live.gpsSearching", { name }), hint: t("lab.live.gpsHint") });
+        else out.push({ sensorId: s.id, tone: "ok", text: Number.isFinite(sats) ? t("lab.live.gpsFixSats", { name, n: sats }) : t("lab.live.gpsFix", { name }) });
         break;
       }
-      case "dht": case "ds18b20": case "hx711": case "imu": case "mlx": {
+      case "dht": case "ds18b20": case "hx711": case "imu": case "mlx": case "sps30": {
         const okKey = k?.get("ok");
         const bad = okKey ? mine.slice(0, 3).every((r) => r[okKey] === false) : mine.slice(0, 3).every((r) => !Number.isFinite(num(r[k?.get(def.quantities(s.options)[0].key) ?? ""])));
-        if (bad && mine.length >= 3) out.push({ sensorId: s.id, tone: "error", text: `${name}: non risponde`, hint: s.type === "ds18b20" ? "controlla la resistenza da 4,7 kΩ tra DATA e 5V" : s.type === "imu" || s.type === "mlx" ? "controlla SDA e SCL" : "controlla i fili" });
+        if (bad && mine.length >= 3) out.push({ sensorId: s.id, tone: "error", text: t("lab.live.noReply", { name }), hint: s.type === "ds18b20" ? t("lab.live.hintDs18b20") : s.type === "imu" || s.type === "mlx" ? t("lab.live.hintI2c") : t("lab.live.hintWires") });
         break;
       }
       case "sonar": {
         const echoK = k?.get("echo") ?? "echo";
-        if (mine.length >= 20 && mine.slice(0, 20).every((r) => num(r[echoK]) === 0)) out.push({ sensorId: s.id, tone: "search", text: `${name}: nessun eco`, hint: "serve un bersaglio piatto tra 5 cm e 3 m" });
+        if (mine.length >= 20 && mine.slice(0, 20).every((r) => num(r[echoK]) === 0)) out.push({ sensorId: s.id, tone: "search", text: t("lab.live.noEcho", { name }), hint: t("lab.live.hintSonar") });
         break;
       }
       case "ntc": {
         const adcK = k?.get("adc") ?? "adc";
         const a = num(last[adcK]);
-        if (Number.isFinite(a) && (a < 2 || a > 1021)) out.push({ sensorId: s.id, tone: "error", text: `${name}: sonda staccata o in corto`, hint: "controlla il partitore" });
+        if (Number.isFinite(a) && (a < 2 || a > 1021)) out.push({ sensorId: s.id, tone: "error", text: t("lab.live.ntcFault", { name }), hint: t("lab.live.hintDivider") });
         break;
       }
     }

@@ -1,3 +1,4 @@
+import { intlLocale } from '@/i18n';
 import { fixed, upTo } from './numfmt.js';
 // MosaicusNeo — analisi numerica (nessuna dipendenza esterna)
 // Minimi quadrati polinomiali con incertezze, derivate per regressione locale,
@@ -198,7 +199,7 @@ export function fitNewtonCooling(t, y, { fixedTa = null } = {}) {
 // ---------- presentazione delle misure ----------
 
 /** Arrotonda l'incertezza a 2 cifre significative e il valore alla stessa cifra. */
-export function formatMeasure(value, err, unit = '', locale = 'it-IT') {
+export function formatMeasure(value, err, unit = '', locale = intlLocale) {
   if (!isFinite(value)) return '—';
   if (!isFinite(err) || err <= 0) {
     return `${fmt(value, 4, locale)}${unit ? ' ' + unit : ''}`;
@@ -212,7 +213,7 @@ export function formatMeasure(value, err, unit = '', locale = 'it-IT') {
   return `(${f(v)} ± ${f(e)})${unit ? ' ' + unit : ''}`;
 }
 
-export function fmt(x, sig = 4, locale = 'it-IT') {
+export function fmt(x, sig = 4, locale = intlLocale) {
   if (!isFinite(x)) return '—';
   if (x === 0) return '0';
   const mag = Math.floor(Math.log10(Math.abs(x)));

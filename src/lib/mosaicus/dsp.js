@@ -9,6 +9,8 @@
 //  • noteOf, noteFreq, snapToScale   note del temperamento equabile, f = 440·2^(n/12)
 //  • synth          somma di armoniche: y(t) = Σ Aₙ sin(2π n f t)
 
+import { t as tr } from '@/i18n';
+
 /** FFT sul posto (re, im di lunghezza potenza di 2). inverse = true per l'antitrasformata (non normalizzata). */
 export function fft(re, im, inverse = false) {
   const n = re.length;
@@ -139,7 +141,8 @@ export function harmonics(mag, df, f0, count = 8) {
 // ---------------------------------------------------------------------------
 // Note musicali (temperamento equabile, La₄ = 440 Hz)
 // ---------------------------------------------------------------------------
-export const NOTE_IT = ['Do', 'Do♯', 'Re', 'Re♯', 'Mi', 'Fa', 'Fa♯', 'Sol', 'Sol♯', 'La', 'La♯', 'Si'];
+// nomi delle note nella lingua dell'app (Do Re Mi… oppure C D E…); il nome dell'export resta per compatibilità
+export const NOTE_IT = tr('engine.dsp.noteNames').split(' ');
 
 /** n = numero di semitoni da La₄ (n = 0 → 440 Hz). */
 export const noteFreq = (n, a4 = 440) => a4 * Math.pow(2, n / 12);
@@ -213,14 +216,14 @@ export function synth(amps, f, sr, n, { phases = null, normalize = true, t0 = 0 
 
 /** Ricette dei timbri (ampiezze delle armoniche 1…8): valori relativi, approssimati ma plausibili. */
 export const TIMBRES = {
-  sinusoide:  { label: 'Sinusoide (diapason)', amps: [1, 0, 0, 0, 0, 0, 0, 0] },
-  flauto:     { label: 'Flauto', amps: [1, 0.45, 0.18, 0.08, 0.04, 0.02, 0, 0] },
-  clarinetto: { label: 'Clarinetto', amps: [1, 0.04, 0.6, 0.05, 0.4, 0.04, 0.25, 0.03] },
-  violino:    { label: 'Violino', amps: [1, 0.72, 0.55, 0.42, 0.5, 0.25, 0.2, 0.15] },
-  voce:       { label: 'Voce, vocale «a»', amps: [0.55, 0.8, 1, 0.9, 0.45, 0.35, 0.2, 0.1] },
-  organo:     { label: 'Organo', amps: [1, 0.8, 0, 0.6, 0, 0, 0, 0.4] },
-  quadra:     { label: 'Onda quadra', amps: [1, 0, 1 / 3, 0, 1 / 5, 0, 1 / 7, 0] },
-  dente:      { label: 'Dente di sega', amps: [1, 1 / 2, 1 / 3, 1 / 4, 1 / 5, 1 / 6, 1 / 7, 1 / 8] },
+  sinusoide:  { label: tr('engine.dsp.timbres.sinusoide'), amps: [1, 0, 0, 0, 0, 0, 0, 0] },
+  flauto:     { label: tr('engine.dsp.timbres.flauto'), amps: [1, 0.45, 0.18, 0.08, 0.04, 0.02, 0, 0] },
+  clarinetto: { label: tr('engine.dsp.timbres.clarinetto'), amps: [1, 0.04, 0.6, 0.05, 0.4, 0.04, 0.25, 0.03] },
+  violino:    { label: tr('engine.dsp.timbres.violino'), amps: [1, 0.72, 0.55, 0.42, 0.5, 0.25, 0.2, 0.15] },
+  voce:       { label: tr('engine.dsp.timbres.voce'), amps: [0.55, 0.8, 1, 0.9, 0.45, 0.35, 0.2, 0.1] },
+  organo:     { label: tr('engine.dsp.timbres.organo'), amps: [1, 0.8, 0, 0.6, 0, 0, 0, 0.4] },
+  quadra:     { label: tr('engine.dsp.timbres.quadra'), amps: [1, 0, 1 / 3, 0, 1 / 5, 0, 1 / 7, 0] },
+  dente:      { label: tr('engine.dsp.timbres.dente'), amps: [1, 1 / 2, 1 / 3, 1 / 4, 1 / 5, 1 / 6, 1 / 7, 1 / 8] },
 };
 
 /** Arrotonda alle cifre significative (per le letture). */
