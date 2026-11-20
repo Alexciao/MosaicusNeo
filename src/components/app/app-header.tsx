@@ -16,6 +16,7 @@ import { cn } from "@/lib/utils";
 import { ConnectionControls } from "./connection-controls";
 import { GlideNav } from "./glide-nav";
 import { GuideButton } from "./guide-dialog";
+import { openPrivacy } from "./privacy-dialog";
 import { AccountMenu } from "./account-menu";
 import { APP_VERSION } from "@/lib/version";
 
@@ -76,7 +77,7 @@ function AppearanceMenu() {
         <DropdownMenuSeparator />
         <DropdownMenuItem render={<a href={REPO_URL} target="_blank" rel="noopener" />}><GithubMark /> Codice sorgente su GitHub</DropdownMenuItem>
         <DropdownMenuItem render={<a href={ISSUES_URL} target="_blank" rel="noopener" />}><Bug /> Segnala un problema</DropdownMenuItem>
-        <DropdownMenuItem render={<a href="/privacy" target="_blank" rel="noopener" />}><ShieldCheck /> Informativa sulla privacy</DropdownMenuItem>
+        <DropdownMenuItem onClick={openPrivacy}><ShieldCheck /> Informativa sulla privacy</DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
   );
