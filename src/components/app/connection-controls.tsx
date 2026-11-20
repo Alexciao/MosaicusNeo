@@ -230,7 +230,7 @@ export function ConnectionDrawer({ className }: { className?: string }) {
   const go = (fn: () => unknown) => { setOpen(false); void fn(); };
   const row = (icon: React.ReactNode, label: string, hint: string | null, onClick: () => void, disabled = false) => (
     <button type="button" disabled={disabled} onClick={onClick}
-      className="flex w-full items-center gap-3 rounded-lg px-3 py-3 text-left transition-colors hover:bg-foreground/[0.04] disabled:opacity-50 [&_svg]:size-5 [&_svg]:shrink-0 [&_svg]:text-muted-foreground">
+      className="flex w-full items-center gap-3 rounded-lg px-3 py-3 text-left transition-colors select-none hover:bg-foreground/[0.04] active:bg-foreground/[0.07] disabled:opacity-50 [&_svg]:size-5 [&_svg]:shrink-0 [&_svg]:text-muted-foreground">
       {icon}
       <span className="min-w-0 flex-1">
         <span className="block text-[15px] font-medium">{label}</span>
