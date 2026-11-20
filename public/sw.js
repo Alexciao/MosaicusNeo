@@ -2,8 +2,10 @@
 //  • pagine: prima la rete (così arrivano gli aggiornamenti), poi la copia in cache
 //  • file statici di Next (/_next/static, con il nome che cambia a ogni versione), icone,
 //    caratteri: prima la cache, poi la rete
+//  • il firmware: prima la rete, come le pagine. Ha sempre lo stesso nome: dalla cache
+//    si scaricava per sempre la versione vecchia
 // Quando cambia CACHE le copie vecchie vengono cancellate.
-const CACHE = 'mosaicus-neo-v8';
+const CACHE = 'mosaicus-neo-v9';
 const SHELL = ['/', '/manifest.webmanifest', '/icons/icon.svg', '/icons/icon-192.png', '/icons/icon-512.png', '/firmware/mosaicusneo_firmware.ino'];
 
 self.addEventListener('install', (e) => {
@@ -24,6 +26,15 @@ self.addEventListener('fetch', (e) => {
   const url = new URL(req.url);
   if (url.origin !== self.location.origin) return;
 
+  if (url.pathname.startsWith('/firmware/')) {
+    e.respondWith(
+      fetch(req)
+        .then((res) => { if (res.ok) { const copy = res.clone(); caches.open(CACHE).then((c) => c.put(req, copy)); } return res; })
+        .catch(() => caches.match(req)),
+    );
+    return;
+  }
+
   if (req.mode === 'navigate') {
     e.respondWith(
       fetch(req)
@@ -37,7 +48,7 @@ self.addEventListener('fetch', (e) => {
 
   e.respondWith(
     caches.match(req).then((hit) => hit || fetch(req).then((res) => {
-      if (res.ok && (url.pathname.startsWith('/_next/static/') || url.pathname.startsWith('/icons/') || url.pathname.startsWith('/firmware/') || url.pathname === '/manifest.webmanifest')) {
+      if (res.ok && (url.pathname.startsWith('/_next/static/') || url.pathname.startsWith('/icons/') || url.pathname === '/manifest.webmanifest')) {
         const copy = res.clone();
         caches.open(CACHE).then((c) => c.put(req, copy));
       }
