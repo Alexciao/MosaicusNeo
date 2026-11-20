@@ -19,6 +19,12 @@ const DRAG_SLOP = 4;
 
 interface View { k: number; x: number; y: number }
 
+/** Oltre il bordo lo schema segue il dito sempre meno (rubber-band, come su iOS). */
+const rubber = (v: number, lo: number, hi: number, dim: number) => {
+  const rb = (o: number) => (o * dim * 0.55) / (dim + 0.55 * o);
+  return v < lo ? lo - rb(lo - v) : v > hi ? hi + rb(v - hi) : v;
+};
+
 /** bare: senza bordo (a tutto schermo); autoFocus: la tastiera funziona subito (+, −, 0, frecce). */
 export function PanZoom({ children, contentWidth = 1200, className, bare = false, autoFocus = false }: { children: React.ReactNode; contentWidth?: number; className?: string; bare?: boolean; autoFocus?: boolean }) {
   const t = useTranslations("rig.guide.zoom");
@@ -37,15 +43,24 @@ export function PanZoom({ children, contentWidth = 1200, className, bare = false
     setPct(Math.round((k / fitK.current) * 100));
   }, []);
 
+  /** I limiti dello spostamento: resta sempre un pezzo dello schema dentro la finestra. */
+  const bounds = useCallback((k: number) => {
+    const b = box.current, el = inner.current;
+    if (!b || !el) return null;
+    const W = b.clientWidth, H = b.clientHeight, w = contentWidth * k, h = el.offsetHeight * k, m = 80;
+    return {
+      W, H,
+      x: (w <= W ? [-w + m, W - m] : [W - w - m * 2, m * 2]) as [number, number],
+      y: (h <= H ? [-h + m, H - m] : [H - h - m * 2, m * 2]) as [number, number],
+    };
+  }, [contentWidth]);
+
   /** Tiene sempre un pezzo dello schema dentro la finestra. */
   const clamp = useCallback((v: View): View => {
-    const b = box.current, el = inner.current;
-    if (!b || !el) return v;
-    const W = b.clientWidth, H = b.clientHeight, w = contentWidth * v.k, h = el.offsetHeight * v.k, m = 80;
-    const x = w <= W ? Math.min(Math.max(v.x, -w + m), W - m) : Math.min(Math.max(v.x, W - w - m * 2), m * 2);
-    const y = h <= H ? Math.min(Math.max(v.y, -h + m), H - m) : Math.min(Math.max(v.y, H - h - m * 2), m * 2);
-    return { k: v.k, x, y };
-  }, [contentWidth]);
+    const bd = bounds(v.k);
+    if (!bd) return v;
+    return { k: v.k, x: Math.min(Math.max(v.x, bd.x[0]), bd.x[1]), y: Math.min(Math.max(v.y, bd.y[0]), bd.y[1]) };
+  }, [bounds]);
 
   const fit = useCallback(() => {
     const b = box.current, el = inner.current;
@@ -138,9 +153,53 @@ export function PanZoom({ children, contentWidth = 1200, className, bare = false
   const drag = useRef<{ moved: boolean; sx: number; sy: number; dist?: number; cx?: number; cy?: number } | null>(null);
   const suppressClick = useRef(false);
   const [grabbing, setGrabbing] = useState(false);
+  // trascinamento con un dito: la posizione «del dito», senza limiti; quella mostrata è elastica
+  const raw = useRef<{ x: number; y: number } | null>(null);
+  const settleRaf = useRef(0);
+  const vel = useRef({ x: 0, y: 0, t: 0 });
+
+  /** Rilasciato oltre il bordo: torna dentro con una molla smorzata criticamente (niente rimbalzo),
+   *  partendo dalla velocità del dito; un nuovo tocco la ferma dove si trova. */
+  const settle = useCallback(() => {
+    cancelAnimationFrame(settleRaf.current);
+    const target = clamp(view.current);
+    if (target.x === view.current.x && target.y === view.current.y) return;
+    if (matchMedia("(prefers-reduced-motion: reduce)").matches || document.documentElement.classList.contains("lim")) {
+      view.current = target; apply(); return;
+    }
+    const w = (2 * Math.PI) / 0.35;                   // risposta 0,35 s
+    let vx = vel.current.x, vy = vel.current.y, last = performance.now();
+    const step = (now: number) => {
+      const dt = Math.min(0.032, (now - last) / 1000); last = now;
+      const v = view.current;
+      vx += (-w * w * (v.x - target.x) - 2 * w * vx) * dt;
+      vy += (-w * w * (v.y - target.y) - 2 * w * vy) * dt;
+      view.current = { k: v.k, x: v.x + vx * dt, y: v.y + vy * dt };
+      const done = Math.abs(view.current.x - target.x) < 0.5 && Math.abs(view.current.y - target.y) < 0.5 && Math.hypot(vx, vy) < 20;
+      if (done) view.current = target;
+      apply();
+      if (!done) settleRaf.current = requestAnimationFrame(step);
+    };
+    settleRaf.current = requestAnimationFrame(step);
+  }, [apply, clamp]);
+  useEffect(() => () => cancelAnimationFrame(settleRaf.current), []);
+
+  /** Sposta con un dito: oltre il bordo con resistenza crescente. */
+  const dragBy = (dx: number, dy: number) => {
+    const v = view.current, bd = bounds(v.k);
+    const r = raw.current ?? (raw.current = { x: v.x, y: v.y });
+    r.x += dx; r.y += dy;
+    const now = performance.now(), dt = Math.max(1, now - vel.current.t);
+    vel.current = { x: (dx / dt) * 1000, y: (dy / dt) * 1000, t: now };
+    view.current = bd ? { k: v.k, x: rubber(r.x, bd.x[0], bd.x[1], bd.W), y: rubber(r.y, bd.y[0], bd.y[1], bd.H) } : { k: v.k, x: r.x, y: r.y };
+    touched.current = true;
+    apply();
+  };
 
   const onPointerDown = (e: React.PointerEvent) => {
     if (e.pointerType === "mouse" && e.button !== 0) return;
+    cancelAnimationFrame(settleRaf.current);        // afferrato mentre torna dentro: si ferma lì
+    raw.current = null;
     pts.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
     suppressClick.current = false;
     if (pts.current.size === 1) drag.current = { moved: false, sx: e.clientX, sy: e.clientY };
@@ -155,6 +214,7 @@ export function PanZoom({ children, contentWidth = 1200, className, bare = false
     const dx = e.clientX - p.x, dy = e.clientY - p.y;
     pts.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
     if (pts.current.size >= 2 && d.dist) {
+      raw.current = null;
       const [a, c] = [...pts.current.values()];
       const dist = Math.hypot(a.x - c.x, a.y - c.y), cx = (a.x + c.x) / 2, cy = (a.y + c.y) / 2;
       const r = box.current!.getBoundingClientRect();
@@ -167,16 +227,21 @@ export function PanZoom({ children, contentWidth = 1200, className, bare = false
     if (!d.moved) {
       d.moved = true; (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId); setGrabbing(true);
       // superata la soglia, lo schema recupera i pixel già percorsi: resta sotto il dito da dove l'ha preso
-      panBy(e.clientX - d.sx, e.clientY - d.sy);
+      dragBy(e.clientX - d.sx, e.clientY - d.sy);
       return;
     }
-    panBy(dx, dy);
+    dragBy(dx, dy);
   };
   const onPointerUp = (e: React.PointerEvent) => {
     pts.current.delete(e.pointerId);
     if (drag.current?.moved) suppressClick.current = true;
-    if (pts.current.size === 0) { drag.current = null; setGrabbing(false); }
-    else if (pts.current.size === 1) { const [a] = [...pts.current.values()]; drag.current = { moved: true, sx: a.x, sy: a.y }; }
+    if (pts.current.size === 0) {
+      drag.current = null; setGrabbing(false); raw.current = null;
+      // fermo da più di 80 ms prima di alzare il dito: niente velocità residua
+      if (performance.now() - vel.current.t > 80) vel.current = { x: 0, y: 0, t: 0 };
+      settle();
+    }
+    else if (pts.current.size === 1) { const [a] = [...pts.current.values()]; drag.current = { moved: true, sx: a.x, sy: a.y }; raw.current = null; }
   };
 
   const onKeyDown = (e: React.KeyboardEvent) => {
