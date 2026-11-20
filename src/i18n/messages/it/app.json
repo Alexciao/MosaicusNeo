@@ -381,5 +381,15 @@
       "error": "Errore",
       "search": "In attesa"
     }
+  },
+  "crash": {
+    "title": "Qualcosa è andato storto qui",
+    "body": "Questa parte dell’app ha avuto un errore. I dati e l’eventuale misura in corso sono ancora lì.",
+    "page": "L’app ha avuto un errore. I dati salvati sono al sicuro.",
+    "retry": "Riprova",
+    "reload": "Ricarica la pagina",
+    "copy": "Copia i dettagli",
+    "copied": "Dettagli copiati",
+    "report": "Segnala il problema"
   }
 }

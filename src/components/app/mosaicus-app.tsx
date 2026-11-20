@@ -18,6 +18,7 @@ import { WorkbenchPage } from "@/components/workbench/workbench-page";
 import { NotebookPage } from "@/components/notebook/notebook-page";
 import { startCloud } from "@/lib/cloud/sync";
 import { GithubMark } from "./github-mark";
+import { ErrorBoundary } from "./error-boundary";
 import { REPO_URL, ISSUES_URL } from "@/lib/links";
 
 /** Barra in basso sul telefono: Lab apre l'elenco, Misura e Elaborazione cambiano pagina. */
@@ -84,9 +85,9 @@ export function MosaicusApp() {
     <div className="flex min-h-svh flex-col pb-16 md:pb-0">
       <AppHeader />
       <main className="flex-1">
-        <div hidden={page !== "misura"} className="mz-enter"><MeasurePage /></div>
-        {seen.quaderno && <div hidden={page !== "quaderno"} className="mz-enter"><NotebookPage /></div>}
-        {seen.elab && <div hidden={page !== "elab"} className="mz-enter"><WorkbenchPage /></div>}
+        <div hidden={page !== "misura"} className="mz-enter"><ErrorBoundary where="misura"><MeasurePage /></ErrorBoundary></div>
+        {seen.quaderno && <div hidden={page !== "quaderno"} className="mz-enter"><ErrorBoundary where="quaderno"><NotebookPage /></ErrorBoundary></div>}
+        {seen.elab && <div hidden={page !== "elab"} className="mz-enter"><ErrorBoundary where="elab"><WorkbenchPage /></ErrorBoundary></div>}
       </main>
       <footer className="mx-auto flex w-full max-w-[1600px] flex-wrap items-center justify-center gap-x-4 gap-y-1 px-4 py-6 text-xs text-muted-foreground">
         <span>{t("credits")}</span>
@@ -99,8 +100,10 @@ export function MosaicusApp() {
       <MobileNav />
       <GenChip />
       <ConfirmHost />
-      <GuideDialog />
-      <PrivacyDialog />
+      <ErrorBoundary where="dialogs">
+        <GuideDialog />
+        <PrivacyDialog />
+      </ErrorBoundary>
     </div>
   );
 }

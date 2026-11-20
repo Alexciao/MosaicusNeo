@@ -98,6 +98,28 @@ interface WorkbenchState {
   focus: (id: number | null) => void;
 }
 
+/**
+ * Riquadri letti dall'archivio (IndexedDB, o arrivati dal cloud): un record incompleto non deve
+ * far cadere la pagina. Le liste mancanti diventano vuote; un riquadro senza dati (rows) o senza
+ * colonne non si può mostrare e viene saltato (resta nell'archivio, segnalato nella console).
+ */
+function normalizeBoxes(recs: Record<string, unknown>[]): Box[] {
+  const out: Box[] = [];
+  for (const r of recs) {
+    if (!Array.isArray(r.rows) || !Array.isArray(r.columns) || !r.columns.length) {
+      console.warn("[MosaicusNeo] riquadro incompleto saltato", { id: r.id, cloudId: r.cloudId, title: r.title, keys: Object.keys(r) });
+      continue;
+    }
+    out.push({
+      ...(r as unknown as Box),
+      computed: Array.isArray(r.computed) ? (r.computed as ComputedColumn[]) : [],
+      analyses: Array.isArray(r.analyses) ? (r.analyses as Analysis[]) : [],
+      created: Number(r.created) || 0,
+    });
+  }
+  return out.sort((a, b) => a.created - b.created);
+}
+
 const timers = new Map<number, ReturnType<typeof setTimeout>>();
 function persist(box: Box) {
   clearTimeout(timers.get(box.id));
@@ -112,7 +134,7 @@ export const useWorkbench = create<WorkbenchState>((set, get) => ({
   focusId: null,
   async load() {
     let boxes: Box[] = [];
-    try { boxes = ((await repo.all("boxes")).filter(repo.visible) as unknown as Box[]).sort((a, b) => a.created - b.created); } catch { boxes = []; }
+    try { boxes = normalizeBoxes((await repo.all("boxes")).filter(repo.visible)); } catch { boxes = []; }
     set({ boxes, loaded: true });
   },
   async addBox(data) {
@@ -131,6 +153,9 @@ export const useWorkbench = create<WorkbenchState>((set, get) => ({
     set({ boxes });
   },
   async removeBox(id) {
+    // un salvataggio ancora in attesa riscriverebbe il riquadro appena cancellato
+    clearTimeout(timers.get(id));
+    timers.delete(id);
     await repo.remove("boxes", id);
     set({ boxes: get().boxes.filter((b) => b.id !== id) });
   },

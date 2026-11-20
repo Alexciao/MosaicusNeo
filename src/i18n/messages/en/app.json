@@ -381,5 +381,15 @@
       "error": "Error",
       "search": "Waiting"
     }
+  },
+  "crash": {
+    "title": "Something went wrong here",
+    "body": "This part of the app hit an error. Your data and any measurement in progress are still there.",
+    "page": "The app hit an error. Your saved data is safe.",
+    "retry": "Try again",
+    "reload": "Reload page",
+    "copy": "Copy details",
+    "copied": "Details copied",
+    "report": "Report the problem"
   }
 }
