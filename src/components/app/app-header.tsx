@@ -40,7 +40,7 @@ export function AppHeader() {
   const t = useTranslations("app.header");
   return (
     <header className="mz-glass sticky top-0 z-40 border-b bg-background/90 pt-[env(safe-area-inset-top)] backdrop-blur-md supports-[backdrop-filter]:bg-background/80">
-      <a href="#main" className="sr-only rounded-md bg-foreground px-3 py-2 text-sm font-medium text-background focus:not-sr-only focus:absolute focus:top-[calc(env(safe-area-inset-top)+0.75rem)] focus:left-3 focus:z-50">{t("skip")}</a>
+      <a href="#main" className="sr-only rounded-md bg-foreground px-3 py-2 text-sm font-medium text-background focus:not-sr-only focus:absolute focus:px-3 focus:py-2 focus:top-[calc(env(safe-area-inset-top)+0.75rem)] focus:left-3 focus:z-50">{t("skip")}</a>
       {/* a tutta larghezza: il marchio sta sul filo della barra dei lab, non spostato dal centraggio */}
       <div className="flex h-14 w-full items-center gap-3 pr-[max(0.875rem,env(safe-area-inset-right))] pl-[max(0.875rem,env(safe-area-inset-left))]">
         <Link href="/" aria-label={t("home")}

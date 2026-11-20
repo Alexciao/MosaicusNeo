@@ -28,7 +28,7 @@ function MobileNav() {
   const t = useTranslations("app.nav");
   const item = (active: boolean, label: string, Icon: typeof FlaskConical, onClick: () => void, badge?: number) => (
     <button type="button" onClick={onClick} aria-current={active ? "page" : undefined} className={cn("relative flex min-w-0 flex-1 flex-col items-center gap-0.5 py-2 text-[0.7rem] font-medium transition-colors select-none active:bg-foreground/[0.04]", active ? "text-foreground" : "text-muted-foreground")}>
-      <Icon className="size-5" strokeWidth={active ? 2.25 : 1.75} /><span className="max-w-full truncate px-1">{label}</span>
+      <Icon className="size-5" strokeWidth={active ? 2.25 : 1.75} /><span className="max-w-full truncate">{label}</span>
       {!!badge && <span className="absolute top-1 left-1/2 ml-2.5 min-w-4 rounded-[5px] bg-foreground px-1 text-center text-[10px] leading-4 font-medium text-background tabular">{badge}</span>}
     </button>
   );
