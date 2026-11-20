@@ -164,7 +164,12 @@ export function PanZoom({ children, contentWidth = 1200, className, bare = false
       return;
     }
     if (!d.moved && Math.hypot(e.clientX - d.sx, e.clientY - d.sy) < DRAG_SLOP) return;
-    if (!d.moved) { d.moved = true; (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId); setGrabbing(true); }
+    if (!d.moved) {
+      d.moved = true; (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId); setGrabbing(true);
+      // superata la soglia, lo schema recupera i pixel già percorsi: resta sotto il dito da dove l'ha preso
+      panBy(e.clientX - d.sx, e.clientY - d.sy);
+      return;
+    }
     panBy(dx, dy);
   };
   const onPointerUp = (e: React.PointerEvent) => {

@@ -541,6 +541,14 @@ export function removeSensor(id: string) {
   const rig = get().rig;
   commitRig({ ...rig, sensors: rig.sensors.filter((s) => s.id !== id) });
 }
+/** «Annulla» dopo removeSensor: rimette il componente al suo posto, se si è ancora sullo stesso progetto. */
+export function restoreSensor(rigId: string, sensor: SensorInstance, index: number) {
+  const rig = get().rig;
+  if (rig.id !== rigId || get().running || rig.sensors.some((s) => s.id === sensor.id)) return;
+  const sensors = [...rig.sensors];
+  sensors.splice(Math.min(index, sensors.length), 0, sensor);
+  commitRig({ ...rig, sensors });
+}
 export function moveSensor(id: string, dir: -1 | 1) {
   const rig = get().rig, i = rig.sensors.findIndex((s) => s.id === id), j = i + dir;
   if (i < 0 || j < 0 || j >= rig.sensors.length) return;

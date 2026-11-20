@@ -48,7 +48,7 @@ function Item({ id, title, icon: Icon, tone, menu }: Entry) {
         className="h-8 gap-2.5 px-2 text-[13px] font-medium text-foreground/80 hover:bg-foreground/[0.04] hover:text-foreground active:bg-foreground/[0.06] data-active:bg-foreground/[0.06] data-active:font-medium data-active:text-foreground dark:font-normal dark:data-active:font-medium">
         <Icon className={cn("size-4!", toneFg[tone])} aria-hidden />
         <span className="min-w-0 flex-1 truncate">{title}</span>
-        {live && <span className="size-1.5 shrink-0 rounded-full bg-destructive" title={t("live")} aria-label={t("live")} />}
+        {live && <span role="img" className="size-1.5 shrink-0 rounded-full bg-destructive" title={t("live")} aria-label={t("live")} />}
       </SidebarMenuButton>
       {menu}
     </SidebarMenuItem>

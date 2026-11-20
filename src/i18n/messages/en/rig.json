@@ -385,6 +385,8 @@
     "outputsHint": "Optional: a display, an RGB LED or a buzzer show whether Arduino is ready or measuring.",
     "howItWorks": "How they work",
     "quantities": "Measured quantities",
-    "noRoom": "Doesn’t fit on 3 full-size breadboards side by side: remove a component first."
+    "noRoom": "Doesn’t fit on 3 full-size breadboards side by side: remove a component first.",
+    "removed": "“{name}” removed from the project",
+    "undo": "Undo"
   }
 }
