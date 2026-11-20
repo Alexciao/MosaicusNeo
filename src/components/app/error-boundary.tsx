@@ -37,13 +37,13 @@ export function CrashPanel({ error, where, retry, fullPage }: { error: unknown; 
   };
   return (
     <div role="alert" className={fullPage ? "flex min-h-svh items-center justify-center p-4" : "mx-auto max-w-xl p-4 py-12"}>
-      <div className="flex flex-col gap-4 rounded-xl border bg-card p-6 text-card-foreground">
-        <TriangleAlert className="size-5 text-destructive" />
+      <div className="flex min-w-0 flex-col gap-4 rounded-xl border bg-card p-6 text-card-foreground">
+        <TriangleAlert aria-hidden className="size-5 text-destructive" />
         <div className="space-y-1">
           <h2 className="text-lg font-semibold">{t("title")}</h2>
           <p className="text-sm text-muted-foreground">{fullPage ? t("page") : t("body")}</p>
         </div>
-        <pre className="max-h-32 overflow-auto rounded-md bg-muted p-2 text-xs whitespace-pre-wrap text-muted-foreground">{entry.message}</pre>
+        <pre className="max-h-32 overflow-auto rounded-md bg-muted p-2 text-xs break-words whitespace-pre-wrap text-muted-foreground">{entry.message}</pre>
         <div className="flex flex-wrap gap-2">
           <Button onClick={retry}>{t("retry")}</Button>
           <Button variant="outline" onClick={() => location.reload()}>{t("reload")}</Button>
