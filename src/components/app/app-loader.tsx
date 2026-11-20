@@ -5,8 +5,8 @@ import { LogoMark } from "./logo";
 
 /**
  * Boot screen, shown (and pre-rendered in the static HTML) while the app bundle loads.
- * Static on purpose: the app usually loads before an entrance animation could play. A sliding bar
- * fades in only if loading takes longer than 100 ms. No translated text: the language is only known
+ * Static on purpose: the app usually loads before an entrance animation could play, so the mark and
+ * the sliding bar are there from the first paint, with no delay. No translated text: the language is only known
  * in the browser, so the screen is identical on the server and on the client. Styles: `.mz-boot*`.
  */
 function BootScreen() {

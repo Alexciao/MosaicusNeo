@@ -12,6 +12,7 @@
   },
   "appearance": {
     "label": "Impostazioni",
+    "accountLabel": "Account e impostazioni",
     "theme": "Tema",
     "light": "Chiaro",
     "dark": "Scuro",
@@ -226,13 +227,7 @@
       "errorWith": "Errore di sincronizzazione: {error}",
       "pending": "{n, plural, one {# modifica da sincronizzare} other {# modifiche da sincronizzare}}",
       "synced": "Sincronizzato alle {time}",
-      "ready": "Pronto",
-      "short": {
-        "syncing": "Sincronizzazione",
-        "offline": "Offline",
-        "error": "Errore",
-        "pending": "{n} in attesa"
-      }
+      "ready": "Pronto"
     },
     "logout": {
       "title": "Uscire con modifiche non sincronizzate?",
@@ -243,7 +238,6 @@
     "menu": {
       "label": "Account",
       "syncNow": "Sincronizza ora",
-      "privacy": "Privacy",
       "signOut": "Esci",
       "delete": "Elimina account"
     }

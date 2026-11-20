@@ -1,20 +1,18 @@
 "use client";
-// Account (facoltativo): accesso, registrazione, password dimenticata, stato della sincronizzazione.
+// Account (facoltativo): finestre di accesso, registrazione, password dimenticata, cancellazione, stato della sincronizzazione.
+// Il menu che le apre è in settings-menu.tsx.
 
 import { useState } from "react";
 import { toast } from "@/lib/toast";
 import { useTranslations } from "next-intl";
 import { t as tr, intlLocale } from "@/i18n";
-import { ChevronsUpDown, CloudCheck, CloudExclamationPoint, CloudOff, CloudSync, LoaderCircle, LogIn, LogOut, RefreshCw, ShieldCheck, Trash, UserRound } from "lucide-react";
+import { CloudCheck, CloudExclamationPoint, CloudOff, CloudSync, LoaderCircle, Trash, UserRound } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import {
-  DropdownMenu, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { useCloud, signIn, signUp, resetPassword, updatePassword, signOut, syncNow, deleteAccount } from "@/lib/cloud/sync";
+import { useCloud, signIn, signUp, resetPassword, updatePassword, signOut, deleteAccount } from "@/lib/cloud/sync";
 import { confirm } from "@/lib/confirm";
 import { cn } from "@/lib/utils";
 import { openPrivacy } from "./privacy-dialog";
@@ -28,7 +26,7 @@ function Field({ id, label, ...props }: { id: string; label: string } & React.Co
   );
 }
 
-function AuthDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (o: boolean) => void }) {
+export function AuthDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (o: boolean) => void }) {
   const [tab, setTab] = useState<"in" | "up" | "reset">("in");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -93,7 +91,7 @@ function AuthDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (o: b
 }
 
 /** Cancellazione dell'account: si conferma scrivendo la propria email. Avviene subito e del tutto. */
-function DeleteAccountDialog({ open, onOpenChange, email }: { open: boolean; onOpenChange: (o: boolean) => void; email: string }) {
+export function DeleteAccountDialog({ open, onOpenChange, email }: { open: boolean; onOpenChange: (o: boolean) => void; email: string }) {
   const [typed, setTyped] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -138,7 +136,7 @@ function DeleteAccountDialog({ open, onOpenChange, email }: { open: boolean; onO
 }
 
 /** Dopo il link di "password dimenticata": si sceglie la nuova password. */
-function RecoveryDialog() {
+export function RecoveryDialog() {
   const recovery = useCloud((s) => s.recovery);
   const t = useTranslations("app.account.recovery");
   const [password, setPassword] = useState("");
@@ -161,15 +159,6 @@ function RecoveryDialog() {
   );
 }
 
-/** Short form for the sidebar card: icon + time, or a single word. */
-function statusShort(status: string, lastSync: number | null, pending: number) {
-  if (status === "syncing") return tr("app.account.status.short.syncing");
-  if (status === "offline") return tr("app.account.status.short.offline");
-  if (status === "error") return tr("app.account.status.short.error");
-  if (pending) return tr("app.account.status.short.pending", { n: pending });
-  return lastSync ? new Date(lastSync).toLocaleTimeString(intlLocale, { hour: "2-digit", minute: "2-digit" }) : tr("app.account.status.ready");
-}
-
 function statusText(status: string, lastSync: number | null, pending: number, error: string | null) {
   if (status === "syncing") return tr("app.account.status.syncing");
   if (status === "offline") return tr("app.account.status.offline", { pending });
@@ -181,7 +170,7 @@ function statusText(status: string, lastSync: number | null, pending: number, er
 }
 
 /** Uscita dall'account: con modifiche non ancora nel cloud chiede conferma. */
-async function logout() {
+export async function logout() {
   let res = await signOut();
   if (!res.ok) {
     const go = await confirm({
@@ -196,7 +185,7 @@ async function logout() {
 }
 
 /** Stato del cloud per l'account: icona e testo della sincronizzazione. */
-function useAccount() {
+export function useAccount() {
   const enabled = useCloud((s) => s.enabled);
   const ready = useCloud((s) => s.ready);
   const user = useCloud((s) => s.user);
@@ -206,114 +195,9 @@ function useAccount() {
   const error = useCloud((s) => s.error);
   const Icon = status === "syncing" ? LoaderCircle : status === "offline" ? CloudOff : status === "error" ? CloudExclamationPoint : pending ? CloudSync : CloudCheck;
   const iconClass = cn(status === "syncing" && "animate-spin", status === "error" && "text-destructive");
-  return { enabled, ready, user, status, text: statusText(status, lastSync, pending, error), short: statusShort(status, lastSync, pending), Icon, iconClass };
+  return { enabled, ready, user, status, text: statusText(status, lastSync, pending, error), Icon, iconClass };
 }
 
-/** Le voci del menu dell'account (intestazione e barra laterale). */
-function AccountItems({ onDelete }: { onDelete: () => void }) {
-  const t = useTranslations("app.account.menu");
-  return (
-    <>
-      <DropdownMenuItem onClick={() => void syncNow({ quiet: false })}><RefreshCw /> {t("syncNow")}</DropdownMenuItem>
-      <DropdownMenuItem onClick={openPrivacy}><ShieldCheck /> {t("privacy")}</DropdownMenuItem>
-      <DropdownMenuItem onClick={() => void logout()}><LogOut /> {t("signOut")}</DropdownMenuItem>
-      <DropdownMenuSeparator />
-      <DropdownMenuItem variant="destructive" onClick={onDelete}><Trash /> {t("delete")}</DropdownMenuItem>
-    </>
-  );
-}
-
-const Avatar = ({ email, className }: { email?: string; className?: string }) => (
+export const Avatar = ({ email, className }: { email?: string; className?: string }) => (
   <span className={cn("grid size-6 shrink-0 place-items-center rounded-full bg-foreground/[0.08] text-xs font-medium text-foreground uppercase", className)}>{email?.[0] ?? <UserRound className="size-3.5" />}</span>
 );
-
-/** Nell'intestazione (dove la barra laterale non c'è: altre pagine, telefono). */
-export function AccountMenu({ className }: { className?: string }) {
-  const { enabled, ready, user, text, Icon, iconClass } = useAccount();
-  const t = useTranslations("app.account");
-  const [open, setOpen] = useState(false);
-  const [deleting, setDeleting] = useState(false);
-  if (!enabled) return null;
-
-  if (!user) {
-    return (
-      <>
-        <Button variant="ghost" size="sm" disabled={!ready} onClick={() => setOpen(true)} aria-label={t("signIn")} className={className}>
-          <LogIn /> <span className="hidden sm:inline">{t("signIn")}</span>
-        </Button>
-        <AuthDialog open={open} onOpenChange={setOpen} />
-        <RecoveryDialog />
-      </>
-    );
-  }
-  return (
-    <>
-      <DropdownMenu>
-        <DropdownMenuTrigger render={<Button variant="ghost" aria-label={t("menu.label")} className={cn("h-8 gap-1.5 rounded-full pr-2.5 pl-1", className)} />}>
-          <Avatar email={user.email} />
-          <Icon className={cn("size-3.5 text-muted-foreground", iconClass)} />
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="end" className="w-72">
-          <DropdownMenuGroup>
-            <DropdownMenuLabel className="flex flex-col gap-0.5">
-              <span className="truncate text-sm font-medium text-foreground">{user.email}</span>
-              <span className="text-xs font-normal text-muted-foreground">{text}</span>
-            </DropdownMenuLabel>
-          </DropdownMenuGroup>
-          <DropdownMenuSeparator />
-          <AccountItems onDelete={() => setDeleting(true)} />
-        </DropdownMenuContent>
-      </DropdownMenu>
-      <DeleteAccountDialog open={deleting} onOpenChange={setDeleting} email={user.email ?? ""} />
-      <RecoveryDialog />
-    </>
-  );
-}
-
-/** In fondo alla barra laterale dei lab: l'account come scheda. */
-export function AccountCard() {
-  const { enabled, ready, user, status, text, short, Icon, iconClass } = useAccount();
-  const t = useTranslations("app.account");
-  const [open, setOpen] = useState(false);
-  const [deleting, setDeleting] = useState(false);
-  if (!enabled) return null;
-
-  if (!user) {
-    return (
-      <>
-        {/* l'account è facoltativo: senza accesso basta un pulsante discreto */}
-        <Button variant="ghost" size="sm" disabled={!ready} onClick={() => setOpen(true)} className="w-full justify-start text-muted-foreground">
-          <LogIn /> {t("signIn")}
-        </Button>
-        <AuthDialog open={open} onOpenChange={setOpen} />
-      </>
-    );
-  }
-  return (
-    <>
-      <DropdownMenu>
-        <DropdownMenuTrigger render={
-          <button type="button" aria-label={t("menu.label")}
-            className="flex w-full items-center gap-2.5 rounded-md border bg-background/60 p-2.5 text-left outline-none transition-colors hover:bg-sidebar-accent focus-visible:ring-2 focus-visible:ring-sidebar-ring aria-expanded:bg-sidebar-accent" />
-        }>
-          <Avatar email={user.email} className="size-8 text-sm" />
-          <span className="flex min-w-0 flex-1 flex-col">
-            <span className="truncate text-sm font-medium">{user.email}</span>
-            <span className="flex min-w-0 items-center gap-1 text-xs text-muted-foreground" title={text}>
-              <Icon className={cn("size-3.5 shrink-0", iconClass)} />
-              <span className="truncate tabular">{short}</span>
-            </span>
-          </span>
-          <ChevronsUpDown className="size-4 shrink-0 text-muted-foreground" />
-        </DropdownMenuTrigger>
-        <DropdownMenuContent side="right" align="end" sideOffset={8} className="w-64">
-          <DropdownMenuGroup>
-            <DropdownMenuLabel className="text-xs font-normal text-muted-foreground">{status === "off" ? t("menu.label") : text}</DropdownMenuLabel>
-          </DropdownMenuGroup>
-          <AccountItems onDelete={() => setDeleting(true)} />
-        </DropdownMenuContent>
-      </DropdownMenu>
-      <DeleteAccountDialog open={deleting} onOpenChange={setDeleting} email={user.email ?? ""} />
-    </>
-  );
-}

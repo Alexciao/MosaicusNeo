@@ -414,9 +414,8 @@ html.lim *::after {
 }
 
 /* ------------------------------------------------------------------------------------------
-   Schermata d'avvio (app-loader.tsx): il marchio compare subito, fermo — l'app di solito si
-   carica prima che un'animazione d'ingresso abbia il tempo di vedersi. Solo se il caricamento
-   va per le lunghe compare (dopo 600 ms) una barra che scorre.
+   Schermata d'avvio (app-loader.tsx): il marchio e la barra che scorre compaiono subito,
+   insieme, senza animazioni d'ingresso: l'app di solito si carica prima che se ne vedano.
    ------------------------------------------------------------------------------------------ */
 .mz-boot {
   --boot-line: color-mix(in oklab, var(--foreground) 5%, transparent);
@@ -475,8 +474,6 @@ html.lim *::after {
   border-radius: 999px;
   overflow: hidden;
   background: color-mix(in oklab, var(--foreground) 8%, transparent);
-  opacity: 0;
-  animation: mz-boot-show 300ms ease-out 100ms forwards;
 }
 .mz-boot-bar span {
   position: absolute;
@@ -488,7 +485,6 @@ html.lim *::after {
 }
 .dark .mz-boot-bar span { background: linear-gradient(90deg, transparent, #c6f432, transparent); }
 
-@keyframes mz-boot-show { to { opacity: 1; } }
 @keyframes mz-boot-slide {
   from { transform: translateX(-100%); }
   to { transform: translateX(250%); }

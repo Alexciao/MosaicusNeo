@@ -12,6 +12,7 @@
   },
   "appearance": {
     "label": "Settings",
+    "accountLabel": "Account and settings",
     "theme": "Theme",
     "light": "Light",
     "dark": "Dark",
@@ -226,13 +227,7 @@
       "errorWith": "Sync error: {error}",
       "pending": "{n, plural, one {# change to sync} other {# changes to sync}}",
       "synced": "Synced at {time}",
-      "ready": "Ready",
-      "short": {
-        "syncing": "Syncing",
-        "offline": "Offline",
-        "error": "Sync error",
-        "pending": "{n} pending"
-      }
+      "ready": "Ready"
     },
     "logout": {
       "title": "Sign out with unsynced changes?",
@@ -243,7 +238,6 @@
     "menu": {
       "label": "Account",
       "syncNow": "Sync now",
-      "privacy": "Privacy",
       "signOut": "Sign out",
       "delete": "Delete account"
     }
