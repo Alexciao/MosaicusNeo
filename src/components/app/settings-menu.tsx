@@ -46,13 +46,19 @@ export function SettingsMenu() {
         <Tooltip>
           <TooltipTrigger render={
             <DropdownMenuTrigger render={signedIn
-              ? <Button variant="ghost" aria-label={t("accountLabel")} className="h-8 gap-1.5 rounded-full pr-2.5 pl-1" />
+              ? <Button variant="ghost" aria-label={t("accountLabel")} className="h-8 gap-2 rounded-full pr-2.5 pl-1" />
               : <Button variant="ghost" size="icon" aria-label={t("label")} className="text-muted-foreground hover:text-foreground" />} />
           }>
             {signedIn ? (
               <>
-                <Avatar email={user.email} />
-                <Icon className={cn("size-3.5 text-muted-foreground", iconClass)} />
+                {/* l'avatar con lo stato del cloud; l'ingranaggio dice che qui ci sono anche le impostazioni */}
+                <span className="relative">
+                  <Avatar email={user.email} />
+                  <span className="absolute -right-0.5 -bottom-0.5 grid size-3.5 place-items-center rounded-full bg-background ring-1 ring-border">
+                    <Icon className={cn("size-2.5 text-muted-foreground", iconClass)} />
+                  </span>
+                </span>
+                <Settings2 className="size-4 text-muted-foreground" />
               </>
             ) : <Settings2 />}
           </TooltipTrigger>
