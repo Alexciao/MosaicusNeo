@@ -3,7 +3,7 @@
 // esperimenti pronti (le modifiche diventano una versione personale, ripristinabile) e per i
 // progetti dell'utente.
 
-import { useState } from "react";
+import { Fragment, useRef, useState } from "react";
 import { Check, ChevronDown, CopyPlus, Plus, RotateCcw, Search, Trash, TriangleExclamationPoint, X } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
@@ -11,13 +11,13 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { SENSORS, COMPONENTS, COMPONENT_TAGS, COMPONENT_KEYWORDS, TAGS, GROUPS, MAX_ARDUINO, groupOf, isSlot, pinName, pinsFor, type ComponentGroup, type ComponentTag, type SensorType } from "@/lib/sensors/catalog";
+import { Dialog, DialogClose, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
+import { SENSORS, COMPONENTS, COMPONENT_TAGS, COMPONENT_KEYWORDS, TAGS, GROUPS, MAX_ARDUINO, defaultOptions, groupOf, isSlot, pinName, pinsFor, type ComponentGroup, type ComponentTag, type SensorType } from "@/lib/sensors/catalog";
 import { validateRig, usedPins, sensorLabel, inputsOf, indicatorsOf, type SensorInstance } from "@/lib/sensors/rig";
 import { QUANTITIES } from "@/lib/sensors/quantities";
 import type { Param } from "@/lib/sensors/types";
 import {
-  useLab, labInfo, updateSensor, addSensor, checkAdd, removeSensor, pressSimButton, resetPreset, renameRig, newRig, deleteRig, testOutputs, openGuide,
+  useLab, labInfo, updateSensor, addSensor, checkAdd, removeSensor, pressSimButton, resetPreset, renameRig, newRig, testOutputs, openGuide,
 } from "@/lib/lab-store";
 import { confirm } from "@/lib/confirm";
 import { cn } from "@/lib/utils";
@@ -26,8 +26,10 @@ import { intlLocale } from "@/i18n";
 import { ComponentThumb } from "./board-diagram";
 import { BluetoothHowTo } from "./wiring-diagram";
 import { SdHowTo } from "./sd-controls";
+import { Sym } from "./sym";
 
-function OptionField({ p, value, onChange, id, disabled }: { p: Param; value: number | string; onChange: (v: number | string) => void; id: string; disabled?: boolean }) {
+/** unit: l'unità dentro il campo, a destra (non nell'etichetta). */
+function OptionField({ p, value, onChange, id, disabled, unit }: { p: Param; value: number | string; onChange: (v: number | string) => void; id: string; disabled?: boolean; unit?: string }) {
   const [text, setText] = useState(String(value ?? ""));
   if (p.type === "select") {
     return (
@@ -43,21 +45,30 @@ function OptionField({ p, value, onChange, id, disabled }: { p: Param; value: nu
     if (!Number.isFinite(v)) { setText(String(value)); return; }
     if (v !== value) onChange(v);
   };
-  return (
+  const input = (
     <Input id={id} type={p.type === "text" ? "text" : "number"} inputMode={p.type === "text" ? "text" : "decimal"} step={p.step ?? "any"} min={p.min}
       value={text} disabled={disabled} onChange={(e) => setText(e.target.value)} onBlur={commit} onKeyDown={(e) => { if (e.key === "Enter") commit(); }}
-      className="h-8 tabular" />
+      className={cn("h-8 tabular", unit && "pr-10")} />
+  );
+  if (!unit) return input;
+  return (
+    <div className="relative">
+      {input}
+      <span className="pointer-events-none absolute top-1/2 right-2.5 -translate-y-1/2 text-xs text-muted-foreground">{unit}</span>
+    </div>
   );
 }
 
-function Field({ label, unit, htmlFor, children }: { label: string; unit?: string; htmlFor: string; children: React.ReactNode }) {
+function Field({ label, htmlFor, wide, children }: { label: string; htmlFor: string; wide?: boolean; children: React.ReactNode }) {
   return (
-    <div className="flex min-w-0 flex-col gap-1.5">
-      <Label htmlFor={htmlFor} className="text-xs leading-snug font-medium text-muted-foreground">{label}{unit ? <span className="font-normal"> ({unit})</span> : null}</Label>
+    <div className={cn("flex min-w-0 flex-col gap-1.5", wide && "sm:col-span-2")}>
+      <Label htmlFor={htmlFor} className="text-xs leading-snug font-medium text-muted-foreground">{label}</Label>
       {children}
     </div>
   );
 }
+/** Le tendine con voci lunghe occupano tutta la riga (sennò il testo si taglia). */
+const wideSelect = (p: Param) => p.type === "select" && (p.options ?? []).some(([, l]) => l.length > 16);
 
 /** Il pulsante: che cosa fa nei vari collegamenti; col simulatore si può «premere» da qui. */
 function ButtonHint() {
@@ -65,7 +76,7 @@ function ButtonHint() {
   const sim = useLab((s) => s.linkKind === "simulatore" && s.ready);
   const running = useLab((s) => s.running);
   return (
-    <div className="flex flex-col gap-1.5 rounded-md bg-muted/50 p-2.5 text-xs">
+    <div className="flex flex-col gap-1.5 border-l-2 border-border pl-3 text-xs">
       <p>{t("buttonHint")}</p>
       {sim && <Button size="xs" variant="outline" className="self-start" onClick={pressSimButton}>{t("pressSim", { running: running ? "yes" : "no" })}</Button>}
     </div>
@@ -86,26 +97,29 @@ function SensorCard({ s, defaultOpen }: { s: SensorInstance; defaultOpen: boolea
   const minI = def.minInterval?.(s.options) ?? def.interval.min;
 
   return (
-    <Collapsible open={open} onOpenChange={setOpen} className={cn("rounded-lg border bg-card", issues.some((i) => i.level === "error") && "border-destructive/50")}>
-      <div className="flex items-center gap-2.5 p-2.5">
-        <CollapsibleTrigger className="flex min-w-0 flex-1 items-center gap-2.5 text-left">
-          <span className="grid size-10 shrink-0 place-items-center rounded-lg bg-muted p-1"><ComponentThumb type={s.type} options={s.options} className="size-full" /></span>
+    <Collapsible open={open} onOpenChange={setOpen} className="py-1">
+      <div className="flex items-center gap-2">
+        <CollapsibleTrigger className="flex min-w-0 flex-1 items-center gap-3 rounded-md py-1.5 text-left outline-none focus-visible:ring-2 focus-visible:ring-ring/50">
+          <span className="grid size-10 shrink-0 place-items-center rounded-md bg-muted/60 p-1" aria-hidden><ComponentThumb type={s.type} options={s.options} className="size-full" /></span>
           <span className="min-w-0 flex-1">
-            <span className="block truncate text-sm font-semibold">{sensorLabel(s)}</span>
-            <span className="flex flex-wrap gap-1 pt-0.5">
-              {def.pins.map((p) => <span key={p.key} className="rounded bg-muted px-1.5 font-mono text-[0.65rem] font-semibold">{p.role.split(" ")[0]} {p.def <= 1 && p.fixed ? `D${p.def}` : pinName(s.pins[p.key])}</span>)}
-              {isSlot(s.type) && !def.events && <span className="rounded px-1 text-[0.65rem] text-muted-foreground tabular">{t("every", { interval: s.interval >= 1000 ? `${(s.interval / 1000).toLocaleString(intlLocale)} s` : `${s.interval} ms` })}</span>}
-              {def.events && <span className="rounded px-1 text-[0.65rem] text-muted-foreground">{t("events")}</span>}
+            <span className="flex items-center gap-1.5 text-sm font-medium">
+              <span className="truncate">{sensorLabel(s)}</span>
+              {issues.some((i) => i.level === "error") && <TriangleExclamationPoint className="size-3.5 shrink-0 text-destructive" aria-hidden />}
+            </span>
+            <span className="block truncate text-xs text-muted-foreground">
+              <span className="font-mono">{def.pins.map((p) => `${p.role.split(" ")[0]} ${p.def <= 1 && p.fixed ? `D${p.def}` : pinName(s.pins[p.key])}`).join(" · ")}</span>
+              {isSlot(s.type) && !def.events && <span className="tabular"> · {t("every", { interval: s.interval >= 1000 ? `${(s.interval / 1000).toLocaleString(intlLocale)} s` : `${s.interval} ms` })}</span>}
+              {def.events && <span> · {t("events")}</span>}
             </span>
           </span>
-          <ChevronDown className={cn("size-4 shrink-0 text-muted-foreground transition-transform", !open && "-rotate-90")} />
+          <ChevronDown className={cn("size-4 shrink-0 text-muted-foreground transition-transform", !open && "-rotate-90")} aria-hidden />
         </CollapsibleTrigger>
         <Button size="icon-sm" variant="ghost" aria-label={t("removeNamed", { name: sensorLabel(s) })} disabled={running} className="text-muted-foreground hover:text-destructive"
           onClick={async () => { if (await confirm({ title: t("removeTitle", { name: sensorLabel(s) }), action: t("remove"), destructive: true })) removeSensor(s.id); }}>
           <Trash />
         </Button>
       </div>
-      <CollapsibleContent className="flex flex-col gap-3 border-t p-3">
+      <CollapsibleContent className="flex flex-col gap-3 pt-2 pb-3 sm:pl-[3.25rem]">
         {issues.map((i, k) => <p key={k} className={cn("text-xs", i.level === "error" ? "text-destructive" : "text-warning")}>{i.text}</p>)}
         <p className="text-xs text-muted-foreground">{def.description}</p>
         <div className="grid gap-3 sm:grid-cols-2">
@@ -114,25 +128,25 @@ function SensorCard({ s, defaultOpen }: { s: SensorInstance; defaultOpen: boolea
               onChange={(v) => updateSensor(s.id, { label: String(v) })} />
           </Field>
           {isSlot(s.type) && !def.events && (
-            <Field label={t("interval")} unit="ms" htmlFor={`${s.id}-int`}>
-              <OptionField key={`int-${s.interval}`} id={`${s.id}-int`} p={{ key: "interval", label: "", value: s.interval, min: minI, step: 10 }} value={s.interval} disabled={running}
+            <Field label={t("interval")} htmlFor={`${s.id}-int`}>
+              <OptionField key={`int-${s.interval}`} id={`${s.id}-int`} unit="ms" p={{ key: "interval", label: "", value: s.interval, min: minI, step: 10 }} value={s.interval} disabled={running}
                 onChange={(v) => updateSensor(s.id, { interval: Math.max(minI, Number(v)) })} />
             </Field>
           )}
           {def.pins.filter((spec) => spec.fixed).length > 0 && (
             <Field label={t("fixedPins")} htmlFor={`${s.id}-pin-fixed`}>
-              <p id={`${s.id}-pin-fixed`} className="flex flex-wrap gap-1 pt-1">
-                {def.pins.filter((spec) => spec.fixed).map((spec) => <span key={spec.key} className="rounded bg-muted px-1.5 py-0.5 font-mono text-xs font-semibold">{spec.role.includes("D") ? spec.role : `${spec.role} ${pinName(spec.def)}`}</span>)}
+              <p id={`${s.id}-pin-fixed`} className="flex h-8 items-center font-mono text-xs font-medium">
+                {def.pins.filter((spec) => spec.fixed).map((spec) => spec.role.includes("D") ? spec.role : `${spec.role} ${pinName(spec.def)}`).join(" · ")}
               </p>
               {def.pins.find((spec) => spec.fixed && spec.note)?.note && <span className="text-[0.7rem] text-muted-foreground">{def.pins.find((spec) => spec.fixed && spec.note)!.note}</span>}
             </Field>
           )}
           {def.pins.filter((spec) => !spec.fixed).map((spec) => (
             <Field key={spec.key} label={spec.role} htmlFor={`${s.id}-pin-${spec.key}`}>
-              <Select value={String(s.pins[spec.key])} disabled={running}
+              <Select value={s.pins[spec.key] != null ? String(s.pins[spec.key]) : null} disabled={running}
                 onValueChange={(v) => v != null && updateSensor(s.id, { pins: { ...s.pins, [spec.key]: Number(v) } })}
                 items={Object.fromEntries(pinsFor(spec.kind).map((p) => [String(p), pinName(p)]))}>
-                <SelectTrigger id={`${s.id}-pin-${spec.key}`} size="sm" className="w-full min-w-0 font-mono"><SelectValue /></SelectTrigger>
+                <SelectTrigger id={`${s.id}-pin-${spec.key}`} size="sm" className="w-full min-w-0 font-mono"><SelectValue placeholder={<span className="font-sans text-muted-foreground">{t("choosePin")}</span>} /></SelectTrigger>
                 <SelectContent>
                   {pinsFor(spec.kind).map((p) => {
                     const u0 = taken.get(p);
@@ -153,8 +167,8 @@ function SensorCard({ s, defaultOpen }: { s: SensorInstance; defaultOpen: boolea
             </Field>
           ))}
           {basic.map((p) => (
-            <Field key={p.key} label={p.label} unit={p.unit} htmlFor={`${s.id}-${p.key}`}>
-              <OptionField key={`${p.key}-${s.options[p.key]}`} id={`${s.id}-${p.key}`} p={p} value={s.options[p.key]} disabled={running}
+            <Field key={p.key} label={p.label} wide={wideSelect(p)} htmlFor={`${s.id}-${p.key}`}>
+              <OptionField key={`${p.key}-${s.options[p.key]}`} id={`${s.id}-${p.key}`} p={p} unit={p.unit} value={s.options[p.key]} disabled={running}
                 onChange={(v) => updateSensor(s.id, { options: { [p.key]: v } })} />
             </Field>
           ))}
@@ -164,13 +178,13 @@ function SensorCard({ s, defaultOpen }: { s: SensorInstance; defaultOpen: boolea
         {(s.type === "hc06" || s.type === "ble") && <BluetoothHowTo kind={s.type} />}
         {!!advanced.length && (
           <Collapsible open={adv} onOpenChange={setAdv}>
-            <CollapsibleTrigger className="flex items-center gap-1.5 text-xs font-semibold">
+            <CollapsibleTrigger className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground hover:text-foreground">
               <ChevronDown className={cn("size-3.5 transition-transform", !adv && "-rotate-90")} /> {t("advanced")}
             </CollapsibleTrigger>
             <CollapsibleContent className="grid gap-3 pt-3 sm:grid-cols-2">
               {advanced.map((p) => (
-                <Field key={p.key} label={p.label} unit={p.unit} htmlFor={`${s.id}-${p.key}`}>
-                  <OptionField key={`${p.key}-${s.options[p.key]}`} id={`${s.id}-${p.key}`} p={p} value={s.options[p.key]} disabled={running}
+                <Field key={p.key} label={p.label} wide={wideSelect(p)} htmlFor={`${s.id}-${p.key}`}>
+                  <OptionField key={`${p.key}-${s.options[p.key]}`} id={`${s.id}-${p.key}`} p={p} unit={p.unit} value={s.options[p.key]} disabled={running}
                     onChange={(v) => updateSensor(s.id, { options: { [p.key]: v } })} />
                 </Field>
               ))}
@@ -182,37 +196,99 @@ function SensorCard({ s, defaultOpen }: { s: SensorInstance; defaultOpen: boolea
   );
 }
 
-const fold = (str: string) => str.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+const fold = (str: string) => str.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
 
-function PickerCard({ type, count, disabled, why, onPick }: { type: SensorType; count: number; disabled: boolean; why?: string; onPick: () => void }) {
+/** Le grandezze che un componente misura, con simbolo e unità (per l'anteprima del catalogo). */
+function measuredOf(type: SensorType) {
+  const def = SENSORS[type];
+  return def.quantities(defaultOptions(type)).filter((q) => !q.raw && !q.hidden).map((q) => {
+    const meta = QUANTITIES[q.key.replace(/_\d+$/, "")];
+    return { key: q.key, sym: q.sym ?? meta?.sym ?? q.key, name: q.name ?? meta?.name ?? "", unit: q.unit ?? meta?.unit ?? "" };
+  });
+}
+
+/** Una riga dell'elenco: immagine, nome, che cosa misura; a destra «aggiunto» o il motivo per cui non si può. */
+function PickerRow({ type, count, disabled, active, onPick, onFocus, id }: {
+  type: SensorType; count: number; disabled: boolean; active: boolean; onPick: () => void; onFocus: () => void; id: string;
+}) {
   const t = useTranslations("rig.editor");
   const def = SENSORS[type];
   return (
-    <button type="button" disabled={disabled} onClick={onPick}
-      className="group relative flex items-center gap-3 rounded-lg border p-2.5 text-left transition-colors hover:border-foreground/25 hover:bg-muted/60 disabled:cursor-not-allowed disabled:opacity-50">
-      <span className="grid size-16 shrink-0 place-items-center rounded-md bg-muted p-1.5 transition-transform group-enabled:group-hover:scale-105">
+    <li role="option" id={id} aria-selected={active} aria-disabled={disabled}
+      onMouseMove={onFocus} onClick={() => { if (!disabled) onPick(); }}
+      className={cn("flex cursor-pointer items-center gap-3 rounded-md px-2 py-1.5 select-none",
+        active && "bg-foreground/[0.06]", disabled && "cursor-default opacity-50")}>
+      <span className="grid size-9 shrink-0 place-items-center rounded-md bg-muted/70 p-1" aria-hidden>
         <ComponentThumb type={type} className="size-full" />
       </span>
       <span className="min-w-0 flex-1">
-        <span className="block pr-6 text-sm leading-snug font-semibold">{def.title}</span>
-        <span className="block text-xs text-muted-foreground">{def.measures}</span>
-        <span className="mt-1 block text-[0.7rem] text-muted-foreground">
-          {disabled && why ? why : def.phone ? t("onPhone") : def.pins.map((p) => `${p.role.split(" ")[0]} (${p.kind === "analog" ? "A0…A5" : t("digitalPin")})`).join(" · ")}
-        </span>
+        <span className="block truncate text-[13px] font-medium">{def.title}</span>
+        <span className="block truncate text-xs text-muted-foreground">{def.measures}</span>
       </span>
       {count > 0 && (
-        <span className="absolute top-2 right-2 flex items-center gap-0.5 rounded-full bg-foreground px-1.5 py-0.5 text-[0.65rem] font-semibold text-background" title={t("alreadyIn")}>
-          <Check className="size-3" />{count > 1 ? count : null}
+        <span className="flex shrink-0 items-center gap-1 text-xs text-muted-foreground tabular" title={t("alreadyIn")}>
+          <Check className="size-3.5" aria-hidden />{count > 1 ? `×${count}` : t("pickerAdded")}
         </span>
       )}
-    </button>
+    </li>
+  );
+}
+
+/** Anteprima del componente scelto con la tastiera o il mouse: immagine grande, descrizione, grandezze, pin. */
+function PickerDetail({ type, disabled, why, onPick }: { type: SensorType; disabled: boolean; why?: string; onPick: () => void }) {
+  const t = useTranslations("rig.editor");
+  const def = SENSORS[type];
+  const measured = measuredOf(type);
+  return (
+    <div className="flex h-full flex-col">
+      <div className="grid aspect-[4/3] place-items-center border-b bg-muted/40 p-8" aria-hidden>
+        <ComponentThumb type={type} className="size-full max-h-36" />
+      </div>
+      <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto p-4">
+        <div className="flex flex-col gap-1">
+          <h3 className="text-[15px] font-semibold">{def.title}</h3>
+          <p className="text-[13px] leading-relaxed text-muted-foreground">{def.description}</p>
+        </div>
+        {measured.length > 0 && (
+          <div className="flex flex-col gap-1.5">
+            <p className="text-xs font-medium text-muted-foreground">{t("pickerMeasures")}</p>
+            <ul className="flex flex-col divide-y text-[13px]">
+              {measured.map((q) => (
+                <li key={q.key} className="flex items-baseline gap-2 py-1">
+                  <span className="min-w-10 shrink-0 pr-1 font-medium whitespace-nowrap italic"><Sym>{q.sym}</Sym></span>
+                  <span className="min-w-0 flex-1 truncate">{q.name}</span>
+                  {q.unit && <span className="shrink-0 text-muted-foreground">{q.unit}</span>}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+        <div className="flex flex-col gap-1.5">
+          <p className="text-xs font-medium text-muted-foreground">{t("pickerPins")}</p>
+          {def.phone ? <p className="text-[13px]">{t("onPhone")}</p> : def.pins.length ? (
+            <ul className="flex flex-col divide-y text-[13px]">
+              {def.pins.map((p) => (
+                <li key={p.key} className="flex items-baseline gap-2 py-1">
+                  <span className="min-w-0 flex-1 truncate">{p.role}</span>
+                  <span className="shrink-0 font-mono text-xs text-muted-foreground">{p.kind === "analog" ? "A0–A5" : t("digitalPin")}</span>
+                </li>
+              ))}
+            </ul>
+          ) : <p className="text-[13px] text-muted-foreground">—</p>}
+        </div>
+      </div>
+      <div className="flex flex-col gap-2 border-t p-4">
+        {disabled && why && <p className="text-xs text-muted-foreground">{why}</p>}
+        <Button variant="brand" disabled={disabled} onClick={onPick}><Plus /> {t("pickerAdd")}</Button>
+      </div>
+    </div>
   );
 }
 
 /**
- * Il catalogo dei componenti, diviso per che cosa fanno: sensori (gli ingressi), comandi, display
- * e LED (le uscite), memoria, Bluetooth, telefono. Tra i sensori si filtra anche per argomento;
- * la ricerca guarda in tutti i gruppi.
+ * Il catalogo dei componenti come una tavolozza di comandi: ricerca in alto, gruppi a sinistra
+ * (argomenti dentro «Sensori»), elenco al centro con la tastiera (↑ ↓, Invio), anteprima a destra.
+ * Sul telefono: gruppi in una riga di filtri, elenco a tutta larghezza, un tocco aggiunge.
  */
 export function ComponentPicker({ open, onOpenChange }: { open: boolean; onOpenChange: (o: boolean) => void }) {
   const t = useTranslations("rig.editor");
@@ -220,6 +296,8 @@ export function ComponentPicker({ open, onOpenChange }: { open: boolean; onOpenC
   const [query, setQuery] = useState("");
   const [group, setGroup] = useState<ComponentGroup | "all">("all");
   const [tag, setTag] = useState<ComponentTag | "all">("all");
+  const [activeType, setActiveType] = useState<SensorType | null>(null);
+  const listRef = useRef<HTMLUListElement>(null);
   const nArduino = inputsOf(rig).length;
   const count = (type: SensorType) => rig.sensors.filter((s) => s.type === type).length;
   const state = (type: SensorType): [boolean, string?] => {
@@ -236,78 +314,132 @@ export function ComponentPicker({ open, onOpenChange }: { open: boolean; onOpenC
   };
   const q = fold(query.trim());
   const groupLabel = (g: ComponentGroup) => GROUPS.find(([id]) => id === g)?.[1] ?? "";
-  const list = COMPONENTS.filter((type) => {
+  const matches = (type: SensorType) => {
+    if (!q) return true;
+    const d = SENSORS[type];
+    const hay = fold([d.title, d.short, d.measures, d.description, COMPONENT_KEYWORDS[type], groupLabel(groupOf(type)), ...COMPONENT_TAGS[type].map((k) => TAGS.find(([id]) => id === k)?.[1] ?? "")].join(" "));
+    return q.split(/\s+/).every((w) => hay.includes(w));
+  };
+  const searched = COMPONENTS.filter(matches);
+  const list = searched.filter((type) => {
     const g = groupOf(type);
-    if (q) {
-      const d = SENSORS[type];
-      const hay = fold([d.title, d.short, d.measures, d.description, COMPONENT_KEYWORDS[type], groupLabel(g), ...COMPONENT_TAGS[type].map((k) => TAGS.find(([id]) => id === k)?.[1] ?? "")].join(" "));
-      if (!q.split(/\s+/).every((w) => hay.includes(w))) return false;
-    }
     if (group !== "all" && g !== group) return false;
     // «Tutti» senza ricerca: i componenti di Arduino; il telefono ha il suo gruppo
     if (group === "all" && !q && g === "phone") return false;
     if (group === "sensor" && tag !== "all" && !COMPONENT_TAGS[type].includes(tag)) return false;
     return true;
   });
-  const sections = GROUPS.map(([g, label, hint]) => ({ g, label, hint, items: list.filter((type) => groupOf(type) === g) })).filter((s) => s.items.length);
-  const pick = (type: SensorType) => { addSensor(type); onOpenChange(false); };
-  const change = (o: boolean) => { onOpenChange(o); if (!o) { setQuery(""); setGroup("all"); setTag("all"); } };
-  const chip = (id: string, label: string, on: boolean, onClick: () => void, small = false) => (
+  const sections = GROUPS.map(([g, label]) => ({ g, label, items: list.filter((type) => groupOf(type) === g) })).filter((s) => s.items.length);
+  const flat = sections.flatMap((s) => s.items);
+  const active = activeType && flat.includes(activeType) ? activeType : flat[0] ?? null;
+  const pick = (type: SensorType) => { if (state(type)[0]) return; addSensor(type); change(false); };
+  const change = (o: boolean) => { onOpenChange(o); if (!o) { setQuery(""); setGroup("all"); setTag("all"); setActiveType(null); } };
+  const groupCount = (g: ComponentGroup | "all") => searched.filter((type) => (g === "all" ? q || groupOf(type) !== "phone" : groupOf(type) === g)).length;
+  const optId = (type: SensorType) => `pick-${type}`;
+  const move = (d: number) => {
+    if (!flat.length) return;
+    const i = active ? flat.indexOf(active) : -1;
+    const next = flat[(i + d + flat.length) % flat.length];
+    setActiveType(next);
+    document.getElementById(optId(next))?.scrollIntoView({ block: "nearest" });
+  };
+  const onKey = (e: React.KeyboardEvent) => {
+    if (e.key === "ArrowDown") { e.preventDefault(); move(1); }
+    else if (e.key === "ArrowUp") { e.preventDefault(); move(-1); }
+    else if (e.key === "Enter" && active) { e.preventDefault(); pick(active); }
+  };
+  const railItem = (id: ComponentGroup | "all", label: string) => (
+    <button key={id} type="button" onClick={() => { setGroup(id); setTag("all"); setActiveType(null); }} aria-pressed={group === id}
+      className={cn("flex h-8 items-center gap-2 rounded-md px-2 text-left text-[13px] transition-colors",
+        group === id ? "bg-foreground/[0.06] font-medium text-foreground" : "text-muted-foreground hover:bg-foreground/[0.04] hover:text-foreground")}>
+      <span className="min-w-0 flex-1 truncate">{label}</span>
+      <span className="text-xs text-muted-foreground tabular">{groupCount(id) || ""}</span>
+    </button>
+  );
+  const chip = (id: string, label: string, on: boolean, onClick: () => void) => (
     <button key={id} type="button" onClick={onClick} aria-pressed={on}
-      className={cn("shrink-0 rounded-full border font-medium transition-colors", small ? "px-2 py-0.5 text-[0.7rem]" : "px-2.5 py-1 text-xs",
+      className={cn("h-7 shrink-0 rounded-md border px-2.5 text-[13px] font-medium transition-colors",
         on ? "border-foreground bg-foreground text-background" : "text-muted-foreground hover:bg-muted hover:text-foreground")}>
       {label}
     </button>
   );
-  const cards = (items: SensorType[]) => (
-    <div className="grid gap-2 sm:grid-cols-2">
-      {items.map((type) => { const [d, why] = state(type); return <PickerCard key={type} type={type} count={count(type)} disabled={d} why={why} onPick={() => pick(type)} />; })}
-    </div>
-  );
+  const [activeDisabled, activeWhy] = active ? state(active) : [true];
   return (
     <Dialog open={open} onOpenChange={change}>
-      {/* un solo contenitore che scorre (con l'intestazione fissa in alto): su iPhone gli elenchi
-          annidati in una finestra fissa non sempre scorrono, e qui si scorre anche dalla ricerca */}
-      <DialogContent className="flex max-h-[90dvh] flex-col gap-0 overflow-hidden p-0 sm:h-[min(46rem,90dvh)] sm:max-w-2xl">
-        <div className="min-h-0 flex-1 touch-pan-y overflow-y-auto overscroll-contain">
-          <div className="sticky top-0 z-10 flex flex-col gap-3 border-b bg-popover px-4 pt-4 pb-3">
-            <DialogHeader className="pr-8">
-              <DialogTitle>{t("pickerTitle")}</DialogTitle>
-              <DialogDescription>{t("pickerDescription")}</DialogDescription>
-            </DialogHeader>
-            <div className="relative">
-              <Search className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" />
-              <Input autoFocus={!isPhoneWidth()} value={query} onChange={(e) => setQuery(e.target.value)} placeholder={t("searchPlaceholder")} aria-label={t("searchAria")} className="h-9 pr-8 pl-8" />
-              {query && (
-                <button type="button" aria-label={t("clearSearch")} onClick={() => setQuery("")} className="absolute top-1/2 right-2 -translate-y-1/2 rounded p-0.5 text-muted-foreground hover:text-foreground"><X className="size-4" /></button>
-              )}
-            </div>
-            <div className="-mx-1 flex gap-1.5 overflow-x-auto px-1 pb-0.5 [scrollbar-width:none] sm:flex-wrap" role="group" aria-label={t("groupAria")}>
-              {chip("all", t("all"), group === "all", () => setGroup("all"))}
-              {GROUPS.map(([id, label]) => chip(id, label, group === id, () => { setGroup(id); setTag("all"); }))}
-            </div>
-            {group === "sensor" && (
-              <div className="-mx-1 flex gap-1.5 overflow-x-auto px-1 pb-0.5 [scrollbar-width:none] sm:flex-wrap" role="group" aria-label={t("tagAria")}>
-                {chip("t-all", t("anyTag"), tag === "all", () => setTag("all"), true)}
-                {TAGS.map(([id, label]) => chip(`t-${id}`, label, tag === id, () => setTag(id), true))}
-              </div>
-            )}
-          </div>
-          <div className="flex flex-col gap-4 p-4">
-            {sections.length ? (
-              group === "all" || q
-                ? sections.map((s) => (
-                  <section key={s.g} className="flex flex-col gap-2">
-                    <h3 className="text-xs font-semibold">{s.label} <span className="font-normal text-muted-foreground">· {s.hint}</span></h3>
-                    {cards(s.items)}
-                  </section>
-                ))
-                : <><p className="-mb-1 text-xs text-muted-foreground">{GROUPS.find(([id]) => id === group)?.[2]}.</p>{cards(list)}</>
+      <DialogContent showCloseButton={false} className="flex h-[min(42rem,92dvh)] max-h-none flex-col gap-0 overflow-hidden p-0 sm:max-w-[min(60rem,calc(100vw-2rem))]">
+        <DialogTitle className="sr-only">{t("pickerTitle")}</DialogTitle>
+        <DialogDescription className="sr-only">{t("pickerDescription")}</DialogDescription>
+        {/* ricerca */}
+        <div className="flex items-center gap-2 border-b px-4">
+          <Search className="size-4 shrink-0 text-muted-foreground" aria-hidden />
+          <input autoFocus={!isPhoneWidth()} value={query} onKeyDown={onKey}
+            onChange={(e) => { setQuery(e.target.value); setActiveType(null); }}
+            placeholder={t("searchPlaceholder")} aria-label={t("searchAria")}
+            role="combobox" aria-expanded aria-controls="picker-list" aria-activedescendant={active ? optId(active) : undefined}
+            autoComplete="off" spellCheck={false}
+            className="h-12 min-w-0 flex-1 bg-transparent text-[15px] outline-none placeholder:text-muted-foreground" />
+          {query && (
+            <button type="button" aria-label={t("clearSearch")} onClick={() => setQuery("")} className="rounded p-1 text-muted-foreground hover:text-foreground"><X className="size-4" /></button>
+          )}
+          <DialogClose render={<Button variant="ghost" size="icon-sm" aria-label={t("close")} />}><X /></DialogClose>
+        </div>
+        {/* gruppi: una riga di filtri sul telefono */}
+        <div className="flex gap-1.5 overflow-x-auto border-b px-4 py-2 [scrollbar-width:none] md:hidden" role="group" aria-label={t("groupAria")}>
+          {chip("all", t("all"), group === "all", () => { setGroup("all"); setTag("all"); })}
+          {GROUPS.map(([id, label]) => chip(id, label, group === id, () => { setGroup(id); setTag("all"); }))}
+        </div>
+        <div className="grid min-h-0 flex-1 md:grid-cols-[13rem_minmax(0,1fr)_17rem]">
+          {/* gruppi e argomenti */}
+          <nav className="hidden min-h-0 flex-col gap-0.5 overflow-y-auto border-r p-2 md:flex" aria-label={t("groupAria")}>
+            {railItem("all", t("all"))}
+            {GROUPS.map(([id, label]) => (
+              <Fragment key={id}>
+                {railItem(id, label)}
+                {id === "sensor" && group === "sensor" && (
+                  <div className="mb-1 ml-2 flex flex-col gap-0.5 border-l pl-2" role="group" aria-label={t("tagAria")}>
+                    {[["all", t("anyTag")] as const, ...TAGS].map(([tid, label]) => (
+                      <button key={tid} type="button" onClick={() => { setTag(tid); setActiveType(null); }} aria-pressed={tag === tid}
+                        className={cn("rounded-md px-2 py-1 text-left text-[13px] leading-snug transition-colors",
+                          tag === tid ? "font-medium text-foreground" : "text-muted-foreground hover:text-foreground")}>
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </Fragment>
+            ))}
+          </nav>
+          {/* elenco */}
+          <div className="min-h-0 touch-pan-y overflow-y-auto overscroll-contain p-2">
+            {flat.length ? (
+              <ul ref={listRef} id="picker-list" role="listbox" aria-label={t("pickerTitle")} className="flex flex-col">
+                {sections.map((s, si) => (
+                  <Fragment key={s.g}>
+                    {(group === "all" || q) && (
+                      <li role="presentation" className={cn("px-2 pb-1 text-xs font-medium text-muted-foreground", si > 0 ? "pt-4" : "pt-1")}>{s.label}</li>
+                    )}
+                    {s.items.map((type) => (
+                      <PickerRow key={type} id={optId(type)} type={type} count={count(type)} disabled={state(type)[0]}
+                        active={type === active} onFocus={() => setActiveType(type)} onPick={() => pick(type)} />
+                    ))}
+                  </Fragment>
+                ))}
+              </ul>
             ) : (
-              <p className="py-10 text-center text-sm text-muted-foreground">{t("noneFound", { hasQuery: q ? "yes" : "no", query: query.trim(), inGroup: group !== "all" ? "yes" : "no" })}</p>
+              <p className="px-4 py-12 text-center text-[13px] text-muted-foreground">{t("noneFound", { hasQuery: q ? "yes" : "no", query: query.trim(), inGroup: group !== "all" ? "yes" : "no" })}</p>
             )}
-            <p className="text-xs text-muted-foreground">{t("maxNote", { n: MAX_ARDUINO })}</p>
           </div>
+          {/* anteprima */}
+          <aside className="hidden min-h-0 border-l md:block" aria-live="polite">
+            {active && <PickerDetail type={active} disabled={!!activeDisabled} why={activeWhy} onPick={() => pick(active)} />}
+          </aside>
+        </div>
+        <div className="flex items-center gap-4 border-t px-4 py-2 text-xs text-muted-foreground">
+          <span className="min-w-0 flex-1 truncate">{t("maxNote", { n: MAX_ARDUINO })}</span>
+          <span className="hidden shrink-0 items-center gap-3 md:flex">
+            <span><kbd className="font-sans">↑</kbd> <kbd className="font-sans">↓</kbd> {t("pickerMove")}</span>
+            <span><kbd className="font-sans">↵</kbd> {t("pickerAdd")}</span>
+          </span>
         </div>
       </DialogContent>
     </Dialog>
@@ -344,35 +476,40 @@ export function RigEditor() {
         </div>
       )}
 
-      {issues.map((i, k) => (
-        <p key={k} className={cn("flex gap-1.5 rounded-md px-2.5 py-2 text-xs", i.level === "error" ? "bg-destructive/10 text-destructive" : "bg-warning/10 text-warning")}>
-          <TriangleExclamationPoint className="mt-px size-3.5 shrink-0" />{i.text}
+      {/* un progetto nuovo e vuoto non è un errore: niente avvisi finché non c'è almeno un componente */}
+      {!!rig.sensors.length && issues.map((i, k) => (
+        <p key={k} className={cn("flex gap-1.5 text-xs text-pretty", i.level === "error" ? "text-destructive" : "text-warning")}>
+          <TriangleExclamationPoint className="mt-px size-3.5 shrink-0" aria-hidden />{i.text}
         </p>
       ))}
 
-      <div className="flex flex-col gap-2">
-        {rig.sensors.map((s) => <SensorCard key={s.id} s={s} defaultOpen={rig.sensors.length === 1 || custom} />)}
-      </div>
+      {!!rig.sensors.length && (
+        <div className="flex flex-col divide-y divide-border border-y">
+          {rig.sensors.map((s) => <SensorCard key={s.id} s={s} defaultOpen={rig.sensors.length === 1 || custom} />)}
+        </div>
+      )}
       <div className="flex flex-wrap gap-2">
-        <Button variant="outline" disabled={running} onClick={() => setPicker(true)} className="flex-1 border-dashed"><Plus /> {t("add")}</Button>
+        <Button variant="outline" disabled={running} onClick={() => setPicker(true)} className="flex-1"><Plus /> {t("add")}</Button>
         {!!outs.length && (
           <Button variant="ghost" disabled={running || !linked} onClick={() => void testOutputs()} title={linked ? t("testTitle") : t("connectFirst")}>{t("test")}</Button>
         )}
       </div>
-      {!rig.sensors.length && <p className="text-center text-xs text-muted-foreground">{t("empty")}</p>}
       {!!inputs.length && !outs.length && (
         <p className="text-xs text-muted-foreground">{t("outputsHint")} <button type="button" className="underline underline-offset-2" onClick={() => openGuide("outputs")}>{t("howItWorks")}</button></p>
       )}
       <ComponentPicker open={picker} onOpenChange={setPicker} />
-      {custom && (
-        <Button variant="ghost" size="sm" disabled={running} className="self-start text-destructive hover:bg-destructive/10 hover:text-destructive"
-          onClick={async () => { if (await confirm({ title: t("deleteTitle", { name: rig.name }), description: t("deleteDescription"), action: t("delete"), destructive: true })) deleteRig(rig.id); }}>
-          <Trash /> {t("deleteProject")}
-        </Button>
-      )}
       <details className="text-xs text-muted-foreground">
-        <summary className="cursor-pointer font-medium">{t("quantities")}</summary>
-        <p className="pt-1.5">{inputs.map((s) => `${sensorLabel(s)}: ${SENSORS[s.type].quantities(s.options).filter((q) => !q.hidden && !q.raw).map((q) => q.sym ?? QUANTITIES[q.key]?.sym ?? q.key).join(", ")}`).join(" · ") || "—"}</p>
+        <summary className="cursor-pointer font-medium hover:text-foreground">{t("quantities")}</summary>
+        <p className="pt-1.5">
+          {inputs.length ? inputs.map((s, i) => (
+            <span key={s.id}>
+              {i > 0 && " · "}{sensorLabel(s)}:{" "}
+              {SENSORS[s.type].quantities(s.options).filter((q) => !q.hidden && !q.raw).map((q, k) => (
+                <span key={q.key}>{k > 0 && ", "}<Sym>{q.sym ?? QUANTITIES[q.key]?.sym ?? q.key}</Sym></span>
+              ))}
+            </span>
+          )) : "—"}
+        </p>
       </details>
     </div>
   );

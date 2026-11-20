@@ -68,7 +68,7 @@ function AuthDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (o: b
           </Tabs>
         )}
         <form onSubmit={submit} className="flex flex-col gap-3">
-          <Field id="auth-email" label={t("email")} type="email" autoComplete="email" required value={email} onChange={(e) => setEmail(e.target.value)} />
+          <Field id="auth-email" label={t("email")} type="email" autoComplete="email" spellCheck={false} autoCapitalize="none" inputMode="email" required value={email} onChange={(e) => setEmail(e.target.value)} />
           {tab !== "reset" && (
             <Field id="auth-password" label={t("password")} type="password" required minLength={6}
               autoComplete={tab === "up" ? "new-password" : "current-password"} value={password} onChange={(e) => setPassword(e.target.value)} />
@@ -82,13 +82,10 @@ function AuthDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (o: b
           {tab === "in" && <Button type="button" variant="link" size="sm" className="self-center" onClick={() => { setTab("reset"); setError(""); setInfo(""); }}>{t("forgot")}</Button>}
           {tab === "reset" && <Button type="button" variant="link" size="sm" className="self-center" onClick={() => { setTab("in"); setError(""); setInfo(""); }}>{t("back")}</Button>}
         </form>
-        <p className="flex items-start gap-2 rounded-md border px-3 py-2 text-xs text-muted-foreground">
-          <ShieldCheck className="mt-px size-3.5 shrink-0 text-foreground" />
-          <span>
-            {t.rich(tab === "up" ? "consentUp" : "consentIn", {
-              link: (c) => <button type="button" onClick={openPrivacy} className="font-medium text-foreground underline underline-offset-2">{c}</button>,
-            })}
-          </span>
+        <p className="text-xs leading-relaxed text-muted-foreground">
+          {t.rich(tab === "up" ? "consentUp" : "consentIn", {
+            link: (c) => <button type="button" onClick={openPrivacy} className="text-foreground underline decoration-foreground/30 underline-offset-2 hover:decoration-foreground">{c}</button>,
+          })}
         </p>
       </DialogContent>
     </Dialog>
@@ -227,7 +224,7 @@ function AccountItems({ onDelete }: { onDelete: () => void }) {
 }
 
 const Avatar = ({ email, className }: { email?: string; className?: string }) => (
-  <span className={cn("grid size-6 shrink-0 place-items-center rounded-full bg-brand/10 text-xs font-semibold text-brand uppercase", className)}>{email?.[0] ?? <UserRound className="size-3.5" />}</span>
+  <span className={cn("grid size-6 shrink-0 place-items-center rounded-full bg-foreground/[0.08] text-xs font-medium text-foreground uppercase", className)}>{email?.[0] ?? <UserRound className="size-3.5" />}</span>
 );
 
 /** Nell'intestazione (dove la barra laterale non c'è: altre pagine, telefono). */
@@ -297,7 +294,7 @@ export function AccountCard() {
       <DropdownMenu>
         <DropdownMenuTrigger render={
           <button type="button" aria-label={t("menu.label")}
-            className="flex w-full items-center gap-2.5 rounded-lg border bg-background/60 p-2.5 text-left outline-none transition-colors hover:bg-sidebar-accent focus-visible:ring-2 focus-visible:ring-sidebar-ring aria-expanded:bg-sidebar-accent" />
+            className="flex w-full items-center gap-2.5 rounded-md border bg-background/60 p-2.5 text-left outline-none transition-colors hover:bg-sidebar-accent focus-visible:ring-2 focus-visible:ring-sidebar-ring aria-expanded:bg-sidebar-accent" />
         }>
           <Avatar email={user.email} className="size-8 text-sm" />
           <span className="flex min-w-0 flex-1 flex-col">

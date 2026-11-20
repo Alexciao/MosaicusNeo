@@ -3,7 +3,7 @@
 
 import { useDeferredValue, useMemo, useState } from "react";
 import {
-  ArrowRight, BookOpen, ChartLine, CloudCheck, CloudUpload, Combine, Cpu, Ellipsis, FileSpreadsheet, FileText, FlaskConical, FolderOpen, MemoryStick, Pencil, Search, Trash, X,
+  BookOpen, CloudCheck, CloudUpload, Combine, Ellipsis, FileSpreadsheet, FileText, Pencil, Search, Trash,
 } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
@@ -12,16 +12,14 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import {
-  useLab, labInfo, openSession, removeSession, renameSession, sendSessionToElab, exportSession, goElab, showPage, combineSessions, canCombine, type SessionSummary,
+  useLab, openSession, removeSession, renameSession, sendSessionToElab, exportSession, goElab, showPage, combineSessions, canCombine, type SessionSummary,
 } from "@/lib/lab-store";
 import { useWorkbench } from "@/lib/workbench-store";
 import { useCloud } from "@/lib/cloud/sync";
 import { confirm } from "@/lib/confirm";
 import { fmtVal } from "@/lib/prefs";
-import { cn } from "@/lib/utils";
-import { toneBg } from "@/components/app/tone";
 import { SdImportButton } from "@/components/app/sd-controls";
-import { PageHeader, EmptyState } from "@/components/app/page-header";
+import { PageHeader, EmptyState, PAGE } from "@/components/app/page-header";
 import { t as tr, intlLocale, locale } from "@/i18n";
 
 type Sort = "new" | "old" | "name" | "size";
@@ -30,7 +28,7 @@ type Src = "all" | "arduino" | "sd" | "sim";
 const SOURCES: Record<Src, string> = { all: tr("workbench.notebook.source.all"), arduino: tr("workbench.notebook.source.arduino"), sd: tr("workbench.notebook.source.sd"), sim: tr("workbench.notebook.source.sim") };
 
 const dayFmt = new Intl.DateTimeFormat(intlLocale, { weekday: "long", day: "numeric", month: "long", year: "numeric" });
-const timeFmt = new Intl.DateTimeFormat(intlLocale, { hour: "2-digit", minute: "2-digit" });
+const timeFmt = new Intl.DateTimeFormat(intlLocale, { hour: "numeric", minute: "2-digit" });
 
 function dayLabel(ts: number) {
   const d = new Date(ts), today = new Date();
@@ -92,11 +90,11 @@ export function NotebookPage() {
   const reset = () => { setQ(""); setLab("all"); setSrc("all"); };
 
   return (
-    <div className="mx-auto flex w-full max-w-[1100px] flex-col gap-4 p-3 sm:p-6">
+    <div className={PAGE}>
       <PageHeader title={t("title")}
-        subtitle={sessions?.length
-          ? (filtered ? <>{t("filteredCount", { shown: list.length, total: sessions.length })} · <button type="button" className="underline underline-offset-2 hover:text-foreground" onClick={reset}>{t("showAll")}</button></> : t("count", { n: sessions.length }))
-          : t("intro")}
+        subtitle={sessions?.length && filtered
+          ? <>{t("filteredCount", { shown: list.length, total: sessions.length })} · <button type="button" className="underline underline-offset-2 hover:text-foreground" onClick={reset}>{t("showAll")}</button></>
+          : undefined}
         actions={<SdImportButton />} />
       {!!sessions?.length && (
         <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
@@ -123,18 +121,18 @@ export function NotebookPage() {
 
       {sessions?.length === 0 && (
         <EmptyState icon={BookOpen} title={t("emptyTitle")} body={t("emptyBody")}
-          action={<Button variant="outline" size="sm" onClick={() => showPage("misura")}><FlaskConical /> {t("goMeasure")}</Button>} />
+          action={<Button variant="outline" size="sm" onClick={() => showPage("misura")}>{t("goMeasure")}</Button>} />
       )}
 
       {sessions && sessions.length > 0 && !list.length && (
         <EmptyState icon={Search} title={t("noMatch")}
-          action={<Button size="sm" variant="outline" onClick={reset}><X /> {t("clearFilters")}</Button>} />
+          action={<Button size="sm" variant="outline" onClick={reset}>{t("clearFilters")}</Button>} />
       )}
 
       {groups.map((g) => g.items.length > 0 && (
         <section key={g.label || "all"} className="flex flex-col gap-2">
-          {g.label && <h3 className="px-1 text-xs font-semibold tracking-wider text-muted-foreground uppercase">{g.label}</h3>}
-          <ul className="flex flex-col gap-2">{g.items.map((s) => <SessionRow key={s.id} s={s} showDate={!g.label} />)}</ul>
+          {g.label && <h3 className="px-1 text-[13px] font-medium text-muted-foreground">{g.label}</h3>}
+          <ul className="divide-y overflow-hidden rounded-xl border bg-card">{g.items.map((s) => <SessionRow key={s.id} s={s} showDate={!g.label} />)}</ul>
         </section>
       ))}
     </div>
@@ -148,49 +146,41 @@ function SessionRow({ s, showDate }: { s: SessionSummary; showDate: boolean }) {
   const signedIn = useCloud((st) => !!st.user);
   const boxes = useWorkbench((st) => st.boxes.filter((b) => b.sessionId === s.id).length);
   const lastBox = useWorkbench((st) => st.boxes.findLast((b) => b.sessionId === s.id)?.id);
-  const info = labInfo(s.labId);
-  const Icon = info.icon;
   const [renaming, setRenaming] = useState(false);
   const [combining, setCombining] = useState(false);
   const [name, setName] = useState(s.name);
   const when = showDate ? new Date(s.created).toLocaleString(intlLocale, { dateStyle: "medium", timeStyle: "short" }) : timeFmt.format(s.created);
 
   return (
-    <li className={cn("flex flex-col gap-3 rounded-xl border bg-card p-3 sm:flex-row sm:items-center", current && "border-brand/40 bg-brand/5")}>
-      <div className="flex min-w-0 flex-1 items-start gap-3">
-        <span className={cn("grid size-10 shrink-0 place-items-center rounded-lg text-tone-ink", toneBg[info.tone])}><Icon className="size-5" /></span>
-        <div className="min-w-0 flex-1">
-          <p className="flex items-center gap-1.5 font-semibold">
-            <span className="truncate">{s.name}</span>
-            {current && <span className="shrink-0 rounded bg-brand/15 px-1.5 text-[0.65rem] font-semibold text-brand">{t("openTag")}</span>}
-            {signedIn && s.cloud && (s.dirty
-              ? <CloudUpload className="size-3.5 shrink-0 text-muted-foreground" aria-label={t("toCloud")} />
-              : <CloudCheck className="size-3.5 shrink-0 text-success" aria-label={t("inCloud")} />)}
-          </p>
-          <p className="truncate text-xs text-muted-foreground">
-            {s.name.startsWith(s.labTitle) ? "" : `${s.labTitle} · `}{when} · {duration(s.duration)} · {t("readings", { n: s.n })}
-          </p>
-          <div className="mt-1.5 flex flex-wrap items-center gap-1">
-            {s.source === "simulatore"
-              ? <span className="rounded bg-muted px-1.5 py-0.5 text-[0.65rem] font-medium text-muted-foreground">{t("simTag")}</span>
-              : s.source === "scheda SD"
-              ? <span className="inline-flex items-center gap-1 rounded bg-muted px-1.5 py-0.5 text-[0.65rem] font-medium text-muted-foreground"><MemoryStick className="size-3" /> {t("sdTag")}</span>
-              : s.source === "combined"
-              ? <span className="inline-flex items-center gap-1 rounded bg-muted px-1.5 py-0.5 text-[0.65rem] font-medium text-muted-foreground"><Combine className="size-3" /> {t("combinedTag")}</span>
-              : <span className="inline-flex items-center gap-1 rounded bg-muted px-1.5 py-0.5 text-[0.65rem] font-medium text-muted-foreground"><Cpu className="size-3" /> Arduino</span>}
-            {s.sensors.map((x, i) => <span key={i} className="rounded border px-1.5 py-0.5 text-[0.65rem] font-medium text-muted-foreground">{x}</span>)}
-            {boxes > 0 && (
-              <button type="button" onClick={() => goElab(lastBox)}
-                className="inline-flex items-center gap-1 rounded bg-brand/10 px-1.5 py-0.5 text-[0.65rem] font-semibold text-brand hover:bg-brand/15">
-                <ChartLine className="size-3" /> {t("inElab", { n: boxes })}
-              </button>
-            )}
-          </div>
-        </div>
+    <li className="group/row relative flex flex-col gap-2 px-4 py-3 transition-colors hover:bg-foreground/[0.02] sm:flex-row sm:items-center sm:gap-4">
+      {current && <span className="absolute inset-y-0 left-0 w-0.5 bg-foreground" aria-hidden />}
+      <div className="min-w-0 flex-1">
+        <p className="flex items-center gap-1.5 text-sm font-medium">
+          <span className="truncate">{s.name}</span>
+          {current && <span className="sr-only">({t("openTag")})</span>}
+          {signedIn && s.cloud && (s.dirty
+            ? <CloudUpload className="size-3.5 shrink-0 text-muted-foreground" aria-label={t("toCloud")} />
+            : <CloudCheck className="size-3.5 shrink-0 text-muted-foreground" aria-label={t("inCloud")} />)}
+        </p>
+        <p className="mt-0.5 truncate text-[13px] text-muted-foreground">
+          {[
+            s.name.startsWith(s.labTitle) ? null : s.labTitle,
+            s.name.includes(timeFmt.format(s.created)) ? null : when, duration(s.duration), t("readings", { n: s.n }),
+            s.source === "simulatore" ? t("simTag") : s.source === "scheda SD" ? t("sdTag") : s.source === "combined" ? t("combinedTag") : "Arduino",
+            s.sensors.join(", ") || null,
+          ].filter(Boolean).join(" · ")}
+        </p>
+        {boxes > 0 && (
+          <button type="button" onClick={() => goElab(lastBox)}
+            className="mt-1 text-[13px] text-foreground underline decoration-foreground/30 underline-offset-4 hover:decoration-foreground">
+            {t("inElab", { n: boxes })}
+          </button>
+        )}
       </div>
-      <div className="flex shrink-0 items-center gap-1.5 sm:pl-2">
-        <Button size="sm" variant="outline" disabled={running} onClick={() => void openSession(s.id)}><FolderOpen /> {t("open")}</Button>
-        <Button size="sm" disabled={running} onClick={() => void sendSessionToElab(s.id)}>{t("analyze")} <ArrowRight /></Button>
+      {/* sul computer le azioni compaiono al passaggio del mouse (o col fuoco); sul telefono restano visibili */}
+      <div className="flex shrink-0 items-center gap-1 transition-opacity [@media(hover:hover)]:opacity-0 [@media(hover:hover)]:group-focus-within/row:opacity-100 [@media(hover:hover)]:group-hover/row:opacity-100">
+        <Button size="sm" variant="ghost" disabled={running} onClick={() => void openSession(s.id)}>{t("open")}</Button>
+        <Button size="sm" variant="ghost" disabled={running} onClick={() => void sendSessionToElab(s.id)}>{t("analyze")}</Button>
         <DropdownMenu>
           <DropdownMenuTrigger render={<Button size="icon-sm" variant="ghost" aria-label={t("moreActions", { name: s.name })} />}><Ellipsis /></DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-56">
@@ -243,7 +233,7 @@ function CombineDialog({ s, open, onOpenChange }: { s: SessionSummary; open: boo
           <ul className="flex max-h-72 flex-col gap-1.5 overflow-auto">
             {others.map((x) => (
               <li key={x.id}>
-                <button type="button" className="flex w-full flex-col rounded-lg border px-3 py-2 text-left text-sm hover:bg-muted"
+                <button type="button" className="flex w-full flex-col rounded-md border px-3 py-2 text-left text-sm hover:bg-foreground/[0.03]"
                   onClick={() => { onOpenChange(false); void combineSessions(s.id, x.id); }}>
                   <span className="font-medium">{x.name}</span>
                   <span className="text-xs text-muted-foreground">{x.labTitle} · {timeFmt.format(x.created)} · {t("overlap", { s: Math.round(overlap(x) / 1000) })}</span>
@@ -251,7 +241,7 @@ function CombineDialog({ s, open, onOpenChange }: { s: SessionSummary; open: boo
               </li>
             ))}
           </ul>
-        ) : <p className="rounded-lg border border-dashed p-4 text-center text-sm text-muted-foreground">{t("combineNone")}</p>}
+        ) : <p className="py-4 text-center text-sm text-muted-foreground">{t("combineNone")}</p>}
         <DialogFooter><Button variant="outline" onClick={() => onOpenChange(false)}>{t("cancel")}</Button></DialogFooter>
       </DialogContent>
     </Dialog>

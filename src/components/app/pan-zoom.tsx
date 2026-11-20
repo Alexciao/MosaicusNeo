@@ -19,7 +19,8 @@ const DRAG_SLOP = 4;
 
 interface View { k: number; x: number; y: number }
 
-export function PanZoom({ children, contentWidth = 1200, className }: { children: React.ReactNode; contentWidth?: number; className?: string }) {
+/** bare: senza bordo (a tutto schermo); autoFocus: la tastiera funziona subito (+, −, 0, frecce). */
+export function PanZoom({ children, contentWidth = 1200, className, bare = false, autoFocus = false }: { children: React.ReactNode; contentWidth?: number; className?: string; bare?: boolean; autoFocus?: boolean }) {
   const t = useTranslations("rig.guide.zoom");
   const box = useRef<HTMLDivElement>(null);
   const inner = useRef<HTMLDivElement>(null);
@@ -27,6 +28,7 @@ export function PanZoom({ children, contentWidth = 1200, className }: { children
   const fitK = useRef(1);
   const touched = useRef(false);          // l'utente ha già mosso: non riadattare a ogni ridimensionamento
   const [pct, setPct] = useState(100);
+  const [kbd, setKbd] = useState(false);        // il contorno del fuoco solo dopo un tasto (non dopo il clic che apre lo schema)
 
   const apply = useCallback(() => {
     const el = inner.current; if (!el) return;
@@ -83,6 +85,12 @@ export function PanZoom({ children, contentWidth = 1200, className }: { children
     ro.observe(b); ro.observe(el);
     return () => ro.disconnect();
   }, [fit, clamp, apply]);
+
+  useEffect(() => {
+    // dentro una finestra di dialogo il fuoco arriva dopo l'apertura: lo prendo al fotogramma dopo
+    const raf = autoFocus ? requestAnimationFrame(() => box.current?.focus({ preventScroll: true })) : 0;
+    return () => cancelAnimationFrame(raf);
+  }, [autoFocus]);
 
   // rotella e gesti: listener nativi, perché servono non passivi (preventDefault)
   useEffect(() => {
@@ -167,6 +175,7 @@ export function PanZoom({ children, contentWidth = 1200, className }: { children
   };
 
   const onKeyDown = (e: React.KeyboardEvent) => {
+    if (!kbd && e.key !== "Escape") setKbd(true);
     const step = 60;
     const map: Record<string, () => void> = {
       "+": () => zoomCenter(1.25), "=": () => zoomCenter(1.25), "-": () => zoomCenter(0.8), "0": () => { touched.current = false; fit(); },
@@ -176,26 +185,25 @@ export function PanZoom({ children, contentWidth = 1200, className }: { children
     if (f && !e.altKey) { e.preventDefault(); f(); }
   };
 
+  const refit = () => { touched.current = false; fit(); };
   return (
-    <div className={cn("relative overflow-hidden rounded-lg border bg-background", className)}>
+    <div className={cn("relative overflow-hidden", bare ? "bg-muted/30" : "rounded-lg border bg-background", className)}>
       <div ref={box} tabIndex={0} role="application" aria-label={t("aria")}
-        className={cn("absolute inset-0 touch-none outline-none select-none focus-visible:ring-1 focus-visible:ring-ring/40 focus-visible:ring-inset", grabbing ? "cursor-grabbing" : "cursor-grab")}
+        className={cn("absolute inset-0 touch-none outline-none select-none", kbd && "focus:ring-2 focus:ring-ring/40 focus:ring-inset", grabbing ? "cursor-grabbing" : "cursor-grab")}
         style={{ backgroundImage: "radial-gradient(circle, color-mix(in oklab, var(--foreground) 9%, transparent) 1px, transparent 1px)", backgroundSize: "20px 20px" }}
-        onPointerDown={onPointerDown} onPointerMove={onPointerMove} onPointerUp={onPointerUp} onPointerCancel={onPointerUp}
+        onPointerDown={(e) => { if (kbd) setKbd(false); onPointerDown(e); }} onPointerMove={onPointerMove} onPointerUp={onPointerUp} onPointerCancel={onPointerUp}
         onClickCapture={(e) => { if (suppressClick.current) { e.stopPropagation(); e.preventDefault(); suppressClick.current = false; } }}
         onDoubleClick={(e) => { const r = box.current!.getBoundingClientRect(); zoomAt(e.shiftKey ? 0.5 : 2, e.clientX - r.left, e.clientY - r.top); }}
         onKeyDown={onKeyDown}>
         <div ref={inner} className="absolute top-0 left-0 origin-top-left" style={{ width: contentWidth }}>{children}</div>
       </div>
-      <p className="pointer-events-none absolute bottom-2 left-2 hidden rounded-md bg-background/85 px-2 py-1 text-[0.7rem] text-muted-foreground shadow-sm ring-1 ring-border backdrop-blur sm:block">
-        {t("hint")}
-      </p>
-      <div className="absolute right-2 bottom-2 flex items-center gap-0.5 rounded-lg bg-background/90 p-0.5 shadow-sm ring-1 ring-border backdrop-blur">
-        <Button size="icon-sm" variant="ghost" aria-label={t("out")} title={t("out")} onClick={() => zoomCenter(0.8)}><Minus /></Button>
-        <button type="button" className="min-w-12 rounded-md px-1 text-center text-xs font-medium tabular hover:bg-muted" title={t("fit")}
-          onClick={() => { touched.current = false; fit(); }}>{pct}%</button>
-        <Button size="icon-sm" variant="ghost" aria-label={t("in")} title={t("in")} onClick={() => zoomCenter(1.25)}><Plus /></Button>
-        <Button size="icon-sm" variant="ghost" aria-label={t("fit")} title={t("fit")} onClick={() => { touched.current = false; fit(); }}><Scan /></Button>
+      <div className="absolute right-3 bottom-3 flex items-center gap-0.5 rounded-lg border bg-background p-0.5 shadow-sm">
+        <Button size="icon-sm" variant="ghost" aria-label={t("out")} title={`${t("out")} (−)`} onClick={() => zoomCenter(0.8)}><Minus /></Button>
+        <button type="button" className="h-7 min-w-13 rounded-md px-1.5 text-center text-xs font-medium tabular transition-colors hover:bg-muted" title={`${t("fit")} (0)`} aria-label={t("fit")}
+          onClick={refit}>{pct}%</button>
+        <Button size="icon-sm" variant="ghost" aria-label={t("in")} title={`${t("in")} (+)`} onClick={() => zoomCenter(1.25)}><Plus /></Button>
+        <span className="mx-0.5 h-4 w-px bg-border" aria-hidden />
+        <Button size="icon-sm" variant="ghost" aria-label={t("fit")} title={`${t("fit")} (0)`} onClick={refit}><Scan /></Button>
       </div>
     </div>
   );

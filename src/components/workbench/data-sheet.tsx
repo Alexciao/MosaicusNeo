@@ -15,6 +15,7 @@ import { confirm } from "@/lib/confirm";
 import { fmtCell } from "@/lib/prefs";
 import { toast } from "@/lib/toast";
 import { cn } from "@/lib/utils";
+import { Sym } from "@/components/app/sym";
 
 const MAX_ROWS = 2000;
 
@@ -69,7 +70,7 @@ export function DataSheet({ box, rows, errors }: { box: Box; rows: Record<string
       </button>
     );
   };
-  const cellCls = (key: string) => cn("px-3 py-1 text-right tabular whitespace-nowrap", key === box.xKey && "bg-sky-500/8", key === box.yKey && "bg-brand/8");
+  const cellCls = (key: string) => cn("px-3 py-1 text-right tabular whitespace-nowrap", (key === box.xKey || key === box.yKey) && "bg-foreground/[0.04]");
 
   return (
     <Collapsible open={open} onOpenChange={setOpen} className="border-t">
@@ -86,8 +87,8 @@ export function DataSheet({ box, rows, errors }: { box: Box; rows: Record<string
                 <thead className="sticky top-0 z-10 bg-card shadow-[0_1px_0_var(--border)]">
                   <tr>
                     {cols.map((c) => (
-                      <th key={c.key} className={cn("min-w-28 px-3 py-2 text-right align-top font-medium", c.key === box.xKey && "bg-sky-500/8", c.key === box.yKey && "bg-brand/8")}>
-                        <div className="font-semibold">{axisLabel(c)}</div>
+                      <th key={c.key} className={cn("min-w-28 px-3 py-2 text-right align-top font-medium", (c.key === box.xKey || c.key === box.yKey) && "bg-foreground/[0.04]")}>
+                        <div className="font-semibold"><Sym>{axisLabel(c)}</Sym></div>
                         <div className="truncate text-[0.7rem] font-normal text-muted-foreground" title={isComp(c.key) ? t("formula") : undefined}>
                           {isComp(c.key) ? `= ${box.computed.find((k) => k.key === c.key)!.formula}` : (c as { name?: string }).name || quantityOf(c.key)?.name || t("measured")}
                         </div>

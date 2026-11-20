@@ -12,12 +12,11 @@ import { toast } from "@/lib/toast";
 import { diagReset, diagAdd, diagUpdate, diagEnd } from "./diagnostics";
 import { liveStatus } from "./live-status";
 import type { LucideIcon } from "lucide-react";
-import { Wrench } from "lucide-react";
 import { ChartGroup } from "@/lib/mosaicus/chart.js";
 import { SerialLink, serialSupported } from "@/lib/mosaicus/serial.js";
 import { BleLink } from "@/lib/mosaicus/ble";
 import { PhoneLink } from "@/lib/mosaicus/phone";
-import { SimulatedLink, WARP } from "@/lib/sensors/simulator";
+import { SimulatedLink, WARP, WARPS } from "@/lib/sensors/simulator";
 import * as repo from "@/lib/cloud/repo";
 import { toCSV, toXLSX, download } from "@/lib/mosaicus/export.js";
 import { APP_VERSION, FIRMWARE_VERSION, cmpVersion } from "@/lib/version";
@@ -27,11 +26,12 @@ import { toGPX, toGeoJSON, type TrackPoint } from "@/lib/mosaicus/geo";
 import { SENSORS, pinName, type SensorType } from "@/lib/sensors/catalog";
 import {
   resolveRig, validateRig, hasErrors, firmwareCommands, buildRows, alignRows, seriesOf, interpAt, tolerance,
-  planAdd, type AddPlan, newId, sensorLabel, LEGACY, inputsOf, outputsOf, isPhoneRig, firmwareNeeded, btOf, type Rig, type SensorInstance, type Resolved, type ResolvedQuantity,
+  planAdd, type AddPlan, newId, normalizeRig, sensorLabel, LEGACY, inputsOf, outputsOf, isPhoneRig, firmwareNeeded, btOf, type Rig, type SensorInstance, type Resolved, type ResolvedQuantity,
 } from "@/lib/sensors/rig";
 import { parseSdLog, cfgMatches, sensorsFromCfg } from "@/lib/sensors/sd-log";
 import { PRESETS, INSTRUMENTS, presetById, instrumentById, presetSensors, type Preset, type Instrument } from "@/lib/sensors/presets";
 import type { Row, Tone } from "@/lib/sensors/types";
+import { projectIcon, projectTone } from "@/lib/sensors/project-look";
 import { t, intlLocale } from "@/i18n";
 import { boardPlan } from "@/components/app/board-diagram";
 
@@ -44,6 +44,7 @@ export interface Link {
   transport?: "serial" | "ble";
   scenario?: string;
   scopeSignal?: string;
+  warp?: number | null;
   open(): Promise<void>;
   write(cmd: string): Promise<void>;
   close(): Promise<void>;
@@ -96,6 +97,8 @@ export interface LabInfo {
 }
 
 interface LabState {
+  /** scala del tempo del simulatore scelta (null = quella dello scenario) */
+  simWarp: number | null;
   page: Page;
   labId: string;
   rig: Rig;
@@ -139,6 +142,7 @@ interface LabState {
 const EMPTY_RIG: Rig = { id: "empty", name: "", sensors: [] };
 
 export const useLab = create<LabState>(() => ({
+  simWarp: (WARPS as readonly number[]).includes(prefs.get<number>("mosaicus.simWarp", 0)) ? prefs.get<number>("mosaicus.simWarp", 0) : null,
   page: (["misura", "quaderno", "elab"] as const).find((p) => p === prefs.get<Page>("mosaicus.page", "misura")) ?? "misura",
   labId: "motion",
   rig: EMPTY_RIG,
@@ -185,7 +189,7 @@ export function labInfo(id = get().labId, customRigs = get().customRigs): LabInf
   const ins = instrumentById(id);
   if (ins) return { kind: "instrument", id, title: ins.title, subtitle: ins.subtitle, topic: t("lab.info.toolsTopic"), icon: ins.icon, tone: ins.tone, instrument: ins };
   const r = customRigs.find((x) => x.id === id);
-  return { kind: "custom", id, title: r?.name || t("lab.info.newProject"), subtitle: r ? rigSummary(r) : "", topic: t("lab.info.projectsTopic"), icon: Wrench, tone: "saffron" };
+  return { kind: "custom", id, title: r?.name || t("lab.info.newProject"), subtitle: r ? rigSummary(r) : "", topic: t("lab.info.projectsTopic"), icon: projectIcon(r), tone: projectTone(r) };
 }
 export const rigSummary = (r: Rig) => r.sensors.length ? r.sensors.map(sensorLabel).join(" · ") : t("lab.info.noComponents");
 
@@ -365,6 +369,8 @@ export function setLim(on: boolean) {
   document.documentElement.classList.toggle("lim", on);
   prefs.set("mosaicus.lim", on);
   set({ lim: on });
+  // sulla lavagna lo spazio conta: la barra dei lab si chiude (si riapre col pulsante accanto al titolo)
+  if (on) setLabsSidebar(false);
 }
 
 // ---------------------------------------------------------------------------
@@ -523,6 +529,19 @@ export function renameRigById(id: string, name: string) {
   set({ customRigs: list });
   prefs.set("mosaicus.rigs", list);
 }
+/** I progetti salvati, con i pin mancanti o non validi riassegnati (versioni vecchie, sincronizzazione). */
+function loadRigs(): Rig[] {
+  const raw = prefs.get<Rig[]>("mosaicus.rigs", []);
+  const list = raw.map(normalizeRig);
+  if (list.some((r, i) => r !== raw[i])) prefs.set("mosaicus.rigs", list);
+  return list;
+}
+/** Colore e icona di un progetto (si possono cambiare anche durante una misura: è solo aspetto). */
+export function setRigLook(id: string, look: { tone?: Tone; icon?: string }) {
+  const list = get().customRigs.map((r) => (r.id === id ? { ...r, ...look } : r));
+  set({ customRigs: list, ...(get().rig.id === id ? { rig: { ...get().rig, ...look } } : {}) });
+  prefs.set("mosaicus.rigs", list);
+}
 /** Copia di un montaggio libero, aperta subito. */
 export function duplicateRig(id: string) {
   if (get().running) { toast(t("lab.toast.stopFirst")); return; }
@@ -546,7 +565,7 @@ export function deleteRig(id: string) {
 
 /** Montaggi e versioni personali riletti dalle preferenze (es. arrivati da un altro dispositivo). */
 export function reloadParams() {
-  set({ customRigs: prefs.get<Rig[]>("mosaicus.rigs", []) });
+  set({ customRigs: loadRigs() });
   if (get().running || instrumentById(get().labId)) return;
   const { rig, modified } = loadRig(get().labId);
   applyRig(rig, modified, { keepData: true });
@@ -591,16 +610,28 @@ export function clearSelection() { measureGroup().setSelection(null, true); }
 // Collegamento
 // ---------------------------------------------------------------------------
 function setStatus(text: string, tone: StatusTone) { set({ status: { text, tone } }); }
+/** Scala del tempo dello scenario (quella consigliata) e quella in uso. */
+export const simDefaultWarp = () => WARP[simScenario()] ?? 1;
+export const simWarpNow = () => get().simWarp ?? simDefaultWarp();
 const simStatus = () => {
-  const warp = WARP[simScenario()];
-  return warp ? t("lab.status.simReadyWarp", { warp }) : t("lab.status.simReady");
+  const warp = simWarpNow();
+  return warp > 1 ? t("lab.status.simReadyWarp", { warp }) : t("lab.status.simReady");
 };
+/** Sceglie la scala del tempo del simulatore: vale dalla prossima misura (null = quella dello scenario). */
+export function setSimWarp(w: number | null) {
+  if (get().running) { toast(t("lab.toast.stopFirst")); return; }
+  // scegliere quella dello scenario equivale a «automatica»: cambiando lab torna la sua
+  const v = w == null || w === simDefaultWarp() ? null : w;
+  set({ simWarp: v });
+  prefs.set("mosaicus.simWarp", v ?? 0);
+  if (link?.kind === "simulatore") { link.warp = v; if (get().ready) setStatus(simStatus(), "on"); }
+}
 
 /** arduino = Web Serial (cavo USB, o HC-06 su Android); ble = modulo Bluetooth LE; sim = simulatore;
  *  phone = sensori del telefono o del computer, senza Arduino */
 export async function connect(kind: "arduino" | "ble" | "sim" | "phone") {
   const l = (kind === "sim" ? new SimulatedLink() : kind === "ble" ? new BleLink() : kind === "phone" ? new PhoneLink() : new SerialLink()) as unknown as Link;
-  if (kind === "sim") { l.scenario = simScenario(); l.scopeSignal = simSignal; }
+  if (kind === "sim") { l.scenario = simScenario(); l.scopeSignal = simSignal; l.warp = get().simWarp; }
   l.onLine(handleLine);
   l.onClose(() => {
     if (link !== l) return;
@@ -880,7 +911,10 @@ export async function start() {
   raw = [];
   clock = [];
   measureGroup().setSelection(null); measureGroup().fitAll();
-  const name = st.sessionName.trim() || `${exp.title} ${new Date().toLocaleString(intlLocale, { dateStyle: "short", timeStyle: "short" })}`;
+  // nome di partenza: «Misura 3 · 21:15» (il numero conta le misure di oggi di questo lab)
+  const today = new Date().toDateString();
+  const nToday = (st.sessions ?? []).filter((x) => x.labId === exp.id && new Date(x.created).toDateString() === today).length;
+  const name = st.sessionName.trim() || t("app.run.defaultName", { n: nToday + 1, time: new Date().toLocaleTimeString(intlLocale, { hour: "numeric", minute: "2-digit" }) });
   set({ session: { name, created: Date.now(), source: link?.kind ?? "arduino", fw: st.fw }, sessionName: name, sent: false, running: true, selection: null, dragHint: false });
   recompute();
   if (link) {
@@ -1531,7 +1565,7 @@ export async function boot() {
   booted = true;
   setLim(get().lim);
   suggestLim();
-  set({ customRigs: prefs.get<Rig[]>("mosaicus.rigs", []) });
+  set({ customRigs: loadRigs() });
   selectLab(prefs.get("mosaicus.lastLab", prefs.get("mosaicus.lastExp", serialSupported() ? "motion" : "synth")));
   await Promise.all([useWorkbench.getState().load(), refreshSessions()]);
   window.addEventListener("beforeunload", (e) => { if (get().running) { e.preventDefault(); e.returnValue = ""; } });
@@ -1539,7 +1573,7 @@ export async function boot() {
   // I progetti stanno in localStorage (evento «storage»), le misure in IndexedDB (avviso con BroadcastChannel).
   window.addEventListener("storage", (e) => {
     if (e.key !== "mosaicus.rigs" || get().running) return;
-    const list = prefs.get<Rig[]>("mosaicus.rigs", []);
+    const list = loadRigs();
     set({ customRigs: list });
     const mine = list.find((r) => r.id === get().labId);
     if (mine && JSON.stringify(mine.sensors) !== JSON.stringify(get().rig.sensors)) applyRig(mine, false, { keepData: true });

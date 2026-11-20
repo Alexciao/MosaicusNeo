@@ -31,7 +31,7 @@ const Toaster = ({ ...props }: ToasterProps) => {
         unstyled: true,
         classNames: {
           toast:
-            "group/toast flex w-full items-start gap-3 rounded-xl border bg-popover p-3.5 pr-4 text-popover-foreground shadow-[0_8px_30px_-6px_rgb(0_0_0/0.18)] ring-1 ring-black/[0.03] font-sans sm:w-(--width) dark:shadow-[0_8px_30px_-6px_rgb(0_0_0/0.6)] dark:ring-white/[0.04]",
+            "group/toast flex w-full items-start gap-3 rounded-lg border bg-popover p-3.5 pr-4 text-popover-foreground shadow-(--shadow-raised) font-sans sm:w-(--width)",
           icon:
             "mt-px grid size-6 shrink-0 place-items-center rounded-full bg-muted text-muted-foreground [&>svg]:size-3.5 " +
             "group-data-[type=success]/toast:bg-success/12 group-data-[type=success]/toast:text-success " +

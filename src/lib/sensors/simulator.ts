@@ -15,6 +15,8 @@
 
 const FW = "1.5-sim";
 export const WARP: Record<string, number> = { cooling: 30, breath: 5, walk: 5 };
+/** Scale del tempo tra cui scegliere (1 = tempo reale). */
+export const WARPS = [1, 5, 10, 30, 50] as const;
 
 const gauss = (s: number) => s * Math.sqrt(-2 * Math.log(Math.random() + 1e-12)) * Math.cos(2 * Math.PI * Math.random());
 
@@ -174,6 +176,8 @@ export class SimulatedLink {
   kind = "simulatore" as const;
   scenario = "free";
   scopeSignal = "mic";
+  /** scala del tempo scelta da chi usa l'app; null = quella dello scenario */
+  warp: number | null = null;
   private lineCb: (l: string) => void = () => {};
   private closeCb: () => void = () => {};
   private timers: ReturnType<typeof setInterval>[] = [];
@@ -230,7 +234,7 @@ export class SimulatedLink {
       this.stop();
       if (!this.slots.size) return this.emit("#ERR,START,EMPTY");
       this.emit("#ACK,START");
-      const warp = WARP[this.scenario] ?? 1, t0 = Date.now();
+      const warp = this.warp ?? WARP[this.scenario] ?? 1, t0 = Date.now();
       // stato come lo riferirebbe Arduino: il GPS prima cerca i satelliti (8 s di misura)
       const gps = [...this.slots.entries()].find(([, s]) => s.type === "GPS");
       if (gps) { this.st(`S,${gps[0]},1`); this.timers.push(setTimeout(() => this.st("T,-1,0"), 8000 / warp) as unknown as ReturnType<typeof setInterval>); }

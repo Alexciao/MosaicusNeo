@@ -10,6 +10,7 @@ import { t } from "@/i18n";
 type Fit = Parameters<typeof P>[0];
 export interface Physics { label: string; unit: string; calc: (fit: Fit) => number[] }
 export interface Quantity {
+  /** simbolo; «_» + un carattere è un pedice (a_z): lo disegnano fillRich (canvas) e <Sym> (pagina) */
   sym: string; name: string; unit: string;
   models?: string[]; slope?: string; raw?: boolean;
   physics?: Record<string, Physics[]>;
@@ -146,12 +147,12 @@ export const QUANTITIES: Record<string, Quantity> = {
     physics: { mean: mean(t("sensors.physics.meanForce"), "N"), lin: [{ label: "dF/dt", unit: "N/s", calc: (f) => P(f, "m") }], dsin: periodFrom() } },
   cnt: raw("cnt", t("sensors.quantities.cnt")),
   // --- accelerometro
-  ax: { sym: "aₓ", name: accelAxis("x"), unit: "m/s²", models: ["mean", "lin", "dsin"], physics: { mean: mean(meanAxis("x"), "m/s²"), dsin: periodFrom() } },
-  ay: { sym: "aᵧ", name: accelAxis("y"), unit: "m/s²", models: ["mean", "lin", "dsin"], physics: { mean: mean(meanAxis("y"), "m/s²"), dsin: periodFrom() } },
+  ax: { sym: "a_x", name: accelAxis("x"), unit: "m/s²", models: ["mean", "lin", "dsin"], physics: { mean: mean(meanAxis("x"), "m/s²"), dsin: periodFrom() } },
+  ay: { sym: "a_y", name: accelAxis("y"), unit: "m/s²", models: ["mean", "lin", "dsin"], physics: { mean: mean(meanAxis("y"), "m/s²"), dsin: periodFrom() } },
   az: { sym: "a_z", name: accelAxis("z"), unit: "m/s²", models: ["mean", "lin", "dsin"], physics: { mean: mean(meanAxis("z"), "m/s²"), dsin: periodFrom() } },
   am: { sym: "|a|", name: t("sensors.quantities.am"), unit: "m/s²", models: ["mean", "dsin"], physics: { mean: mean(t("sensors.physics.meanMagnitude"), "m/s²"), dsin: periodFrom() } },
-  gx: { sym: "ωₓ", name: gyroAxis("x"), unit: "°/s", models: ["mean", "dsin"], physics: { dsin: periodFrom() } },
-  gy: { sym: "ωᵧ", name: gyroAxis("y"), unit: "°/s", models: ["mean", "dsin"], physics: { dsin: periodFrom() } },
+  gx: { sym: "ω_x", name: gyroAxis("x"), unit: "°/s", models: ["mean", "dsin"], physics: { dsin: periodFrom() } },
+  gy: { sym: "ω_y", name: gyroAxis("y"), unit: "°/s", models: ["mean", "dsin"], physics: { dsin: periodFrom() } },
   gz: { sym: "ω_z", name: gyroAxis("z"), unit: "°/s", models: ["mean", "dsin"], physics: { dsin: periodFrom() } },
   // --- microfono
   freq: { sym: "f", name: t("sensors.quantities.freq"), unit: "Hz", models: ["mean", "lin"], slope: t("sensors.slopes.rateFreq"),

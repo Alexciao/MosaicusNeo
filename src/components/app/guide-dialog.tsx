@@ -8,7 +8,7 @@ import { create } from "zustand";
 import { useTranslations } from "next-intl";
 import type { LucideIcon } from "lucide-react";
 import {
-  BookOpen, Bluetooth, ChartLine, Check, Cloud, Copy, Cpu, Download, FlaskConical, LifeBuoy, MemoryStick, Minus, Monitor, Plug, Presentation, Rocket, Share2,
+  Bluetooth, ChartLine, Check, ChevronLeft, ChevronRight, CircleHelp, Cloud, Copy, Cpu, Download, FlaskConical, LifeBuoy, MemoryStick, Minus, Monitor, Plug, Presentation, Rocket, Share2,
   Siren, SlidersHorizontal, Smartphone, TriangleAlert, X,
 } from "lucide-react";
 import { toast } from "@/lib/toast";
@@ -35,8 +35,8 @@ function Steps({ items }: { items: (string | [string, React.ReactNode])[] }) {
         const [t, d] = typeof it === "string" ? [it, null] : it;
         return (
           <li key={i} className="flex gap-3">
-            <span className="grid size-7 shrink-0 place-items-center rounded-full bg-primary text-sm font-bold text-primary-foreground">{i + 1}</span>
-            <div className="pt-0.5"><p className="font-semibold">{t}</p>{d && <div className="mt-0.5 text-sm text-muted-foreground">{d}</div>}</div>
+            <span className="grid size-6 shrink-0 place-items-center rounded-full text-xs font-medium text-muted-foreground tabular ring-1 ring-border">{i + 1}</span>
+            <div className="pt-0.5"><p className="text-sm font-medium">{t}</p>{d && <div className="mt-0.5 text-sm text-muted-foreground">{d}</div>}</div>
           </li>
         );
       })}
@@ -47,12 +47,12 @@ const H = ({ children }: { children: React.ReactNode }) => <h3 className="mt-2 t
 const P = ({ children }: { children: React.ReactNode }) => <p className="text-sm leading-relaxed text-muted-foreground">{children}</p>;
 const B = ({ children }: { children: React.ReactNode }) => <b className="font-semibold text-foreground">{children}</b>;
 function Note({ kind = "tip", children }: { kind?: "tip" | "warn"; children: React.ReactNode }) {
-  return <div className={cn("rounded-lg border px-3 py-2 text-sm", kind === "warn" ? "border-destructive/40 bg-destructive/5 text-destructive" : "bg-muted/50")}>{children}</div>;
+  return <div className={cn("rounded-md px-3 py-2.5 text-sm", kind === "warn" ? "bg-destructive/[0.06] text-destructive ring-1 ring-destructive/20 ring-inset" : "bg-muted/60")}>{children}</div>;
 }
 function Faq({ q, children }: { q: string; children: React.ReactNode }) {
   return (
-    <details className="group rounded-lg border px-3 py-2">
-      <summary className="cursor-pointer text-sm font-semibold marker:text-muted-foreground">{q}</summary>
+    <details className="group border-b py-2.5 last:border-b-0">
+      <summary className="cursor-pointer text-sm font-medium marker:text-muted-foreground">{q}</summary>
       <div className="mt-2 flex flex-col gap-2 text-sm text-muted-foreground">{children}</div>
     </details>
   );
@@ -109,7 +109,7 @@ function OtherDeviceNote() {
   const dev = useDev();
   if (!DETECTED || dev === DETECTED.device) return null;
   return (
-    <div className="flex flex-wrap items-center gap-2 rounded-lg border border-brand/30 bg-brand/5 px-3 py-2 text-sm">
+    <div className="flex flex-wrap items-center gap-2 rounded-md bg-muted/60 px-3 py-2 text-sm">
       <span className="min-w-0 flex-1">{t.rich("text", { ...tags, reading: inSentence(DEVICE_LABEL[dev]), here: inSentence(DEVICE_LABEL[DETECTED.device]) })}</span>
       <Button size="xs" variant="ghost" onClick={() => setGuideDevice(DETECTED.device)}>{t("back")}</Button>
     </div>
@@ -154,7 +154,7 @@ function DeviceChecks({ d }: { d: DeviceInfo }) {
     : d.serial ? ["warn", t("hc06.pcWarn")] : ["no", t("hc06.pcNo")];
 
   return (
-    <ul className="divide-y rounded-lg border px-3">
+    <ul className="divide-y rounded-md border px-3">
       <CheckRow state={usb[0]} title={t("usbTitle")}>{usb[1]}</CheckRow>
       <CheckRow state={ble[0]} title={t("bleTitle")}>{ble[1]}</CheckRow>
       <CheckRow state={hc06[0]} title={t("hc06Title")}>{hc06[1]}</CheckRow>
@@ -225,7 +225,7 @@ function DevicePath() {
   );
   return (
     <Steps items={[
-      [t("board.s1.t"), t.rich("board.s1.d", { ...tags, lim: (c) => <button type="button" className="font-medium text-brand underline underline-offset-2" onClick={() => setLim(true)}>{c}</button> })],
+      [t("board.s1.t"), t.rich("board.s1.d", { ...tags, lim: (c) => <button type="button" className="font-medium text-foreground underline decoration-foreground/30 underline-offset-4 hover:decoration-foreground" onClick={() => setLim(true)}>{c}</button> })],
       [t("board.s2.t"), t("board.s2.d")],
       [t("board.s3.t"), t.rich("board.s3.d", tags)],
       [t("board.s4.t"), t("board.s4.d")],
@@ -242,7 +242,7 @@ function ShareLink() {
     try { await navigator.clipboard.writeText(url); toast.success(t("copied")); } catch { toast(url); }
   };
   return (
-    <div className="flex flex-wrap items-center gap-2 rounded-lg border bg-muted/40 p-3 text-sm">
+    <div className="flex flex-wrap items-center gap-2 rounded-md bg-muted/60 p-3 text-sm">
       <span className="min-w-0 flex-1">{t.rich("open", { ...tags, url: url.replace(/^https?:\/\//, "") })}</span>
       <Button size="sm" variant="outline" onClick={() => void share()}>{canShare ? <Share2 /> : <Copy />} {canShare ? t("share") : t("copy")}</Button>
     </div>
@@ -280,10 +280,10 @@ function YourDevice() {
   return (
     <>
       {d && (
-        <div className="flex items-center gap-3 rounded-lg border bg-card p-3">
-          <span className="grid size-10 place-items-center rounded-lg bg-tone-sky text-tone-ink"><Icon className="size-5" /></span>
+        <div className="flex items-center gap-3 rounded-md border p-3">
+          <Icon className="size-5 shrink-0 text-muted-foreground" />
           <div className="min-w-0">
-            <p className="font-semibold">{t("using", { device: inSentence(DEVICE_LABEL[d.device]) })}</p>
+            <p className="text-sm font-medium">{t("using", { device: inSentence(DEVICE_LABEL[d.device]) })}</p>
             <p className="text-sm text-muted-foreground">{OS_LABEL[d.os]} · {BROWSER_LABEL[d.browser]}{d.version ? ` ${d.version}` : ""}</p>
           </div>
         </div>
@@ -297,10 +297,10 @@ function YourDevice() {
           const XIcon = DEVICE_ICON[x];
           return (
             <button key={x} type="button" onClick={() => setGuideDevice(x)} aria-pressed={dev === x}
-              className={cn("flex items-center gap-3 rounded-lg border p-3 text-left text-sm transition-colors", dev === x ? "border-brand/50 bg-brand/8" : "hover:bg-muted")}>
-              <XIcon className={cn("size-5 shrink-0", dev === x ? "text-brand" : "text-muted-foreground")} />
-              <span className="min-w-0 flex-1 font-semibold">{DEVICE_LABEL[x]}</span>
-              {x === d?.device && <span className="rounded bg-muted px-1.5 text-[0.65rem] font-medium text-muted-foreground">{tk("this")}</span>}
+              className={cn("flex items-center gap-3 rounded-md border p-3 text-left text-sm transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring/50", dev === x ? "border-foreground/40 bg-foreground/[0.04]" : "hover:bg-muted/60")}>
+              <XIcon className={cn("size-4 shrink-0", dev === x ? "text-foreground" : "text-muted-foreground")} />
+              <span className="min-w-0 flex-1 font-medium">{DEVICE_LABEL[x]}</span>
+              {x === d?.device && <span className="text-xs text-muted-foreground">{tk("this")}</span>}
             </button>
           );
         })}
@@ -309,12 +309,12 @@ function YourDevice() {
       <DevicePath />
       {d && dev !== d.device && <ShareLink />}
       <H>{t("compare")}</H>
-      <div className="overflow-x-auto rounded-lg border">
+      <div className="overflow-x-auto rounded-md border">
         <table className="w-full text-sm">
-          <thead className="bg-muted/50 text-left"><tr><th className="p-2">{t("colDevice")}</th><th className="p-2">{t("colUsb")}</th><th className="p-2">{t("colBt")}</th></tr></thead>
+          <thead className="bg-muted/50 text-left text-xs font-medium text-muted-foreground"><tr><th className="p-2 font-medium">{t("colDevice")}</th><th className="p-2 font-medium">{t("colUsb")}</th><th className="p-2 font-medium">{t("colBt")}</th></tr></thead>
           <tbody className="text-muted-foreground">
             {(["pc", "android", "ios", "board"] as const).map((k) => (
-              <tr key={k} className={cn("border-t", k === dev && "bg-brand/5")}><td className="p-2 text-foreground">{t(`rows.${k}.name`)}</td><td className="p-2">{t(`rows.${k}.usb`)}</td><td className="p-2">{t(`rows.${k}.bt`)}</td></tr>
+              <tr key={k} className={cn("border-t", k === dev && "bg-foreground/[0.03]")}><td className="p-2 text-foreground">{t(`rows.${k}.name`)}</td><td className="p-2">{t(`rows.${k}.usb`)}</td><td className="p-2">{t(`rows.${k}.bt`)}</td></tr>
             ))}
           </tbody>
         </table>
@@ -329,19 +329,13 @@ function Start() {
     <>
       <P>{t("intro")}</P>
       <H>{t("needTitle")}</H>
-      <ul className="grid gap-2 text-sm sm:grid-cols-2">
-        <li className="rounded-lg border p-3">{t.rich("need.arduino", tags)}</li>
-        <li className="rounded-lg border p-3">{t.rich("need.parts", tags)}</li>
-        <li className="rounded-lg border p-3">{t.rich("need.computer", tags)}</li>
-        <li className="rounded-lg border p-3">{t.rich("need.optional", tags)}</li>
+      <ul className="flex list-disc flex-col gap-1.5 pl-5 text-sm text-muted-foreground marker:text-muted-foreground/50">
+        <li>{t.rich("need.arduino", tags)}</li>
+        <li>{t.rich("need.parts", tags)}</li>
+        <li>{t.rich("need.computer", tags)}</li>
+        <li>{t.rich("need.optional", tags)}</li>
       </ul>
       <StartDevice />
-      <H>{t("stepsTitle")}</H>
-      <ol className="grid gap-2 text-sm sm:grid-cols-5">
-        {(["s1", "s2", "s3", "s4", "s5"] as const).map((k, i) => (
-          <li key={k} className="rounded-lg border p-2.5"><span className="text-xs font-bold text-brand">{i + 1}</span><p className="font-semibold">{t(`steps.${k}.t`)}</p><p className="text-xs text-muted-foreground">{t(`steps.${k}.d`)}</p></li>
-        ))}
-      </ol>
       <Note>{t.rich("simulator", tags)}</Note>
     </>
   );
@@ -356,7 +350,7 @@ function Firmware() {
       <P>{t("intro")}</P>
       {dev !== "pc" && <Note kind="warn">{t.rich("pcOnly", { ...tags, device: inSentence(DEVICE_LABEL[dev]), target: dev === "board" ? "board" : "phone" })}</Note>}
       {DETECTED && DETECTED.device !== "pc" && <ShareLink />}
-      <div className="flex flex-wrap items-center gap-3 rounded-lg border bg-muted/40 p-3">
+      <div className="flex flex-wrap items-center gap-3 rounded-md bg-muted/60 p-3">
         <Button render={<a href={FIRMWARE_URL} download="mosaicusneo_firmware.ino" />}><Download /> {t("download", { v: FIRMWARE_VERSION })}</Button>
         <Button variant="outline" render={<a href={FIRMWARE_SOURCE_URL} target="_blank" rel="noopener" />}><GithubMark className="size-4" /> {t("source")}</Button>
         <span className="text-xs text-muted-foreground">{t("fileNote")}</span>
@@ -457,7 +451,7 @@ function Analysis() {
       <H>{t("tools")}</H>
       <div className="grid gap-2 sm:grid-cols-2">
         {(["range", "eyeLine", "tangent", "fit", "ruler", "sheet"] as const).map((k) => (
-          <div key={k} className="rounded-lg border p-3"><p className="font-semibold">{t(`tool.${k}.t`)}</p><p className="text-sm text-muted-foreground">{t(`tool.${k}.d`)}</p></div>
+          <div key={k} className="rounded-md border p-3"><p className="text-sm font-medium">{t(`tool.${k}.t`)}</p><p className="text-sm text-muted-foreground">{t(`tool.${k}.d`)}</p></div>
         ))}
       </div>
       <H>{t("results")}</H>
@@ -504,13 +498,13 @@ function Field() {
       <OtherDeviceNote />
       {dev === "ios" && <Note kind="warn">{t.rich("iosNote", tags)}</Note>}
       <P>{t.rich("intro", tags)}</P>
-      <div className="overflow-x-auto rounded-lg border">
+      <div className="overflow-x-auto rounded-md border">
         <table className="w-full text-sm">
-          <thead className="bg-muted/50 text-left"><tr><th className="p-2" /><th className="p-2">{t("table.classic")}</th><th className="p-2">{t("table.ble")}</th></tr></thead>
+          <thead className="bg-muted/50 text-left"><tr><th className="p-2" /><th className="p-2">{t("table.classic")}</th><th className="p-2 font-medium">{t("table.ble")}</th></tr></thead>
           <tbody className="text-muted-foreground">
-            <tr className={cn("border-t", (dev === "android" || dev === "board") && "bg-brand/5")}><td className="p-2 text-foreground">{dev === "board" ? t("table.androidBoard") : t("table.android")}</td><td className="p-2">{t("table.yesChrome")}</td><td className="p-2">{t("table.yesChrome")}</td></tr>
-            <tr className={cn("border-t", dev === "ios" && "bg-brand/5")}><td className="p-2 text-foreground">{t("table.iphone")}</td><td className="p-2">{t("table.no")}</td><td className="p-2">{t("table.yesBluefy")}</td></tr>
-            <tr className={cn("border-t", dev === "pc" && "bg-brand/5")}><td className="p-2 text-foreground">{t("table.computer")}</td><td className="p-2">{t("table.ifPaired")}</td><td className="p-2">{t("table.yesChromeEdge")}</td></tr>
+            <tr className={cn("border-t", (dev === "android" || dev === "board") && "bg-foreground/[0.03]")}><td className="p-2 text-foreground">{dev === "board" ? t("table.androidBoard") : t("table.android")}</td><td className="p-2">{t("table.yesChrome")}</td><td className="p-2">{t("table.yesChrome")}</td></tr>
+            <tr className={cn("border-t", dev === "ios" && "bg-foreground/[0.03]")}><td className="p-2 text-foreground">{t("table.iphone")}</td><td className="p-2">{t("table.no")}</td><td className="p-2">{t("table.yesBluefy")}</td></tr>
+            <tr className={cn("border-t", dev === "pc" && "bg-foreground/[0.03]")}><td className="p-2 text-foreground">{t("table.computer")}</td><td className="p-2">{t("table.ifPaired")}</td><td className="p-2">{t("table.yesChromeEdge")}</td></tr>
             <tr className="border-t"><td className="p-2 text-foreground">{t("table.before")}</td><td className="p-2">{t("table.pairIt")}</td><td className="p-2">{t("table.nothing")}</td></tr>
           </tbody>
         </table>
@@ -552,9 +546,9 @@ function Outputs() {
   return (
     <>
       <P>{t.rich("intro", fw)}</P>
-      <div className="overflow-x-auto rounded-lg border">
+      <div className="overflow-x-auto rounded-md border">
         <table className="w-full text-sm">
-          <thead className="bg-muted/50 text-left"><tr><th className="p-2">{t("colSituation")}</th><th className="p-2">{t("colDisplay")}</th><th className="p-2">{t("colLed")}</th><th className="p-2">{t("colBuzzer")}</th></tr></thead>
+          <thead className="bg-muted/50 text-left text-xs font-medium text-muted-foreground"><tr><th className="p-2 font-medium">{t("colSituation")}</th><th className="p-2 font-medium">{t("colDisplay")}</th><th className="p-2 font-medium">{t("colLed")}</th><th className="p-2 font-medium">{t("colBuzzer")}</th></tr></thead>
           <tbody className="text-muted-foreground">
             {OUTPUT_ROWS.map(([k, c]) => (
               <tr key={k} className="border-t">
@@ -644,7 +638,7 @@ function Problems() {
       <Faq q={t("slow.q")}>
         <p>{t.rich("slow.a", tags)}</p>
       </Faq>
-      <Note>{t.rich("report", { ...tags, issues: (c) => <a className="font-medium text-brand underline underline-offset-2" href={ISSUES_URL} target="_blank" rel="noopener">{c}</a> })}</Note>
+      <Note>{t.rich("report", { ...tags, issues: (c) => <a className="font-medium text-foreground underline decoration-foreground/30 underline-offset-4 hover:decoration-foreground" href={ISSUES_URL} target="_blank" rel="noopener">{c}</a> })}</Note>
     </div>
   );
 }
@@ -668,12 +662,12 @@ const CHAPTERS = [
 ] as const satisfies readonly { id: string; icon: LucideIcon; body: () => React.ReactElement }[];
 
 function ChapterLink({ id, children }: { id: string; children: React.ReactNode }) {
-  return <button type="button" className="font-medium text-brand underline underline-offset-2" onClick={() => openGuide(id)}>{children}</button>;
+  return <button type="button" className="font-medium text-foreground underline decoration-foreground/30 underline-offset-4 hover:decoration-foreground" onClick={() => openGuide(id)}>{children}</button>;
 }
 
 export function GuideButton({ className }: { className?: string }) {
   const t = useTranslations("guide");
-  return <Button variant="ghost" size="sm" className={className} aria-label={t("button")} onClick={() => openGuide("start")}><BookOpen /> <span className="hidden sm:inline">{t("button")}</span></Button>;
+  return <Button variant="ghost" size="sm" className={className} aria-label={t("button")} onClick={() => openGuide("start")}><CircleHelp /> <span className="hidden sm:inline">{t("button")}</span></Button>;
 }
 
 /** La finestra della guida (una sola per l'app; si apre con openGuide). */
@@ -699,26 +693,26 @@ export function GuideDialog() {
               return (
                 <button key={c.id} type="button" onClick={() => openGuide(c.id)} aria-current={c === current ? "page" : undefined}
                   className={cn("flex shrink-0 items-center gap-2 rounded-md px-2.5 py-2 text-left text-sm whitespace-nowrap transition-colors",
-                    c === current ? "bg-brand/10 font-semibold text-brand" : "text-muted-foreground hover:bg-muted hover:text-foreground")}>
+                    c === current ? "bg-foreground/[0.06] font-medium text-foreground" : "text-muted-foreground hover:bg-foreground/[0.04] hover:text-foreground")}>
                   <Icon className="size-4 shrink-0" /> {title(c)}
                 </button>
               );
             })}
           </nav>
           <article key={current.id} className="mz-enter flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto p-5">
-            <h2 className="text-xl font-bold tracking-tight">{title(current)}</h2>
+            <h2 className="text-xl font-semibold tracking-[-0.015em]">{title(current)}</h2>
             <Body />
             <div className="mt-auto flex justify-between gap-2 border-t pt-4">
-              {i > 0 ? <Button variant="ghost" size="sm" onClick={() => openGuide(CHAPTERS[i - 1].id)}>← {title(CHAPTERS[i - 1])}</Button> : <span />}
-              {i < CHAPTERS.length - 1 && <Button variant="outline" size="sm" onClick={() => openGuide(CHAPTERS[i + 1].id)}>{title(CHAPTERS[i + 1])} →</Button>}
+              {i > 0 ? <Button variant="ghost" size="sm" onClick={() => openGuide(CHAPTERS[i - 1].id)}><ChevronLeft /> {title(CHAPTERS[i - 1])}</Button> : <span />}
+              {i < CHAPTERS.length - 1 && <Button variant="outline" size="sm" onClick={() => openGuide(CHAPTERS[i + 1].id)}>{title(CHAPTERS[i + 1])} <ChevronRight /></Button>}
             </div>
             <p className="text-xs text-muted-foreground">
               {t.rich("dialog.footer", {
                 app: APP_VERSION,
                 fw: FIRMWARE_VERSION,
-                repo: (c) => <a className="underline" href={REPO_URL} target="_blank" rel="noopener">{c}</a>,
-                issues: (c) => <a className="underline" href={ISSUES_URL} target="_blank" rel="noopener">{c}</a>,
-                privacy: (c) => <button type="button" className="underline" onClick={openPrivacy}>{c}</button>,
+                repo: (c) => <a className="underline decoration-foreground/30 underline-offset-2 hover:decoration-foreground" href={REPO_URL} target="_blank" rel="noopener">{c}</a>,
+                issues: (c) => <a className="underline decoration-foreground/30 underline-offset-2 hover:decoration-foreground" href={ISSUES_URL} target="_blank" rel="noopener">{c}</a>,
+                privacy: (c) => <button type="button" className="underline decoration-foreground/30 underline-offset-2 hover:decoration-foreground" onClick={openPrivacy}>{c}</button>,
               })}
             </p>
           </article>

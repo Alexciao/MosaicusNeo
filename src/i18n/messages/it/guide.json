@@ -177,7 +177,7 @@
   },
   "startDevice": {
     "path": "Il tuo percorso: {device}",
-    "check": "Controlla il dispositivo →",
+    "check": "Controlla il dispositivo",
     "cannot": "Questo dispositivo non può ancora collegarsi ad Arduino. Cosa manca e come rimediare: <device>Il tuo dispositivo</device>."
   },
   "yourDevice": {
@@ -221,29 +221,6 @@
       "parts": "<b>I componenti</b> dell'esperimento, una breadboard e cavetti jumper.",
       "computer": "<b>Un computer</b> con Chrome o Edge: serve per caricare il firmware e per misurare via cavo.",
       "optional": "<b>Facoltativo</b>: modulo Bluetooth e power bank, per misurare senza cavo con il telefono."
-    },
-    "stepsTitle": "I passaggi",
-    "steps": {
-      "s1": {
-        "t": "Firmware",
-        "d": "una volta sola"
-      },
-      "s2": {
-        "t": "Esperimento",
-        "d": "elenco a sinistra"
-      },
-      "s3": {
-        "t": "Collegamenti",
-        "d": "segui lo schema"
-      },
-      "s4": {
-        "t": "Misura",
-        "d": "Avvia → Ferma"
-      },
-      "s5": {
-        "t": "Analisi",
-        "d": "Elaborazione"
-      }
     },
     "simulator": "Senza hardware premi <b>Simulatore</b>: genera dati realistici per ogni esperimento."
   },

@@ -27,13 +27,13 @@ function MobileNav() {
   const n = useWorkbench((s) => s.boxes.length);
   const t = useTranslations("app.nav");
   const item = (active: boolean, label: string, Icon: typeof FlaskConical, onClick: () => void, badge?: number) => (
-    <button type="button" onClick={onClick} className={cn("relative flex flex-1 flex-col items-center gap-0.5 py-2 text-[0.7rem] font-medium", active ? "text-foreground" : "text-muted-foreground")}>
-      <Icon className="size-5" />{label}
-      {!!badge && <span className="absolute top-1 left-1/2 ml-2 rounded-full bg-primary px-1.5 text-[0.6rem] font-semibold text-primary-foreground">{badge}</span>}
+    <button type="button" onClick={onClick} aria-current={active ? "page" : undefined} className={cn("relative flex flex-1 flex-col items-center gap-0.5 py-2 text-[0.7rem] font-medium transition-colors", active ? "text-foreground" : "text-muted-foreground")}>
+      <Icon className="size-5" strokeWidth={active ? 2.25 : 1.75} />{label}
+      {!!badge && <span className="absolute top-1 left-1/2 ml-2.5 min-w-4 rounded-[5px] bg-foreground px-1 text-center text-[10px] leading-4 font-medium text-background tabular">{badge}</span>}
     </button>
   );
   return (
-    <nav aria-label={t("mobile")} className="fixed inset-x-0 bottom-0 z-40 flex border-t bg-card pb-[env(safe-area-inset-bottom)] md:hidden">
+    <nav aria-label={t("mobile")} className="fixed inset-x-0 bottom-0 z-40 flex border-t bg-background/95 pb-[env(safe-area-inset-bottom)] backdrop-blur-md md:hidden">
       {item(false, t("labs"), LayoutGrid, () => { showPage("misura"); useLab.setState({ labsOpen: true }); })}
       {item(page === "misura", t("misura"), FlaskConical, () => showPage("misura"))}
       {item(page === "quaderno", t("quaderno"), BookOpen, () => showPage("quaderno"))}

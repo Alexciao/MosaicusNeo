@@ -28,7 +28,8 @@ export const prefs = {
   },
 };
 
-export const fmtVal = (v: number, digits: number) => (Number.isFinite(v) ? fixed(v, digits) : "—");
+/** Valore da mostrare: «—» se manca; il meno tipografico (U+2212), non il trattino. */
+export const fmtVal = (v: number, digits: number) => (Number.isFinite(v) ? fixed(v, digits).replace(/^-/, "−") : "—");
 
 export const fmtNum = (v: number, d = 3) => (Number.isFinite(v) ? upTo(v, d) : "—");
 

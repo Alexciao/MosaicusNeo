@@ -205,9 +205,8 @@ export function createSynthController(api: InstrumentApi & { toast: (m: string) 
     }
     if (L.u != null) {
       const X = Number.isFinite(L.n) ? xOf(L.n) : L.u * W, R = 14 * Math.sqrt(k);
-      g.shadowColor = "#C6F432"; g.shadowBlur = L.playing ? 18 : 0;
       g.fillStyle = L.playing ? "#C6F432" : "rgba(198,244,50,0.45)";
-      g.beginPath(); g.arc(X, (H - 18 * k) / 2 + 2, R, 0, 2 * Math.PI); g.fill(); g.shadowBlur = 0;
+      g.beginPath(); g.arc(X, (H - 18 * k) / 2 + 2, R, 0, 2 * Math.PI); g.fill();
     }
   }
 

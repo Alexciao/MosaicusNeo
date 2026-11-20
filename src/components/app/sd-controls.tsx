@@ -34,7 +34,7 @@ export function SdHowTo({ className }: { className?: string }) {
   const button = rig.sensors.some((s) => s.type === "button");
   const canPrep = ready && (linkKind === "arduino" || linkKind === "simulatore") && !running;
   return (
-    <div className={cn("flex flex-col gap-2 rounded-md bg-muted/50 p-2.5 text-xs", className)}>
+    <div className={cn("flex flex-col gap-2 border-l-2 border-border pl-3 text-xs", className)}>
       <ol className="list-decimal space-y-1 pl-4">
         <li>{t.rich("step1", { b })}</li>
         <li>{t.rich("step2", { b, detail: button ? t("step2Button") : t("step2Free") })}</li>

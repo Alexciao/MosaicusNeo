@@ -177,7 +177,7 @@
   },
   "startDevice": {
     "path": "Your path: {device}",
-    "check": "Check your device →",
+    "check": "Check your device",
     "cannot": "This device can't connect to Arduino yet. What's missing and how to fix it: <device>Your device</device>."
   },
   "yourDevice": {
@@ -221,29 +221,6 @@
       "parts": "<b>The components</b> for the experiment, a breadboard and jumper wires.",
       "computer": "<b>A computer</b> with Chrome or Edge: needed to upload the firmware and to measure over the cable.",
       "optional": "<b>Optional</b>: a Bluetooth module and a power bank, to measure wirelessly with the phone."
-    },
-    "stepsTitle": "The steps",
-    "steps": {
-      "s1": {
-        "t": "Firmware",
-        "d": "just once"
-      },
-      "s2": {
-        "t": "Experiment",
-        "d": "list on the left"
-      },
-      "s3": {
-        "t": "Wiring",
-        "d": "follow the diagram"
-      },
-      "s4": {
-        "t": "Measure",
-        "d": "Start → Stop"
-      },
-      "s5": {
-        "t": "Analysis",
-        "d": "Analysis page"
-      }
     },
     "simulator": "No hardware? Press <b>Simulator</b>: it generates realistic data for every experiment."
   },

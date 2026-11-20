@@ -8,6 +8,7 @@ import type { Schematic, WiringBlock } from "@/lib/sensors/types";
 import { SENSORS, pinName } from "@/lib/sensors/catalog";
 import { sensorLabel, type Rig } from "@/lib/sensors/rig";
 import { cn } from "@/lib/utils";
+import { WiringSection, hashKey } from "./wiring-section";
 
 const W5V = "#D6336C", WGND = "var(--tone-ink)", WSIG = "#2E8BC0", WBT = "#7c3aed";
 type P = Record<string, string>;
@@ -180,18 +181,15 @@ const SCHEMATICS: Record<Schematic, (props: { p: P }) => React.ReactElement> = {
 
 export function WiringBlocks({ blocks }: { blocks: WiringBlock[] }) {
   return (
-    <div className="flex flex-col gap-3">
+    <div className="flex flex-col">
       {blocks.map((b, i) => {
         const S = b.schematic ? SCHEMATICS[b.schematic] : null;
         const Icon = b.warn ? TriangleExclamationPoint : b.tip ? Lightbulb : b.schematic === "hc06" ? Bluetooth : Plug;
         return (
-          <div key={i} className={cn("rounded-lg border p-3", b.warn && "border-destructive/40 bg-destructive/5", b.tip && "bg-muted/50")}>
-            <h4 className={cn("mb-1.5 flex items-center gap-1.5 text-sm font-semibold", b.warn && "text-destructive")}>
-              <Icon className="size-4" />{b.title}
-            </h4>
-            {S && <div className="my-2 max-w-sm text-foreground [&_svg]:h-auto [&_svg]:w-full [&_text]:fill-current"><S p={b.pins ?? {}} /></div>}
-            {b.text && <p className="text-sm leading-relaxed text-muted-foreground">{b.text}</p>}
-          </div>
+          <WiringSection key={i} id={`block-${hashKey(b.title)}`} icon={Icon} title={b.title} tone={b.warn ? "warn" : b.tip ? "tip" : "default"}>
+            {S && <div className="mb-3 max-w-sm rounded-lg border p-2 text-foreground [&_svg]:h-auto [&_svg]:w-full [&_text]:fill-current"><S p={b.pins ?? {}} /></div>}
+            {b.text && <p className="text-sm leading-relaxed text-pretty text-muted-foreground">{b.text}</p>}
+          </WiringSection>
         );
       })}
     </div>

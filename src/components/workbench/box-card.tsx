@@ -21,6 +21,7 @@ import { confirm } from "@/lib/confirm";
 import { fmtNum } from "@/lib/prefs";
 import { Segmented } from "@/components/instruments/scope-panel";
 import { cn } from "@/lib/utils";
+import { Sym } from "@/components/app/sym";
 import {
   EyePanel, FitPanel, Residuals, RulerPanel, StatsPanel, TangentPanel, ToolIntro, computeStats, cssVar, lineThrough, n4, read3,
   type EyeState, type ModelRow, type PhysicsValue, type RulerState, type TangentResult,
@@ -309,14 +310,15 @@ export function BoxCard({ box }: { box: Box }) {
           {collapsed && !!box.analyses.length && (
             <ul className="mt-2 flex flex-wrap gap-1.5 px-1">
               {box.analyses.map((a) => (
-                <li key={a.id} className="rounded-md border px-2 py-0.5 text-xs"><span className="text-muted-foreground">{a.main.label}</span> <b className="tabular">{fmtResult(a)}</b></li>
+                <li key={a.id} className="rounded-[5px] border px-2 py-0.5 text-xs"><span className="text-muted-foreground"><Sym>{a.main.label}</Sym></span> <b className="tabular">{fmtResult(a)}</b></li>
               ))}
             </ul>
           )}
         </div>
         {many && (
-          <label className="mt-2 flex items-center px-1" title={t("box.exportTitle")}>
-            <Checkbox checked={box.checked} onCheckedChange={(v) => updateBox(box.id, { checked: !!v })} aria-label={t("box.exportAria")} />
+          <label className="mt-1.5 flex h-7 shrink-0 cursor-pointer items-center gap-2 px-1 text-[13px] text-muted-foreground" title={t("box.exportTitle")}>
+            <Checkbox checked={box.checked} onCheckedChange={(v) => updateBox(box.id, { checked: !!v })} />
+            <span className="hidden sm:inline">{t("box.exportAria")}</span>
           </label>
         )}
         <Button size="icon-sm" variant="ghost" aria-label={t("box.duplicate")} title={t("box.duplicateTitle")} className="text-muted-foreground"
@@ -357,7 +359,7 @@ export function BoxCard({ box }: { box: Box }) {
       </div>
 
       <div className="grid gap-4 p-4 xl:grid-cols-[minmax(0,1fr)_22rem]">
-        <div className="relative h-[clamp(260px,46vh,520px)] overflow-hidden rounded-lg border bg-[var(--mz-chart-bg)]">
+        <div className="relative h-[clamp(260px,46vh,520px)] overflow-hidden bg-[var(--mz-chart-bg)]">
           <canvas ref={canvasRef} aria-label={t("box.chart")} className="absolute inset-0 size-full touch-none" />
         </div>
         <aside className="flex min-w-0 flex-col gap-4">
@@ -458,7 +460,7 @@ export function BoxCard({ box }: { box: Box }) {
                     <li key={a.id} className={cn("flex items-start gap-1 rounded-lg border px-3 py-2", a.hidden && "opacity-60")}>
                       <div className="min-w-0 flex-1 text-sm">
                         <p className="flex items-baseline gap-1.5"><b className="truncate">{a.title}</b> <small className="shrink-0 text-muted-foreground">{a.axes}</small></p>
-                        <p className="tabular">{a.main.label}: <b>{fmtResult(a)}</b></p>
+                        <p className="tabular"><Sym>{a.main.label}</Sym>: <b>{fmtResult(a)}</b></p>
                         <p className="truncate text-xs text-muted-foreground" title={a.detail}>{a.eq}</p>
                       </div>
                       <Button size="icon-xs" variant="ghost" disabled={!here} aria-label={a.hidden ? t("box.show") : t("box.hide")}
