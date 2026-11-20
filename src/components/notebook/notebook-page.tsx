@@ -178,7 +178,7 @@ function SessionRow({ s, showDate }: { s: SessionSummary; showDate: boolean }) {
         )}
       </div>
       {/* sul computer le azioni compaiono al passaggio del mouse (o col fuoco); sul telefono restano visibili */}
-      <div className="flex shrink-0 items-center gap-1 transition-opacity [@media(hover:hover)]:opacity-0 [@media(hover:hover)]:group-focus-within/row:opacity-100 [@media(hover:hover)]:group-hover/row:opacity-100">
+      <div className="flex shrink-0 items-center gap-1 [@media(hover:hover)]:opacity-0 [@media(hover:hover)]:group-focus-within/row:opacity-100 [@media(hover:hover)]:group-hover/row:opacity-100">
         <Button size="sm" variant="ghost" disabled={running} onClick={() => void openSession(s.id)}>{t("open")}</Button>
         <Button size="sm" variant="ghost" disabled={running} onClick={() => void sendSessionToElab(s.id)}>{t("analyze")}</Button>
         <DropdownMenu>

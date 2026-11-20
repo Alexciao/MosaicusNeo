@@ -43,7 +43,9 @@
     "deleteResult": "Elimina il risultato",
     "fitRange": "Sul tratto {a} – {b} {unit}",
     "useAll": "usa tutti i dati",
-    "fitAllData": "Su tutti i dati."
+    "fitAllData": "Su tutti i dati.",
+    "resultDeleted": "Risultato eliminato",
+    "undo": "Annulla"
   },
   "intro": {
     "select": {

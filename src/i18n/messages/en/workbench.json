@@ -43,7 +43,9 @@
     "deleteResult": "Delete result",
     "fitRange": "On range {a} – {b} {unit}",
     "useAll": "use all data",
-    "fitAllData": "On all data."
+    "fitAllData": "On all data.",
+    "resultDeleted": "Result deleted",
+    "undo": "Undo"
   },
   "intro": {
     "select": {

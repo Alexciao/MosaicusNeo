@@ -254,10 +254,13 @@ export function BoxCard({ box }: { box: Box }) {
     el?.scrollIntoView({ behavior: still ? "auto" : "smooth", block: "start" });
     // appena arrivato da Misura: sale al suo posto (solo se è nuovo, non quando lo si riapre)
     if (!still && Date.now() - box.created < 3000) {
-      el?.animate([{ opacity: 0, transform: "translateY(12px) scale(0.99)" }, { opacity: 1, transform: "none" }], { duration: 320, easing: "cubic-bezier(0.23, 1, 0.32, 1)" });
+      // la stessa curva dei token (--ease-out in globals.css)
+      const easing = getComputedStyle(document.documentElement).getPropertyValue("--ease-out").trim() || "ease-out";
+      el?.animate([{ opacity: 0, transform: "translateY(12px) scale(0.99)" }, { opacity: 1, transform: "none" }], { duration: 260, easing });
     }
     if (!document.documentElement.classList.contains("lim")) {
-      el?.animate([{ boxShadow: "0 0 0 3px #C6F432" }, { boxShadow: "0 0 0 3px #C6F432", offset: 0.6 }, { boxShadow: "0 0 0 0 transparent" }], { duration: 1600 });
+      // l'alone resta un attimo («eccolo») e poi sfuma: niente movimento, va bene anche con «riduci movimento»
+      el?.animate([{ boxShadow: "0 0 0 3px #C6F432" }, { boxShadow: "0 0 0 3px #C6F432", offset: 0.6 }, { boxShadow: "0 0 0 0 transparent" }], { duration: 1600, easing: "ease-out" });
     }
     useWorkbench.getState().focus(null);
   }, [focusId, box.id, box.created]);
@@ -318,7 +321,7 @@ export function BoxCard({ box }: { box: Box }) {
         </div>
         {many && (
           <label className="mt-1.5 flex h-7 shrink-0 cursor-pointer items-center gap-2 px-1 text-[13px] text-muted-foreground" title={t("box.exportTitle")}>
-            <Checkbox checked={box.checked} onCheckedChange={(v) => updateBox(box.id, { checked: !!v })} />
+            <Checkbox checked={box.checked} onCheckedChange={(v) => updateBox(box.id, { checked: !!v })} aria-label={t("box.exportAria")} />
             <span className="hidden sm:inline">{t("box.exportAria")}</span>
           </label>
         )}
@@ -469,7 +472,13 @@ export function BoxCard({ box }: { box: Box }) {
                         onClick={() => updateBox(box.id, (b) => ({ analyses: b.analyses.map((x, j) => (j === i ? { ...x, hidden: !x.hidden } : x)) }))}>
                         {a.hidden ? <EyeOff /> : <Eye />}
                       </Button>
-                      <Button size="icon-xs" variant="ghost" aria-label={t("box.deleteResult")} onClick={() => updateBox(box.id, (b) => ({ analyses: b.analyses.filter((_, j) => j !== i) }))}><X /></Button>
+                      <Button size="icon-xs" variant="ghost" aria-label={t("box.deleteResult")} onClick={() => {
+                        // niente conferma: si elimina subito e si può annullare dalla notifica
+                        updateBox(box.id, (b) => ({ analyses: b.analyses.filter((x) => x.id !== a.id) }));
+                        toast(t("box.resultDeleted"), {
+                          action: { label: t("box.undo"), onClick: () => updateBox(box.id, (b) => b.analyses.some((x) => x.id === a.id) ? {} : { analyses: [...b.analyses.slice(0, i), a, ...b.analyses.slice(i)] }) },
+                        });
+                      }}><X /></Button>
                     </li>
                   );
                 })}

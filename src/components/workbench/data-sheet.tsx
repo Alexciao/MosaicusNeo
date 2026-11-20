@@ -64,7 +64,7 @@ export function DataSheet({ box, rows, errors }: { box: Box; rows: Record<string
   const axBtn = (ax: "x" | "y", key: string) => {
     const on = (ax === "x" ? box.xKey : box.yKey) === key;
     return (
-      <button type="button" onClick={() => setAxis(ax, key)} title={ax === "x" ? t("toX") : t("toY")}
+      <button type="button" onClick={() => setAxis(ax, key)} title={ax === "x" ? t("toX") : t("toY")} aria-label={ax === "x" ? t("toX") : t("toY")} aria-pressed={on}
         className={cn("grid size-6 place-items-center rounded border text-xs font-bold transition-colors", on ? (ax === "x" ? "border-sky-500 bg-sky-500 text-white" : "border-primary bg-primary text-primary-foreground") : "hover:bg-muted")}>
         {ax}
       </button>
@@ -94,7 +94,7 @@ export function DataSheet({ box, rows, errors }: { box: Box; rows: Record<string
                         </div>
                         <div className="mt-1 flex justify-end gap-1">
                           {axBtn("x", c.key)}{axBtn("y", c.key)}
-                          {isComp(c.key) && <button type="button" onClick={() => void remove(c.key)} title={t("deleteColumn")} className="grid size-6 place-items-center rounded border text-muted-foreground hover:text-destructive"><X className="size-3" /></button>}
+                          {isComp(c.key) && <button type="button" onClick={() => void remove(c.key)} title={t("deleteColumn")} aria-label={t("deleteColumn")} className="grid size-6 place-items-center rounded border text-muted-foreground hover:text-destructive"><X aria-hidden className="size-3" /></button>}
                         </div>
                         {errors[c.key] && <div className="mt-1 text-left text-[0.7rem] font-normal text-destructive">{errors[c.key]}</div>}
                       </th>
@@ -103,10 +103,10 @@ export function DataSheet({ box, rows, errors }: { box: Box; rows: Record<string
                       {pending ? (
                         <div className="flex flex-col gap-1.5">
                           <div className="flex gap-1.5">
-                            <Input autoFocus placeholder={t("symPh")} value={pending.sym} onChange={(e) => setPending({ ...pending, sym: e.target.value })} aria-label={t("symAria")} className="h-7 text-xs" />
-                            <Input placeholder={t("unitPh")} value={pending.unit} onChange={(e) => setPending({ ...pending, unit: e.target.value })} aria-label={t("unitAria")} className="h-7 w-20 text-xs" />
+                            <Input autoFocus placeholder={t("symPh")} value={pending.sym} onChange={(e) => setPending({ ...pending, sym: e.target.value })} aria-label={t("symAria")} className="h-7 text-xs max-sm:text-base" />
+                            <Input placeholder={t("unitPh")} value={pending.unit} onChange={(e) => setPending({ ...pending, unit: e.target.value })} aria-label={t("unitAria")} className="h-7 w-20 text-xs max-sm:text-base" />
                           </div>
-                          <Input placeholder={t("formulaPh")} value={pending.formula} onChange={(e) => setPending({ ...pending, formula: e.target.value })} onKeyDown={(e) => { if (e.key === "Enter") add(); }} aria-label={t("formulaAria")} className="h-7 font-mono text-xs" />
+                          <Input placeholder={t("formulaPh")} value={pending.formula} onChange={(e) => setPending({ ...pending, formula: e.target.value })} onKeyDown={(e) => { if (e.key === "Enter") add(); }} aria-label={t("formulaAria")} className="h-7 font-mono text-xs max-sm:text-base" />
                           {(addErr || preview?.err) && <p className="text-[0.7rem] font-normal text-destructive">{addErr || preview?.err}</p>}
                           <div className="flex gap-1.5">
                             <Button size="xs" onClick={add}><Check /> {t("add")}</Button>

@@ -371,7 +371,9 @@ export function CompareModels({ rows, current, unit, onPick }: { rows: ModelRow[
           <tbody>
             {rows.map((r) => (
               <tr key={r.id} onClick={() => !r.error && onPick(r.id)}
-                className={cn("border-t", r.error ? "text-muted-foreground" : "cursor-pointer hover:bg-muted/60", current === r.id && "bg-accent/50")}>
+                tabIndex={r.error ? undefined : 0} aria-current={current === r.id || undefined}
+                onKeyDown={(e) => { if (!r.error && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); onPick(r.id); } }}
+                className={cn("border-t outline-none focus-visible:bg-muted/60 focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:ring-inset", r.error ? "text-muted-foreground" : "cursor-pointer hover:bg-muted/60", current === r.id && "bg-accent/50")}>
                 <td className="py-1 pr-2 font-medium">{r.label}{r.id === best && <span className="ml-1.5 rounded bg-success/15 px-1 text-[0.6rem] font-semibold text-success">{t("best")}</span>}</td>
                 <td className="py-1 pr-2 text-right tabular">{r.error ? "—" : fmt(r.s, 2)}</td>
                 <td className="py-1 pr-2 text-right tabular">{r.error || !Number.isFinite(r.r2) ? "—" : r.r2.toLocaleString(intlLocale, { maximumFractionDigits: 4 })}</td>
