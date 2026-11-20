@@ -29,7 +29,10 @@
       "dht22": "DHT22 / AM2302 (bianco, ±0,5 °C, ±2 %)",
       "offsetT": "Correzione di taratura della temperatura",
       "offsetRH": "Correzione di taratura dell'umidità",
-      "wiring": "DATA su {pin}, VCC a 5 V, GND a GND. Il modulo a 3 pin ha già il pull-up; il sensore a 4 pin senza schedina richiede 10 kΩ tra DATA e 5 V."
+      "wiring": "DATA su {pin}, VCC a 5 V, GND a GND. Il modulo a 3 pin ha già il pull-up; il sensore a 4 pin senza schedina richiede 10 kΩ tra DATA e 5 V.",
+      "pkg": "Formato",
+      "pkgModule": "Modulo a 3 piedini (su schedina)",
+      "pkgBare": "Sensore a 4 piedini (senza schedina)"
     },
     "sonar": {
       "title": "Ultrasuoni HC-SR04",

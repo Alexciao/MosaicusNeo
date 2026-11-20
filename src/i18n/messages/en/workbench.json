@@ -1,7 +1,7 @@
 {
   "page": {
     "title": "Analysis",
-    "count": "{n, plural, one {# panel} other {# panels}} · newest first",
+    "count": "{n, plural, one {# panel} other {# panels}}",
     "subtitleEmpty": "Analysis of measurement ranges",
     "selectAll": "Select all panels",
     "all": "All",
@@ -11,7 +11,8 @@
     "nav": "Panels",
     "emptyTitle": "No panels",
     "emptyBody": "In “Measure”, drag on a chart to pick a range, then press “Analyze the range”. From the “Notebook” you can send a whole measurement.",
-    "goMeasure": "Go to Measure"
+    "goMeasure": "Go to Measure",
+    "exportOne": "Export to Excel"
   },
   "box": {
     "expand": "Expand panel",
@@ -160,7 +161,7 @@
       "needTwo": "At least 2 points are needed. Drag on the chart to pick a range.",
       "selected": "Range {a} – {b} {unit} · {n, plural, one {# point} other {# points}}",
       "useAll": "use all data",
-      "allData": "All data · {n, plural, one {# point} other {# points}}. Drag to pick a range.",
+      "allData": "All data · {n} points.",
       "mean": "mean {y}̄",
       "meanHint": "± = standard error of the mean, s/√n",
       "sd": "standard deviation s",
@@ -230,7 +231,7 @@
     "today": "Today",
     "yesterday": "Yesterday",
     "title": "Notebook",
-    "intro": "Measurements are saved here when you press “Stop”. SD card recordings are imported from here.",
+    "intro": "Measurements are saved here when you press “Stop”.",
     "search": "Search by name, lab or sensor",
     "searchAria": "Search the Notebook",
     "filterLab": "Filter by lab",

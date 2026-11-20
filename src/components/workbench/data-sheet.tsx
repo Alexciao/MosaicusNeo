@@ -13,7 +13,7 @@ import { quantityOf } from "@/lib/sensors/quantities";
 import { useWorkbench, axisLabel, type Box } from "@/lib/workbench-store";
 import { confirm } from "@/lib/confirm";
 import { fmtCell } from "@/lib/prefs";
-import { toast } from "sonner";
+import { toast } from "@/lib/toast";
 import { cn } from "@/lib/utils";
 
 const MAX_ROWS = 2000;

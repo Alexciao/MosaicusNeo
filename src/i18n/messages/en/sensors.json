@@ -29,7 +29,10 @@
       "dht22": "DHT22 / AM2302 (white, ±0.5 °C, ±2 %)",
       "offsetT": "Temperature calibration correction",
       "offsetRH": "Humidity calibration correction",
-      "wiring": "DATA to {pin}, VCC to 5 V, GND to GND. The 3-pin module already has the pull-up; the bare 4-pin sensor needs 10 kΩ between DATA and 5 V."
+      "wiring": "DATA to {pin}, VCC to 5 V, GND to GND. The 3-pin module already has the pull-up; the bare 4-pin sensor needs 10 kΩ between DATA and 5 V.",
+      "pkg": "Package",
+      "pkgModule": "3-pin module (on a board)",
+      "pkgBare": "4-pin bare sensor"
     },
     "sonar": {
       "title": "HC-SR04 ultrasonic sensor",

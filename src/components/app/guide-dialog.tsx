@@ -11,7 +11,7 @@ import {
   BookOpen, Bluetooth, ChartLine, Check, Cloud, Copy, Cpu, Download, FlaskConical, LifeBuoy, MemoryStick, Minus, Monitor, Plug, Presentation, Rocket, Share2,
   Siren, SlidersHorizontal, Smartphone, TriangleAlert, X,
 } from "lucide-react";
-import { toast } from "sonner";
+import { toast } from "@/lib/toast";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -673,7 +673,7 @@ function ChapterLink({ id, children }: { id: string; children: React.ReactNode }
 
 export function GuideButton({ className }: { className?: string }) {
   const t = useTranslations("guide");
-  return <Button variant="outline" size="sm" className={className} aria-label={t("button")} onClick={() => openGuide("start")}><BookOpen /> <span className="hidden sm:inline">{t("button")}</span></Button>;
+  return <Button variant="ghost" size="sm" className={className} aria-label={t("button")} onClick={() => openGuide("start")}><BookOpen /> <span className="hidden sm:inline">{t("button")}</span></Button>;
 }
 
 /** La finestra della guida (una sola per l'app; si apre con openGuide). */

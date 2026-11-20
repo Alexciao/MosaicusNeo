@@ -1,0 +1,202 @@
+"use client";
+// Tela con zoom e spostamento, per lo schema dei collegamenti a tutto schermo.
+//  - trackpad: due dita scorrono, il pizzico ingrandisce (Chrome, Edge e Firefox lo mandano come
+//    rotella con Ctrl; Safari con i gesture event)
+//  - mouse: la rotella scorre (Maiusc in orizzontale), Ctrl + rotella ingrandisce, si trascina col
+//    tasto sinistro, doppio clic ingrandisce
+//  - tocco: un dito trascina, due dita pizzicano
+//  - tastiera: + e − ingrandiscono, 0 adatta, le frecce spostano
+// La posizione si scrive direttamente nello stile (niente rendering di React a ogni fotogramma).
+
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useTranslations } from "next-intl";
+import { Minus, Plus, Scan } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
+
+const MAX = 8;
+const DRAG_SLOP = 4;
+
+interface View { k: number; x: number; y: number }
+
+export function PanZoom({ children, contentWidth = 1200, className }: { children: React.ReactNode; contentWidth?: number; className?: string }) {
+  const t = useTranslations("rig.guide.zoom");
+  const box = useRef<HTMLDivElement>(null);
+  const inner = useRef<HTMLDivElement>(null);
+  const view = useRef<View>({ k: 1, x: 0, y: 0 });
+  const fitK = useRef(1);
+  const touched = useRef(false);          // l'utente ha già mosso: non riadattare a ogni ridimensionamento
+  const [pct, setPct] = useState(100);
+
+  const apply = useCallback(() => {
+    const el = inner.current; if (!el) return;
+    const { k, x, y } = view.current;
+    el.style.transform = `translate3d(${x}px, ${y}px, 0) scale(${k})`;
+    setPct(Math.round((k / fitK.current) * 100));
+  }, []);
+
+  /** Tiene sempre un pezzo dello schema dentro la finestra. */
+  const clamp = useCallback((v: View): View => {
+    const b = box.current, el = inner.current;
+    if (!b || !el) return v;
+    const W = b.clientWidth, H = b.clientHeight, w = contentWidth * v.k, h = el.offsetHeight * v.k, m = 80;
+    const x = w <= W ? Math.min(Math.max(v.x, -w + m), W - m) : Math.min(Math.max(v.x, W - w - m * 2), m * 2);
+    const y = h <= H ? Math.min(Math.max(v.y, -h + m), H - m) : Math.min(Math.max(v.y, H - h - m * 2), m * 2);
+    return { k: v.k, x, y };
+  }, [contentWidth]);
+
+  const fit = useCallback(() => {
+    const b = box.current, el = inner.current;
+    if (!b || !el) return;
+    const W = b.clientWidth, H = b.clientHeight, h = el.offsetHeight || 1;
+    const pad = 16;
+    const k = Math.min((W - pad * 2) / contentWidth, (H - pad * 2) / h);
+    fitK.current = k;
+    view.current = { k, x: (W - contentWidth * k) / 2, y: (H - h * k) / 2 };
+    apply();
+  }, [apply, contentWidth]);
+
+  /** Ingrandisce di f intorno al punto (px, py) della finestra. */
+  const zoomAt = useCallback((f: number, px: number, py: number) => {
+    const v = view.current;
+    const k = Math.min(Math.max(v.k * f, fitK.current * 0.5), MAX);
+    const r = k / v.k;
+    view.current = clamp({ k, x: px - (px - v.x) * r, y: py - (py - v.y) * r });
+    touched.current = true;
+    apply();
+  }, [apply, clamp]);
+
+  const panBy = useCallback((dx: number, dy: number) => {
+    const v = view.current;
+    view.current = clamp({ k: v.k, x: v.x + dx, y: v.y + dy });
+    touched.current = true;
+    apply();
+  }, [apply, clamp]);
+
+  const zoomCenter = (f: number) => { const b = box.current; if (b) zoomAt(f, b.clientWidth / 2, b.clientHeight / 2); };
+
+  useLayoutEffect(() => {
+    fit();
+    const b = box.current, el = inner.current;
+    if (!b || !el) return;
+    const ro = new ResizeObserver(() => { if (!touched.current) fit(); else { view.current = clamp(view.current); apply(); } });
+    ro.observe(b); ro.observe(el);
+    return () => ro.disconnect();
+  }, [fit, clamp, apply]);
+
+  // rotella e gesti: listener nativi, perché servono non passivi (preventDefault)
+  useEffect(() => {
+    const b = box.current; if (!b) return;
+    const local = (e: { clientX: number; clientY: number }) => { const r = b.getBoundingClientRect(); return [e.clientX - r.left, e.clientY - r.top] as const; };
+    const onWheel = (e: WheelEvent) => {
+      e.preventDefault();
+      const unit = e.deltaMode === 1 ? 16 : e.deltaMode === 2 ? b.clientHeight : 1;
+      let dx = e.deltaX * unit, dy = e.deltaY * unit;
+      if (e.ctrlKey || e.metaKey) {
+        // pizzico sul trackpad (delta piccoli e fitti) o Ctrl + rotella (scatti grandi): stessa curva
+        const d = Math.max(-60, Math.min(60, dy));
+        const [px, py] = local(e);
+        zoomAt(Math.exp(-d * 0.01), px, py);
+        return;
+      }
+      if (e.shiftKey && !dx) { dx = dy; dy = 0; }
+      panBy(-dx, -dy);
+    };
+    // Safari (macOS): il pizzico arriva come gesture event
+    let g0 = 1;
+    type GestureEv = Event & { scale: number; clientX: number; clientY: number };
+    const onGStart = (e: Event) => { e.preventDefault(); g0 = 1; };
+    const onGChange = (e: Event) => {
+      e.preventDefault();
+      const ge = e as GestureEv;
+      const [px, py] = local(ge);
+      zoomAt(ge.scale / g0, px, py);
+      g0 = ge.scale;
+    };
+    b.addEventListener("wheel", onWheel, { passive: false });
+    b.addEventListener("gesturestart", onGStart);
+    b.addEventListener("gesturechange", onGChange);
+    b.addEventListener("gestureend", onGStart);
+    return () => {
+      b.removeEventListener("wheel", onWheel);
+      b.removeEventListener("gesturestart", onGStart);
+      b.removeEventListener("gesturechange", onGChange);
+      b.removeEventListener("gestureend", onGStart);
+    };
+  }, [zoomAt, panBy]);
+
+  // trascinamento e pizzico con i puntatori (mouse, penna, dita)
+  const pts = useRef(new Map<number, { x: number; y: number }>());
+  const drag = useRef<{ moved: boolean; sx: number; sy: number; dist?: number; cx?: number; cy?: number } | null>(null);
+  const suppressClick = useRef(false);
+  const [grabbing, setGrabbing] = useState(false);
+
+  const onPointerDown = (e: React.PointerEvent) => {
+    if (e.pointerType === "mouse" && e.button !== 0) return;
+    pts.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    suppressClick.current = false;
+    if (pts.current.size === 1) drag.current = { moved: false, sx: e.clientX, sy: e.clientY };
+    else if (pts.current.size === 2) {
+      const [a, c] = [...pts.current.values()];
+      drag.current = { moved: true, sx: 0, sy: 0, dist: Math.hypot(a.x - c.x, a.y - c.y), cx: (a.x + c.x) / 2, cy: (a.y + c.y) / 2 };
+    }
+  };
+  const onPointerMove = (e: React.PointerEvent) => {
+    const p = pts.current.get(e.pointerId), d = drag.current;
+    if (!p || !d) return;
+    const dx = e.clientX - p.x, dy = e.clientY - p.y;
+    pts.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (pts.current.size >= 2 && d.dist) {
+      const [a, c] = [...pts.current.values()];
+      const dist = Math.hypot(a.x - c.x, a.y - c.y), cx = (a.x + c.x) / 2, cy = (a.y + c.y) / 2;
+      const r = box.current!.getBoundingClientRect();
+      panBy(cx - d.cx!, cy - d.cy!);
+      zoomAt(dist / d.dist, cx - r.left, cy - r.top);
+      Object.assign(d, { dist, cx, cy });
+      return;
+    }
+    if (!d.moved && Math.hypot(e.clientX - d.sx, e.clientY - d.sy) < DRAG_SLOP) return;
+    if (!d.moved) { d.moved = true; (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId); setGrabbing(true); }
+    panBy(dx, dy);
+  };
+  const onPointerUp = (e: React.PointerEvent) => {
+    pts.current.delete(e.pointerId);
+    if (drag.current?.moved) suppressClick.current = true;
+    if (pts.current.size === 0) { drag.current = null; setGrabbing(false); }
+    else if (pts.current.size === 1) { const [a] = [...pts.current.values()]; drag.current = { moved: true, sx: a.x, sy: a.y }; }
+  };
+
+  const onKeyDown = (e: React.KeyboardEvent) => {
+    const step = 60;
+    const map: Record<string, () => void> = {
+      "+": () => zoomCenter(1.25), "=": () => zoomCenter(1.25), "-": () => zoomCenter(0.8), "0": () => { touched.current = false; fit(); },
+      ArrowLeft: () => panBy(step, 0), ArrowRight: () => panBy(-step, 0), ArrowUp: () => panBy(0, step), ArrowDown: () => panBy(0, -step),
+    };
+    const f = map[e.key];
+    if (f && !e.altKey) { e.preventDefault(); f(); }
+  };
+
+  return (
+    <div className={cn("relative overflow-hidden rounded-lg border bg-background", className)}>
+      <div ref={box} tabIndex={0} role="application" aria-label={t("aria")}
+        className={cn("absolute inset-0 touch-none outline-none select-none focus-visible:ring-1 focus-visible:ring-ring/40 focus-visible:ring-inset", grabbing ? "cursor-grabbing" : "cursor-grab")}
+        style={{ backgroundImage: "radial-gradient(circle, color-mix(in oklab, var(--foreground) 9%, transparent) 1px, transparent 1px)", backgroundSize: "20px 20px" }}
+        onPointerDown={onPointerDown} onPointerMove={onPointerMove} onPointerUp={onPointerUp} onPointerCancel={onPointerUp}
+        onClickCapture={(e) => { if (suppressClick.current) { e.stopPropagation(); e.preventDefault(); suppressClick.current = false; } }}
+        onDoubleClick={(e) => { const r = box.current!.getBoundingClientRect(); zoomAt(e.shiftKey ? 0.5 : 2, e.clientX - r.left, e.clientY - r.top); }}
+        onKeyDown={onKeyDown}>
+        <div ref={inner} className="absolute top-0 left-0 origin-top-left" style={{ width: contentWidth }}>{children}</div>
+      </div>
+      <p className="pointer-events-none absolute bottom-2 left-2 hidden rounded-md bg-background/85 px-2 py-1 text-[0.7rem] text-muted-foreground shadow-sm ring-1 ring-border backdrop-blur sm:block">
+        {t("hint")}
+      </p>
+      <div className="absolute right-2 bottom-2 flex items-center gap-0.5 rounded-lg bg-background/90 p-0.5 shadow-sm ring-1 ring-border backdrop-blur">
+        <Button size="icon-sm" variant="ghost" aria-label={t("out")} title={t("out")} onClick={() => zoomCenter(0.8)}><Minus /></Button>
+        <button type="button" className="min-w-12 rounded-md px-1 text-center text-xs font-medium tabular hover:bg-muted" title={t("fit")}
+          onClick={() => { touched.current = false; fit(); }}>{pct}%</button>
+        <Button size="icon-sm" variant="ghost" aria-label={t("in")} title={t("in")} onClick={() => zoomCenter(1.25)}><Plus /></Button>
+        <Button size="icon-sm" variant="ghost" aria-label={t("fit")} title={t("fit")} onClick={() => { touched.current = false; fit(); }}><Scan /></Button>
+      </div>
+    </div>
+  );
+}

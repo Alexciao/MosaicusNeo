@@ -88,11 +88,13 @@ export function MosaicusApp() {
         {seen.quaderno && <div hidden={page !== "quaderno"} className="mz-enter"><NotebookPage /></div>}
         {seen.elab && <div hidden={page !== "elab"} className="mz-enter"><WorkbenchPage /></div>}
       </main>
-      <footer className="px-4 py-6 text-center text-xs text-muted-foreground">
-        {t("credits")} ·{" "}
-        <a className="inline-flex items-center gap-1 underline" href={REPO_URL} target="_blank" rel="noopener"><GithubMark className="size-3" />GitHub</a> ·{" "}
-        <a className="underline" href={ISSUES_URL} target="_blank" rel="noopener">{t("report")}</a> ·{" "}
-        <button type="button" className="font-medium text-foreground underline" onClick={openPrivacy}>{t("privacy")}</button>
+      <footer className="mx-auto flex w-full max-w-[1600px] flex-wrap items-center justify-center gap-x-4 gap-y-1 px-4 py-6 text-xs text-muted-foreground">
+        <span>{t("credits")}</span>
+        <span className="flex items-center gap-4">
+          <a className="inline-flex items-center gap-1 transition-colors hover:text-foreground" href={REPO_URL} target="_blank" rel="noopener"><GithubMark className="size-3" />GitHub</a>
+          <a className="transition-colors hover:text-foreground" href={ISSUES_URL} target="_blank" rel="noopener">{t("report")}</a>
+          <button type="button" className="transition-colors hover:text-foreground" onClick={openPrivacy}>{t("privacy")}</button>
+        </span>
       </footer>
       <MobileNav />
       <GenChip />

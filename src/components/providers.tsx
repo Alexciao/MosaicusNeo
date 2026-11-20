@@ -14,7 +14,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
       <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange storageKey="mosaicus.theme">
         <TooltipProvider delay={400}>
           {children}
-          <Toaster position="bottom-center" richColors={false} closeButton />
+          <Toaster />
         </TooltipProvider>
       </ThemeProvider>
     </NextIntlClientProvider>

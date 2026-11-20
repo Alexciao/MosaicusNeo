@@ -34,10 +34,12 @@ const BOT_PINS: (number | string | null)[] = [null, null, null, "3V3", "5V", "GN
 // disegno dei moduli: larghezza, altezza (piedini sul lato in alto); ntc e ldr sono componenti sciolti
 const SIZE: Record<string, [number, number]> = {
   dht: [54, 86], sonar: [124, 76], gps: [80, 98], analog: [52, 66], ds18b20: [64, 92], gate: [66, 78], hx711: [62, 74],
-  imu: [100, 70], mlx: [54, 66], oled: [58, 66], rgb: [54, 64], buzzer: [48, 64], hc06: [60, 96], ble: [60, 96],
+  imu: [100, 70], mlx: [54, 66], oled: [58, 66], rgb: [54, 64], buzzer: [58, 76], hc06: [60, 96], ble: [60, 96],
   button: [40, 48], sd: [82, 94], sps30: [76, 118],
 };
 const ON_BOARD = new Set(["ntc", "ldr"]);
+/** Componenti «nudi» (senza schedina): i piedini sono reofori d'acciaio infilati direttamente. */
+const BARE = new Set(["rgb", "buzzer"]);
 /** Larghezza vera dei moduli (mm) lungo la fila dei piedini: infilati nella breadboard stanno in
  *  piedi, uno accanto all'altro nella riga e, e due vicini non devono toccarsi. */
 const WIDTH_MM: Record<string, number> = {
@@ -351,29 +353,65 @@ export function ModuleArt({ kind, options, x, y, w, h, uid }: { kind: string; op
         </g>
       );
     case "rgb": {
-      const cy = top + 18;
+      // LED RGB da 5 mm, diffuso, come il componente vero: quattro piedini (il comune è il più lungo,
+      // con la piega), il bordino alla base e la cupola che pende verso il basso
+      const cx = x + w / 2, n = 4, yf = y + 30, r = 11.5, bend = y + 14, conv = y + 25;
+      const xs = Array.from({ length: n }, (_, i) => cx + (i - (n - 1) / 2) * P);
+      const xin = Array.from({ length: n }, (_, i) => cx + (i - (n - 1) / 2) * 4.2);
       return (
         <g>
-          {pcb("#18181b")}
           <defs>
-            <radialGradient id={`${uid}led`} cx="38%" cy="32%" r="72%"><stop offset="0%" stopColor="#fff" /><stop offset="40%" stopColor="#a5f3fc" /><stop offset="72%" stopColor="#f0abfc" /><stop offset="100%" stopColor="#fca5a5" /></radialGradient>
+            <linearGradient id={`${uid}ledBody`} x1="0" y1="0" x2="1" y2="0">
+              <stop offset="0%" stopColor="#e2e8f0" /><stop offset="35%" stopColor="#f8fafc" /><stop offset="100%" stopColor="#cbd5e1" />
+            </linearGradient>
+            <radialGradient id={`${uid}ledTint`} cx="50%" cy="70%" r="60%">
+              <stop offset="0%" stopColor="#f0abfc" stopOpacity={0.35} /><stop offset="55%" stopColor="#a5f3fc" stopOpacity={0.18} /><stop offset="100%" stopColor="#fff" stopOpacity={0} />
+            </radialGradient>
           </defs>
-          <circle cx={x + w / 2} cy={cy} r={18} fill="#a5f3fc" opacity={0.12} />
-          <circle cx={x + w / 2} cy={cy} r={12.5} fill={`url(#${uid}led)`} stroke="#e4e4e7" strokeWidth={1} />
-          {label("RGB", y + h - 5, "#d4d4d8", 5.8)}
+          {xs.map((lx, i) => (
+            <path key={i} d={i === 1
+              ? `M${lx} ${y} V${bend - 6} l2.5 3 -2.5 3 L${xin[i]} ${conv} V${yf + 6}`
+              : `M${lx} ${y} V${bend} L${xin[i]} ${conv} V${yf + 6}`}
+              fill="none" stroke="#a1a1aa" strokeWidth={1.7} strokeLinejoin="round" />
+          ))}
+          {xs.map((lx, i) => (
+            <path key={`h${i}`} d={`M${lx - 0.4} ${y} V${bend - (i === 1 ? 6 : 0)}`} stroke="#f4f4f5" strokeWidth={0.5} opacity={0.8} />
+          ))}
+          <ellipse cx={cx + 1.2} cy={yf + 31} rx={r * 0.9} ry={2.4} fill="#000" opacity={0.12} />
+          <rect x={cx - r - 1.8} y={yf} width={(r + 1.8) * 2} height={4} rx={1} fill="#e2e8f0" stroke="#94a3b8" strokeWidth={0.6} />
+          <path d={`M${cx - r} ${yf + 4} V${yf + 16} A${r} ${r} 0 0 0 ${cx + r} ${yf + 16} V${yf + 4} Z`} fill={`url(#${uid}ledBody)`} stroke="#94a3b8" strokeWidth={0.7} opacity={0.97} />
+          <path d={`M${cx - r} ${yf + 4} V${yf + 16} A${r} ${r} 0 0 0 ${cx + r} ${yf + 16} V${yf + 4} Z`} fill={`url(#${uid}ledTint)`} />
+          {/* reofori dentro la resina, la coppetta e il chip */}
+          {xin.map((lx, i) => <path key={`in${i}`} d={`M${lx} ${yf + 4} V${yf + (i === 1 ? 12 : 10)}`} stroke="#94a3b8" strokeWidth={1} opacity={0.55} />)}
+          <path d={`M${cx - 4.5} ${yf + 12} h9 l-1.5 4 h-6 z`} fill="#94a3b8" opacity={0.5} />
+          <rect x={cx - 1.4} y={yf + 12.6} width={2.8} height={2} fill="#475569" opacity={0.6} />
+          <path d={`M${cx - r + 2.6} ${yf + 6} V${yf + 17}`} stroke="#fff" strokeWidth={2.2} strokeLinecap="round" opacity={0.85} />
+          <circle cx={cx - 4} cy={yf + 22} r={1.6} fill="#fff" opacity={0.6} />
         </g>
       );
     }
     case "buzzer": {
-      const cy = top + 19;
+      // cicalino da 12 mm visto dall'alto: cilindro nero lucido, il foro al centro, il «+» stampato;
+      // i due piedini spuntano da sotto
+      const cx = x + w / 2, R0 = 26, cy = y + h - R0 - 2, passive = options?.kind === "passive";
       return (
         <g>
-          {pcb("#18181b")}
-          <circle cx={x + w / 2} cy={cy} r={16} fill="#09090b" stroke="#52525b" strokeWidth={1.4} />
-          <circle cx={x + w / 2} cy={cy} r={11} fill="none" stroke="#27272a" strokeWidth={0.8} />
-          <circle cx={x + w / 2} cy={cy} r={3} fill="#3f3f46" />
-          <text x={x + w / 2 - 12} y={cy - 8} fontSize={7} fontWeight={700} fill="#e4e4e7">+</text>
-          {label(options?.kind === "passive" ? t("rig.board.silkPassive") : "BUZZER", y + h - 5, "#d4d4d8", 5.4)}
+          <defs>
+            <radialGradient id={`${uid}buzz`} cx="38%" cy="32%" r="75%">
+              <stop offset="0%" stopColor="#52525b" /><stop offset="45%" stopColor="#27272a" /><stop offset="100%" stopColor="#09090b" />
+            </radialGradient>
+          </defs>
+          {[-1, 1].map((d) => <path key={d} d={`M${cx + d * P / 2} ${y} V${cy}`} stroke="#a1a1aa" strokeWidth={1.7} />)}
+          {[-1, 1].map((d) => <path key={`h${d}`} d={`M${cx + d * P / 2 - 0.4} ${y} V${cy - R0}`} stroke="#f4f4f5" strokeWidth={0.5} opacity={0.8} />)}
+          <circle cx={cx + 1.2} cy={cy + 2.4} r={R0} fill="#000" opacity={0.25} />
+          <circle cx={cx} cy={cy} r={R0} fill={`url(#${uid}buzz)`} stroke="#000" strokeWidth={0.8} />
+          <circle cx={cx} cy={cy} r={R0 - 3} fill="none" stroke="#3f3f46" strokeWidth={0.8} opacity={0.8} />
+          {passive && <circle cx={cx} cy={cy} r={R0 - 9} fill="none" stroke="#3f3f46" strokeWidth={0.6} opacity={0.7} />}
+          <circle cx={cx} cy={cy} r={4.6} fill="#3f3f46" />
+          <circle cx={cx} cy={cy} r={3.4} fill="#000" />
+          <path d={`M${cx - R0 + 6} ${cy - 8} A${R0 - 6} ${R0 - 6} 0 0 1 ${cx - 8} ${cy - R0 + 6}`} fill="none" stroke="#fff" strokeWidth={2.4} strokeLinecap="round" opacity={0.16} />
+          <text x={cx - P / 2} y={cy - 10} textAnchor="middle" fontSize={8} fontWeight={700} fill="#d4d4d8">+</text>
+          <text x={cx} y={cy + 15} textAnchor="middle" fontSize={4.4} fontWeight={600} fill="#a1a1aa" letterSpacing={0.4}>{passive ? t("rig.board.silkPassive") : "BUZZER"}</text>
         </g>
       );
     }
@@ -459,7 +497,10 @@ export function ComponentThumb({ type, options, className }: { type: SensorType 
       <defs><pattern id={`${uid}mesh`} width={3} height={3} patternUnits="userSpaceOnUse"><rect width={1.6} height={1.6} fill="#a1a1aa" opacity={0.6} /></pattern></defs>
       {Array.from({ length: n }, (_, i) => {
         const px = side / 2 + (i - (n - 1) / 2) * P;
-        return <rect key={i} x={px - 1.8} y={-8} width={3.6} height={10} fill="#d4a017" stroke="#92400e" strokeWidth={0.4} />;
+        if (mod?.rows[i]?.gap) return null;
+        return BARE.has(type)
+          ? <rect key={i} x={px - 0.85} y={-8} width={1.7} height={9} fill="#a1a1aa" />
+          : <rect key={i} x={px - 1.8} y={-8} width={3.6} height={10} fill="#d4a017" stroke="#92400e" strokeWidth={0.4} />;
       })}
       <ModuleArt kind={type} options={options ?? mod?.options} x={x0} y={0} w={w} h={h} uid={uid} />
     </svg>
@@ -553,7 +594,7 @@ function ArduinoArt({ x, y, used, uid, tips }: { x: number; y: number; used: Map
       {/* header */}
       {header(topX0, 10, y + 10)}
       {header(topX0 + 11 * HP, 8, y + 10)}
-      {header(botX0 + HP, 8, y + AH - 10)}
+      {header(botX0, 8, y + AH - 10)}
       {header(botX0 + 9 * HP, 6, y + AH - 10)}
       {TOP_LABELS.map((t, i) => t && (
         <g key={`t${i}`}>
@@ -561,6 +602,8 @@ function ArduinoArt({ x, y, used, uid, tips }: { x: number; y: number; used: Map
           <text transform={`translate(${topX0 + i * HP + 2.2} ${y + 19}) rotate(90)`} fontSize={5.6} fontWeight={used.has(`t${i}`) ? 700 : 400} fill="#ecfeff">{t}</text>
         </g>
       ))}
+      {/* il foro senza nome (NC) all'inizio dell'header: contando i fori, 5V è il quinto */}
+      {pinHole(botX0, y + AH - 10, undefined, undefined)}
       {BOT_LABELS.map((t, i) => t && (
         <g key={`b${i}`}>
           {pinHole(botX0 + i * HP, y + AH - 10, used.get(`b${i}`), tips.get(`b${i}`))}
@@ -655,6 +698,8 @@ function layout(sensors: SensorInstance[], bt: BtModule) {
     const hops = sigs.filter((s) => s.mi >= 0 && s.pin === pin).sort((a, b) => b.col - a.col);
     hops.forEach((s, k) => { s.hop = { bus: busCol.get(pin)!, row: (["b", "c", "d", "e"] as const)[k], vx: (k + 1) * (P / 2) }; });
   }
+  // in quale foro della colonna del bus va il filo di ogni piedino (per i suggerimenti)
+  const hopRow = new Map(sigs.flatMap((s) => (s.hop ? [[`${s.mi}-${s.ri}`, s.hop.row] as const] : [])));
   const ordered = [...sigs].sort((a, b) => a.col - b.col);
   const laneOf = new Map(ordered.map((s, i) => [s, i]));
   // fili che arrivano all'header in basso (3.3V, A0…A5), dal più basso al più alto
@@ -713,6 +758,17 @@ function layout(sensors: SensorInstance[], bt: BtModule) {
   wires.push(<Wire key="p5" color={RED} title={T5} d={ortho([[v5.x, v5.y], [v5.x, botLane(nA + 1)], [colX(3), botLane(nA + 1)], [colX(3), R.p2]])} />);
   wires.push(<Wire key="b5" color={RED} title={TB5} d={ortho([[colX(0), R.p2], [colX(0), R.p1]])} />);
   wires.push(<Wire key="bg" color={BLK} title={TBG} d={ortho([[colX(1), R.n2], [colX(1), R.n1]])} />);
+  // binari interrotti a metà (molte breadboard da 830 fori): due ponticelli, tratteggiati perché
+  // servono solo se la linea rossa e blu si interrompe. Senza, i moduli nella metà destra restano spenti.
+  const TSR = t("rig.board.tipSplitBridge");
+  boards.forEach(({ c0 }, b) => {
+    if (b === nBoards - 1 && usedTo <= c0 + 30) return;
+    const xa = colX(c0 + 29), xb = colX(c0 + 32);
+    for (const [yy, color, k] of [[R.p1, RED, "p"], [R.n1, BLK, "n"]] as const) {
+      wires.push(<Wire key={`sr${b}${k}`} color={color} dashed title={TSR} d={ortho([[xa, yy], [xa, yy - (k === "p" ? 7 : 4)], [xb, yy - (k === "p" ? 7 : 4)], [xb, yy]], 3)} />);
+      ends.push(<End key={`sra${b}${k}`} x={xa} y={yy} color={color} title={TSR} />, <End key={`srb${b}${k}`} x={xb} y={yy} color={color} title={TSR} />);
+    }
+  });
   for (const [k, xx, yy, c, t] of [["e5", colX(3), R.p2, RED, T5], ["eg", colX(2), R.n2, BLK, TG], ["b5a", colX(0), R.p2, RED, TB5], ["b5b", colX(0), R.p1, RED, TB5], ["bga", colX(1), R.n2, BLK, TBG], ["bgb", colX(1), R.n1, BLK, TBG]] as const)
     ends.push(<End key={k} x={xx} y={yy} color={c} title={t} />);
   steps.push({
@@ -779,8 +835,8 @@ function layout(sensors: SensorInstance[], bt: BtModule) {
       g.wires.push({ color: RED, from: hole("a", ca), to: railName("5V", ca) }, { color: BLK, from: hole("a", cb), to: railName("GND", cb) });
       return;
     }
-    g.place = t("rig.board.placeRow", { list: p.m.rows.map((r, ri) => t("rig.board.pinIn", { pin: r.label.split(" ")[0].replace(/[()]/g, ""), hole: hole("e", p.pinCol[ri]) })).join(", ") });
-    const free = p.m.rows.filter((r) => r.conn === "NC").map((r) => r.label);
+    g.place = t("rig.board.placeRow", { list: p.m.rows.flatMap((r, ri) => r.gap ? [] : [t("rig.board.pinIn", { pin: r.label.split(" ")[0].replace(/[()]/g, ""), hole: hole("e", p.pinCol[ri]) })]).join(", ") });
+    const free = p.m.rows.filter((r) => r.conn === "NC" && !r.gap).map((r) => r.label);
     if (free.length) g.place += ` ${t("rig.board.leaveFree", { list: free.join(", "), n: free.length })}`;
     p.m.rows.forEach((r, ri) => {
       const x = p.pinX[ri], c = p.pinCol[ri];
@@ -873,7 +929,7 @@ function layout(sensors: SensorInstance[], bt: BtModule) {
   }
 
   for (const g of steps) for (const w of g.wires) if (!w.part) { if (w.color === RED) count.red++; else if (w.color === BLK) count.black++; else count.signal++; }
-  return { W, H, bbX, bbTop, bbW, nCols, R, colX, AX, AY, placed, wires, ends, parts, used, tips, steps, count, busCol, boards, hole };
+  return { W, H, bbX, bbTop, bbW, nCols, R, colX, AX, AY, placed, wires, ends, parts, used, tips, steps, count, busCol, hopRow, boards, hole };
 }
 
 type TipState = { text: string; x: number; y: number } | null;
@@ -918,7 +974,7 @@ export function BoardDiagram({ sensors, bt = null, className }: { sensors: Senso
     else if (!keep) channel.current(null);
     return !!el;
   };
-  const { W, H, bbTop, R, colX, AX, AY, placed, wires, ends, parts, used, tips, busCol, boards, hole } = L;
+  const { W, H, bbTop, R, colX, AX, AY, placed, wires, ends, parts, used, tips, busCol, hopRow, boards, hole } = L;
   const gridX = colX(0) - P / 2;
   return (
     <>
@@ -986,16 +1042,25 @@ export function BoardDiagram({ sensors, bt = null, className }: { sensors: Senso
       {placed.map((p, mi) => !p.onBoard && (
         <g key={`m${mi}`} data-hl="">
           <ModuleArt kind={p.m.kind} options={p.m.options} x={p.x} y={p.y} w={p.w} h={p.h} uid={uid} />
-          {p.m.rows.map((r, ri) => (
+          {p.m.rows.map((r, ri) => !r.gap && (
             <g key={ri} className="cursor-help"
               data-tip={tr("pinTip", {
                 title: p.m.title, label: r.label, hole: hole("e", p.pinCol[ri]),
-                dest: r.conn === "NC" ? tr("notConnected") : r.conn === "3V3" ? "3.3V" : typeof r.conn === "number" ? (busCol.has(r.conn) ? tr("busHole", { hole: hole("a", busCol.get(r.conn)!), pin: ardName(r.conn) }) : ardName(r.conn)) : r.conn === "5V" ? tr("rail5v") : tr("railGnd"),
+                dest: r.conn === "NC" ? tr("notConnected") : r.conn === "3V3" ? "3.3V" : typeof r.conn === "number" ? (busCol.has(r.conn) ? tr("busHole", { hole: hole(hopRow.get(`${mi}-${ri}`) ?? "a", busCol.get(r.conn)!), pin: ardName(r.conn) }) : ardName(r.conn)) : r.conn === "5V" ? tr("rail5v") : tr("railGnd"),
                 via: r.via ?? "none", ohms: OHMS[r.res ?? (r.via === "pullup" ? "10k" : "220")],
               })}>
-              <rect x={p.pinX[ri] - 1.8} y={R.e - 1} width={3.6} height={p.y - R.e + 3} fill="#d4a017" stroke="#92400e" strokeWidth={0.4} />
-              <rect x={p.pinX[ri] - 3} y={p.y + 1} width={6} height={4} fill="#18181b" />
-              <text transform={`translate(${p.pinX[ri] - 2} ${p.y + 7}) rotate(90)`} fontSize={5.2} fontWeight={700} fill="#ffffffe6">{r.label.split(" ")[0].replace(/[()]/g, "")}</text>
+              {BARE.has(p.m.kind) ? (
+                <>
+                  <rect x={p.pinX[ri] - 0.85} y={R.e - 1} width={1.7} height={p.y - R.e + 1} fill="#a1a1aa" />
+                  <text x={p.pinX[ri] + 1.8} y={p.y + 7} fontSize={5.6} fontWeight={700} fill={INK}>{r.label.split(" ")[0].replace(/[()]/g, "")}</text>
+                </>
+              ) : (
+                <>
+                  <rect x={p.pinX[ri] - 1.8} y={R.e - 1} width={3.6} height={p.y - R.e + 3} fill="#d4a017" stroke="#92400e" strokeWidth={0.4} />
+                  <rect x={p.pinX[ri] - 3} y={p.y + 1} width={6} height={4} fill="#18181b" />
+                  <text transform={`translate(${p.pinX[ri] - 2} ${p.y + 7}) rotate(90)`} fontSize={5.2} fontWeight={700} fill="#ffffffe6">{r.label.split(" ")[0].replace(/[()]/g, "")}</text>
+                </>
+              )}
             </g>
           ))}
         </g>

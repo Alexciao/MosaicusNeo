@@ -6,11 +6,12 @@
 
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
-import { CircleAlert, CircleCheck, LoaderCircle, Volume2, VolumeX } from "lucide-react";
-import { useLab, resolved, type DeviceStatus } from "@/lib/lab-store";
-import { liveStatus, type LiveIssue } from "@/lib/live-status";
-import { indicatorsOf } from "@/lib/sensors/rig";
-import { SENSORS } from "@/lib/sensors/catalog";
+import { ArrowRight, CircleAlert, CircleCheck, LoaderCircle, Plug, SlidersHorizontal, TriangleAlert, Volume2, VolumeX, Wrench, X } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { useLab, resolved, showWiring, type DeviceStatus } from "@/lib/lab-store";
+import { useDiag, diagDismiss, type Diag } from "@/lib/diagnostics";
+import { indicatorsOf, sensorLabel, type SensorInstance } from "@/lib/sensors/rig";
+import { SENSORS, pinName } from "@/lib/sensors/catalog";
 import { glyph } from "@/lib/mosaicus/oled-font";
 import { cn } from "@/lib/utils";
 
@@ -24,33 +25,86 @@ function useTick(ms: number, on = true) {
   return t;
 }
 
-/** Chip con lo stato dei sensori che non sono (ancora) a posto. */
-export function LiveChips() {
-  const rig = useLab((s) => s.rig);
-  const rows = useLab((s) => s.rows);
+/** Diagnostica della misura: un elenco ordinato dei problemi visti, con il componente, i suoi pin,
+ *  che cosa controllare e quando. Resta dopo «Ferma», fino alla misura successiva. */
+export function Diagnostics() {
+  const items = useDiag((s) => s.items);
+  const ended = useDiag((s) => s.ended);
   const running = useLab((s) => s.running);
-  const created = useLab((s) => s.session?.created ?? 0);
-  useTick(2000, running);
-  if (!running) return null;
-  // eslint-disable-next-line react-hooks/purity -- il tempo trascorso serve solo a non segnalare troppo presto
-  const elapsed = (Date.now() - created) / 1000;
-  const issues = liveStatus(rig, resolved(rig), rows, running, elapsed);
-  if (!issues.length) return null;
+  const rig = useLab((s) => s.rig);
+  const t = useTranslations("app.diag");
+  if (!items.length) return null;
+  const rank = (d: Diag) => (d.active ? (d.tone === "error" ? 0 : 1) : 2);
+  const list = [...items].sort((x, y) => rank(x) - rank(y) || x.first - y.first);
+  const active = items.filter((d) => d.active).length;
+  const errors = items.some((d) => d.active && d.tone === "error");
+  const allOk = !active;
+  const HeadIcon = allOk ? CircleCheck : errors ? CircleAlert : TriangleAlert;
   return (
-    <div className="flex flex-wrap gap-1.5" aria-live="polite">
-      {issues.map((i) => <Chip key={i.sensorId} i={i} />)}
-    </div>
+    <section aria-live="polite" aria-label={t("title")}
+      className={cn("overflow-hidden rounded-lg border animate-in fade-in-0", errors ? "border-destructive/30" : allOk ? "border-success/30" : "border-warning/40")}>
+      <header className={cn("flex items-center gap-2 px-3 py-2", errors ? "bg-destructive/[0.06]" : allOk ? "bg-success/[0.06]" : "bg-warning/[0.08]")}>
+        <HeadIcon className={cn("size-4 shrink-0", errors ? "text-destructive" : allOk ? "text-success" : "text-warning")} />
+        <h3 className="text-sm font-semibold">{t("title")}</h3>
+        <span className="text-xs text-muted-foreground tabular">
+          {allOk ? t("allResolved") : t("live", { n: items.length, active })}
+        </span>
+        {ended && !running && (
+          <Button size="icon-xs" variant="ghost" className="ml-auto text-muted-foreground" aria-label={t("dismiss")} title={t("dismiss")} onClick={diagDismiss}><X /></Button>
+        )}
+      </header>
+      {ended && !running && items.some((d) => !d.setup) && <p className="border-t px-3 py-1.5 text-xs text-muted-foreground">{t("after")}</p>}
+      <ul className="divide-y border-t">
+        {list.map((d) => <DiagRow key={d.id} d={d} sensor={rig.sensors.find((x) => x.id === d.sensorId)} running={running} />)}
+      </ul>
+    </section>
   );
 }
-function Chip({ i }: { i: LiveIssue }) {
-  const Icon = i.tone === "ok" ? CircleCheck : i.tone === "search" ? LoaderCircle : CircleAlert;
+
+const mmss = (s: number) => { const v = Math.max(0, Math.floor(s)); return `${Math.floor(v / 60)}:${String(v % 60).padStart(2, "0")}`; };
+
+function DiagRow({ d, sensor, running }: { d: Diag; sensor?: SensorInstance; running: boolean }) {
+  const t = useTranslations("app.diag");
+  const def = sensor ? SENSORS[sensor.type] : undefined;
+  const SIcon = def?.icon;
+  const resolvedNow = !d.active;
+  const Icon = resolvedNow ? CircleCheck : d.tone === "error" ? CircleAlert : LoaderCircle;
+  const state = resolvedNow ? t("resolved") : !running && !d.setup ? t("stillAtStop") : d.setup ? t(`severity.${d.tone}`) : t("stillActive");
+  const when = d.setup ? t("setup") : resolvedNow || !running ? (mmss(d.first) === mmss(d.last) ? mmss(d.first) : t("range", { from: mmss(d.first), to: mmss(d.last) })) : t("since", { t: mmss(d.first) });
   return (
-    <span className={cn("inline-flex max-w-full items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs animate-in fade-in-0",
-      i.tone === "ok" ? "border-success/30 bg-success/10" : i.tone === "search" ? "border-warning/40 bg-warning/10" : "border-destructive/30 bg-destructive/10 text-destructive")}>
-      <Icon className={cn("size-3.5 shrink-0", i.tone === "search" && "animate-spin [animation-duration:2s]", i.tone === "ok" && "text-success")} />
-      <b className="font-semibold">{i.text}</b>
-      {i.hint && <span className="hidden text-muted-foreground sm:inline">· {i.hint}</span>}
-    </span>
+    <li className="flex flex-col gap-2 px-3 py-2.5 sm:flex-row sm:items-start">
+      <div className="flex min-w-0 flex-1 gap-2.5">
+        <Icon className={cn("mt-0.5 size-4 shrink-0",
+          resolvedNow ? "text-success" : d.tone === "error" ? "text-destructive" : "text-warning",
+          !resolvedNow && d.tone === "search" && running && "animate-spin [animation-duration:2s]")} />
+        <div className="flex min-w-0 flex-1 flex-col gap-1">
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+            <span className="inline-flex items-center gap-1.5 text-sm font-semibold">
+              {SIcon && <SIcon className="size-3.5 text-muted-foreground" />}
+              {sensor ? sensorLabel(sensor) : t("general")}
+            </span>
+            {sensor && def && def.pins.length > 0 && (
+              <span className="font-mono text-[0.68rem] text-muted-foreground">{def.pins.map((p) => `${p.role} ${pinName(sensor.pins[p.key])}`).join(" · ")}</span>
+            )}
+            <span className={cn("rounded px-1.5 py-px text-[0.65rem] font-semibold",
+              resolvedNow ? "bg-success/10 text-success" : d.tone === "error" ? "bg-destructive/10 text-destructive" : "bg-warning/15 text-warning")}>{state}</span>
+          </div>
+          <p className={cn("text-sm", resolvedNow && "text-muted-foreground")}>
+            {d.text}{resolvedNow && d.okText && <> <ArrowRight className="inline size-3.5 align-[-2px]" /> <span className="text-foreground">{d.okText}</span></>}
+          </p>
+          {d.hint && !resolvedNow && (
+            <p className="flex items-start gap-1.5 text-xs text-muted-foreground"><Wrench className="mt-px size-3.5 shrink-0" /><span><b className="font-medium text-foreground/80">{t("check")}:</b> {d.hint}</span></p>
+          )}
+          <p className="text-[0.7rem] text-muted-foreground tabular">{when}{d.repeats > 0 && ` · ${t("repeats", { n: d.repeats })}`}</p>
+        </div>
+      </div>
+      {!resolvedNow && (sensor || d.setup) && (
+        <div className="flex shrink-0 gap-1.5 pl-6.5 sm:pl-0">
+          {sensor && !def?.phone && <Button size="xs" variant="outline" onClick={showWiring}><Plug /> {t("wiring")}</Button>}
+          <Button size="xs" variant="ghost" disabled={running} onClick={() => useLab.setState({ rigOpen: true })}><SlidersHorizontal /> {t("component")}</Button>
+        </div>
+      )}
+    </li>
   );
 }
 

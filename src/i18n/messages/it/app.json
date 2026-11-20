@@ -23,9 +23,9 @@
     "privacy": "Informativa sulla privacy"
   },
   "footer": {
-    "credits": "MosaicusNeo · basato su Mosaicus di Ermes Ferdinando Rosi · software libero con licenza MIT",
-    "report": "segnala un problema",
-    "privacy": "privacy"
+    "credits": "Basato su Mosaicus di Ermes Ferdinando Rosi · licenza MIT",
+    "report": "Segnala un problema",
+    "privacy": "Privacy"
   },
   "genChip": {
     "open": "Apri il synth",
@@ -151,13 +151,13 @@
     "namePlaceholder": "Nome della misura, es. Gruppo 3 · piano inclinato",
     "nameLabel": "Nome della misura",
     "time": "Tempo",
-    "sim": "Simulatore",
-    "wiring": "Schema dei collegamenti",
     "connecting": "Collegamento…",
     "stop": "Ferma",
     "start": "Avvia",
     "zeroTitle": "Usa la posizione attuale come origine",
-    "zeroLabel": "Azzera la posizione"
+    "needLink": "Collega Arduino o avvia il simulatore per iniziare.",
+    "needPhone": "Attiva i sensori del telefono per iniziare.",
+    "zeroShort": "Azzera"
   },
   "confirm": {
     "cancel": "Annulla",
@@ -359,5 +359,27 @@
     "notes": "Note",
     "tonic": "Tonica",
     "speakerHint": "I timbri si distinguono meglio tra 300 e 1000 Hz: l'altoparlante del telefono riproduce poco le note basse."
+  },
+  "diag": {
+    "title": "Diagnostica",
+    "live": "{n, plural, one {# problema} other {# problemi}}{active, plural, =0 {} other { · # in corso}}",
+    "after": "Rilevati durante l'ultima misura: rivedili e sistema prima di ripartire.",
+    "setup": "Prima di avviare",
+    "allResolved": "Tutti risolti",
+    "dismiss": "Chiudi la diagnostica",
+    "general": "Arduino",
+    "since": "da {t}",
+    "range": "{from}–{to}",
+    "resolved": "Risolto",
+    "stillAtStop": "Ancora presente allo stop",
+    "stillActive": "In corso",
+    "repeats": "{n, plural, one {ricomparso # volta} other {ricomparso # volte}}",
+    "check": "Da controllare",
+    "wiring": "Collegamenti",
+    "component": "Componente",
+    "severity": {
+      "error": "Errore",
+      "search": "In attesa"
+    }
   }
 }

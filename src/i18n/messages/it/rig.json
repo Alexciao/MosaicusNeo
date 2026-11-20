@@ -17,22 +17,8 @@
       "components": "Componenti",
       "componentsCount": "Componenti ({n})",
       "wiring": "Collegamenti",
-      "notebook": "Quaderno",
       "serial": "Seriale"
     },
-    "loading": "Caricamento…",
-    "empty": "Nessuna misura. Premi «Avvia» e poi «Ferma»: la misura si salva qui.",
-    "cloudDirty": "da salvare nel cloud",
-    "cloudSaved": "salvata nel cloud",
-    "readings": "{n, plural, one {# lettura} other {# letture}}",
-    "open": "Apri",
-    "openNamed": "Apri {name}",
-    "delete": "Elimina",
-    "deleteNamed": "Elimina {name}",
-    "deleteTitle": "Eliminare «{name}»?",
-    "deleteDescription": "I tratti già inviati a Elaborazione restano.",
-    "openNotebook": "Apri il Quaderno",
-    "openNotebookCount": "Apri il Quaderno ({n})",
     "serialHint": "Righe ricevute da Arduino, non convertite. Le righe «D,slot,t,…» sono letture.",
     "serialWaiting": "In attesa di dati…"
   },
@@ -51,17 +37,13 @@
     "save": "Salva",
     "projectKeyword": "progetto",
     "toolKeyword": "strumento",
-    "heading": "Lab",
     "search": "Cerca un lab",
     "clearSearch": "Cancella la ricerca",
     "nav": "Lab",
     "projects": "I miei progetti",
     "newProject": "Nuovo progetto",
     "tools": "Strumenti",
-    "noResults": "Nessun lab per «{query}».",
-    "reportTitle": "Segnala un problema su GitHub",
-    "reports": "Segnalazioni",
-    "privacy": "Privacy"
+    "noResults": "Nessun lab per «{query}»."
   },
   "schematic": {
     "hcsr04Aria": "HC-SR04: VCC a 5V, GND a GND, Trig a {trig}, Echo a {echo}",
@@ -134,13 +116,20 @@
     "parts": "Occorrente",
     "steps": "Passo passo",
     "dialogTitle": "Schema dei collegamenti",
-    "dialogDescription": "Rosso 5V, nero GND. Sul telefono scorri e ingrandisci con due dita.",
+    "dialogDescription": "Rosso 5V, nero GND. Passa sopra un filo per sapere dove va.",
     "tooBig": "Questo progetto richiede più di 3 breadboard intere. Togli un componente o dividilo in due progetti.",
     "spsCable": "Cavo JST ZHR-5 con puntali (passo 1,5 mm)",
     "spsCableNote": "per l'SPS30; spesso venduto con il sensore",
     "breadboards": "{n} breadboard intere (830 fori)",
     "breadboardsNote": "affiancate, B1 vicino ad Arduino; i binari si uniscono con dei ponticelli",
-    "legendBoards": "B1, B2…: le breadboard da sinistra; su ognuna le colonne ripartono da 1."
+    "legendBoards": "B1, B2…: le breadboard da sinistra; su ognuna le colonne ripartono da 1.",
+    "zoom": {
+      "aria": "Schema dei collegamenti: trascina per spostarti, pizzica o Ctrl + rotella per ingrandire",
+      "hint": "Trascina o scorri per spostarti · pizzica o Ctrl + rotella per ingrandire · 0 adatta",
+      "in": "Ingrandisci",
+      "out": "Riduci",
+      "fit": "Adatta alla finestra"
+    }
   },
   "modules": {
     "ohms4k7": "4,7 kΩ",
@@ -162,7 +151,7 @@
     "ntcPosition": "Il termistore è {side, select, gnd {verso GND} other {verso 5V}}: deve corrispondere all'opzione «Posizione» nella scheda Componenti.",
     "ldrPosition": "La fotoresistenza è {side, select, gnd {verso GND} other {verso 5V}}: deve corrispondere all'opzione «Posizione» nella scheda Componenti.",
     "pullTo5v": "{ohms} a 5V",
-    "dhtNote": "La resistenza da 10 kΩ tra DATA e 5V è indispensabile col sensore senza schedina (4 piedini: 1 VCC, 2 DATA, 3 libero, 4 GND). Il modulo a 3 piedini ce l'ha già, ma lasciarla non fa danni e rende il segnale più robusto con i fili lunghi.",
+    "dhtNote": "Controlla l'ordine dei piedini stampato sul tuo modulo: lo schema segue VCC, DATA, GND (sensore a 4 piedini: VCC, DATA, libero, GND; scegli il formato nelle opzioni). La resistenza da 10 kΩ tra DATA e 5V è indispensabile col sensore senza schedina; il modulo a 3 piedini ce l'ha già, ma lasciarla non fa danni.",
     "sonarNote": "Punta il sensore verso un bersaglio piatto, tra 5 cm e 3 m.",
     "rxOptional": "RX (facolt.)",
     "divider": "partitore",
@@ -275,7 +264,8 @@
     "railOn": "{rail} di B{board}",
     "joinTitle": "Breadboard B{board}",
     "joinPlace": "Metti B{board} a destra di B{prev}, a contatto (si possono incastrare). I suoi binari non sono collegati agli altri: unisci i binari + in alto con un ponticello rosso e i binari − in alto con uno nero.",
-    "joinTip": "Unisce il {rail} di B{a} e B{b}"
+    "joinTip": "Unisce il {rail} di B{a} e B{b}",
+    "tipSplitBridge": "Solo se i binari si interrompono a metà (linea rossa e blu spezzata): ponticello che unisce le due metà del binario"
   },
   "editor": {
     "buttonHint": "Con l'app collegata (cavo, HC-06 o Bluetooth LE) il pulsante fa come «Avvia» e «Ferma». Con la scheda SD, senza app, avvia e ferma la registrazione.",

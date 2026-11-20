@@ -26,7 +26,8 @@ export const BAND_NAMES: Record<ResValue, string> = {
  * • «series»: resistenza `res` in serie al pin (LED RGB, cicalino passivo);
  * • «divider»: partitore 1 kΩ + 2 kΩ che porta i 5 V di Arduino a 3,3 V (RX di Bluetooth e GPS).
  */
-export interface ModRow { label: string; conn: Conn; dashed?: boolean; note?: string; via?: "pullup" | "divider" | "series"; res?: ResValue }
+/** gap: colonna lasciata vuota tra due piedini (niente piedino, niente filo) */
+export interface ModRow { label: string; conn: Conn; dashed?: boolean; note?: string; via?: "pullup" | "divider" | "series"; res?: ResValue; gap?: boolean }
 /** kind: il disegno del modulo nello schema realistico (tipo di componente, o "hc06"/"ble");
  *  notes: consigli pratici che non si ricavano dall'elenco dei fili */
 export interface Mod { title: string; rows: ModRow[]; color: string; notes: string[]; kind: string; options?: Record<string, number | string> }
@@ -64,7 +65,9 @@ function moduleRows(s: SensorInstance, color: string): Omit<Mod, "kind"> {
     case "dht":
       return {
         title: title(s.options.model === "dht22" ? "DHT22" : "DHT11"), color,
-        rows: [{ label: "VCC (+)", conn: "5V" }, { label: "DATA (out)", conn: p("a"), via: "pullup", res: "10k", note: t("rig.modules.pullTo5v", { ohms: OHMS["10k"] }) }, { label: "GND (−)", conn: "GND" }],
+        // modulo a 3 piedini (VCC, DATA, GND) o sensore senza schedina a 4 (VCC, DATA, libero, GND)
+        rows: [{ label: "VCC (+)", conn: "5V" }, { label: "DATA (out)", conn: p("a"), via: "pullup", res: "10k", note: t("rig.modules.pullTo5v", { ohms: OHMS["10k"] }) },
+          ...(s.options.pkg === "bare" ? [{ label: "NC", conn: "NC" as const }] : []), { label: "GND (−)", conn: "GND" }],
         notes: [
           t("rig.modules.dhtNote"),
         ],
@@ -78,7 +81,8 @@ function moduleRows(s: SensorInstance, color: string): Omit<Mod, "kind"> {
     case "gps":
       return {
         title: title("GPS NEO-6M/7M"), color,
-        rows: [{ label: "VCC", conn: "5V" }, { label: "TX", conn: p("a") }, { label: t("rig.modules.rxOptional"), conn: p("b"), dashed: true, via: "divider", note: t("rig.modules.divider") }, { label: "GND", conn: "GND" }],
+        // ordine dei piedini del GY-NEO6MV2 (e simili): VCC, RX, TX, GND
+        rows: [{ label: "VCC", conn: "5V" }, { label: t("rig.modules.rxOptional"), conn: p("b"), dashed: true, via: "divider", note: t("rig.modules.divider") }, { label: "TX", conn: p("a") }, { label: "GND", conn: "GND" }],
         notes: [t("rig.modules.gpsNoteRx"), t("rig.modules.gpsNoteAntenna")],
       };
     case "analog":
@@ -126,7 +130,9 @@ function moduleRows(s: SensorInstance, color: string): Omit<Mod, "kind"> {
     case "button":
       return {
         title: title(t("rig.modules.buttonTitle")), color,
-        rows: [{ label: "1", conn: p("a") }, { label: "2", conn: "GND" }],
+        // a cavallo della scanalatura i due contatti che il pulsante collega stanno a due colonne di
+        // distanza (i piedini a 0,2"): la colonna in mezzo resta vuota
+        rows: [{ label: "1", conn: p("a") }, { label: "", conn: "NC", gap: true }, { label: "2", conn: "GND" }],
         notes: [
           t("rig.modules.buttonNoteLegs"),
           t("rig.modules.buttonNotePullup"),
@@ -173,7 +179,8 @@ function moduleRows(s: SensorInstance, color: string): Omit<Mod, "kind"> {
     case "rgb":
       return {
         title: title(t("rig.modules.rgbTitle")), color,
-        rows: [{ label: "R", conn: p("a"), via: "series", res: "220", note: "220 Ω" }, { label: "G", conn: p("b"), via: "series", res: "220", note: "220 Ω" }, { label: "B", conn: p("c"), via: "series", res: "220", note: "220 Ω" }, { label: s.options.common === "anode" ? t("rig.modules.commonAnode") : t("rig.modules.commonCathode"), conn: s.options.common === "anode" ? "5V" : "GND" }],
+        // LED RGB da 5 mm: R, comune (il piedino più lungo), G, B
+        rows: [{ label: "R", conn: p("a"), via: "series", res: "220", note: "220 Ω" }, { label: s.options.common === "anode" ? t("rig.modules.commonAnode") : t("rig.modules.commonCathode"), conn: s.options.common === "anode" ? "5V" : "GND" }, { label: "G", conn: p("b"), via: "series", res: "220", note: "220 Ω" }, { label: "B", conn: p("c"), via: "series", res: "220", note: "220 Ω" }],
         notes: [t("rig.modules.rgbNoteCommon"), t("rig.modules.rgbNoteResistors")],
       };
     case "buzzer":
@@ -230,7 +237,8 @@ export function buildModules(sensors: SensorInstance[], bt: BtModule = null) {
 
 export function RigDiagram({ sensors, bt = null, className }: { sensors: SensorInstance[]; bt?: BtModule; className?: string }) {
   const tr = useTranslations("rig.modules");
-  const mods = buildModules(sensors, bt);
+  // le colonne vuote (gap) servono solo sulla breadboard
+  const mods = buildModules(sensors, bt).map((m) => ({ ...m, rows: m.rows.filter((r) => !r.gap) }));
   if (!mods.length) return null;
   const ROW = 20, HEAD = 26, GAP = 12, AX = 6, AW = 112;
   // righe di Arduino: 5V, GND, poi i pin dei segnali nell'ordine dei moduli. Un pin usato da più
