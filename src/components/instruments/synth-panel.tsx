@@ -34,8 +34,28 @@ function WaveIcon({ d }: { d: string }) {
   );
 }
 
-/** Tastiera di due ottave (da La₃): tasti bianchi in fila, neri sovrapposti. */
+/** Tasti fisici (posizione, non lettera: vale anche con la tastiera italiana) → semitoni dal Do₄. */
+const KEY_CODES = ["KeyA", "KeyW", "KeyS", "KeyE", "KeyD", "KeyF", "KeyT", "KeyG", "KeyY", "KeyH", "KeyU", "KeyJ", "KeyK", "KeyO", "KeyL", "KeyP", "Semicolon"];
+
+/** Tastiera di due ottave (dal Do₄): tasti bianchi in fila, neri sovrapposti. Si suona anche dalla
+ *  tastiera del computer (A…L, con W E T Y U O P per i diesis) e, col fuoco su un tasto, con Invio/Spazio. */
 function PianoKeys({ onKey, activeF }: { onKey: (n: number) => void; activeF: number | null }) {
+  const t = useTranslations("app.synth");
+  const root = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const onDown = (e: KeyboardEvent) => {
+      if (e.repeat || e.metaKey || e.ctrlKey || e.altKey) return;
+      const el = e.target as HTMLElement | null;
+      if (el?.closest("input, textarea, select, [contenteditable=true], [role=dialog]")) return;
+      if (!root.current?.offsetParent) return;          // tastiera nascosta (altra modalità)
+      const i = KEY_CODES.indexOf(e.code);
+      if (i < 0) return;
+      e.preventDefault();
+      onKey(-9 + i);
+    };
+    window.addEventListener("keydown", onDown);
+    return () => window.removeEventListener("keydown", onDown);
+  }, [onKey]);
   const lowN = -9, octaves = 2;
   const whites: { n: number; name: string; oct: number; c: boolean }[] = [];
   const blacks: { n: number; i: number; name: string; oct: number }[] = [];
@@ -47,10 +67,12 @@ function PianoKeys({ onKey, activeF }: { onKey: (n: number) => void; activeF: nu
   const on = (n: number) => activeF != null && Math.abs(1200 * Math.log2(activeF / noteFreq(n))) < 3;
   const W = whites.length;
   return (
-    <div className="relative h-36 w-full touch-none select-none sm:h-40">
+    <div className="flex flex-col gap-1.5">
+    <div ref={root} className="relative h-36 w-full touch-none select-none sm:h-40">
       <div className="flex h-full gap-px">
         {whites.map((k) => (
-          <button key={k.n} type="button" title={`${k.name}${k.oct}`} onPointerDown={(e) => { e.preventDefault(); onKey(k.n); }}
+          <button key={k.n} type="button" title={`${k.name}${k.oct}`} aria-label={`${k.name}${k.oct}`} onPointerDown={(e) => { e.preventDefault(); onKey(k.n); }}
+            onClick={(e) => { if (e.detail === 0) onKey(k.n); }}
             className={cn("flex flex-1 items-end justify-center rounded-b-md border bg-white pb-1.5 text-[0.65rem] font-medium text-neutral-500 shadow-sm transition-colors hover:bg-neutral-50 dark:border-white/10",
               on(k.n) && "bg-primary text-primary-foreground hover:bg-primary dark:border-primary")}>
             {k.c ? `${k.name}${k.oct}` : k.name}
@@ -58,10 +80,13 @@ function PianoKeys({ onKey, activeF }: { onKey: (n: number) => void; activeF: nu
         ))}
       </div>
       {blacks.map((k) => (
-        <button key={k.n} type="button" title={`${k.name}${k.oct}`} onPointerDown={(e) => { e.preventDefault(); onKey(k.n); }}
+        <button key={k.n} type="button" title={`${k.name}${k.oct}`} aria-label={`${k.name}${k.oct}`} onPointerDown={(e) => { e.preventDefault(); onKey(k.n); }}
+          onClick={(e) => { if (e.detail === 0) onKey(k.n); }}
           className={cn("absolute top-0 h-[60%] -translate-x-1/2 rounded-b-md bg-neutral-900 shadow-md transition-colors hover:bg-neutral-700 dark:bg-black dark:ring-1 dark:ring-white/15", on(k.n) && "bg-primary hover:bg-primary")}
           style={{ left: `${(k.i / W) * 100}%`, width: `${(100 / W) * 0.62}%` }} />
       ))}
+    </div>
+    <p className="hidden text-xs text-muted-foreground pointer-fine:block">{t("keysHint")}</p>
     </div>
   );
 }
