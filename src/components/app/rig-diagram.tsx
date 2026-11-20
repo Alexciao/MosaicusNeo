@@ -9,8 +9,20 @@ import type { SensorInstance } from "@/lib/sensors/rig";
 
 export type BtModule = "hc06" | "ble" | null;
 type Conn = "5V" | "GND" | number;
-/** via: il filo passa dalla breadboard con una resistenza di pull-up (DS18B20) o un partitore (RXD del Bluetooth) */
-export interface ModRow { label: string; conn: Conn; dashed?: boolean; note?: string; via?: "pullup" | "divider" }
+/** Valori delle resistenze che compaiono negli schemi. */
+export type ResValue = "10k" | "4k7" | "2k" | "1k" | "220" | "100";
+export const OHMS: Record<ResValue, string> = { "10k": "10 kΩ", "4k7": "4,7 kΩ", "2k": "2 kΩ", "1k": "1 kΩ", "220": "220 Ω", "100": "100 Ω" };
+export const BAND_NAMES: Record<ResValue, string> = {
+  "10k": "marrone, nero, arancio", "4k7": "giallo, viola, rosso", "2k": "rosso, nero, rosso", "1k": "marrone, nero, rosso", "220": "rosso, rosso, marrone", "100": "marrone, nero, marrone",
+};
+/**
+ * via: il piedino passa da componenti in più sulla breadboard, perché il montaggio funzioni
+ * così com'è anche con i sensori «nudi»:
+ * • «pullup»: resistenza `res` tra il segnale e 5V (DHT, DS18B20);
+ * • «series»: resistenza `res` in serie al pin (LED RGB, cicalino passivo);
+ * • «divider»: partitore 1 kΩ + 2 kΩ che porta i 5 V di Arduino a 3,3 V (RX di Bluetooth e GPS).
+ */
+export interface ModRow { label: string; conn: Conn; dashed?: boolean; note?: string; via?: "pullup" | "divider" | "series"; res?: ResValue }
 /** kind: il disegno del modulo nello schema realistico (tipo di componente, o "hc06"/"ble");
  *  notes: consigli pratici che non si ricavano dall'elenco dei fili */
 export interface Mod { title: string; rows: ModRow[]; color: string; notes: string[]; kind: string; options?: Record<string, number | string> }
@@ -47,8 +59,10 @@ function moduleRows(s: SensorInstance, color: string): Omit<Mod, "kind"> {
     case "dht":
       return {
         title: title(s.options.model === "dht22" ? "DHT22" : "DHT11"), color,
-        rows: [{ label: "VCC (+)", conn: "5V" }, { label: "DATA (out)", conn: p("a") }, { label: "GND (−)", conn: "GND" }],
-        notes: ["Sensore senza schedina (4 piedini): 1 VCC, 2 DATA, 3 libero, 4 GND, più una resistenza da 10 kΩ tra DATA e 5V."],
+        rows: [{ label: "VCC (+)", conn: "5V" }, { label: "DATA (out)", conn: p("a"), via: "pullup", res: "10k", note: "10 kΩ a 5V" }, { label: "GND (−)", conn: "GND" }],
+        notes: [
+          "La resistenza da 10 kΩ tra DATA e 5V è indispensabile col sensore senza schedina (4 piedini: 1 VCC, 2 DATA, 3 libero, 4 GND). Il modulo a 3 piedini ce l'ha già, ma lasciarla non fa danni e rende il segnale più robusto con i fili lunghi.",
+        ],
       };
     case "sonar":
       return {
@@ -59,8 +73,8 @@ function moduleRows(s: SensorInstance, color: string): Omit<Mod, "kind"> {
     case "gps":
       return {
         title: title("GPS NEO-6M/7M"), color,
-        rows: [{ label: "VCC", conn: "5V" }, { label: "TX", conn: p("a") }, { label: "RX (facolt.)", conn: p("b"), dashed: true }, { label: "GND", conn: "GND" }],
-        notes: ["Il filo RX (tratteggiato) è facoltativo, ma il pin resta riservato.", "Antenna con la ceramica verso il cielo. Il primo fix all'aperto richiede da 30 s a qualche minuto."],
+        rows: [{ label: "VCC", conn: "5V" }, { label: "TX", conn: p("a") }, { label: "RX (facolt.)", conn: p("b"), dashed: true, via: "divider", note: "partitore" }, { label: "GND", conn: "GND" }],
+        notes: ["Il filo RX (tratteggiato) è facoltativo, ma il pin resta riservato. Se lo colleghi, passa dal partitore 1 kΩ + 2 kΩ: l'RX del modulo regge solo 3,3 V.", "Antenna con la ceramica verso il cielo. Il primo fix all'aperto richiede da 30 s a qualche minuto."],
       };
     case "analog":
       return {
@@ -71,8 +85,8 @@ function moduleRows(s: SensorInstance, color: string): Omit<Mod, "kind"> {
     case "ds18b20":
       return {
         title: title("Sonda DS18B20"), color,
-        rows: [{ label: "rosso (VCC)", conn: "5V" }, { label: "giallo (DATA)", conn: p("a"), via: "pullup", note: "4,7 kΩ" }, { label: "nero (GND)", conn: "GND" }],
-        notes: ["Fili della sonda: rosso VCC, giallo DATA, nero GND.", "Senza la schedina con i morsetti serve una resistenza da 4,7 kΩ tra DATA e 5V."],
+        rows: [{ label: "rosso (VCC)", conn: "5V" }, { label: "giallo (DATA)", conn: p("a"), via: "pullup", res: "4k7", note: "4,7 kΩ a 5V" }, { label: "nero (GND)", conn: "GND" }],
+        notes: ["Fili della sonda: rosso VCC, giallo DATA, nero GND.", "Senza la resistenza da 4,7 kΩ tra DATA e 5V la sonda non risponde. Se la tua ha la schedina con i morsetti, ce l'ha già."],
       };
     case "gate":
       return {
@@ -104,14 +118,16 @@ function moduleRows(s: SensorInstance, color: string): Omit<Mod, "kind"> {
     case "rgb":
       return {
         title: title("LED RGB"), color,
-        rows: [{ label: "R", conn: p("a") }, { label: "G", conn: p("b") }, { label: "B", conn: p("c") }, { label: s.options.common === "anode" ? "+ (comune)" : "− (comune)", conn: s.options.common === "anode" ? "5V" : "GND" }],
-        notes: ["Il piedino più lungo è il comune.", "LED senza schedina: una resistenza da 220 Ω su ogni colore."],
+        rows: [{ label: "R", conn: p("a"), via: "series", res: "220", note: "220 Ω" }, { label: "G", conn: p("b"), via: "series", res: "220", note: "220 Ω" }, { label: "B", conn: p("c"), via: "series", res: "220", note: "220 Ω" }, { label: s.options.common === "anode" ? "+ (comune)" : "− (comune)", conn: s.options.common === "anode" ? "5V" : "GND" }],
+        notes: ["Il piedino più lungo è il comune.", "Le resistenze da 220 Ω su ogni colore proteggono il LED e i pin di Arduino. Se il tuo modulo le ha già, lasciarle rende solo il LED un po' meno luminoso."],
       };
     case "buzzer":
       return {
         title: title(s.options.kind === "passive" ? "Cicalino passivo" : "Cicalino attivo"), color,
-        rows: [{ label: "+ (S)", conn: p("a") }, { label: "−", conn: "GND" }],
-        notes: ["Il + è il piedino più lungo (o «S» sul modulo).", "Collegato a 5V, il cicalino attivo suona; quello passivo fa solo un clic. Imposta il tipo nelle opzioni."],
+        rows: [s.options.kind === "passive" ? { label: "+ (S)", conn: p("a"), via: "series", res: "100", note: "100 Ω" } : { label: "+ (S)", conn: p("a") }, { label: "−", conn: "GND" }],
+        notes: [
+          "Il + è il piedino più lungo (o «S» sul modulo).",
+          ...(s.options.kind === "passive" ? ["La resistenza da 100 Ω limita la corrente: un cicalino passivo senza schedina chiede al pin più di quanto possa dare."] : []), "Collegato a 5V, il cicalino attivo suona; quello passivo fa solo un clic. Imposta il tipo nelle opzioni."],
       };
   }
   return { title: title(SENSORS[s.type].short), color, rows: [], notes: [] };
@@ -126,6 +142,19 @@ function btModule(kind: Exclude<BtModule, null>): Mod {
       "Mentre carichi il firmware dall'IDE, stacca il filo su D0.",
     ],
   };
+}
+
+/** Le resistenze che servono al montaggio, per valore. */
+export function resistorsOf(mods: Mod[]) {
+  const out: Partial<Record<ResValue, number>> = {};
+  const add = (v: ResValue) => { out[v] = (out[v] ?? 0) + 1; };
+  for (const m of mods) {
+    if (m.kind === "ntc" || m.kind === "ldr") add("10k");
+    for (const r of m.rows) {
+      if (r.via === "divider") { add("1k"); add("2k"); } else if (r.via && r.res) add(r.res);
+    }
+  }
+  return out;
 }
 
 export function buildModules(sensors: SensorInstance[], bt: BtModule) {
