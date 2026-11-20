@@ -1,0 +1,529 @@
+{
+  "catalog": {
+    "yes": "yes",
+    "no": "no",
+    "offsetT": "Calibration correction, added to T",
+    "dividerOut": "divider output",
+    "usuallyA4": "Usually A4.",
+    "usuallyA5": "Usually A5.",
+    "nothingToConnect": "Nothing to connect",
+    "ntc": {
+      "title": "NTC thermistor",
+      "measures": "temperature",
+      "description": "Temperature from a resistance that changes with heat, in a voltage divider with 10 kΩ. Responds quickly and can be immersed.",
+      "orientation": "Position of the thermistor in the divider",
+      "ntc5v": "NTC between 5 V and the pin (as in the Elegoo kit)",
+      "ntcgnd": "NTC between the pin and GND",
+      "tAmb": "Ambient temperature Tₐ, for ln(T − Tₐ)",
+      "rSeries": "Fixed resistor of the divider",
+      "r0": "Thermistor R₀ (at T₀)",
+      "t0": "Reference T₀",
+      "beta": "B coefficient (Beta)",
+      "wiring": "Voltage divider with a 10 kΩ resistor; the midpoint goes to {pin}."
+    },
+    "dht": {
+      "measures": "temperature and humidity",
+      "description": "Temperature, relative humidity and dew point. At most 1 reading per second (DHT22: every 2 s).",
+      "model": "Model",
+      "dht11": "DHT11 (blue, ±2 °C, ±5 %)",
+      "dht22": "DHT22 / AM2302 (white, ±0.5 °C, ±2 %)",
+      "offsetT": "Temperature calibration correction",
+      "offsetRH": "Humidity calibration correction",
+      "wiring": "DATA to {pin}, VCC to 5 V, GND to GND. The 3-pin module already has the pull-up; the bare 4-pin sensor needs 10 kΩ between DATA and 5 V."
+    },
+    "sonar": {
+      "title": "HC-SR04 ultrasonic sensor",
+      "measures": "position, velocity, acceleration",
+      "description": "Distance from the time of flight of an ultrasonic pulse, from 2 cm to 4 m; velocity and acceleration are derived from it.",
+      "tAir": "Air temperature, for the speed of sound",
+      "direction": "Positive direction",
+      "away": "Moving away from the sensor",
+      "toward": "Moving toward the sensor",
+      "window": "Smoothing of v and a (points per side)",
+      "origin": "Origin of positions (distance from the sensor)",
+      "dMin": "Minimum accepted distance",
+      "dMax": "Maximum accepted distance",
+      "spike": "Discard anomalous jumps larger than",
+      "wiring": "Use a large, flat target. Several ultrasonic sensors interfere with each other: point them in different directions."
+    },
+    "gps": {
+      "measures": "position, altitude, speed",
+      "description": "Position, altitude and speed from a 9600-baud serial GPS module (e.g. Velleman VMA430). Works only outdoors, with a clear view of the sky.",
+      "pinRx": "Arduino RX ← GPS TX",
+      "pinTx": "Arduino TX → GPS RX",
+      "pinTxNote": "optional connection; the pin stays reserved anyway",
+      "minSats": "Minimum satellites to accept a position",
+      "maxHdop": "Maximum accepted HDOP (lower is more accurate)",
+      "wiring": "Antenna with the ceramic side facing the sky. The first fix outdoors takes from 30 s to a few minutes; once it has one, the module's LED blinks."
+    },
+    "analog": {
+      "title": "Analog voltage",
+      "short": "Analog",
+      "measures": "voltage (0–5 V) or a calibrated quantity",
+      "description": "Any signal between 0 and 5 V (potentiometer, pressure or force sensor); with a linear calibration it becomes a physical quantity.",
+      "pin": "signal (0–5 V)",
+      "calibrate": "Linear calibration y = k·V + q",
+      "calNo": "No: show the voltage",
+      "calYes": "Yes",
+      "sym": "Symbol of the calibrated quantity",
+      "unit": "Unit of the calibrated quantity",
+      "k": "Coefficient k",
+      "q": "Constant term q",
+      "vref": "Reference voltage",
+      "calibrated": "{sym} (calibrated)",
+      "wiringTitle": "Analog signal",
+      "wiring": "Signal to {pin}, GND shared with Arduino. Only between 0 and 5 V: never higher voltages, never mains power."
+    },
+    "ldr": {
+      "title": "Photoresistor (light)",
+      "measures": "relative brightness",
+      "description": "Relative brightness (0–100 %) from a photoresistor in a voltage divider: it does not measure lux.",
+      "orientation": "Position of the photoresistor",
+      "ldr5v": "Between 5 V and the pin (more light = higher value)",
+      "ldrgnd": "Between the pin and GND",
+      "wiringTitle": "Photoresistor",
+      "wiring": "Photoresistor between 5 V and {pin}, 10 kΩ resistor between {pin} and GND."
+    },
+    "ds18b20": {
+      "title": "DS18B20 probe",
+      "measures": "temperature (also in water)",
+      "description": "Temperature from −55 to 125 °C with ±0.5 °C, no calibration needed; the steel probe version can be immersed in water.",
+      "pinNote": "With a 4.7 kΩ resistor between DATA and 5V.",
+      "wiring": "Red to 5V, black to GND, yellow (DATA) to {pin}. A 4.7 kΩ resistor is needed between DATA and 5V (already present on boards with screw terminals)."
+    },
+    "gate": {
+      "title": "Photogate / digital input",
+      "short": "Photogate",
+      "measures": "passage times, period, blocking time",
+      "description": "The instant an object blocks the beam, for periods, passage times and speeds; also works with a push button.",
+      "pinNote": "On D2 or D3 times are accurate to the µs; on other pins to the ms.",
+      "blocked": "When the beam is blocked, the output is",
+      "high": "high (5 V) · almost all modules",
+      "low": "low (0 V)",
+      "pullup": "Internal pull-up resistor",
+      "pullupNo": "no (module with its own output)",
+      "pullupYes": "yes (push button, open-collector output)",
+      "width": "Width of the object, for the speed",
+      "wiringTitle": "Photogate",
+      "wiring": "VCC to 5V, GND to GND, OUT (or the module's D0) to {pin}."
+    },
+    "hx711": {
+      "title": "Load cell + HX711",
+      "short": "Scale",
+      "measures": "mass and force",
+      "description": "Mass and force from a load cell with an HX711 amplifier, up to 10 readings per second; it must be calibrated with a known weight.",
+      "scale": "Calibration: counts per gram",
+      "autotare": "Zero at start (tare)",
+      "autotareYes": "yes: the initial load counts as 0",
+      "autotareNo": "no: use the tare given",
+      "tare": "Tare (counts with no load)",
+      "g": "Gravitational acceleration, for the force",
+      "sign": "Direction",
+      "push": "push = positive",
+      "pull": "pull = positive",
+      "wiring": "Cell: red E+, black E−, white A−, green A+ on the HX711. HX711: VCC 5V, GND, DT to {dt}, SCK to {sck}."
+    },
+    "imu": {
+      "title": "MPU-6050 accelerometer",
+      "measures": "acceleration on 3 axes, rotation",
+      "description": "Acceleration and angular velocity on 3 axes, up to 100 readings per second; shares the I2C bus with the display.",
+      "sdaNote": "Usually A4, shared with the display.",
+      "range": "Full scale",
+      "range2": "±2 g (most accurate)",
+      "range16": "±16 g (impacts)",
+      "addr": "Address",
+      "addr68": "0x68 (AD0 to GND or unconnected)",
+      "addr69": "0x69 (AD0 to 3.3V)",
+      "gravity": "Subtract gravity from the vertical axis",
+      "gravityZ": "yes, z axis vertical",
+      "wiring": "VCC to 5V, GND to GND, SDA to {sda}, SCL to {scl}."
+    },
+    "mlx": {
+      "title": "MLX90614 infrared thermometer",
+      "measures": "contactless temperature (and the sensor's own)",
+      "description": "Temperature of a surface without touching it, from −70 to 380 °C, plus the sensor's own temperature; shares the I2C bus with the display.",
+      "sdaNote": "Usually A4, shared with the display and the MPU-6050.",
+      "eps": "Surface emissivity (skin 0.98, water 0.96, wood and plastic 0.90–0.95)",
+      "wiring": "VIN (or VCC) to 5V, GND to GND, SDA to {sda}, SCL to {scl}. The sensor sees a cone of about 90°: hold it close to the surface, a few centimeters away."
+    },
+    "oled": {
+      "title": "OLED display 64×32 (0.49\")",
+      "measures": "status and main value",
+      "description": "0.49\" I2C SSD1306 display (64×32 pixels): shows Arduino's status and, during a measurement, the time and the main value.",
+      "wiringTitle": "OLED display",
+      "wiring": "VCC (or VDD) to 5V, GND to GND, SDA to {sda}, SCL to {scl}."
+    },
+    "rgb": {
+      "title": "RGB LED",
+      "measures": "color-coded status",
+      "description": "Blue: waiting for the app (blinking) or ready · blinking yellow: GPS or sensor searching · blinking red: problem · green: measurement running.",
+      "pinR": "R (red)",
+      "pinG": "G (green)",
+      "pinB": "B (blue)",
+      "common": "LED type",
+      "cathode": "common cathode (long leg to GND)",
+      "anode": "common anode (long leg to 5V)",
+      "wiring": "One 220 Ω resistor per color: R to {r}, G to {g}, B to {b}; long leg to {common}."
+    },
+    "buzzer": {
+      "title": "Buzzer",
+      "short": "Buzzer",
+      "measures": "status beeps",
+      "description": "Every 3 s until something is ready: 1 beep waiting or stopped, 2 GPS or sensor searching, 3 problem. Silence: measurement running.",
+      "pin": "+ (signal)",
+      "kind": "Type",
+      "active": "active (sounds with a steady 5 V)",
+      "passive": "passive (must be driven with a tone)",
+      "nag": "Beep until everything is ready",
+      "confirm": "Confirmation beep at start and end",
+      "wiringTitle": "Buzzer",
+      "wiring": "+ leg (the longer one, or “S”) to {pin}, − leg to GND."
+    },
+    "button": {
+      "title": "Start/Stop button",
+      "short": "Button",
+      "measures": "starts and stops the measurement from Arduino",
+      "description": "A button on Arduino that works like “Start” and “Stop”: with the app connected (cable or Bluetooth) and with the SD card, where it starts and stops recording without a computer.",
+      "pin": "button",
+      "pinNote": "The other leg goes to GND: the pull-up resistor is inside Arduino.",
+      "wiringTitle": "Button",
+      "wiring": "One leg of the button to {pin}, the other to GND."
+    },
+    "sd": {
+      "title": "microSD card (records without a computer)",
+      "short": "SD card",
+      "measures": "records measurements on the card",
+      "description": "Arduino records measurements on a microSD card, powered by a power bank or a battery: no cable, no phone. With the button you start and stop; without it, it records from when you switch it on. Then you import the files into the Notebook.",
+      "wiringTitle": "microSD card",
+      "wiring": "microSD module (with regulator, runs on 5V): GND, VCC to 5V, MISO to D12, MOSI to D11, SCK to D13, CS to D10. Card formatted FAT32, up to 32 GB."
+    },
+    "bt": {
+      "rxdNote": "With the 1 kΩ + 2 kΩ divider: the module's RXD takes 3.3 V.",
+      "wiring": "VCC to 5V, GND to GND, TXD to D0, RXD to D1 through the 1 kΩ + 2 kΩ divider."
+    },
+    "hc06": {
+      "title": "Bluetooth HC-06 (classic)",
+      "measures": "wireless measuring, from Android",
+      "description": "Classic Bluetooth module: measure without a cable with Chrome on Android (not on iPhone). Arduino must be powered by a power bank."
+    },
+    "ble": {
+      "measures": "wireless measuring, also from iPhone",
+      "description": "Bluetooth Low Energy module: measure without a cable with Chrome on computers and Android, and on iPhone with the Bluefy browser. Arduino must be powered by a power bank."
+    },
+    "pmotion": {
+      "title": "Phone accelerometer and gyroscope",
+      "short": "Phone",
+      "measures": "acceleration and rotation on 3 axes",
+      "description": "The phone's motion sensors, up to about 60 readings per second. No Arduino: open the app on the phone.",
+      "sign": "Accelerometer sign",
+      "std": "standard (on the table a_z ≈ +9.8)",
+      "inv": "inverted",
+      "wiring": "Open MosaicusNeo on the phone (Chrome on Android, Safari on iPhone) and press “Enable sensors”. On iPhone, confirm the permission.",
+      "axesTitle": "The phone's axes",
+      "axes": "Phone upright in front of you: x to the right, y up along the screen, z out of the screen. With the phone resting on the table a_z ≈ +9.8 m/s²: the accelerometer measures the table's reaction force, opposite to gravity."
+    },
+    "psound": {
+      "title": "Microphone (frequency and level)",
+      "short": "Microphone",
+      "measures": "dominant frequency and sound level",
+      "description": "Dominant frequency (50 Hz – 5 kHz) and relative level from the phone's or computer's microphone. The audio is not recorded.",
+      "wiring": "Uses the device's microphone: press “Enable sensors” and allow microphone access."
+    },
+    "sps30": {
+      "title": "SPS30 particulate matter sensor",
+      "measures": "fine dust PM1, PM2.5, PM4, PM10",
+      "description": "Counts airborne particles with a laser and a small fan: mass concentration PM1.0, PM2.5, PM4 and PM10 in µg/m³, particle counts and typical particle size, one reading per second. Connects over I2C with its own cable.",
+      "sdaNote": "Usually A4, shared with the other I2C devices.",
+      "wiring": "With the JST ZHR-5 cable: pin 1 VDD to 5V, pin 2 SDA to {sda}, pin 3 SCL to {scl}, pin 4 SEL to GND (selects I2C), pin 5 GND to GND."
+    }
+  },
+  "groups": {
+    "sensor": {
+      "name": "Sensors",
+      "hint": "they measure: Arduino's inputs"
+    },
+    "control": {
+      "name": "Controls",
+      "hint": "to start and stop from Arduino"
+    },
+    "output": {
+      "name": "Displays, LEDs and sounds",
+      "hint": "they show Arduino's status"
+    },
+    "storage": {
+      "name": "Storage",
+      "hint": "they record without a computer"
+    },
+    "comm": {
+      "name": "Bluetooth",
+      "hint": "to connect without a cable"
+    },
+    "phone": {
+      "name": "Phone",
+      "hint": "the phone's sensors, without Arduino"
+    }
+  },
+  "tags": {
+    "temp": "Temperature and climate",
+    "motion": "Motion and time",
+    "light": "Light",
+    "force": "Force and mass",
+    "place": "Position",
+    "volt": "Voltage",
+    "air": "Air quality"
+  },
+  "keywords": {
+    "pmotion": "phone smartphone accelerometer gyroscope pendulum elevator lift rotation phyphox",
+    "psound": "phone microphone mic sound frequency pitch doppler glide level decibel",
+    "dht": "humidity dew air weather climate dht11 dht22 am2302",
+    "ntc": "thermistor thermometer heat cooling newton resistance",
+    "ds18b20": "probe waterproof water liquid thermometer onewire",
+    "sonar": "ultrasonic ultrasound distance sonar cart fall motion velocity speed acceleration hcsr04 hc-sr04",
+    "mlx": "infrared ir thermometer contactless non-contact gun thermal camera surface skin mlx90614 gy906 gy-906 melexis",
+    "imu": "accelerometer gyroscope tilt vibration impacts oscillations gy521 gy-521 mpu6050",
+    "gate": "photogate light gate pendulum period timer stopwatch fork infrared button switch",
+    "gps": "satellites map route track altitude walk neo6m neo-6m neo7m",
+    "ldr": "photoresistor ldr brightness dark lamp light sensor",
+    "hx711": "scale weight load cell newton force meter dynamometer",
+    "analog": "potentiometer voltmeter voltage signal generic battery",
+    "oled": "screen display ssd1306 status text",
+    "rgb": "led colors light status traffic light",
+    "buzzer": "buzzer sound beep alarm alert",
+    "button": "button push key start stop switch",
+    "sd": "sd card microsd storage memory recording datalogger logger without computer power bank battery file",
+    "hc06": "bluetooth classic hc06 hc-06 hc05 hc-05 android wireless cable-free",
+    "ble": "bluetooth le low energy hm10 hm-10 at09 at-09 hc08 hc-08 bt05 iphone bluefy wireless cable-free",
+    "sps30": "sps30 sensirion particulate matter pm2.5 pm10 pm1 dust smog pollution air quality fine particles laser"
+  },
+  "quantities": {
+    "t": "time",
+    "x": "position",
+    "v": "velocity",
+    "a": "acceleration",
+    "d": "distance from the sensor",
+    "echo": "time of flight",
+    "T": "temperature",
+    "lnT": "linearized temperature",
+    "R": "resistance",
+    "adc": "raw reading (0–1023)",
+    "RH": "relative humidity",
+    "Td": "dew point",
+    "AH": "absolute humidity",
+    "V": "voltage",
+    "Y": "calibrated quantity",
+    "light": "brightness (relative)",
+    "lat": "latitude",
+    "lon": "longitude",
+    "alt": "altitude",
+    "s": "distance traveled",
+    "speed": "speed (GPS)",
+    "sats": "satellites in use",
+    "hdop": "dilution of precision",
+    "fix": "fix quality",
+    "utc": "satellite time (hhmmss)",
+    "ok": "valid reading",
+    "byte": "sensor byte {n}",
+    "err": "sensor error",
+    "ds": "raw reading (1/16 °C)",
+    "Ts": "sensor temperature (ambient)",
+    "Traw": "temperature without emissivity correction",
+    "gate": "beam (1 = blocked)",
+    "n": "passes counted",
+    "Tp": "time between two passes",
+    "tb": "blocking time",
+    "vg": "speed through the gate",
+    "fg": "pass frequency",
+    "m": "mass",
+    "F": "force",
+    "cnt": "HX711 counts",
+    "axis": "acceleration {axis}",
+    "am": "acceleration (magnitude)",
+    "gyro": "angular velocity {axis}",
+    "freq": "dominant frequency",
+    "level": "sound level (relative)",
+    "pm1": "PM1.0 mass concentration",
+    "pm25": "PM2.5 mass concentration",
+    "pm4": "PM4 mass concentration",
+    "pm10": "PM10 mass concentration",
+    "nc05": "particles up to 0.5 µm",
+    "nc1": "particles up to 1 µm",
+    "nc25": "particles up to 2.5 µm",
+    "nc4": "particles up to 4 µm",
+    "nc10": "particles up to 10 µm",
+    "tps": "typical particle size"
+  },
+  "symbols": {
+    "echo": "echo",
+    "RH": "RH",
+    "sats": "sat",
+    "ok": "valid",
+    "gate": "state"
+  },
+  "slopes": {
+    "velocity": "velocity",
+    "acceleration": "acceleration",
+    "jerk": "rate of change of acceleration",
+    "rateT": "rate of change of temperature",
+    "lnT": "opposite of the cooling constant (−k)",
+    "rateRH": "rate of change of humidity",
+    "rateV": "rate of change of voltage",
+    "climb": "climb rate",
+    "avgSpeed": "average speed",
+    "passRate": "passes per second",
+    "rateM": "rate of change of mass",
+    "rateF": "rate of change of force",
+    "rateFreq": "rate of change of frequency"
+  },
+  "physics": {
+    "period": "period T = 2π/ω",
+    "frequency": "frequency f = ω/2π",
+    "tau": "time constant τ = −1/k",
+    "velocityM": "velocity v = m",
+    "accel2c2": "acceleration a = 2·c₂",
+    "amplitude": "amplitude A",
+    "eqPosition": "equilibrium position C",
+    "damping": "damping coefficient γ",
+    "accelM": "acceleration a = m",
+    "meanVelocity": "mean velocity",
+    "maxVelocity": "maximum velocity",
+    "meanAccel": "mean acceleration",
+    "maxAccel": "maximum acceleration",
+    "coolingK": "cooling constant k",
+    "theta": "time constant θ = 1/k",
+    "ambientT": "ambient temperature Tₐ",
+    "rateT": "rate of change dT/dt",
+    "meanT": "mean temperature",
+    "coolingKm": "cooling constant k = −m",
+    "eqRH": "equilibrium humidity",
+    "rateRH": "rate of change dRH/dt",
+    "meanRH": "mean humidity",
+    "meanTd": "mean dew point",
+    "eqTd": "equilibrium dew point",
+    "vapor": "water vapor per cubic meter",
+    "eqAH": "equilibrium absolute humidity",
+    "meanV": "mean voltage",
+    "finalV": "final voltage",
+    "meanLight": "mean brightness",
+    "climbRate": "climb rate dh/dt",
+    "meanAlt": "mean altitude",
+    "avgSpeedM": "average speed v = m",
+    "meanSpeed": "average speed",
+    "meanTs": "mean sensor temperature",
+    "rateTs": "rate of change dTₛ/dt",
+    "eqTs": "equilibrium sensor temperature",
+    "passFreq": "pass frequency",
+    "meanPeriod": "mean period",
+    "periodDrift": "change in period per second",
+    "meanBlock": "mean blocking time",
+    "meanGateVel": "mean speed through the gate",
+    "meanFreq": "mean frequency",
+    "meanMass": "mean mass",
+    "meanForce": "mean force",
+    "meanAxis": "mean acceleration {axis}",
+    "meanMagnitude": "mean magnitude (at rest ≈ g)",
+    "meanLevel": "mean level",
+    "meanPm": "mean concentration",
+    "ratePm": "rate of change of the concentration",
+    "eqPm": "background concentration C",
+    "meanNc": "mean particle count",
+    "meanTps": "mean typical size"
+  },
+  "topics": {
+    "kinematics": "Kinematics",
+    "thermo": "Heat and temperature",
+    "field": "In the field"
+  },
+  "presets": {
+    "idea": "Idea",
+    "motion": {
+      "title": "Linear motion",
+      "subtitle": "Uniform and accelerated · HC-SR04",
+      "tip": "A cart on an inclined plane, with a flat target between 5 cm and 1 m from the sensor. Fitting a parabola to x(t) gives the acceleration."
+    },
+    "harmonic": {
+      "title": "Harmonic motion",
+      "subtitle": "Oscillations · HC-SR04",
+      "tip": "A mass hanging from a spring, sensor on the floor pointing up, a piece of card under the mass. Fitting a damped sinusoid gives the period and the damping."
+    },
+    "cooling": {
+      "title": "Cooling",
+      "subtitle": "Newton's law · NTC thermistor",
+      "simNote": "time ×30",
+      "tip": "Heat the thermistor in hot water or in a hot potato, then let it cool in air. Use the exponential fit with asymptote, or the straight line on ln(T − Tₐ)."
+    },
+    "humidity": {
+      "title": "Humidity and temperature",
+      "subtitle": "Dew point · DHT11",
+      "simNote": "time ×5",
+      "tip": "Breathe on the sensor: the humidity rises sharply and falls slowly. The exponential fit of the decay gives the time constant."
+    },
+    "gpsmap": {
+      "title": "Temperature map",
+      "subtitle": "GPS + DHT11 · phone via Bluetooth",
+      "simNote": "walk, time ×5",
+      "wirelessTitle": "Measuring without a cable",
+      "wireless": "Turn on the “Bluetooth” switch in the “Wiring” tab and choose the module (HC-06 or BLE): the diagram shows how to connect it. Power Arduino with a power bank; during the measurement the data is saved to the Notebook every 30 s.",
+      "fixTitle": "The first fix",
+      "fix": "Outdoors the GPS finds the satellites in 30 s to a few minutes. Points without a position stay in the table but don't appear on the map."
+    },
+    "phoneAcc": {
+      "title": "Accelerometer",
+      "subtitle": "Pendulum, elevator · phone",
+      "tip": "Pendulum: hang the phone from two strings, screen facing you, and let it swing; fitting a sinusoid to a_y gives the period. Elevator: phone on the floor, watch a_z when it starts and when it arrives."
+    },
+    "phoneGyro": {
+      "title": "Gyroscope",
+      "subtitle": "Circular motion · phone",
+      "tip": "Phone on a swivel chair or a turntable: ω_z stays constant in uniform circular motion, and aₓ toward the center equals ω²r. In the pendulum the gyroscope oscillates with the pendulum's period, a_y at twice the frequency: why?"
+    },
+    "phoneSound": {
+      "title": "Frequency over time",
+      "subtitle": "Doppler effect · microphone",
+      "tip": "A car or a scooter sounding its horn as it passes you: the frequency drops as it goes by. From the frequency jump you get the speed: v ≈ c·Δf / (2f)."
+    }
+  },
+  "instruments": {
+    "scope": {
+      "title": "Oscilloscope",
+      "subtitle": "Waveform of a sound",
+      "wiringTitle": "Device microphone",
+      "wiring": "The phone's or computer's microphone is all you need. The audio is neither recorded nor sent."
+    },
+    "synth": {
+      "subtitle": "Makes a sound · keyboard, touch, tilt, HC-SR04",
+      "wiringTitle": "With Arduino (optional)",
+      "wiring": "HC-SR04 with TRIG to D12 and ECHO to D11, pointing up. Move your hand between 5 and 50 cm above the sensor."
+    },
+    "escope": {
+      "title": "Electrical oscilloscope",
+      "subtitle": "Voltage on A0 · microphone, coil",
+      "safeTitle": "Only 0–5 V",
+      "safe": "Never mains power. The signal goes to A0.",
+      "micTitle": "Kit microphone",
+      "coilTitle": "Coil and magnet",
+      "coil": "Use single trigger and drop the magnet through the coil."
+    }
+  },
+  "rig": {
+    "phoneMix": "Phone sensors can't be used together with Arduino components: keep them in a separate project.",
+    "onlyAccessories": "There are only accessories (display, LED, button, SD card, Bluetooth): add at least one sensor.",
+    "empty": "The project is empty: add at least one sensor.",
+    "oneBluetooth": "Only one Bluetooth module at a time: they all use D0 and D1. Remove the extra one.",
+    "tooMany": "Too many sensors: Arduino reads at most {max}. Remove some.",
+    "maxType": "{max, plural, =1 {You can use only one “{title}”: remove the extra one.} other {You can use at most # “{title}”: remove the extra ones.}}",
+    "serialPin": "{sensor}: D0 and D1 are reserved for the serial port (USB and Bluetooth). Choose another pin.",
+    "analogPin": "{sensor}: move {role} to an analog pin (A0…A5).",
+    "fixedPin": "{pin} is needed by {sensor} ({role}) and can't be changed: move {other} to another pin.",
+    "pinTwice": "{pin} is used twice ({other} and {sensor} · {role}). Change one of the two pins.",
+    "minInterval": "{sensor}: the minimum interval is {min} ms, that will be used.",
+    "gpsDht": "With the GPS, the DHT is read between one GPS message and the next: some readings may arrive late.",
+    "sonars": "Several ultrasonic sensors can pick up each other's echoes: point them in different directions.",
+    "busFull": "The I2C bus on {pin} ({role}) already has {max} devices: a breadboard column has only 5 connected holes (one for Arduino, {max} for the modules). Remove one I2C device.",
+    "pinLocked": "{sensor} needs {pin}, but it's taken by {other}, which can't move. Remove one of the two.",
+    "noFreePin": "No free {kind, select, analog {analog pin (A0–A5)} other {pin}} left for {sensor} ({role}).{i2c, select, yes { A4 and A5 carry the I2C bus.} other {}} Remove a component to free one.",
+    "cantMove": "{sensor} needs {pin}, which is used by {other}, and there's no free pin to move it to. Remove a component first.",
+    "imuNoAddr": "No free I2C address for another MPU-6050: 0x68 and 0x69 are already used ({list}).",
+    "addrTaken": "{sensor} needs I2C address 0x{addr}, which {other} already uses on the same bus, and it can’t be changed. Remove one of the two.",
+    "addrClash": "{a} and {b} have the same I2C address (0x{addr}) and would interfere. {imu, select, yes {Set the MPU-6050 to its other address in the advanced options.} other {Remove one of the two.}}"
+  }
+}

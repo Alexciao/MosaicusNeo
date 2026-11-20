@@ -52,7 +52,7 @@ export function cfgMatches(rig: Rig, cfg: SdCfg[]) {
   });
 }
 
-const BY_FW: Record<string, SensorType> = { NTC: "ntc", ANA: "analog", DHT: "dht", SONAR: "sonar", GPS: "gps", DS18: "ds18b20", GATE: "gate", HX711: "hx711", IMU: "imu", MLX: "mlx" };
+const BY_FW: Record<string, SensorType> = { NTC: "ntc", ANA: "analog", DHT: "dht", SONAR: "sonar", GPS: "gps", DS18: "ds18b20", GATE: "gate", HX711: "hx711", IMU: "imu", MLX: "mlx", SPS: "sps30" };
 
 /** Ricostruisce i sensori dalla configurazione scritta nel file (con le opzioni di serie). */
 export function sensorsFromCfg(cfg: SdCfg[]): SensorInstance[] {

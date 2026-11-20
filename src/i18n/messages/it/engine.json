@@ -1,0 +1,204 @@
+{
+  "common": {
+    "connectFirst": "Collega prima Arduino o il «Simulatore»."
+  },
+  "fits": {
+    "lin": {
+      "label": "Retta",
+      "short": "retta",
+      "m": "m (pendenza)",
+      "q": "q (valore di {ys} per {xs} = 0)"
+    },
+    "poly": {
+      "label": "Polinomio di grado {deg}",
+      "short": "polinomio di grado {deg}",
+      "c0": "c₀ (valore di {ys} per {xs} = {x1})"
+    },
+    "poly2": {
+      "label": "Parabola (grado 2)"
+    },
+    "mean": {
+      "label": "Costante (media)",
+      "short": "media",
+      "sd": "s (dispersione dei dati)"
+    },
+    "exp": {
+      "label": "Esponenziale",
+      "short": "esponenziale"
+    },
+    "expC": {
+      "label": "Esponenziale con asintoto",
+      "short": "esponenziale con asintoto",
+      "C": "C (asintoto)"
+    },
+    "power": {
+      "label": "Potenza",
+      "short": "potenza",
+      "needPositive": "La legge di potenza richiede x > 0 in tutto l'intervallo: scegli un tratto senza valori nulli o negativi.",
+      "n": "n (esponente)"
+    },
+    "dsin": {
+      "label": "Sinusoide smorzata",
+      "short": "sinusoide smorzata",
+      "C": "C (centro)",
+      "A": "A (ampiezza a inizio intervallo)",
+      "g": "γ (smorzamento)",
+      "w": "ω (pulsazione)",
+      "phi": "φ (fase a inizio intervallo)"
+    },
+    "err": {
+      "unknown": "Modello sconosciuto.",
+      "minPoints": "Servono almeno {n} punti validi nell'intervallo.",
+      "failedWith": "Fit non riuscito ({msg}).",
+      "failed": "Fit non riuscito: scegli un altro intervallo.",
+      "noConverge": "Il fit non converge: cambia modello o intervallo."
+    }
+  },
+  "formula": {
+    "badNumber": "numero non valido vicino a «{near}»",
+    "badSymbol": "simbolo non riconosciuto: «{c}»",
+    "missingParen": "manca una parentesi chiusa «)»",
+    "expected": "atteso «{t}»",
+    "incomplete": "la formula è incompleta",
+    "unknownName": "«{name}» non è una colonna né una funzione conosciuta (colonne: {columns})",
+    "misplaced": "«{t}» fuori posto",
+    "empty": "scrivi una formula",
+    "trailing": "testo in più alla fine: «{text}»"
+  },
+  "audio": {
+    "noMicApi": "questo browser non dà accesso al microfono",
+    "micNeedsHttps": "il microfono funziona solo da una pagina sicura (https)"
+  },
+  "phone": {
+    "needsHttps": "i sensori del telefono funzionano solo da una pagina sicura (https)",
+    "motionDenied": "Permesso per i sensori di movimento negato. Su iPhone: Impostazioni → Safari → Movimento e orientamento, poi ricarica la pagina.",
+    "noMotionData": "Nessun dato dai sensori di movimento: apri l'app sul telefono (i computer di solito non li hanno).",
+    "micUnavailable": "Microfono non disponibile: {msg}."
+  },
+  "ble": {
+    "noSerial": "il dispositivo non offre una seriale BLE (servizio FFE0 o Nordic UART)"
+  },
+  "dsp": {
+    "noteNames": "Do Do♯ Re Re♯ Mi Fa Fa♯ Sol Sol♯ La La♯ Si",
+    "timbres": {
+      "sinusoide": "Sinusoide (diapason)",
+      "flauto": "Flauto",
+      "clarinetto": "Clarinetto",
+      "violino": "Violino",
+      "voce": "Voce, vocale «a»",
+      "voceShort": "Voce «a»",
+      "organo": "Organo",
+      "quadra": "Onda quadra",
+      "dente": "Dente di sega"
+    }
+  },
+  "synth": {
+    "noAudio": "Questo browser non supporta l'audio.",
+    "noTilt": "Questo dispositivo non ha il sensore di inclinazione.",
+    "tiltNeedsHttps": "Il sensore di inclinazione funziona solo da una pagina sicura (https).",
+    "motionDenied": "Accesso ai sensori di movimento negato: consentilo nelle impostazioni del browser.",
+    "modes": {
+      "keys": "Tastiera",
+      "ribbon": "Nastro",
+      "tilt": "Inclinazione",
+      "sonar": "Ultrasuoni"
+    },
+    "screen": {
+      "live": "dal vivo",
+      "computed": "calcolata",
+      "twoPeriods": "2 periodi"
+    },
+    "waves": {
+      "sinusoide": "Sinusoide",
+      "quadra": "Quadra",
+      "triangolare": "Triangolare",
+      "dente": "Dente di sega"
+    },
+    "env": {
+      "continuo": "Continuo",
+      "pizzicato": "Pizzicato",
+      "campana": "Campana"
+    },
+    "scaleGroups": {
+      "bright": "luminose",
+      "melancholic": "malinconiche",
+      "exotic": "esotiche",
+      "blues": "blues",
+      "other": "altre"
+    },
+    "scales": {
+      "maggiore": "maggiore · ionica",
+      "lidia": "lidia",
+      "misolidia": "misolidia",
+      "pentatonica": "pentatonica",
+      "minore": "minore · eolia",
+      "dorica": "dorica",
+      "frigia": "frigia",
+      "locria": "locria",
+      "minoreArmonica": "minore armonica",
+      "minoreMelodica": "minore melodica",
+      "pentatonicaMin": "pentatonica minore",
+      "araba": "araba",
+      "napoletana": "napoletana",
+      "ungherese": "ungherese",
+      "giapponese": "giapponese",
+      "spagnola": "spagnola",
+      "blues": "blues",
+      "bluesMag": "blues maggiore",
+      "esatonale": "esatonale",
+      "diminuita": "diminuita",
+      "cromatica": "cromatica",
+      "continua": "continua"
+    }
+  },
+  "scope": {
+    "examples": {
+      "sinusoide": "Diapason",
+      "flauto": "Flauto",
+      "clarinetto": "Clarinetto",
+      "violino": "Violino",
+      "voce": "Voce «a»",
+      "beats": "Battimenti"
+    },
+    "arbitraryUnit": "u.a.",
+    "normHeights": "altezze normalizzate",
+    "normAmps": "ampiezze normalizzate",
+    "noTrigger": "senza trigger",
+    "spectrumTag": "spettro",
+    "pickSource": "Scegli una sorgente e premi ▶ Avvia",
+    "connectArduino": "Collega Arduino, poi premi ▶ Avvia",
+    "pressStart": "Premi ▶ Avvia",
+    "live": "dal vivo",
+    "waitingTrigger": "In attesa del trigger…",
+    "readout": {
+      "frequency": "frequenza f",
+      "period": "periodo T",
+      "note": "nota",
+      "peakToPeak": "picco-picco",
+      "mean": "media"
+    },
+    "amplitudeUnit": "ampiezza ({unit})",
+    "noAudio": "Questo browser non supporta l'audio (Web Audio API).",
+    "micUnavailable": "Microfono non disponibile: {msg}",
+    "captured": "Traccia catturata. Premi «Congela» per conservarla.",
+    "fNotFound": "f non trovata",
+    "noTraceToSend": "Nessuna traccia da inviare: premi prima ▶ Avvia.",
+    "noSpectrumToSend": "Nessuno spettro da inviare: premi prima ▶ Avvia.",
+    "needTrace": "Serve prima una traccia: ▶ Avvia.",
+    "waveTitle": "Oscilloscopio · {names}",
+    "spectrumTitle": "Spettro · {names}",
+    "colTime": "tempo dal trigger",
+    "colFrequency": "frequenza",
+    "colAmplitude": "ampiezza {name}",
+    "wavesSent": "{n, plural, one {Forma d'onda inviata} other {# forme d'onda inviate}} a Elaborazione · {points} punti.",
+    "spectraSent": "{n, plural, one {Spettro inviato} other {# spettri inviati}} a Elaborazione."
+  },
+  "device": {
+    "pc": "Computer",
+    "android": "Telefono o tablet Android",
+    "ios": "iPhone o iPad",
+    "board": "Lavagna interattiva (LIM)",
+    "unknownOs": "sistema sconosciuto",
+    "unknownBrowser": "un browser sconosciuto"
+  }
+}

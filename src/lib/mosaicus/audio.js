@@ -9,6 +9,8 @@
 //   esempi     ─┘
 //   microfono  ───► micAnalyser (AnalyserNode, non va agli altoparlanti)
 
+import { t as tr } from '@/i18n';
+
 let ctx = null, master = null, monitor = null;
 let mic = null; // { stream, src, analyser }
 let micUsers = 0; // quante parti dell'app stanno usando (o chiedendo) il microfono
@@ -54,8 +56,8 @@ export function monitorAnalyser() { return audio().monitor; }
 /** Microfono: analizzatore con il segnale "pulito" (niente cancellazione d'eco, niente controllo automatico del guadagno). */
 export async function micAnalyser() {
   if (mic) return mic.analyser;
-  if (!navigator.mediaDevices?.getUserMedia) throw new Error('questo browser non dà accesso al microfono');
-  if (!window.isSecureContext) throw new Error('il microfono funziona solo da una pagina sicura (https)');
+  if (!navigator.mediaDevices?.getUserMedia) throw new Error(tr('engine.audio.noMicApi'));
+  if (!window.isSecureContext) throw new Error(tr('engine.audio.micNeedsHttps'));
   micSessionOn();
   let c, stream;
   try {

@@ -25,11 +25,13 @@ import { toGPX, toGeoJSON, type TrackPoint } from "@/lib/mosaicus/geo";
 import { SENSORS, pinName, type SensorType } from "@/lib/sensors/catalog";
 import {
   resolveRig, validateRig, hasErrors, firmwareCommands, buildRows, alignRows, seriesOf, interpAt, tolerance,
-  makeSensor, usedPins, newId, sensorLabel, LEGACY, inputsOf, outputsOf, isPhoneRig, firmwareNeeded, type Rig, type SensorInstance, type Resolved, type ResolvedQuantity,
+  planAdd, type AddPlan, newId, sensorLabel, LEGACY, inputsOf, outputsOf, isPhoneRig, firmwareNeeded, type Rig, type SensorInstance, type Resolved, type ResolvedQuantity,
 } from "@/lib/sensors/rig";
 import { parseSdLog, cfgMatches, sensorsFromCfg } from "@/lib/sensors/sd-log";
 import { PRESETS, INSTRUMENTS, presetById, instrumentById, presetSensors, type Preset, type Instrument } from "@/lib/sensors/presets";
 import type { Row, Tone } from "@/lib/sensors/types";
+import { t, intlLocale } from "@/i18n";
+import { boardPlan } from "@/components/app/board-diagram";
 
 // ---------------------------------------------------------------------------
 // Tipi
@@ -153,7 +155,7 @@ export const useLab = create<LabState>(() => ({
   session: null,
   sessionName: "",
   sent: false,
-  status: { text: "Nessun dispositivo", tone: "off" },
+  status: { text: t("lab.status.noDevice"), tone: "off" },
   sessions: null,
   serialLog: [],
   lim: prefs.get("mosaicus.lim", false),
@@ -179,11 +181,11 @@ export function labInfo(id = get().labId, customRigs = get().customRigs): LabInf
   const p = presetById(id);
   if (p) return { kind: "preset", id, title: p.title, subtitle: p.subtitle, topic: p.topic, icon: p.icon, tone: p.tone, preset: p };
   const ins = instrumentById(id);
-  if (ins) return { kind: "instrument", id, title: ins.title, subtitle: ins.subtitle, topic: "Strumenti", icon: ins.icon, tone: ins.tone, instrument: ins };
+  if (ins) return { kind: "instrument", id, title: ins.title, subtitle: ins.subtitle, topic: t("lab.info.toolsTopic"), icon: ins.icon, tone: ins.tone, instrument: ins };
   const r = customRigs.find((x) => x.id === id);
-  return { kind: "custom", id, title: r?.name || "Nuovo progetto", subtitle: r ? rigSummary(r) : "", topic: "I miei progetti", icon: Wrench, tone: "saffron" };
+  return { kind: "custom", id, title: r?.name || t("lab.info.newProject"), subtitle: r ? rigSummary(r) : "", topic: t("lab.info.projectsTopic"), icon: Wrench, tone: "saffron" };
 }
-export const rigSummary = (r: Rig) => r.sensors.length ? r.sensors.map(sensorLabel).join(" · ") : "nessun componente";
+export const rigSummary = (r: Rig) => r.sensors.length ? r.sensors.map(sensorLabel).join(" · ") : t("lab.info.noComponents");
 
 let resolvedCache: { rig: Rig; res: Resolved } | null = null;
 export function resolved(rig = get().rig): Resolved {
@@ -199,7 +201,7 @@ export function viewsOf(rig = get().rig): View[] {
     const s = rig.sensors.find((x) => x.id === q.sensorId)!;
     return {
       id: q.key, key: q.key, sym: q.sym, line: q.line, raw: q.raw, sensorId: q.sensorId,
-      label: q.raw ? `${q.sym} (grezzo)` : `${q.sym}(t)`,
+      label: q.raw ? t("lab.info.rawView", { sym: q.sym }) : `${q.sym}(t)`,
       yLabel: `${q.sym}${q.unit ? ` (${q.unit})` : ""}${multi && q.raw ? ` · ${sensorLabel(s)}` : ""}`,
     };
   });
@@ -241,6 +243,11 @@ export const simScenario = () => labInfo().preset?.sim ?? (hasMap() ? "walk" : "
 // ---------------------------------------------------------------------------
 let link: Link | null = null;
 let raw: number[][] = [];
+/** Coppie [t_ms di Arduino, ora del computer in ms], una ogni 2 s circa: servono per combinare due
+ *  misure fatte con due Arduino (gli orologi delle schede vanno avanti a velocità leggermente diverse). */
+let clock: number[][] = [];
+/** Avvisa le altre schede del browser quando cambia il Quaderno. */
+let tabs: BroadcastChannel | null = null;
 let instrument: InstrumentPanel | null = null;
 let simSignal = "mic";
 let group: ChartGroup | null = null;
@@ -269,7 +276,7 @@ export function instrumentApi(ins: Instrument): InstrumentApi {
     },
     async sendBox(data, msg) {
       const box = await useWorkbench.getState().addBox({ experiment: ins.id, expTitle: ins.title, sessionId: null, sessionName: "", ...data } as NewBox);
-      toast.success(msg, { duration: 6000, action: { label: "Apri in Elaborazione", onClick: () => goElab(box.id) } });
+      toast.success(msg, { duration: 6000, action: { label: t("lab.action.openInElab"), onClick: () => goElab(box.id) } });
     },
     setSimSignal(sig) { simSignal = sig; if (link?.kind === "simulatore") link.scopeSignal = sig; },
   };
@@ -345,10 +352,10 @@ function suggestLim() {
   const board = matchMedia("(pointer: coarse)").matches && Math.max(screen.width, screen.height) >= 1600;
   if (!weak || !board) return;
   prefs.set("mosaicus.limSuggested", true);
-  toast("Lavagna interattiva rilevata", {
-    description: "La modalità LIM ingrandisce i testi e alleggerisce i grafici.",
+  toast(t("lab.lim.title"), {
+    description: t("lab.lim.description"),
     duration: 12000,
-    action: { label: "Attiva", onClick: () => setLim(true) },
+    action: { label: t("lab.action.enable"), onClick: () => setLim(true) },
   });
 }
 
@@ -371,7 +378,7 @@ function loadRig(id: string): { rig: Rig; modified: boolean } {
     return { rig: { id, name: p.title, sensors: saved ?? base }, modified: !!saved };
   }
   const custom = get().customRigs.find((r) => r.id === id);
-  return { rig: custom ?? { id, name: "Nuovo progetto", sensors: [] }, modified: false };
+  return { rig: custom ?? { id, name: t("lab.info.newProject"), sensors: [] }, modified: false };
 }
 
 function defaultVisible(rig: Rig): string[] {
@@ -396,12 +403,12 @@ function applyRig(rig: Rig, modified: boolean, { keepData = false } = {}) {
 }
 
 export function selectLab(id: string, { keepData = false } = {}) {
-  if (get().running) { toast("Ferma la misura prima di cambiare esperimento."); return; }
+  if (get().running) { toast(t("lab.toast.stopBeforeLab")); return; }
   if (id === "generator" || id === "theremin") id = "synth";
   const known = presetById(id) || instrumentById(id) || get().customRigs.some((r) => r.id === id);
   if (!known) id = serialSupported() ? "motion" : "synth";
   prefs.set("mosaicus.lastLab", id);
-  if (!keepData) raw = [];
+  if (!keepData) { raw = []; clock = []; }
   set({
     labId: id, selection: null, sent: false, dragHint: false, labsOpen: false,
     ...(keepData ? {} : { session: null, sessionName: "", rows: [], nRaw: 0 }),
@@ -414,7 +421,7 @@ export function selectLab(id: string, { keepData = false } = {}) {
 
 /** Modifica del montaggio: per un preset diventa una sua versione personale, per un montaggio libero si salva. */
 function commitRig(rig: Rig) {
-  if (get().running) { toast("Ferma la misura prima di cambiare i componenti."); return false; }
+  if (get().running) { toast(t("lab.toast.stopBeforeComponents")); return false; }
   const p = presetById(rig.id);
   if (p) prefs.set(rigKey(rig.id), rig.sensors);
   else {
@@ -430,11 +437,35 @@ export function updateSensor(id: string, patch: Partial<SensorInstance>) {
   const rig = get().rig;
   commitRig({ ...rig, sensors: rig.sensors.map((s) => (s.id === id ? { ...s, ...patch, ...(patch.options ? { options: { ...s.options, ...patch.options } } : {}) } : s)) });
 }
+/**
+ * Come aggiungere il componente perché il circuito si possa montare davvero: pin liberati spostando
+ * altri componenti, indirizzi I2C, posto sulla breadboard. ok: false spiega perché non si può.
+ */
+export function checkAdd(sensors: SensorInstance[], type: SensorType): AddPlan {
+  const plan = planAdd(sensors, type);
+  if (!plan.ok || SENSORS[type].phone) return plan;
+  const board = boardPlan(plan.sensors.filter((s) => !SENSORS[s.type].phone));
+  return board && !board.fits ? { ok: false, error: t("rig.editor.noRoom") } : plan;
+}
+/** Aggiunge con il piano di checkAdd; avvisa se ha spostato dei pin. null = non aggiunto (già avvisato). */
+function applyAdd(rig: Rig, sensors: SensorInstance[], type: SensorType): SensorInstance | null {
+  const plan = checkAdd(sensors, type);
+  if (!plan.ok) { toast.error(t("lab.toast.cantAdd", { name: SENSORS[type].title }), { description: plan.error, duration: 10000 }); return null; }
+  if (!commitRig({ ...rig, sensors: plan.sensors })) return null;
+  if (plan.moved.length || plan.readdressed.length) {
+    const list = [
+      ...plan.moved.map((m) => t("lab.toast.pinMove", { sensor: sensorLabel(m.sensor), role: m.role, from: pinName(m.from), to: pinName(m.to) })),
+      ...plan.readdressed.map((s) => t("lab.toast.addrMove", { sensor: sensorLabel(s), addr: String(s.options.addr) })),
+    ].join(", ");
+    toast.info(t("lab.toast.pinsMoved", { list, name: SENSORS[type].title }), { duration: 12000, action: { label: t("lab.action.wiring"), onClick: () => showWiring() } });
+  }
+  return plan.sensor;
+}
 export function addSensor(type: SensorType) {
   const rig = get().rig;
-  const taken = new Set(usedPins(rig).keys());
-  const s = makeSensor(type, taken);
-  if (commitRig({ ...rig, sensors: [...rig.sensors, s] })) {
+  if (get().running) { toast(t("lab.toast.stopBeforeComponents")); return; }
+  const s = applyAdd(rig, rig.sensors, type);
+  if (s) {
     // la sua prima grandezza compare subito tra i grafici
     const first = viewsOf().find((v) => v.sensorId === s.id && !v.raw);
     if (first && !get().visible.includes(first.id)) { const visible = [...get().visible, first.id]; set({ visible }); prefs.set(`mosaicus.visible.${rig.id}`, visible); }
@@ -462,15 +493,15 @@ export function resetPreset() {
 export function renameRig(name: string) {
   const rig = get().rig;
   if (presetById(rig.id)) return;
-  commitRig({ ...rig, name: name.trim() || "Nuovo progetto" });
+  commitRig({ ...rig, name: name.trim() || t("lab.info.newProject") });
 }
 /** Nuovo montaggio libero (vuoto o copia del montaggio corrente). */
 export function newRig({ copy = false } = {}) {
-  if (get().running) { toast("Ferma la misura prima."); return; }
+  if (get().running) { toast(t("lab.toast.stopFirst")); return; }
   const cur = get().rig;
   const rig: Rig = {
     id: `rig-${newId()}`,
-    name: copy ? `${labInfo().title} (copia)` : "Nuovo progetto",
+    name: copy ? t("lab.info.copyOf", { name: labInfo().title }) : t("lab.info.newProject"),
     sensors: copy ? cur.sensors.map((s) => ({ ...s, id: newId(), options: { ...s.options }, pins: { ...s.pins } })) : [],
   };
   const list = [...get().customRigs, rig];
@@ -480,19 +511,10 @@ export function newRig({ copy = false } = {}) {
   set({ rigOpen: true });
   return rig;
 }
-/** Nuovo montaggio libero con questi sensori (dalla guida). */
-export function createRigFrom(types: SensorType[], name = "Progetto dalla guida") {
-  const rig = newRig();
-  if (!rig) return;
-  const taken = new Set<number>();
-  const sensors = types.map((t) => { const s = makeSensor(t, taken); return s; });
-  commitRig({ ...get().rig, name, sensors });
-  set({ visible: defaultVisible(get().rig) });
-}
 
 /** Rinomina un montaggio libero qualsiasi (anche non aperto). */
 export function renameRigById(id: string, name: string) {
-  const clean = name.trim() || "Nuovo progetto";
+  const clean = name.trim() || t("lab.info.newProject");
   if (get().labId === id) { renameRig(clean); return; }
   const list = get().customRigs.map((r) => (r.id === id ? { ...r, name: clean } : r));
   set({ customRigs: list });
@@ -500,10 +522,10 @@ export function renameRigById(id: string, name: string) {
 }
 /** Copia di un montaggio libero, aperta subito. */
 export function duplicateRig(id: string) {
-  if (get().running) { toast("Ferma la misura prima."); return; }
+  if (get().running) { toast(t("lab.toast.stopFirst")); return; }
   const src = get().customRigs.find((r) => r.id === id);
   if (!src) return;
-  const rig: Rig = { id: `rig-${newId()}`, name: `${src.name} (copia)`, sensors: src.sensors.map((x) => ({ ...x, id: newId(), options: { ...x.options }, pins: { ...x.pins } })) };
+  const rig: Rig = { id: `rig-${newId()}`, name: t("lab.info.copyOf", { name: src.name }), sensors: src.sensors.map((x) => ({ ...x, id: newId(), options: { ...x.options }, pins: { ...x.pins } })) };
   const list = [...get().customRigs, rig];
   set({ customRigs: list });
   prefs.set("mosaicus.rigs", list);
@@ -511,7 +533,7 @@ export function duplicateRig(id: string) {
 }
 
 export function deleteRig(id: string) {
-  if (get().running && get().labId === id) { toast("Ferma la misura prima di eliminare il progetto."); return; }
+  if (get().running && get().labId === id) { toast(t("lab.toast.stopBeforeDelete")); return; }
   const list = get().customRigs.filter((r) => r.id !== id);
   set({ customRigs: list });
   prefs.set("mosaicus.rigs", list);
@@ -530,7 +552,7 @@ export function reloadParams() {
 export function toggleView(id: string) {
   const { visible, rig } = get();
   const on = visible.includes(id);
-  if (on && visible.length === 1) { toast("Almeno un grafico deve restare visibile."); return; }
+  if (on && visible.length === 1) { toast(t("lab.toast.keepOneChart")); return; }
   const order = viewsOf().map((v) => v.id);
   const next = on ? visible.filter((v) => v !== id) : [...visible, id].sort((a, b) => order.indexOf(a) - order.indexOf(b));
   prefs.set(`mosaicus.visible.${rig.id}`, next);
@@ -568,7 +590,7 @@ export function clearSelection() { measureGroup().setSelection(null, true); }
 function setStatus(text: string, tone: StatusTone) { set({ status: { text, tone } }); }
 const simStatus = () => {
   const warp = WARP[simScenario()];
-  return `Simulatore pronto${warp ? ` · tempo ×${warp}` : ""}`;
+  return warp ? t("lab.status.simReadyWarp", { warp }) : t("lab.status.simReady");
 };
 
 /** arduino = Web Serial (cavo USB, o HC-06 su Android); ble = modulo Bluetooth LE; sim = simulatore;
@@ -583,12 +605,12 @@ export async function connect(kind: "arduino" | "ble" | "sim" | "phone") {
     link = null;
     stopPing();
     set({ linkKind: null, transport: null, ready: false, device: null, sdCheck: null });
-    setStatus("Nessun dispositivo", "off");
+    setStatus(t("lab.status.noDevice"), "off");
     instrument?.linkChanged?.();
     if (wasRunning) {
       set({ running: false });
       stopKeepAlive();
-      toast.warning(`${l.kind === "telefono" ? "Sensori del telefono disattivati" : "Arduino scollegato"} durante la misura. I dati raccolti sono stati salvati.`);
+      toast.warning(t(l.kind === "telefono" ? "lab.toast.phoneDisconnected" : "lab.toast.arduinoDisconnected"));
       void autosave();
     }
   });
@@ -596,12 +618,12 @@ export async function connect(kind: "arduino" | "ble" | "sim" | "phone") {
     await l.open();
   } catch (err) {
     const e = err as Error;
-    if (e?.name !== "NotFoundError") toast.error(kind === "ble" ? `Bluetooth LE: ${e.message}` : kind === "phone" ? `Sensori del telefono: ${e.message}.` : `Impossibile aprire la porta: ${e.message}`);
+    if (e?.name !== "NotFoundError") toast.error(t(kind === "ble" ? "lab.toast.bleError" : kind === "phone" ? "lab.toast.phoneError" : "lab.toast.portError", { msg: e.message }));
     return;
   }
   link = l;
   set({ linkKind: l.kind, transport: kind === "sim" || kind === "phone" ? null : kind === "ble" ? "ble" : "serial", ready: false });
-  setStatus(kind === "sim" ? "Avvio del simulatore…" : kind === "phone" ? "Attivo i sensori…" : "In attesa del firmware…", "wait");
+  setStatus(t(kind === "sim" ? "lab.status.simStarting" : kind === "phone" ? "lab.status.phoneStarting" : "lab.status.waitingFirmware"), "wait");
   if (kind === "phone") return;              // il telefono risponde subito, niente firmware da cercare
   // l'Uno si riavvia quando si apre la porta USB: tempo al bootloader, poi chiedo l'identità
   // (via Bluetooth non si riavvia: la risposta arriva subito; lo chiedo due volte per sicurezza)
@@ -609,8 +631,8 @@ export async function connect(kind: "arduino" | "ble" | "sim" | "phone") {
   if (kind === "ble") setTimeout(() => { if (link === l && !get().ready) void l.write("ID?"); }, 1800);
   setTimeout(() => {
     if (link === l && !get().ready) {
-      setStatus("Firmware non trovato", "err");
-      toast.error("Arduino risponde, ma non ha il firmware MosaicusNeo. Caricalo con l'IDE di Arduino.", { duration: 10000, action: { label: "Come si fa", onClick: () => openGuide("firmware") } });
+      setStatus(t("lab.status.firmwareNotFound"), "err");
+      toast.error(t("lab.toast.noFirmware"), { duration: 10000, action: { label: t("lab.action.howTo"), onClick: () => openGuide("firmware") } });
     }
   }, 5000);
 }
@@ -634,7 +656,7 @@ function request(cmd: string, match: (l: string) => boolean, ms = 2000) {
 const logBuf: string[] = [];
 let logTimer: ReturnType<typeof setTimeout> | null = null;
 function logSerial(line: string) {
-  if (line.length > 140) line = `${line.slice(0, 120)}… (${line.split(",").length} valori)`;
+  if (line.length > 140) line = t("lab.info.serialTruncated", { head: line.slice(0, 120), n: line.split(",").length });
   logBuf.push(line);
   if (logBuf.length > 80) logBuf.shift();
   if (!logTimer) logTimer = setTimeout(() => { logTimer = null; set({ serialLog: [...logBuf] }); }, 200);
@@ -655,33 +677,33 @@ function handleLine(line: string) {
       void link?.write(`LINK,${bt ? "B" : "U"}`);
     }
     if (kind === "arduino" && fw && cmpVersion(fw, FIRMWARE_VERSION) < 0) {
-      toast.warning(`Su Arduino c'è il firmware v${fw}: aggiornalo alla v${FIRMWARE_VERSION}.`, { duration: 10000, action: { label: "Come si fa", onClick: () => openGuide("firmware") } });
+      toast.warning(t("lab.toast.oldFirmware", { fw, need: FIRMWARE_VERSION }), { duration: 10000, action: { label: t("lab.action.howTo"), onClick: () => openGuide("firmware") } });
     }
-    setStatus(kind === "simulatore" ? simStatus() : kind === "telefono" ? "Sensori del telefono pronti" : `Arduino pronto${link?.transport === "ble" ? " (Bluetooth LE)" : ""} · firmware ${fw}`, "on");
+    setStatus(kind === "simulatore" ? simStatus() : kind === "telefono" ? t("lab.status.phoneReady") : t(link?.transport === "ble" ? "lab.status.arduinoReadyBle" : "lab.status.arduinoReady", { fw: String(fw) }), "on");
     return;
   }
   if (line === "#KEY") { onKey(); return; }
   if (line === "#BT,NOREPLY") { btNoReply = true; return; }
-  if (line === "#BT,SETUP") { toast.info("Configurazione del modulo Bluetooth: nome «MosaicusNeo», 115200 baud…"); return; }
+  if (line === "#BT,SETUP") { toast.info(t("lab.toast.btSetup")); return; }
   if ((line === "#ACK,BT,SETUP,BLE" || line === "#ACK,BT,SETUP") && btNoReply) {
     btNoReply = false;
-    toast.warning("Il modulo Bluetooth non ha risposto. Controlla TXD → D0 e RXD ← D1 (con il partitore), che il LED del modulo lampeggi e che nessun telefono sia collegato, poi riprova.", { duration: 14000 });
+    toast.warning(t("lab.toast.btNoReply"), { duration: 14000 });
     return;
   }
   if (line === "#ACK,BT,SETUP,BLE") {
-    toast.success("Modulo BLE configurato: ora si chiama «MosaicusNeo». Scollega il cavo, alimenta Arduino e scegli «Bluetooth LE» → «MosaicusNeo» (su iPhone usa il browser Bluefy). Se il nome non compare, cerca HMSoft, BT05 o HC-08.", { duration: 14000 });
+    toast.success(t("lab.toast.bleConfigured"), { duration: 14000 });
     return;
   }
   if (line === "#ACK,BT,SETUP") {
-    toast.success("Modulo HC-06 configurato: ora si chiama «MosaicusNeo». Associalo nelle impostazioni Bluetooth del telefono (PIN 1234).", { duration: 12000 });
+    toast.success(t("lab.toast.hc06Configured"), { duration: 12000 });
     return;
   }
   if (line.startsWith("#ERR,PHONE,")) { toast.error(line.slice(11), { duration: 8000 }); return; }
   if (line.startsWith("#ERR")) {
     const what = line.slice(5);
     toast.error(/SCOPE|BT|CFG|START/.test(what)
-      ? `Firmware non aggiornato: carica mosaicusneo_firmware.ino v${FIRMWARE_VERSION} con l'IDE di Arduino.`
-      : `Comando non riconosciuto da Arduino: ${what}`, { duration: 8000 });
+      ? t("lab.toast.fwOutdatedLoad", { v: FIRMWARE_VERSION })
+      : t("lab.toast.unknownCommand", { what }), { duration: 8000 });
     return;
   }
   if (line.startsWith("#ST,")) {
@@ -694,7 +716,11 @@ function handleLine(line: string) {
   if (!get().running) return;
   if (line.startsWith("D,")) {
     const f = line.slice(2).split(",").map((v) => (v === "nan" ? NaN : Number(v)));
-    if (Number.isFinite(f[0]) && Number.isFinite(f[1])) { raw.push(f); scheduleRecompute(); }
+    if (Number.isFinite(f[0]) && Number.isFinite(f[1])) {
+      raw.push(f); scheduleRecompute();
+      const now = Date.now();
+      if (!clock.length || now - clock[clock.length - 1][1] >= 2000) clock.push([f[1], now]);
+    }
   }
 }
 
@@ -719,8 +745,8 @@ function oledText(s: string, max: number) {
 function oledValue(q: ResolvedQuantity, v: number, max: number) {
   const unit = q.unit === "°C" ? "°" : q.unit === "%" ? "%" : "";
   for (let d = Math.min(q.digits, 3); d >= 0; d--) {
-    const t = `${v.toFixed(d)}${unit}`;
-    if (t.length <= max) return t;
+    const s = `${v.toFixed(d)}${unit}`;
+    if (s.length <= max) return s;
   }
   return v.toPrecision(3).slice(0, max);
 }
@@ -748,36 +774,41 @@ function stopOledFeed() { if (oledTimer) { clearInterval(oledTimer); oledTimer =
 /** Prova degli indicatori: colori, bip e scritta sul display (Arduino collegato, firmware 1.2). */
 export async function testOutputs() {
   const st = get();
-  if (!link || !st.ready) { toast("Prima collega Arduino."); return; }
-  if (st.running) { toast("Ferma la misura prima della prova."); return; }
+  if (!link || !st.ready) { toast(t("lab.toast.connectFirst")); return; }
+  if (st.running) { toast(t("lab.toast.stopBeforeTest")); return; }
   if (link.kind !== "simulatore" && (!st.fw || cmpVersion(st.fw, "1.2") < 0)) {
-    toast.error("Display, LED e cicalino richiedono il firmware v1.2. Aggiornalo seguendo la «Guida».", { action: { label: "Come si fa", onClick: () => openGuide("firmware") } }); return;
+    toast.error(t("lab.toast.outputsNeedFw"), { action: { label: t("lab.action.howTo"), onClick: () => openGuide("firmware") } }); return;
   }
   for (const cmd of firmwareCommands(st.rig, resolved(st.rig), { outputs: true }).filter((c) => c.startsWith("OUT"))) {
     const r = await request(cmd, (l) => l.startsWith("#ACK,OUT") || l.startsWith("#ERR"));
-    if (!r || r.startsWith("#ERR")) { toast.error(`Arduino ha rifiutato display, LED e cicalino${r ? `: ${OUT_ERR[r.split(",")[2]] ?? r}` : ""}.`); return; }
+    if (!r || r.startsWith("#ERR")) { toast.error(r ? t("lab.toast.outputsRejectedWhy", { why: OUT_ERR[r.split(",")[2]] ?? r }) : t("lab.toast.outputsRejected")); return; }
   }
   const ok = await request("OUT,TEST", (l) => l.startsWith("#ACK,OUT,TEST"), 6000);
-  toast[ok ? "success" : "error"](ok ? "Prova inviata. Controlla: il LED cambia colore, il cicalino suona, il display mostra «CIAO»." : "Arduino non ha risposto alla prova.");
+  toast[ok ? "success" : "error"](t(ok ? "lab.toast.testSent" : "lab.toast.testNoReply"));
 }
-const OUT_ERR: Record<string, string> = { PIN: "pin non valido", DOPPIO: "pin già usato", TIPO: "tipo sconosciuto", PIENO: "troppi componenti di uscita", ARGOMENTI: "comando incompleto" };
+// codici di errore del firmware: in inglese dalla v1.6, in italiano fino alla v1.5 (valgono tutti e due)
+const OUT_ERR: Record<string, string> = {
+  PIN: t("lab.outErr.PIN"), DUPLICATE: t("lab.outErr.DOPPIO"), TYPE: t("lab.outErr.TIPO"), FULL: t("lab.outErr.PIENO"), ARGS: t("lab.outErr.ARGOMENTI"),
+  DOPPIO: t("lab.outErr.DOPPIO"), TIPO: t("lab.outErr.TIPO"), PIENO: t("lab.outErr.PIENO"), ARGOMENTI: t("lab.outErr.ARGOMENTI"),
+};
 
 const CFG_ERR: Record<string, string> = {
-  PIN: "pin non valido", ANALOGICO: "serve un pin analogico (A0…A5)", DOPPIO: "pin già usato da un altro componente",
-  GPS: "c'è già un GPS", SLOT: "troppi componenti", TIPO: "tipo di sensore sconosciuto", ARGOMENTI: "comando incompleto",
+  PIN: t("lab.cfgErr.PIN"), ANALOG: t("lab.cfgErr.ANALOGICO"), DUPLICATE: t("lab.cfgErr.DOPPIO"),
+  GPS: t("lab.cfgErr.GPS"), SLOT: t("lab.cfgErr.SLOT"), TYPE: t("lab.cfgErr.TIPO"), ARGS: t("lab.cfgErr.ARGOMENTI"),
+  ANALOGICO: t("lab.cfgErr.ANALOGICO"), DOPPIO: t("lab.cfgErr.DOPPIO"), TIPO: t("lab.cfgErr.TIPO"), ARGOMENTI: t("lab.cfgErr.ARGOMENTI"),
 };
 
 /** Manda la configurazione (sensori e, se outputs, accessori) un comando alla volta. false: rifiutata. */
 async function sendConfig(rig: Rig, res: Resolved, outputs: boolean) {
   for (const cmd of firmwareCommands(rig, res, { outputs })) {
     const reply = await request(cmd, (l) => l.startsWith("#ACK,CFG") || l.startsWith("#ACK,OUT") || l.startsWith("#ERR"));
-    if (!reply) { toast.error("Arduino non risponde alla configurazione. Scollegalo e ricollegalo."); return false; }
+    if (!reply) { toast.error(t("lab.toast.cfgNoReply")); return false; }
     if (reply.startsWith("#ERR")) {
       const parts = reply.split(",");
-      if (parts[1] === "OUT") { toast.error(`Accessori (display, LED, cicalino, pulsante, scheda SD): ${OUT_ERR[parts[2]] ?? parts[2]}.`); return false; }
-      if (parts[1] !== "CFG") { toast.error(`Firmware non aggiornato: per configurare i componenti serve la v${FIRMWARE_VERSION}. Trovi i passaggi nella «Guida».`, { duration: 10000 }); return false; }
+      if (parts[1] === "OUT") { toast.error(t("lab.toast.accessoriesError", { why: OUT_ERR[parts[2]] ?? parts[2] })); return false; }
+      if (parts[1] !== "CFG") { toast.error(t("lab.toast.cfgFwOutdated", { v: FIRMWARE_VERSION }), { duration: 10000 }); return false; }
       const s = res.byCode.get(Number(parts[2]));
-      toast.error(`${s ? sensorLabel(s) : "Componente"}: ${CFG_ERR[parts[3]] ?? parts[3]}.`);
+      toast.error(t("lab.toast.componentError", { name: s ? sensorLabel(s) : t("lab.info.component"), why: CFG_ERR[parts[3]] ?? parts[3] }));
       return false;
     }
   }
@@ -807,7 +838,7 @@ export async function start() {
     const phone = link.kind === "telefono";
     if (!sim && !phone && st.fw && cmpVersion(st.fw, need) < 0) {
       const what = rig.sensors.filter((s) => { const v = SENSORS[s.type].since; return v && cmpVersion(st.fw!, v) < 0; }).map(sensorLabel).join(", ");
-      toast.error(`${what}: serve il firmware v${need} (su Arduino c'è la v${st.fw}). Aggiornalo con l'IDE di Arduino.`, { duration: 12000, action: { label: "Come si fa", onClick: () => openGuide("firmware") } });
+      toast.error(t("lab.toast.needFirmware", { what, need, fw: st.fw }), { duration: 12000, action: { label: t("lab.action.howTo"), onClick: () => openGuide("firmware") } });
       return;
     }
     const outputs = !phone && (sim || (!!st.fw && cmpVersion(st.fw, "1.2") >= 0));
@@ -815,13 +846,14 @@ export async function start() {
   }
   const exp = labInfo();
   raw = [];
+  clock = [];
   measureGroup().setSelection(null); measureGroup().fitAll();
-  const name = st.sessionName.trim() || `${exp.title} ${new Date().toLocaleString("it-IT", { dateStyle: "short", timeStyle: "short" })}`;
+  const name = st.sessionName.trim() || `${exp.title} ${new Date().toLocaleString(intlLocale, { dateStyle: "short", timeStyle: "short" })}`;
   set({ session: { name, created: Date.now(), source: link?.kind ?? "arduino", fw: st.fw }, sessionName: name, sent: false, running: true, selection: null, dragHint: false });
   recompute();
   if (link) {
     const ok = await request("START", (l) => l.startsWith("#ACK,START") || l.startsWith("#ERR,START"));
-    if (!ok || ok.startsWith("#ERR")) { set({ running: false }); toast.error("La misura non è partita. Controlla i collegamenti dei componenti e riprova."); return; }
+    if (!ok || ok.startsWith("#ERR")) { set({ running: false }); toast.error(t("lab.toast.notStarted")); return; }
   }
   startKeepAlive();
   startOledFeed();
@@ -872,10 +904,10 @@ function stopKeepAlive() {
 
 /** Configura il modulo Bluetooth (nome e 115200 baud): solo con Arduino collegato via cavo USB. */
 export async function bluetoothSetup(module: "hc06" | "ble" = "hc06") {
-  if (!link || !get().ready || link.transport !== "serial") { toast("Prima collega Arduino con il cavo USB."); return; }
-  if (get().running) { toast("Ferma la misura prima di configurare il modulo."); return; }
+  if (!link || !get().ready || link.transport !== "serial") { toast(t("lab.toast.connectUsbFirst")); return; }
+  if (get().running) { toast(t("lab.toast.stopBeforeModule")); return; }
   if (get().fw && cmpVersion(get().fw!, module === "ble" ? "1.1" : "0.4") < 0) {
-    toast.error(`Firmware non aggiornato: per configurare il modulo serve la v${FIRMWARE_VERSION}.`); return;
+    toast.error(t("lab.toast.moduleFwOutdated", { v: FIRMWARE_VERSION })); return;
   }
   await link.write(module === "ble" ? "BT,SETUP,BLE" : "BT,SETUP");
 }
@@ -889,11 +921,10 @@ export function ensureComponent(type: SensorType): boolean {
   const rig = st.rig;
   if (instrumentById(st.labId) || isPhoneRig(rig) || rig.sensors.some((s) => s.type === type)) return false;
   const sensors = SENSORS[type].link ? rig.sensors.filter((s) => !SENSORS[s.type].link) : rig.sensors;
-  const s = makeSensor(type, new Set(usedPins({ ...rig, sensors }).keys()));
-  if (!commitRig({ ...rig, sensors: [...sensors, s] })) return false;
-  toast.success(`«${SENSORS[type].title}» aggiunto ai componenti del progetto.`, {
-    description: "Nella scheda «Collegamenti» trovi lo schema aggiornato e come collegarlo.",
-    action: { label: "Collegamenti", onClick: () => showWiring() },
+  if (!applyAdd(rig, sensors, type)) return false;
+  toast.success(t("lab.toast.componentAdded", { name: SENSORS[type].title }), {
+    description: t("lab.toast.componentAddedHint"),
+    action: { label: t("lab.action.wiring"), onClick: () => showWiring() },
   });
   return true;
 }
@@ -921,7 +952,7 @@ function onKey() {
   if (st.running) { void stop(); return; }
   if (canStart(st)) { void start(); return; }
   const issues = validateRig(st.rig);
-  toast(hasErrors(issues) ? `Pulsante premuto, ma la misura non può partire: ${issues.find((i) => i.level === "error")!.text}` : "Pulsante premuto: Arduino è collegato, ma la misura non può partire adesso.");
+  toast(hasErrors(issues) ? t("lab.toast.keyBlocked", { why: issues.find((i) => i.level === "error")!.text }) : t("lab.toast.keyIdle"));
 }
 
 // ---------------------------------------------------------------------------
@@ -929,10 +960,10 @@ function onKey() {
 // si importano nel Quaderno
 // ---------------------------------------------------------------------------
 const SD_ERR: Record<string, string> = {
-  CARD: "la scheda non risponde. È inserita fino in fondo? Controlla i fili MISO (D12), MOSI (D11), SCK (D13) e CS",
-  FAT32: "la scheda non è formattata FAT32. Formattala in FAT32 dal computer (le schede oltre 32 GB escono in exFAT)",
-  FILE: "non si riesce a creare il file: la cartella principale della scheda è piena. Sposta o cancella qualche file",
-  NOOUT: "Arduino non sa di avere la scheda SD: riprova «Prepara Arduino»",
+  CARD: t("lab.sd.err.CARD"),
+  FAT32: t("lab.sd.err.FAT32"),
+  FILE: t("lab.sd.err.FILE"),
+  NOOUT: t("lab.sd.err.NOOUT"),
 };
 const SD_KEEP = 30;
 export interface SdSnapshot { rig: Rig; labId: string; labTitle: string; at: number }
@@ -947,18 +978,18 @@ async function waitReady(ms = 7000) {
 /** Manda ad Arduino la configurazione, la salva (resta anche da spento) e prova la scheda SD. */
 export async function prepareSd(): Promise<boolean> {
   const st = get();
-  if (!link || !st.ready || link.kind === "telefono") { toast("Prima collega Arduino con il cavo USB."); return false; }
-  if (st.running) { toast("Ferma la misura prima di preparare la registrazione."); return false; }
+  if (!link || !st.ready || link.kind === "telefono") { toast(t("lab.toast.connectUsbFirst")); return false; }
+  if (st.running) { toast(t("lab.sd.stopBefore")); return false; }
   if (link.kind !== "simulatore" && (!st.fw || cmpVersion(st.fw, "1.5") < 0)) {
-    toast.error(`La scheda SD e il pulsante richiedono il firmware v1.5 (su Arduino c'è la v${st.fw ?? "?"}). Aggiornalo con l'IDE di Arduino.`, { duration: 12000, action: { label: "Come si fa", onClick: () => openGuide("firmware") } });
+    toast.error(t("lab.sd.needFirmware", { fw: st.fw ?? "?" }), { duration: 12000, action: { label: t("lab.action.howTo"), onClick: () => openGuide("firmware") } });
     return false;
   }
   const rig = st.rig;
   const issues = validateRig(rig);
   if (hasErrors(issues)) { toast.error(issues.find((i) => i.level === "error")!.text); set({ rigOpen: true }); return false; }
-  if (!rig.sensors.some((s) => s.type === "sd")) { toast("Aggiungi prima la scheda SD ai componenti."); return false; }
-  set({ sdCheck: { state: "busy", text: "Preparo Arduino…" } });
-  if (!(await sendConfig(rig, resolved(rig), true))) { set({ sdCheck: { state: "err", text: "Configurazione rifiutata." } }); return false; }
+  if (!rig.sensors.some((s) => s.type === "sd")) { toast(t("lab.sd.addFirst")); return false; }
+  set({ sdCheck: { state: "busy", text: t("lab.sd.preparing") } });
+  if (!(await sendConfig(rig, resolved(rig), true))) { set({ sdCheck: { state: "err", text: t("lab.sd.cfgRejected") } }); return false; }
   // istantanea del progetto: all'importazione i file sanno con quali opzioni interpretare i dati
   const id = newId();
   const ids = [id, ...prefs.get<string[]>("mosaicus.sd.ids", [])];
@@ -967,25 +998,26 @@ export async function prepareSd(): Promise<boolean> {
   prefs.set(`mosaicus.sd.${id}`, { rig: { id: rig.id, name: rig.name, sensors: rig.sensors }, labId: st.labId, labTitle: labInfo().title, at: Date.now() } satisfies SdSnapshot);
   const saved = await request(`CFG,SAVE,${id}`, (l) => l.startsWith("#ACK,CFG,SAVE") || l.startsWith("#ERR"));
   if (!saved || saved.startsWith("#ERR")) {
-    set({ sdCheck: { state: "err", text: "Arduino non ha salvato la configurazione." } });
-    toast.error("Arduino non ha salvato la configurazione. Aggiorna il firmware alla v1.5 e riprova.");
+    set({ sdCheck: { state: "err", text: t("lab.sd.notSaved") } });
+    toast.error(t("lab.sd.notSavedToast"));
     return false;
   }
   const test = await request("SD,TEST", (l) => l.startsWith("#SD,"), 8000);
-  if (!test) { set({ sdCheck: { state: "err", text: "Arduino non ha risposto alla prova della scheda." } }); toast.error("Arduino non ha risposto alla prova della scheda SD."); return false; }
+  if (!test) { set({ sdCheck: { state: "err", text: t("lab.sd.testNoReply") } }); toast.error(t("lab.sd.testNoReplyToast")); return false; }
   const [, ok, code] = test.split(",");
   if (ok !== "OK") {
     const why = SD_ERR[code] ?? code;
-    set({ sdCheck: { state: "err", text: `Scheda SD: ${why}.` } });
-    toast.error(`Scheda SD: ${why}.`, { duration: 14000 });
+    set({ sdCheck: { state: "err", text: t("lab.sd.error", { why }) } });
+    toast.error(t("lab.sd.error", { why }), { duration: 14000 });
     return false;
   }
   const mb = Number(code);
   const button = rig.sensors.some((s) => s.type === "button");
-  const how = button ? "premi il pulsante per iniziare e di nuovo per fermare" : "registra da quando lo accendi a quando lo spegni";
-  const text = `Pronto${mb > 0 ? ` · scheda da ${mb >= 1024 ? `${(mb / 1024).toLocaleString("it-IT", { maximumFractionDigits: 1 })} GB` : `${mb} MB`}` : ""}. Stacca il cavo, alimenta Arduino con un power bank e ${how}.`;
+  const how = t(button ? "lab.sd.howButton" : "lab.sd.howPower");
+  const size = mb >= 1024 ? `${(mb / 1024).toLocaleString(intlLocale, { maximumFractionDigits: 1 })} GB` : `${mb} MB`;
+  const text = mb > 0 ? t("lab.sd.readyCard", { size, how }) : t("lab.sd.ready", { how });
   set({ sdCheck: { state: "ok", text } });
-  toast.success("Arduino è pronto a registrare sulla scheda SD.", { description: text, duration: 15000 });
+  toast.success(t("lab.sd.readyToast"), { description: text, duration: 15000 });
   return true;
 }
 
@@ -1003,10 +1035,10 @@ export async function importSdFiles(files: File[]) {
   let n = 0, lastId: number | null = null;
   for (const f of files) {
     const key = `${f.name}:${f.size}:${f.lastModified}`;
-    if (existing.has(key)) { toast(`«${f.name}» è già nel Quaderno.`); continue; }
+    if (existing.has(key)) { toast(t("lab.sd.alreadyIn", { file: f.name })); continue; }
     const log = parseSdLog(await f.text());
-    if (!log) { toast.error(`«${f.name}» non è una registrazione di MosaicusNeo.`); continue; }
-    if (!log.raw.length) { toast.warning(`«${f.name}»: nessuna lettura (la registrazione è durata troppo poco?).`); continue; }
+    if (!log) { toast.error(t("lab.sd.notMosaicus", { file: f.name })); continue; }
+    if (!log.raw.length) { toast.warning(t("lab.sd.noReadings", { file: f.name })); continue; }
     const snap = log.proj ? prefs.get<SdSnapshot | null>(`mosaicus.sd.${log.proj}`, null) : null;
     const cur = get().rig;
     let rig: Rig, labId: string, labTitle: string;
@@ -1015,10 +1047,10 @@ export async function importSdFiles(files: File[]) {
     else {
       // progetto sconosciuto (preparato su un altro dispositivo): sensori ricostruiti, opzioni di serie
       const sensors = sensorsFromCfg(log.cfg);
-      if (!sensors.length) { toast.error(`«${f.name}»: i sensori registrati non sono riconosciuti.`); continue; }
-      rig = { id: `sd-${log.proj ?? newId()}`, name: "Registrazione SD", sensors };
-      labId = "sd"; labTitle = "Registrazione SD";
-      toast.warning(`«${f.name}» viene da un progetto che questo dispositivo non conosce: sensori ricostruiti con le opzioni di serie (tarature comprese).`, { duration: 10000 });
+      if (!sensors.length) { toast.error(t("lab.sd.unknownSensors", { file: f.name })); continue; }
+      rig = { id: `sd-${log.proj ?? newId()}`, name: t("lab.info.sdRecording"), sensors };
+      labId = "sd"; labTitle = t("lab.info.sdRecording");
+      toast.warning(t("lab.sd.unknownProject", { file: f.name }), { duration: 10000 });
     }
     const t1 = log.raw[log.raw.length - 1][1] / 1000;
     const rec = {
@@ -1029,14 +1061,14 @@ export async function importSdFiles(files: File[]) {
     try {
       lastId = (await repo.save("sessions", rec)).id ?? lastId;
       n++;
-      if (log.bad > 1) toast.warning(`«${f.name}»: ${log.bad} righe incomplete scartate.`);
-      else if (!Number.isFinite(t1)) toast.warning(`«${f.name}»: tempi non validi.`);
-    } catch (err) { toast.error(`«${f.name}»: ${(err as Error).message}`); }
+      if (log.bad > 1) toast.warning(t("lab.sd.badRows", { file: f.name, n: log.bad }));
+      else if (!Number.isFinite(t1)) toast.warning(t("lab.sd.badTimes", { file: f.name }));
+    } catch (err) { toast.error(t("lab.sd.fileError", { file: f.name, msg: (err as Error).message })); }
   }
   await refreshSessions();
   if (n) {
     const id = lastId;
-    toast.success(`${n === 1 ? "Registrazione importata" : `${n} registrazioni importate`} nel Quaderno.`, id != null ? { action: { label: "Apri", onClick: () => void openSession(id) } } : undefined);
+    toast.success(t("lab.sd.imported", { n }), id != null ? { action: { label: t("lab.action.open"), onClick: () => void openSession(id) } } : undefined);
   }
 }
 
@@ -1062,15 +1094,16 @@ export async function autosave(quiet = false) {
     experiment: st.labId, labTitle: labInfo().title,
     rig: { id: st.rig.id, name: st.rig.name, sensors: st.rig.sensors },
     created: st.session.created, source: st.session.source, fw: st.session.fw,
-    raw, app: APP_VERSION,
+    raw, app: APP_VERSION, ...(clock.length ? { clock } : {}),
   };
   try {
     const id = (await repo.save("sessions", rec)).id;
     set({ session: { ...st.session, id: st.session.id ?? id } });
-    if (!quiet) toast.success(`Misura salvata nel Quaderno · ${raw.length} letture.`);
+    tabs?.postMessage("saved");
+    if (!quiet) toast.success(t("lab.toast.saved", { n: raw.length }));
     await refreshSessions();
   } catch (err) {
-    toast.error(`Salvataggio non riuscito: ${(err as Error).message}`);
+    toast.error(t("lab.toast.saveFailed", { msg: (err as Error).message }));
   }
 }
 
@@ -1083,10 +1116,10 @@ export function zeroPosition() {
   if (!s) return;
   const dKey = resolved().keyOf.get(s.id)?.get("d");
   const valid = get().rows.filter((r) => r._s === s.id && Number.isFinite(r[dKey!] as number)).slice(-10).map((r) => r[dKey!] as number).sort((a, b) => a - b);
-  if (!valid.length) { toast("Nessuna distanza valida: impossibile fissare l'origine."); return; }
+  if (!valid.length) { toast(t("lab.toast.noDistance")); return; }
   const med = valid[valid.length >> 1];
   updateSensor(s.id, { options: { origin: Math.round(med * 1000) / 1000 } });
-  toast.success(`Origine impostata a ${fmtVal(med, 3)} m dal sensore.`);
+  toast.success(t("lab.toast.originSet", { d: fmtVal(med, 3) }));
 }
 
 // ---------------------------------------------------------------------------
@@ -1098,25 +1131,25 @@ export function zeroPosition() {
  */
 export async function sendSelection({ open = true } = {}) {
   const st = get();
-  if (st.running) { toast("Ferma la misura prima di salvare un tratto."); return; }
+  if (st.running) { toast(t("lab.toast.stopBeforeSend")); return; }
   const already = sentBoxId(st);
-  if (already != null) { if (open) goElab(already); else toast("Tratto già in Elaborazione.", { action: { label: "Apri", onClick: () => goElab(already) } }); return; }
+  if (already != null) { if (open) goElab(already); else toast(t("lab.toast.alreadySent"), { action: { label: t("lab.action.open"), onClick: () => goElab(already) } }); return; }
   const key = selectionKey(st);
   const rig = st.rig, res = resolved(rig);
   const [t1s, t2s] = st.selection ?? [-Infinity, Infinity];
   // grandezze fisiche (non i dati tecnici) con almeno un valore nel tratto
   const inSel = st.rows.filter((r) => r.t >= t1s && r.t <= t2s);
   const keys = res.quantities.filter((q) => !q.raw && inSel.some((r) => Number.isFinite(r[q.key] as number))).map((q) => q.key);
-  if (!keys.length) { toast("Il tratto non contiene dati validi. Selezionane un altro."); return; }
+  if (!keys.length) { toast(t("lab.toast.noValidData")); return; }
   // tempi del sensore del grafico attivo; le grandezze degli altri sensori vengono interpolate
   const view = viewsOf().find((v) => v.id === st.viewId && !v.raw);
   const baseSensor = view?.sensorId ?? res.quantities.find((q) => q.key === keys[0])!.sensorId;
   const own = new Set(res.quantities.filter((q) => q.sensorId === baseSensor).map((q) => q.key));
   const aligned = alignRows(st.rows, baseSensor, keys, own, tolerance(rig)).filter((r) => r.t >= t1s && r.t <= t2s && keys.some((k) => own.has(k) && Number.isFinite(r[k] as number)));
-  if (aligned.length < 3) { toast("Servono almeno 3 punti validi. Seleziona un tratto più lungo."); return; }
+  if (aligned.length < 3) { toast(t("lab.toast.needThreePoints")); return; }
   if (!st.session?.id) await autosave(true);
   const byKey = new Map(res.quantities.map((q) => [q.key, q]));
-  const columns = [{ key: "t", sym: "t", unit: "s", name: "tempo" }, ...keys.map((k) => ({ key: k, sym: byKey.get(k)!.sym, unit: byKey.get(k)!.unit, name: byKey.get(k)!.name }))];
+  const columns = [{ key: "t", sym: "t", unit: "s", name: t("lab.export.time") }, ...keys.map((k) => ({ key: k, sym: byKey.get(k)!.sym, unit: byKey.get(k)!.unit, name: byKey.get(k)!.name }))];
   const t1 = aligned[0].t, t2 = aligned[aligned.length - 1].t;
   const exp = labInfo();
   const session = get().session;
@@ -1130,12 +1163,11 @@ export async function sendSelection({ open = true } = {}) {
   });
   set({ sent: true, lastSent: { key, boxId: box.id } });
   const mixed = inputsOf(rig).length > 1 && keys.some((k) => !own.has(k));
-  const note = mixed ? " I valori degli altri componenti sono interpolati sugli stessi istanti." : "";
   if (open) {
     goElab(box.id);
-    if (mixed) toast(note.trim(), { duration: 6000 });
+    if (mixed) toast(t("lab.toast.interpolated"), { duration: 6000 });
   } else {
-    toast.success(`Tratto aggiunto in Elaborazione · ${aligned.length} punti.${note}`, { duration: 6000, action: { label: "Apri", onClick: () => goElab(box.id) } });
+    toast.success(t(mixed ? "lab.toast.rangeAddedInterpolated" : "lab.toast.rangeAdded", { n: aligned.length }), { duration: 6000, action: { label: t("lab.action.open"), onClick: () => goElab(box.id) } });
   }
 }
 
@@ -1195,28 +1227,29 @@ export function trackPoints(rows: Row[], rig = get().rig): TrackPoint[] {
 
 export async function exportData(kind: ExportKind) {
   const st = get();
-  if (!st.rows.length) { toast("Nessun dato da esportare."); return; }
+  if (!st.rows.length) { toast(t("lab.toast.noData")); return; }
   const exp = labInfo();
   const cols = columnsOf();
   const multi = inputsOf(st.rig).length > 1;
-  const headers = [...cols.map((c) => c.head), ...(multi ? ["sensore"] : [])];
+  const headers = [...cols.map((c) => c.head), ...(multi ? [t("lab.export.sensor")] : [])];
   const sensorName = new Map(st.rig.sensors.map((s) => [s.id, sensorLabel(s)]));
   const rows = selectedRows().map((r) => [...cols.map((c) => r[c.key]), ...(multi ? [sensorName.get(String(r._s)) ?? ""] : [])]);
   const part = st.selection ? `_${fmtVal(st.selection[0], 2)}-${fmtVal(st.selection[1], 2)}s`.replace(/,/g, ".") : "";
   const base = `mosaicusneo_${exp.id}_${stamp(new Date(st.session?.created ?? Date.now()))}${part}`;
   if (kind === "csv-it") return download(toCSV(headers, rows, { it: true }), `${base}_excel.csv`);
   if (kind === "csv") return download(toCSV(headers, rows, { it: false }), `${base}.csv`);
-  if (kind === "png") return download(await stackPNG(), `${base}_grafici.png`);
+  if (kind === "png") return download(await stackPNG(), `${base}_${t("lab.export.fileCharts")}.png`);
   if (kind === "raw-csv" || kind === "raw-xlsx") {
-    const t = rawTable(st.selection);
-    if (!t.rows.length) { toast("Nessuna lettura grezza da esportare."); return; }
+    const rt = rawTable(st.selection);
+    if (!rt.rows.length) { toast(t("lab.toast.noRaw")); return; }
+    const suffix = t("lab.export.fileRaw");
     return kind === "raw-csv"
-      ? download(toCSV(t.headers, t.rows, { it: false }), `${base}_grezzi.csv`)
-      : download(toXLSX([{ name: "Grezzi", rows: [t.headers, ...t.rows] }, ...(t.sheets.length > 1 ? t.sheets : [])]), `${base}_grezzi.xlsx`);
+      ? download(toCSV(rt.headers, rt.rows, { it: false }), `${base}_${suffix}.csv`)
+      : download(toXLSX([{ name: t("lab.export.sheetRaw"), rows: [rt.headers, ...rt.rows] }, ...(rt.sheets.length > 1 ? rt.sheets : [])]), `${base}_${suffix}.xlsx`);
   }
   if (kind === "gpx" || kind === "geojson") {
     const pts = trackPoints(selectedRows());
-    if (!pts.length) { toast("Nessun punto con posizione GPS da esportare."); return; }
+    if (!pts.length) { toast(t("lab.toast.noGps")); return; }
     const name = st.sessionName || exp.title;
     return kind === "gpx"
       ? download(toGPX(name, pts), `${base}.gpx`, "application/gpx+xml")
@@ -1225,13 +1258,13 @@ export async function exportData(kind: ExportKind) {
   const source = st.session?.source;
   const info = [
     ["MosaicusNeo", `v${APP_VERSION}`],
-    ["Esperimento", `${exp.title}${exp.subtitle ? ` — ${exp.subtitle}` : ""}`],
-    ["Nome della misura", st.sessionName || st.session?.name || ""],
-    ["Data", new Date(st.session?.created ?? Date.now()).toLocaleString("it-IT")],
-    ["Sorgente", source === "simulatore" ? "simulatore" : `Arduino (firmware ${st.session?.fw ?? "?"})`],
-    ["Tratto esportato", st.selection ? `${st.selection[0]} s – ${st.selection[1]} s` : "tutta la misura"],
+    [t("lab.export.experiment"), `${exp.title}${exp.subtitle ? ` — ${exp.subtitle}` : ""}`],
+    [t("lab.export.sessionName"), st.sessionName || st.session?.name || ""],
+    [t("lab.export.date"), new Date(st.session?.created ?? Date.now()).toLocaleString(intlLocale)],
+    [t("lab.export.source"), source === "simulatore" ? t("lab.export.simulator") : t("lab.export.arduinoFw", { fw: st.session?.fw ?? "?" })],
+    [t("lab.export.range"), st.selection ? t("lab.export.rangeValue", { a: String(st.selection[0]), b: String(st.selection[1]) }) : t("lab.export.wholeMeasurement")],
     [],
-    ["Componente", "Tipo", "Pin", "Intervallo (ms)", "Opzioni"],
+    [t("lab.export.component"), t("lab.export.type"), t("lab.export.pin"), t("lab.export.interval"), t("lab.export.options")],
     ...st.rig.sensors.map((s) => {
       const def = SENSORS[s.type];
       return [sensorLabel(s), def.title, def.pins.map((p) => `${p.role}: ${pinName(s.pins[p.key])}`).join("; "), s.interval,
@@ -1239,7 +1272,7 @@ export async function exportData(kind: ExportKind) {
     }),
   ];
   const rawT = rawTable(st.selection);
-  download(toXLSX([{ name: "Dati", rows: [headers, ...rows] }, { name: "Info", rows: info }, ...(rawT.rows.length ? [{ name: "Grezzi", rows: [rawT.headers, ...rawT.rows] }] : [])]), `${base}.xlsx`);
+  download(toXLSX([{ name: t("lab.export.sheetData"), rows: [headers, ...rows] }, { name: t("lab.export.sheetInfo"), rows: info }, ...(rawT.rows.length ? [{ name: t("lab.export.sheetRaw"), rows: [rawT.headers, ...rawT.rows] }] : [])]), `${base}.xlsx`);
 }
 
 /** Un'unica immagine con tutti i grafici impilati, come si vedono a schermo. */
@@ -1286,7 +1319,8 @@ export async function refreshSessions() {
 
 interface StoredSession {
   id: number; format?: number; name: string; created: number; source: string; fw: string | null;
-  experiment: string; rig?: Rig; raw: number[][]; params?: Record<string, number | string>;
+  experiment: string; labTitle?: string; rig?: Rig; raw: number[][]; params?: Record<string, number | string>;
+  clock?: number[][];
 }
 
 /**
@@ -1294,7 +1328,7 @@ interface StoredSession {
  * quiet: senza messaggi né pagina (per inviarla a Elaborazione o esportarla dal Quaderno).
  */
 export async function openSession(id: number, { quiet = false } = {}): Promise<boolean> {
-  if (get().running) { toast("Ferma la misura prima di aprirne un'altra dal Quaderno."); return false; }
+  if (get().running) { toast(t("lab.toast.stopBeforeOpen")); return false; }
   const s = (await repo.get("sessions", id)) as unknown as StoredSession | undefined;
   if (!s) return false;
   const labId = s.experiment;
@@ -1305,7 +1339,7 @@ export async function openSession(id: number, { quiet = false } = {}): Promise<b
   } else {
     // misura salvata prima del sistema a sensori: la converto
     const lg = LEGACY[s.experiment];
-    if (!lg) { toast.error("Impossibile aprire la misura: il suo esperimento o progetto non esiste più."); return false; }
+    if (!lg) { toast.error(t("lab.toast.cannotOpen")); return false; }
     const preset = presetById(labId);
     const sensors = lg.rig(s.params ?? {}).sensors.map((x, i) => ({ ...x, id: preset ? `${labId}-${x.type}` : `${x.type}-${i}` }));
     rig = { id: labId, name: preset?.title ?? labId, sensors };
@@ -1314,6 +1348,7 @@ export async function openSession(id: number, { quiet = false } = {}): Promise<b
   if (!quiet) showPage("misura");
   selectLab(presetById(labId) || get().customRigs.some((r) => r.id === labId) ? labId : "motion", { keepData: true });
   raw = data;
+  clock = s.clock ?? [];
   const modified = !!presetById(rig.id) && JSON.stringify(rig.sensors) !== JSON.stringify(presetSensors(presetById(rig.id)!));
   applyRig(rig, modified, { keepData: true });
   set({ session: { id: s.id, name: s.name, created: s.created, source: s.source, fw: s.fw }, sessionName: s.name, selection: null });
@@ -1321,8 +1356,71 @@ export async function openSession(id: number, { quiet = false } = {}): Promise<b
   recompute();
   if (quiet) return true;
   showDragHint();
-  toast(`Aperta «${s.name}». Se cambi le opzioni dei componenti, i dati vengono ricalcolati.`);
+  toast(t("lab.toast.opened", { name: s.name }));
   return true;
+}
+
+// ---------------------------------------------------------------------------
+// Combinare due misure fatte nello stesso momento con due Arduino (due progetti, due schede)
+// ---------------------------------------------------------------------------
+/** Misure che si possono combinare: registrate dal vivo (le misure della scheda SD non hanno l'ora vera). */
+export const canCombine = (s: Pick<SessionSummary, "source">) => s.source !== "scheda SD";
+
+/**
+ * Tempo di Arduino (ms) → ora del computer (ms). Con le coppie dell'orologio: retta dei minimi quadrati
+ * (corregge la deriva dell'oscillatore, fino a ±0,5 % sull'Uno), spostata sul ritardo minimo (le righe
+ * arrivano sempre un po' dopo). Senza coppie (misure vecchie, o già combinate): inizio + t.
+ */
+function hostTimeOf(s: StoredSession): (tMs: number) => number {
+  const c = s.clock;
+  if (!c || c.length < 3) return (x) => s.created + x;
+  const n = c.length, mx = c.reduce((a, p) => a + p[0], 0) / n, my = c.reduce((a, p) => a + p[1], 0) / n;
+  let sxy = 0, sxx = 0;
+  for (const [x, y] of c) { sxy += (x - mx) * (y - my); sxx += (x - mx) ** 2; }
+  const b = sxx > 0 ? sxy / sxx : 1;
+  // una deriva oltre l'1 % non è un orologio: qualcosa è andato storto (pausa del browser…), niente correzione
+  const slope = Math.abs(b - 1) < 0.01 ? b : 1;
+  const a = my - slope * mx;
+  const lag = Math.min(...c.map(([x, y]) => y - (a + slope * x)));
+  return (x) => a + lag + slope * x;
+}
+
+/** Combina due misure del Quaderno sullo stesso asse dei tempi: una misura nuova, con i sensori di tutte e due. */
+export async function combineSessions(aId: number, bId: number) {
+  if (get().running) { toast(t("lab.toast.stopFirst")); return; }
+  const [a, b] = (await Promise.all([repo.get("sessions", aId), repo.get("sessions", bId)])) as unknown as (StoredSession | undefined)[];
+  if (!a || !b || a.format !== 2 || b.format !== 2 || !a.rig || !b.rig) { toast.error(t("lab.combine.cannot")); return; }
+  if (!canCombine(a) || !canCombine(b)) { toast.error(t("lab.combine.noSd")); return; }
+  const fa = hostTimeOf(a), fb = hostTimeOf(b);
+  const span = (s: StoredSession, f: (x: number) => number) => [f(s.raw[0]?.[1] ?? 0), f(s.raw[s.raw.length - 1]?.[1] ?? 0)];
+  const [a0, a1] = span(a, fa), [b0, b1] = span(b, fb);
+  if (Math.min(a1, b1) <= Math.max(a0, b0)) { toast.error(t("lab.combine.noOverlap")); return; }
+  const base = Math.min(fa(0), fb(0));
+  // i codici dei sensori di B vengono dopo quelli di A (resolveRig li numera in quest'ordine)
+  const shift = resolveRig(a.rig).arduino.length;
+  const ids = new Set(a.rig.sensors.map((s) => s.id));
+  const bSensors = b.rig.sensors.map((s) => (ids.has(s.id) ? { ...s, id: newId() } : s));
+  const data = [
+    ...a.raw.map((f) => [f[0], Math.round((fa(f[1]) - base) * 1000) / 1000, ...f.slice(2)]),
+    ...b.raw.map((f) => [f[0] + shift, Math.round((fb(f[1]) - base) * 1000) / 1000, ...f.slice(2)]),
+  ].sort((x, y) => x[1] - y[1]);
+  const name = t("lab.combine.name", { a: a.name, b: b.name });
+  const rec = {
+    format: 2, name, experiment: a.experiment, labTitle: a.labTitle ?? labInfo(a.experiment).title,
+    rig: { id: a.rig.id, name: a.rig.name, sensors: [...a.rig.sensors, ...bSensors] },
+    created: base, source: "combined", fw: a.fw, raw: data, app: APP_VERSION, combined: [a.id, b.id],
+  };
+  try {
+    const id = (await repo.save("sessions", rec)).id;
+    tabs?.postMessage("saved");
+    await refreshSessions();
+    toast.success(t("lab.combine.done", { name }), {
+      description: t("lab.combine.doneHint"), duration: 10000,
+      action: { label: t("lab.action.analyze"), onClick: () => void sendSessionToElab(id) },
+    });
+  } catch (err) {
+    toast.error(t("lab.toast.saveFailed", { msg: (err as Error).message }));
+  }
 }
 
 /** Tutta la misura del Quaderno in Elaborazione (o il suo riquadro, se c'è già). */
@@ -1349,6 +1447,7 @@ export async function renameSession(id: number, name: string) {
 
 export async function removeSession(id: number) {
   await repo.remove("sessions", id);
+  tabs?.postMessage("removed");
   const s = get().session;
   if (s?.id === id) set({ session: { ...s, id: undefined } });
   await refreshSessions();
@@ -1380,6 +1479,19 @@ export async function boot() {
   selectLab(prefs.get("mosaicus.lastLab", prefs.get("mosaicus.lastExp", serialSupported() ? "motion" : "synth")));
   await Promise.all([useWorkbench.getState().load(), refreshSessions()]);
   window.addEventListener("beforeunload", (e) => { if (get().running) { e.preventDefault(); e.returnValue = ""; } });
+  // Più schede del browser aperte (un progetto per Arduino): i progetti e il Quaderno restano allineati.
+  // I progetti stanno in localStorage (evento «storage»), le misure in IndexedDB (avviso con BroadcastChannel).
+  window.addEventListener("storage", (e) => {
+    if (e.key !== "mosaicus.rigs" || get().running) return;
+    const list = prefs.get<Rig[]>("mosaicus.rigs", []);
+    set({ customRigs: list });
+    const mine = list.find((r) => r.id === get().labId);
+    if (mine && JSON.stringify(mine.sensors) !== JSON.stringify(get().rig.sensors)) applyRig(mine, false, { keepData: true });
+  });
+  try {
+    tabs = new BroadcastChannel("mosaicus.sessions");
+    tabs.onmessage = () => { void refreshSessions(); };
+  } catch { /* browser senza BroadcastChannel: il Quaderno si aggiorna al prossimo avvio */ }
 }
 
 export { PRESETS, INSTRUMENTS };

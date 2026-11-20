@@ -2,6 +2,7 @@
 
 import { useEffect, useRef } from "react";
 import { ArrowRight, BookOpen, CloudCheck, CloudUpload, FolderOpen, Trash } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -14,6 +15,7 @@ import { WiringGuide } from "./wiring-diagram";
 import { SENSORS } from "@/lib/sensors/catalog";
 import { isPhoneRig } from "@/lib/sensors/rig";
 import { RigEditor } from "./rig-editor";
+import { intlLocale } from "@/i18n";
 
 /** Collegamenti del progetto: schema, occorrente e passi; i consigli dell'esperimento in fondo. */
 function RigWiring() {
@@ -35,11 +37,12 @@ function RigWiring() {
 }
 
 function Notebook() {
+  const t = useTranslations("rig.side");
   const sessions = useLab((s) => s.sessions);
   const current = useLab((s) => s.session?.id);
   const signedIn = useCloud((s) => !!s.user);
-  if (sessions == null) return <p className="text-sm text-muted-foreground">Caricamento…</p>;
-  if (!sessions.length) return <p className="text-sm text-muted-foreground">Nessuna misura. Premi «Avvia» e poi «Ferma»: la misura si salva qui.</p>;
+  if (sessions == null) return <p className="text-sm text-muted-foreground">{t("loading")}</p>;
+  if (!sessions.length) return <p className="text-sm text-muted-foreground">{t("empty")}</p>;
   const recent = sessions.slice(0, 5);
   return (
     <div className="flex flex-col gap-2">
@@ -50,17 +53,17 @@ function Notebook() {
             <b className="flex items-center gap-1.5 truncate text-sm">
               <span className="truncate">{s.name}</span>
               {signedIn && s.cloud && (s.dirty
-                ? <CloudUpload className="size-3.5 shrink-0 text-muted-foreground" aria-label="da salvare nel cloud" />
-                : <CloudCheck className="size-3.5 shrink-0 text-success" aria-label="salvata nel cloud" />)}
+                ? <CloudUpload className="size-3.5 shrink-0 text-muted-foreground" aria-label={t("cloudDirty")} />
+                : <CloudCheck className="size-3.5 shrink-0 text-success" aria-label={t("cloudSaved")} />)}
             </b>
             <small className="block truncate text-xs text-muted-foreground">
-              {s.labTitle} · {new Date(s.created).toLocaleString("it-IT", { dateStyle: "short", timeStyle: "short" })} · {s.n} letture
+              {s.labTitle} · {new Date(s.created).toLocaleString(intlLocale, { dateStyle: "short", timeStyle: "short" })} · {t("readings", { n: s.n })}
             </small>
           </div>
-          <Button size="icon-sm" variant="ghost" aria-label={`Apri ${s.name}`} title="Apri" onClick={() => void openSession(s.id)}><FolderOpen /></Button>
-          <Button size="icon-sm" variant="ghost" aria-label={`Elimina ${s.name}`} title="Elimina" className="text-muted-foreground hover:text-destructive"
+          <Button size="icon-sm" variant="ghost" aria-label={t("openNamed", { name: s.name })} title={t("open")} onClick={() => void openSession(s.id)}><FolderOpen /></Button>
+          <Button size="icon-sm" variant="ghost" aria-label={t("deleteNamed", { name: s.name })} title={t("delete")} className="text-muted-foreground hover:text-destructive"
             onClick={async () => {
-              if (await confirm({ title: `Eliminare «${s.name}»?`, description: "I tratti già inviati a Elaborazione restano.", action: "Elimina", destructive: true })) await removeSession(s.id);
+              if (await confirm({ title: t("deleteTitle", { name: s.name }), description: t("deleteDescription"), action: t("delete"), destructive: true })) await removeSession(s.id);
             }}>
             <Trash />
           </Button>
@@ -68,34 +71,36 @@ function Notebook() {
       ))}
     </ul>
     <Button variant="outline" size="sm" className="self-start" onClick={() => showPage("quaderno")}>
-      <BookOpen /> Apri il Quaderno{sessions.length > recent.length ? ` (${sessions.length})` : ""} <ArrowRight />
+      <BookOpen /> {sessions.length > recent.length ? t("openNotebookCount", { n: sessions.length }) : t("openNotebook")} <ArrowRight />
     </Button>
     </div>
   );
 }
 
 function SerialMonitor() {
+  const t = useTranslations("rig.side");
   const log = useLab((s) => s.serialLog);
   const ref = useRef<HTMLPreElement>(null);
   useEffect(() => { const el = ref.current; if (el) el.scrollTop = el.scrollHeight; }, [log]);
   return (
     <div className="flex flex-col gap-2">
-      <p className="text-xs text-muted-foreground">Righe ricevute da Arduino, non convertite. Le righe «D,slot,t,…» sono letture.</p>
+      <p className="text-xs text-muted-foreground">{t("serialHint")}</p>
       <pre ref={ref} className="h-72 overflow-auto rounded-lg bg-screen p-3 font-mono text-[0.72rem] leading-relaxed text-lime/90">
-        {log.length ? log.join("\n") : "In attesa di dati…"}
+        {log.length ? log.join("\n") : t("serialWaiting")}
       </pre>
     </div>
   );
 }
 
 export function SidePanel() {
+  const t = useTranslations("rig.side.tabs");
   const labId = useLab((s) => s.labId);
   const rig = useLab((s) => s.rig);
   const info = labInfo(labId);
   const ins = info.instrument;
   const tabs = (ins
-    ? [["wiring", "Collegamenti"], ins.source !== "audio" ? ["serial", "Seriale"] : null]
-    : [["sensors", `Componenti${rig.sensors.length ? ` (${rig.sensors.length})` : ""}`], ["wiring", "Collegamenti"], ["notebook", "Quaderno"], needsArduino(rig) ? ["serial", "Seriale"] : null]
+    ? [["wiring", t("wiring")], ins.source !== "audio" ? ["serial", t("serial")] : null]
+    : [["sensors", rig.sensors.length ? t("componentsCount", { n: rig.sensors.length }) : t("components")], ["wiring", t("wiring")], ["notebook", t("notebook")], needsArduino(rig) ? ["serial", t("serial")] : null]
   ).filter(Boolean) as [string, string][];
   const tab = useLab((s) => s.sideTab);
   const active = tabs.some(([id]) => id === tab) ? tab : tabs[0][0];

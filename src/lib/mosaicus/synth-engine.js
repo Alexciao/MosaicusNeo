@@ -10,6 +10,7 @@
 
 import { audio, periodicWave, audioSupported } from './audio.js';
 import { TIMBRES, synth } from './dsp.js';
+import { t as tr } from '@/i18n';
 
 import { prefs as store } from '@/lib/prefs';
 
@@ -19,13 +20,13 @@ import { prefs as store } from '@/lib/prefs';
 const odd = (f) => Array.from({ length: 8 }, (_, k) => ((k + 1) % 2 ? f(k + 1) : 0));
 /** Forme d'onda classiche: suonano con l'oscillatore "vero" (tutte le armoniche); i cursori ne mostrano le prime 8. */
 export const WAVES = {
-  sinusoide: { label: 'Sinusoide', type: 'sine', amps: [1, 0, 0, 0, 0, 0, 0, 0], d: 'M2 12 C6 2 10 2 14 12 S22 22 26 12' },
-  quadra: { label: 'Quadra', type: 'square', amps: odd((n) => 1 / n), d: 'M2 17 V5 H14 V17 H26 V5' },
-  triangolare: { label: 'Triangolare', type: 'triangle', amps: odd((n) => 1 / (n * n)), d: 'M2 12 L8 4 L20 20 L26 12' },
-  dente: { label: 'Dente di sega', type: 'sawtooth', amps: Array.from({ length: 8 }, (_, k) => 1 / (k + 1)), d: 'M2 18 L14 4 V18 L26 4 V18' },
+  sinusoide: { label: tr('engine.synth.waves.sinusoide'), type: 'sine', amps: [1, 0, 0, 0, 0, 0, 0, 0], d: 'M2 12 C6 2 10 2 14 12 S22 22 26 12' },
+  quadra: { label: tr('engine.synth.waves.quadra'), type: 'square', amps: odd((n) => 1 / n), d: 'M2 17 V5 H14 V17 H26 V5' },
+  triangolare: { label: tr('engine.synth.waves.triangolare'), type: 'triangle', amps: odd((n) => 1 / (n * n)), d: 'M2 12 L8 4 L20 20 L26 12' },
+  dente: { label: tr('engine.synth.waves.dente'), type: 'sawtooth', amps: Array.from({ length: 8 }, (_, k) => 1 / (k + 1)), d: 'M2 18 L14 4 V18 L26 4 V18' },
 };
 export const INSTR = ['flauto', 'clarinetto', 'violino', 'voce', 'organo'];
-export const instrLabel = (id) => TIMBRES[id].label.replace(', vocale «a»', ' «a»');
+export const instrLabel = (id) => (id === 'voce' ? tr('engine.dsp.timbres.voceShort') : TIMBRES[id].label);
 
 /** Valore efficace (RMS) della forma d'onda normalizzata a picco 1, come fa Web Audio. */
 function rmsOf(amps, signs = null) {
@@ -52,9 +53,9 @@ const RMS_WAVE = {
 // Inviluppi
 // ---------------------------------------------------------------------------
 export const ENV = {
-  continuo: { label: 'Continuo', attack: 0.015, tau: Infinity, d: 'M2 18 L5 6 H23 L26 18' },
-  pizzicato: { label: 'Pizzicato', attack: 0.005, tau: 0.25, d: 'M2 18 L4 4 C8 13 12 17 26 18' },
-  campana: { label: 'Campana', attack: 0.003, tau: 1.2, d: 'M2 18 L4 4 C12 8 18 14 26 17' },
+  continuo: { label: tr('engine.synth.env.continuo'), attack: 0.015, tau: Infinity, d: 'M2 18 L5 6 H23 L26 18' },
+  pizzicato: { label: tr('engine.synth.env.pizzicato'), attack: 0.005, tau: 0.25, d: 'M2 18 L4 4 C8 13 12 17 26 18' },
+  campana: { label: tr('engine.synth.env.campana'), attack: 0.003, tau: 1.2, d: 'M2 18 L4 4 C12 8 18 14 26 17' },
 };
 
 // ---------------------------------------------------------------------------

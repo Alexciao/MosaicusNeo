@@ -150,6 +150,12 @@ function slotValues(s: SimSlot, t: number, scenario: string, k: number, nowMs: n
     const Tm = (eps * (w.T + K) ** 4 + (1 - eps) * (Ts + K) ** 4) ** 0.25 - K;
     return [Math.round((Tm + gauss(0.04) + K) / 0.02), Math.round((Ts + gauss(0.01) + K) / 0.02), 0];
   }
+  if (s.type === "SPS") {
+    // aria di una stanza (≈ 8 µg/m³ di PM2,5) con un picco ogni due minuti, come aprire una finestra sul traffico
+    const peak = 25 * Math.exp(-(((t % 120) - 40) ** 2) / 200), pm1 = Math.max(0, 5 + 0.6 * peak + gauss(0.3));
+    const pm25 = pm1 * 1.45, pm4 = pm25 * 1.12, pm10 = pm4 * 1.05, nc05 = pm1 * 6.1, nc1 = nc05 * 1.17, nc25 = nc1 * 1.01;
+    return [pm1, pm25, pm4, pm10, nc05, nc1, nc25, nc25 * 1.001, nc25 * 1.002].map((v) => v.toFixed(2)).concat([(0.5 + 0.05 * Math.sin(t / 30) + gauss(0.01)).toFixed(3), "0"]);
+  }
   if (s.type === "NTC") return [tempToAdc(w.T + gauss(0.05)).toFixed(2)];
   // fotoresistenza e tensione generica leggono lo stesso segnale lento, con un po' di sfarfallio
   if (s.type === "ANA") return [Math.min(1023, Math.max(0, w.light * 10.23 + gauss(0.8))).toFixed(2)];
@@ -195,7 +201,7 @@ export class SimulatedLink {
     if (c === "OUT,CLEAR") { this.outs.clear(); return this.emit("#ACK,OUT,CLEAR"); }
     if ((m = c.match(/^OUT,ADD,(OLED|RGB|BUZ|BTN|SD),(\d+),(\d+),(\d+),(\d+)$/))) { this.outs.add(m[1]); return this.emit(`#ACK,OUT,ADD,${m[1]}`); }
     // scheda SD (firmware 1.5): configurazione salvata e prova di una scheda da 8 GB
-    if (/^CFG,SAVE,[A-Za-z0-9_-]{1,12}$/.test(c)) return this.emit(this.slots.size ? "#ACK,CFG,SAVE" : "#ERR,CFG,-1,VUOTO");
+    if (/^CFG,SAVE,[A-Za-z0-9_-]{1,12}$/.test(c)) return this.emit(this.slots.size ? "#ACK,CFG,SAVE" : "#ERR,CFG,-1,EMPTY");
     if (c === "SD,TEST") { setTimeout(() => this.emit(this.outs.has("SD") ? "#SD,OK,7580" : "#SD,ERR,NOOUT"), 600); return; }
     if (c === "OUT,SAVE") return this.emit("#ACK,OUT,SAVE");
     if (c === "OUT,TEST") { setTimeout(() => this.emit("#ACK,OUT,TEST"), 1500); return; }
@@ -207,22 +213,22 @@ export class SimulatedLink {
       this.slots.set(slot, { type: m[2], interval: Math.max(m[2] === "PMOT" ? 10 : 30, +m[3]), opt: 0, pinA: -1 - slot });
       return this.emit(`#ACK,CFG,ADD,${slot}`);
     }
-    if ((m = c.match(/^CFG,ADD,(\d+),(NTC|ANA|DHT|SONAR|GPS|DS18|GATE|HX711|IMU|MLX),(\d+),(\d+),(\d+),(\d+)$/))) {
+    if ((m = c.match(/^CFG,ADD,(\d+),(NTC|ANA|DHT|SONAR|GPS|DS18|GATE|HX711|IMU|MLX|SPS),(\d+),(\d+),(\d+),(\d+)$/))) {
       const slot = +m[1], type = m[2], a = +m[4], b = +m[5], opt = +m[6];
-      const twoPins = ["SONAR", "GPS", "HX711", "IMU", "MLX"].includes(type), i2c = (t: string) => t === "IMU" || t === "MLX";
+      const twoPins = ["SONAR", "GPS", "HX711", "IMU", "MLX", "SPS"].includes(type), i2c = (t: string) => t === "IMU" || t === "MLX" || t === "SPS";
       const taken = [...this.slots.entries()].filter(([k, s]) => k !== slot && !(i2c(type) && i2c(s.type))).flatMap(([, s]) => [s.pinA]);
       if (slot > 5) { this.st(`C,${slot},6`); return this.emit(`#ERR,CFG,${slot},SLOT`); }
-      if ((type === "NTC" || type === "ANA") && !(a >= 14 && a <= 19)) { this.st(`C,${slot},2`); return this.emit(`#ERR,CFG,${slot},ANALOGICO`); }
+      if ((type === "NTC" || type === "ANA") && !(a >= 14 && a <= 19)) { this.st(`C,${slot},2`); return this.emit(`#ERR,CFG,${slot},ANALOG`); }
       if (a < 2 || a > 19 || (twoPins && (b < 2 || b > 19 || a === b))) { this.st(`C,${slot},1`); return this.emit(`#ERR,CFG,${slot},PIN`); }
-      if (taken.includes(a)) { this.st(`C,${slot},3`); return this.emit(`#ERR,CFG,${slot},DOPPIO`); }
-      const min = type === "DHT" ? (opt === 22 ? 2000 : 1000) : type === "GPS" || type === "DS18" ? 1000 : type === "SONAR" ? 30
+      if (taken.includes(a)) { this.st(`C,${slot},3`); return this.emit(`#ERR,CFG,${slot},DUPLICATE`); }
+      const min = type === "DHT" ? (opt === 22 ? 2000 : 1000) : type === "GPS" || type === "DS18" || type === "SPS" ? 1000 : type === "SONAR" ? 30
         : type === "HX711" || type === "MLX" ? 100 : type === "IMU" ? 10 : 5;
       this.slots.set(slot, { type, interval: Math.max(min, +m[3]), opt, pinA: a });
       return this.emit(`#ACK,CFG,ADD,${slot}`);
     }
     if (c === "START") {
       this.stop();
-      if (!this.slots.size) return this.emit("#ERR,START,VUOTO");
+      if (!this.slots.size) return this.emit("#ERR,START,EMPTY");
       this.emit("#ACK,START");
       const warp = WARP[this.scenario] ?? 1, t0 = Date.now();
       // stato come lo riferirebbe Arduino: il GPS prima cerca i satelliti (8 s di misura)

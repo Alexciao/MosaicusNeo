@@ -9,6 +9,8 @@
 //
 // compile("ln(T − 21)", ["t","T"]) → { fn(row) → numero, vars: ["T"] }  oppure lancia un Error in italiano.
 
+import { t as tr } from '@/i18n';
+
 const FUNCS = {
   ln: Math.log, log: Math.log10, exp: Math.exp, sqrt: Math.sqrt, '√': Math.sqrt, abs: Math.abs,
   sin: Math.sin, cos: Math.cos, tan: Math.tan, asin: Math.asin, acos: Math.acos, atan: Math.atan,
@@ -24,7 +26,7 @@ function tokenize(src) {
     if (/\s/.test(c)) { i++; continue; }
     if (/[0-9.,]/.test(c)) {
       const m = s.slice(i).match(/^(\d+([.,]\d*)?|[.,]\d+)([eE][+-]?\d+)?/);
-      if (!m) throw new Error(`numero non valido vicino a «${s.slice(i, i + 6)}»`);
+      if (!m) throw new Error(tr('engine.formula.badNumber', { near: s.slice(i, i + 6) }));
       out.push({ t: 'num', v: parseFloat(m[0].replace(',', '.')) }); i += m[0].length; continue;
     }
     if (c === '√') { out.push({ t: 'id', v: '√' }); i++; continue; }
@@ -33,7 +35,7 @@ function tokenize(src) {
       out.push({ t: 'id', v: m[0] }); i += m[0].length; continue;
     }
     if ('+-*/^()'.includes(c)) { out.push({ t: c }); i++; continue; }
-    throw new Error(`simbolo non riconosciuto: «${c}»`);
+    throw new Error(tr('engine.formula.badSymbol', { c }));
   }
   return out;
 }
@@ -43,7 +45,7 @@ export function compile(src, columns) {
   let p = 0;
   const used = new Set();
   const peek = () => toks[p];
-  const eat = (t) => { if (toks[p]?.t === t) return toks[p++]; throw new Error(t === ')' ? 'manca una parentesi chiusa «)»' : `atteso «${t}»`); };
+  const eat = (t) => { if (toks[p]?.t === t) return toks[p++]; throw new Error(t === ')' ? tr('engine.formula.missingParen') : tr('engine.formula.expected', { t })); };
 
   // espr := termine (('+'|'-') termine)*
   function expr() {
@@ -81,7 +83,7 @@ export function compile(src, columns) {
   }
   function primary() {
     const t = toks[p++];
-    if (!t) throw new Error('la formula è incompleta');
+    if (!t) throw new Error(tr('engine.formula.incomplete'));
     if (t.t === 'num') return () => t.v;
     if (t.t === '(') { const e = expr(); eat(')'); return e; }
     if (t.t === 'id') {
@@ -93,13 +95,13 @@ export function compile(src, columns) {
       }
       if (columns.includes(t.v)) { used.add(t.v); return (row) => row[t.v]; }
       if (t.v in CONSTS) return () => CONSTS[t.v];
-      throw new Error(`«${t.v}» non è una colonna né una funzione conosciuta (colonne: ${columns.join(', ')})`);
+      throw new Error(tr('engine.formula.unknownName', { name: t.v, columns: columns.join(', ') }));
     }
-    throw new Error(`«${t.t}» fuori posto`);
+    throw new Error(tr('engine.formula.misplaced', { t: t.t }));
   }
 
-  if (!toks.length) throw new Error('scrivi una formula');
+  if (!toks.length) throw new Error(tr('engine.formula.empty'));
   const fn = expr();
-  if (p < toks.length) throw new Error(`testo in più alla fine: «${toks.slice(p).map((k) => k.v ?? k.t).join(' ')}»`);
+  if (p < toks.length) throw new Error(tr('engine.formula.trailing', { text: toks.slice(p).map((k) => k.v ?? k.t).join(' ') }));
   return { fn: (row) => { const v = fn(row); return isFinite(v) ? v : NaN; }, vars: [...used] };
 }

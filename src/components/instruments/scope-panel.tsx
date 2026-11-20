@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useReducer, useRef } from "react";
 import { useTheme } from "next-themes";
+import { useTranslations } from "next-intl";
 import { toast } from "sonner";
 import { ChevronDown, Crosshair, Eye, EyeOff, Mic, Music, Pause, Play, Send, Snowflake, Square, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -37,6 +38,7 @@ export function ScopePanel({ exp }: { exp: Instrument }) {
   const specRef = useRef<HTMLCanvasElement>(null);
   const [advOpen, setAdvOpen] = useState(false);
   const { resolvedTheme } = useTheme();
+  const t = useTranslations("app.scope");
   const { S, ard } = engine;
 
   useEffect(() => {
@@ -54,19 +56,19 @@ export function ScopePanel({ exp }: { exp: Instrument }) {
       <Card className="flex flex-col gap-3 p-4 md:flex-row md:flex-wrap md:items-center">
         {ard ? (
           <div className="flex items-center gap-2">
-            <Label className="text-sm text-muted-foreground">Circuito</Label>
-            <Select value={S.circuit} onValueChange={(v) => v && engine.setCircuit(v as Circuit)} items={{ mic: "Microfono del kit", coil: "Bobina e magnete", lamp: "Luce di una lampada" }}>
+            <Label className="text-sm text-muted-foreground">{t("circuit")}</Label>
+            <Select value={S.circuit} onValueChange={(v) => v && engine.setCircuit(v as Circuit)} items={{ mic: t("mic"), coil: t("coil"), lamp: t("lamp") }}>
               <SelectTrigger size="sm" className="w-52"><SelectValue /></SelectTrigger>
               <SelectContent>
-                <SelectItem value="mic">Microfono del kit</SelectItem>
-                <SelectItem value="coil">Bobina e magnete</SelectItem>
-                <SelectItem value="lamp">Luce di una lampada</SelectItem>
+                <SelectItem value="mic">{t("mic")}</SelectItem>
+                <SelectItem value="coil">{t("coil")}</SelectItem>
+                <SelectItem value="lamp">{t("lamp")}</SelectItem>
               </SelectContent>
             </Select>
           </div>
         ) : (
-          <Segmented label="Sorgente del segnale" value={(S.source ?? "") as "mic" | "ex" | ""} onChange={(v) => v && void engine.selectSource(v)}
-            items={[["mic", <><Mic /> Microfono</>], ["ex", <><Music /> Esempi</>]]} />
+          <Segmented label={t("source")} value={(S.source ?? "") as "mic" | "ex" | ""} onChange={(v) => v && void engine.selectSource(v)}
+            items={[["mic", <><Mic /> {t("micSource")}</>], ["ex", <><Music /> {t("examples")}</>]]} />
         )}
         <div className="flex flex-wrap gap-2 md:ml-auto">
           {S.readouts.map(([l, v, u]) => (
@@ -80,40 +82,40 @@ export function ScopePanel({ exp }: { exp: Instrument }) {
 
       {!ard && S.source === "ex" && (
         <Card className="flex flex-row flex-wrap items-center gap-2 p-3">
-          <span className="mr-1 text-xs font-medium text-muted-foreground">La₃ = 220 Hz</span>
-          {[...EXAMPLES, ["beats", "Battimenti 440 + 443 Hz"] as [string, string]].map(([id, l]) => (
+          <span className="mr-1 text-xs font-medium text-muted-foreground">{t("a3")}</span>
+          {[...EXAMPLES, ["beats", t("beats")] as [string, string]].map(([id, l]) => (
             <Button key={id} size="sm" variant={S.example === id && !S.paused ? "default" : "outline"} onClick={() => engine.playExample(id)}>{l}</Button>
           ))}
-          {genOn && <span className="text-xs font-medium text-brand">＋ Synth acceso</span>}
+          {genOn && <span className="text-xs font-medium text-brand">{t("synthOn")}</span>}
         </Card>
       )}
 
       <Card className="flex flex-col gap-3 p-4">
         <div className="flex flex-wrap items-center gap-2">
           <Button size="lg" variant={running ? "destructive" : "default"} onClick={() => void engine.run()} className="min-w-28">
-            {running ? (ard ? <><Square className="fill-current" /> Ferma</> : <><Pause /> Pausa</>) : <><Play className="fill-current" /> Avvia</>}
+            {running ? (ard ? <><Square className="fill-current" /> {t("stop")}</> : <><Pause /> {t("pause")}</>) : <><Play className="fill-current" /> {t("start")}</>}
           </Button>
-          <Button size="lg" variant="outline" disabled={S.slots.length >= 3 || !S.live || !S.showLive} onClick={engine.freeze} title="Conserva la traccia attuale (fino a 3)">
-            <Snowflake /> {S.slots.length >= 3 ? "Massimo 3 tracce" : "Congela"}
+          <Button size="lg" variant="outline" disabled={S.slots.length >= 3 || !S.live || !S.showLive} onClick={engine.freeze} title={t("freezeTitle")}>
+            <Snowflake /> {S.slots.length >= 3 ? t("maxTraces") : t("freeze")}
           </Button>
           <div className="flex flex-wrap gap-2">
             {S.slots.map((s) => (
               <div key={s.id} className={cn("flex items-center gap-1.5 rounded-lg border py-1 pr-1 pl-2", !s.visible && "opacity-50")} style={{ borderColor: slotColor(s.id) }}>
-                <button type="button" onClick={() => engine.toggleSlot(s.id)} title="Mostra/nascondi" className="flex items-center gap-1 text-sm font-bold" style={{ color: slotColor(s.id) === "#ffffff" || slotColor(s.id) === "#fff" ? undefined : slotColor(s.id) }}>
+                <button type="button" onClick={() => engine.toggleSlot(s.id)} title={t("toggle")} className="flex items-center gap-1 text-sm font-bold" style={{ color: slotColor(s.id) === "#ffffff" || slotColor(s.id) === "#fff" ? undefined : slotColor(s.id) }}>
                   {s.visible ? <Eye className="size-3.5" /> : <EyeOff className="size-3.5" />}{s.id}
                 </button>
-                <Input defaultValue={s.name} onBlur={(e) => engine.renameSlot(s.id, e.target.value)} aria-label={`Nome della traccia ${s.id}`} className="h-7 w-24 text-xs" />
+                <Input defaultValue={s.name} onBlur={(e) => engine.renameSlot(s.id, e.target.value)} aria-label={t("traceName", { id: s.id })} className="h-7 w-24 text-xs" />
                 <small className="tabular text-xs text-muted-foreground">
                   {Number.isFinite(s.f) ? `${fmtIt(sig(s.f, 4), 1)} Hz${noteOf(s.f) && !ard ? ` · ${noteOf(s.f)?.label}` : ""}` : "—"}
                 </small>
-                <Button size="icon-xs" variant="ghost" onClick={() => engine.removeSlot(s.id)} aria-label="Elimina traccia"><X /></Button>
+                <Button size="icon-xs" variant="ghost" onClick={() => engine.removeSlot(s.id)} aria-label={t("removeTrace")}><X /></Button>
               </div>
             ))}
           </div>
         </div>
 
         <div className="relative aspect-[16/9] max-h-[60vh] w-full overflow-hidden rounded-lg bg-screen sm:aspect-[2/1]">
-          <canvas ref={waveRef} aria-label="Forma d'onda" className="absolute inset-0 size-full" />
+          <canvas ref={waveRef} aria-label={t("wave")} className="absolute inset-0 size-full" />
           {S.screenMsg && <div className="pointer-events-none absolute inset-0 grid place-items-center text-sm font-medium text-white/80">{S.screenMsg}</div>}
         </div>
 
@@ -121,47 +123,47 @@ export function ScopePanel({ exp }: { exp: Instrument }) {
           {ard ? (
             <>
               <div className="flex items-center gap-2">
-                <Label className="text-sm text-muted-foreground">⟷ finestra</Label>
+                <Label className="text-sm text-muted-foreground">{t("window")}</Label>
                 <Select value={String(S.dt)} onValueChange={(v) => v && engine.setDt(+v)} items={Object.fromEntries(DT_STEPS.map((d) => [String(d), `${fmtIt((d * N_ARD) / 1000, 1)} ms`]))}>
                   <SelectTrigger size="sm" className="w-28"><SelectValue /></SelectTrigger>
                   <SelectContent>{DT_STEPS.map((d) => <SelectItem key={d} value={String(d)}>{fmtIt((d * N_ARD) / 1000, 1)} ms</SelectItem>)}</SelectContent>
                 </Select>
               </div>
               <div className="flex min-w-56 items-center gap-3">
-                <Label className="text-sm text-muted-foreground">trigger</Label>
-                <Slider className="w-36 data-horizontal:w-36" min={0} max={5} step={0.01} value={S.level} onValueChange={(v) => engine.previewLevel(v as number)} onValueCommitted={() => engine.commitLevel()} aria-label="Livello del trigger" />
+                <Label className="text-sm text-muted-foreground">{t("trigger")}</Label>
+                <Slider className="w-36 data-horizontal:w-36" min={0} max={5} step={0.01} value={S.level} onValueChange={(v) => engine.previewLevel(v as number)} onValueCommitted={() => engine.commitLevel()} aria-label={t("triggerLevel")} />
                 <b className="tabular w-16 text-sm whitespace-nowrap">{fmtIt(S.level, 2)} V</b>
-                <Button size="sm" variant="outline" onClick={engine.levelToMean} title="Trigger al valore medio del segnale"><Crosshair /> media</Button>
+                <Button size="sm" variant="outline" onClick={engine.levelToMean} title={t("meanTitle")}><Crosshair /> {t("mean")}</Button>
               </div>
-              <Segmented label="Modo di acquisizione" value={S.single ? "1" : "0"} onChange={(v) => engine.setSingle(v === "1")} items={[["0", "continuo"], ["1", "singolo"]]} />
+              <Segmented label={t("acquisition")} value={S.single ? "1" : "0"} onChange={(v) => engine.setSingle(v === "1")} items={[["0", t("continuous")], ["1", t("single")]]} />
             </>
           ) : (
             <div className="flex min-w-60 items-center gap-3">
-              <Label className="text-sm text-muted-foreground">⟷ finestra</Label>
-              <Slider className="w-40 data-horizontal:w-40" min={0} max={WIN_STEPS.length - 1} step={1} value={Math.max(0, WIN_STEPS.indexOf(S.winMs))} onValueChange={(v) => engine.setWin(v as number)} aria-label="Finestra dei tempi" />
+              <Label className="text-sm text-muted-foreground">{t("window")}</Label>
+              <Slider className="w-40 data-horizontal:w-40" min={0} max={WIN_STEPS.length - 1} step={1} value={Math.max(0, WIN_STEPS.indexOf(S.winMs))} onValueChange={(v) => engine.setWin(v as number)} aria-label={t("timeWindow")} />
               <b className="tabular w-14 text-sm whitespace-nowrap">{S.winMs} ms</b>
             </div>
           )}
-          <Segmented label="Trigger" value={String(S.edge)} onChange={(v) => engine.setEdge(+v)}
-            items={[["1", "↗", "Trigger sul fronte di salita"], ["-1", "↘", "Trigger sul fronte di discesa"], ["0", "⟿", "Senza trigger"]]} />
+          <Segmented label={t("triggerGroup")} value={String(S.edge)} onChange={(v) => engine.setEdge(+v)}
+            items={[["1", "↗", t("rising")], ["-1", "↘", t("falling")], ["0", "⟿", t("noTrigger")]]} />
           <label className="flex items-center gap-2 text-sm">
-            <Switch checked={S.same} onCheckedChange={(v) => engine.setSame(!!v)} /> stessa altezza
+            <Switch checked={S.same} onCheckedChange={(v) => engine.setSame(!!v)} /> {t("sameHeight")}
           </label>
         </div>
 
         <div className="relative aspect-[4/1] min-h-32 w-full overflow-hidden rounded-lg bg-screen">
-          <canvas ref={specRef} aria-label="Spettro" className="absolute inset-0 size-full" />
+          <canvas ref={specRef} aria-label={t("spectrum")} className="absolute inset-0 size-full" />
         </div>
 
         {!!S.recipe.length && (
           <div className="rounded-lg border p-3">
             <div className="mb-2 flex items-center gap-3 text-xs text-muted-foreground">
-              <b className="w-16 text-foreground">Armoniche</b>
+              <b className="w-16 text-foreground">{t("harmonics")}</b>
               <div className="grid flex-1 grid-cols-8 text-center">{[1, 2, 3, 4, 5, 6, 7, 8].map((n) => <i key={n} className="not-italic">{n}</i>)}</div>
             </div>
             {S.recipe.map((r) => (
               <div key={r.id} className="flex items-end gap-3 py-0.5">
-                <b className="w-16 truncate text-xs" title={r.name}>{r.id === "ora" ? "dal vivo" : r.id}</b>
+                <b className="w-16 truncate text-xs" title={r.name}>{r.id === "ora" ? t("live") : r.id}</b>
                 <div className="grid h-8 flex-1 grid-cols-8 items-end gap-1">
                   {r.amps.map((a, i) => (
                     <i key={i} title={fmtIt(a, 2)} className="block rounded-t-sm" style={{ height: `${Math.round((Math.min(1.15, Math.max(0, a)) * 100) / 1.15)}%`, background: r.id === "ora" ? LIVE : r.color, minHeight: 2 }} />
@@ -173,21 +175,21 @@ export function ScopePanel({ exp }: { exp: Instrument }) {
         )}
 
         <div className="flex flex-wrap gap-2">
-          <Button onClick={() => void engine.sendWaves()}><Send /> Invia le forme d&apos;onda a Elaborazione</Button>
-          <Button variant="outline" onClick={() => void engine.sendSpectra()}>Invia gli spettri</Button>
+          <Button onClick={() => void engine.sendWaves()}><Send /> {t("sendWaves")}</Button>
+          <Button variant="outline" onClick={() => void engine.sendSpectra()}>{t("sendSpectra")}</Button>
         </div>
 
         {ard && (
           <Collapsible open={advOpen} onOpenChange={setAdvOpen} className="rounded-lg border">
             <CollapsibleTrigger className="flex w-full items-center gap-2 px-3 py-2 text-sm font-semibold">
-              <ChevronDown className={cn("size-4 transition-transform", !advOpen && "-rotate-90")} /> Grandezza misurata
+              <ChevronDown className={cn("size-4 transition-transform", !advOpen && "-rotate-90")} /> {t("measured")}
             </CollapsibleTrigger>
             <CollapsibleContent className="grid gap-3 border-t p-3 sm:grid-cols-3">
               <div className="flex flex-col gap-1.5">
-                <Label className="text-xs text-muted-foreground">Grandezza</Label>
-                <Select value={S.qty} onValueChange={(v) => v && engine.setQty(v as "V" | "I")} items={{ V: "Tensione V − V₀", I: "Corrente I = (V − V₀)/R" }}>
+                <Label className="text-xs text-muted-foreground">{t("quantity")}</Label>
+                <Select value={S.qty} onValueChange={(v) => v && engine.setQty(v as "V" | "I")} items={{ V: t("voltage"), I: t("current") }}>
                   <SelectTrigger size="sm" className="w-full"><SelectValue /></SelectTrigger>
-                  <SelectContent><SelectItem value="V">Tensione V − V₀</SelectItem><SelectItem value="I">Corrente I = (V − V₀)/R</SelectItem></SelectContent>
+                  <SelectContent><SelectItem value="V">{t("voltage")}</SelectItem><SelectItem value="I">{t("current")}</SelectItem></SelectContent>
                 </Select>
               </div>
               <div className="flex flex-col gap-1.5">

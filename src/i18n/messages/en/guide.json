@@ -1,0 +1,602 @@
+{
+  "button": "Guide",
+  "dialog": {
+    "title": "MosaicusNeo Guide",
+    "description": "Manual: firmware, wiring, measurements, analysis, Bluetooth.",
+    "nav": "Chapters",
+    "footer": "MosaicusNeo v{app} · firmware v{fw} · based on Mosaicus (© 2026 Ermes Ferdinando Rosi) · MIT license · <repo>source code on GitHub</repo> · <issues>report a problem</issues> · <privacy>privacy notice</privacy>"
+  },
+  "chapters": {
+    "start": "Start here",
+    "device": "Your device",
+    "firmware": "Uploading the firmware",
+    "wiring": "Wiring the components",
+    "measure": "Measuring",
+    "rigs": "Projects and components",
+    "analysis": "Analysis",
+    "field": "In the field and Bluetooth",
+    "sd": "SD card and button",
+    "outputs": "Display, LED and buzzer",
+    "data": "Data and account",
+    "problems": "Common problems"
+  },
+  "picker": {
+    "label": "Instructions for",
+    "aria": "Instructions for which device",
+    "itemThis": "{label} (this one)",
+    "badgeThis": "· this one",
+    "this": "this one"
+  },
+  "otherDevice": {
+    "text": "You are reading the instructions for: <b>{reading}</b>. This device: {here}.",
+    "back": "Back to mine"
+  },
+  "checks": {
+    "usbTitle": "USB cable",
+    "bleTitle": "Bluetooth LE",
+    "hc06Title": "Bluetooth HC-06",
+    "secureTitle": "Secure connection",
+    "installedTitle": "Installed as an app",
+    "usb": {
+      "android": "The phone's browser can't use a cable to Arduino: connect via Bluetooth.",
+      "ios": "iPhone and iPad don't allow a cable to Arduino: you need a Bluetooth LE module.",
+      "ok": "You can connect Arduino with the USB cable.",
+      "chromiumOff": "Serial connection is disabled in this browser: update Chrome or Edge.",
+      "otherBrowser": "{browser} can't talk to Arduino: open this page in Chrome or Edge."
+    },
+    "ble": {
+      "off": "Supported, but Bluetooth is off or missing: turn it on in the settings.",
+      "ok": "You can connect to a Bluetooth LE module (HM-10, AT-09, HC-08).",
+      "ios": "iPhone browsers don't give web pages access to Bluetooth: install Bluefy (free, App Store) and open MosaicusNeo there.",
+      "chromiumOff": "Web Bluetooth not available (on Linux, enable it in chrome://flags).",
+      "otherBrowser": "{browser} doesn't support Web Bluetooth: use Chrome or Edge."
+    },
+    "hc06": {
+      "ios": "The HC-06 uses classic Bluetooth, which iPhone and iPad don't support: you need a BLE module.",
+      "androidOk": "You can use the HC-06: pair it first in the Bluetooth settings (PIN 1234).",
+      "androidChrome": "Requires Chrome 138 or later (here: {version}): update it from the Play Store.",
+      "androidOther": "Requires Chrome for Android 138 or later.",
+      "pcWarn": "Works only if the HC-06 is already paired in the system's Bluetooth settings. A BLE module doesn't need pairing.",
+      "pcNo": "Requires Chrome or Edge."
+    },
+    "secure": {
+      "ok": "Page served over https: USB and Bluetooth allowed.",
+      "no": "Open the app from its https address: without it, the browser blocks USB and Bluetooth."
+    },
+    "installed": {
+      "ok": "It also opens without a network connection.",
+      "ios": "Optional: Share → “Add to Home Screen”.",
+      "other": "Optional: browser menu → “Install MosaicusNeo”. Then it also opens without a network connection."
+    }
+  },
+  "port": {
+    "windows": "In the top menu: <b>Arduino Uno</b> and the port <b>COM3, COM4…</b> that appears when you plug in the cable.",
+    "mac": "In the top menu: <b>Arduino Uno</b> and the port <b>/dev/cu.usbmodem…</b> (clones: <b>/dev/cu.wchusbserial…</b>).",
+    "linux": "In the top menu: <b>Arduino Uno</b> and <b>/dev/ttyACM0</b> (or <b>/dev/ttyUSB0</b>). No permission: <code>sudo usermod -aG dialout $USER</code>, then log out and back in.",
+    "chromeos": "Use the <b>Arduino Cloud Editor</b> with its plugin: choose <b>Arduino Uno</b> and the port that appears.",
+    "other": "In the top menu: <b>Arduino Uno</b> and the port (Windows: COM3, COM4…; Mac: /dev/cu.usbmodem…; Linux: /dev/ttyACM0)."
+  },
+  "connectHow": {
+    "pc": "“Connect Arduino” and choose the USB port. With a BLE module: menu ▾ → “Bluetooth LE”.",
+    "android": "HC-06 already paired: “Connect via Bluetooth”. BLE module: menu ▾ → “Bluetooth LE”.",
+    "ios": "In Bluefy: “Connect via Bluetooth LE” → “MosaicusNeo”.",
+    "wait": "Wait for <b>Arduino ready</b>. No hardware: “Simulator”."
+  },
+  "path": {
+    "pc": {
+      "s1": {
+        "t": "Use Chrome or Edge",
+        "d": "Firefox and Safari can't talk to Arduino."
+      },
+      "s2": {
+        "t": "Upload the firmware",
+        "d": "Just once: <firmware>Uploading the firmware</firmware>."
+      },
+      "s3": {
+        "t": "Wire the components",
+        "d": "Follow the diagram: <wiring>Wiring the components</wiring>."
+      },
+      "s4": {
+        "t": "Connect Arduino with the USB cable",
+        "d": "“Connect Arduino” → choose the port{port} → wait for “Arduino ready”."
+      },
+      "s5": {
+        "t": "Measure and analyze",
+        "d": "“Start”, “Stop”, select a range on the chart and “Analyze the range”. See <measure>Measuring</measure>."
+      }
+    },
+    "android": {
+      "s1": {
+        "t": "From a computer: upload the firmware",
+        "d": "The phone can't program Arduino. Just once: <firmware>Uploading the firmware</firmware>."
+      },
+      "s2": {
+        "t": "Add a Bluetooth module",
+        "d": "HC-06 or BLE (HM-10, AT-09, HC-08): it's a component like any other, in “Add a component” → <b>Bluetooth</b> (or from the ▾ menu of “Connect”). The diagram includes it."
+      },
+      "s3": {
+        "t": "From the computer: configure the module",
+        "d": "Just once, with Arduino on USB: <field>In the field and Bluetooth</field>."
+      },
+      "s4": {
+        "t": "On the phone, in Chrome: connect",
+        "d": "HC-06: pair “MosaicusNeo” in the Bluetooth settings (PIN 1234), then “Connect via Bluetooth”. BLE: menu ▾ → “Bluetooth LE”."
+      },
+      "s5": {
+        "t": "Power Arduino from a power bank and measure",
+        "d": "The screen stays on during the measurement. The Notebook saves every 30 s."
+      }
+    },
+    "ios": {
+      "note": "On iPhone and iPad you need a <b>Bluetooth LE</b> module (HM-10, AT-09/BT05, HC-08) and the free <b>Bluefy</b> browser. The cable and the HC-06 don't work: it's an iOS limitation.",
+      "s1": {
+        "t": "From a computer: upload the firmware",
+        "d": "Just once: <firmware>Uploading the firmware</firmware>."
+      },
+      "s2": {
+        "t": "Wire the BLE module",
+        "d": "Add the <b>Bluetooth LE</b> component (in “Add a component” → <b>Bluetooth</b>): the diagram includes it."
+      },
+      "s3": {
+        "t": "From the computer: configure the module",
+        "d": "Just once, with Arduino on USB: <field>In the field and Bluetooth</field>."
+      },
+      "s4": {
+        "t": "Install Bluefy and open MosaicusNeo",
+        "d": "From the App Store. Type the app's address in Bluefy's address bar."
+      },
+      "s5": {
+        "t": "Connect and measure",
+        "d": "Arduino on the power bank, then “Connect via Bluetooth LE” → “MosaicusNeo”."
+      }
+    },
+    "board": {
+      "s1": {
+        "t": "Turn on whiteboard mode",
+        "d": "Large text and lighter charts for slow whiteboards. <lim>Turn it on now</lim> (also from the Appearance menu, at the top)."
+      },
+      "s2": {
+        "t": "Choose where the data comes from",
+        "d": "The whiteboard can't use a cable to Arduino. You can: use a Bluetooth module (as on Android, with Chrome); measure from the classroom computer and project it; sign in with the same account and open measurements made elsewhere from the Notebook."
+      },
+      "s3": {
+        "t": "With Bluetooth",
+        "d": "Firmware and module setup are done once from a computer: <field>In the field and Bluetooth</field>."
+      },
+      "s4": {
+        "t": "To discuss the data in class",
+        "d": "Notebook → “Analyze”: in Analysis, fits and tangents also work by touch."
+      }
+    }
+  },
+  "share": {
+    "open": "On the other device, open this address: <b>{url}</b>",
+    "share": "Share the link",
+    "copy": "Copy the link",
+    "copied": "Link copied."
+  },
+  "startDevice": {
+    "path": "Your path: {device}",
+    "check": "Check your device →",
+    "cannot": "This device can't connect to Arduino yet. What's missing and how to fix it: <device>Your device</device>."
+  },
+  "yourDevice": {
+    "using": "You are using: {device}",
+    "worksHere": "What works here",
+    "unknown": "I can't recognize this device.",
+    "which": "Which device you measure with",
+    "whichText": "The guide's instructions follow this choice (you can also change it from the menu at the top). If you read on the computer but measure with the phone, choose the phone.",
+    "compare": "Device comparison",
+    "colDevice": "Device",
+    "colUsb": "USB cable",
+    "colBt": "Bluetooth",
+    "rows": {
+      "pc": {
+        "name": "Computer (Chrome, Edge)",
+        "usb": "yes",
+        "bt": "BLE yes; HC-06 if already paired"
+      },
+      "android": {
+        "name": "Android (Chrome)",
+        "usb": "—",
+        "bt": "HC-06 and BLE"
+      },
+      "ios": {
+        "name": "iPhone, iPad",
+        "usb": "—",
+        "bt": "BLE only, in the Bluefy browser"
+      },
+      "board": {
+        "name": "Android whiteboard",
+        "usb": "—",
+        "bt": "like Android (Chrome)"
+      }
+    }
+  },
+  "start": {
+    "intro": "MosaicusNeo reads the sensors connected to Arduino, shows real-time charts, saves the measurements and analyzes them. It runs in the browser, even offline.",
+    "needTitle": "What you need",
+    "need": {
+      "arduino": "<b>Arduino Uno</b> or a clone (e.g. Elegoo UNO R3), with its USB cable.",
+      "parts": "<b>The components</b> for the experiment, a breadboard and jumper wires.",
+      "computer": "<b>A computer</b> with Chrome or Edge: needed to upload the firmware and to measure over the cable.",
+      "optional": "<b>Optional</b>: a Bluetooth module and a power bank, to measure wirelessly with the phone."
+    },
+    "stepsTitle": "The steps",
+    "steps": {
+      "s1": {
+        "t": "Firmware",
+        "d": "just once"
+      },
+      "s2": {
+        "t": "Experiment",
+        "d": "list on the left"
+      },
+      "s3": {
+        "t": "Wiring",
+        "d": "follow the diagram"
+      },
+      "s4": {
+        "t": "Measure",
+        "d": "Start → Stop"
+      },
+      "s5": {
+        "t": "Analysis",
+        "d": "Analysis page"
+      }
+    },
+    "simulator": "No hardware? Press <b>Simulator</b>: it generates realistic data for every experiment."
+  },
+  "firmware": {
+    "intro": "The firmware is the program that runs on Arduino. There is just one for all experiments: you upload it once, then the app tells it which components to read.",
+    "pcOnly": "The firmware is uploaded <b>from a computer</b> (Windows, Mac, Linux or Chromebook) with the USB cable: the device you chose ({device}) can't program Arduino. Then you measure with the {target, select, board {whiteboard} other {phone}} via Bluetooth.",
+    "download": "Download firmware v{v}",
+    "source": "Code on GitHub",
+    "fileNote": "mosaicusneo_firmware.ino · no libraries to install",
+    "s1": {
+      "t": "Install Arduino IDE 2",
+      "d": "From arduino.cc → Software. On a Chromebook or on a computer without install permissions, use the Arduino Cloud Editor."
+    },
+    "s2": {
+      "t": "Open the downloaded file",
+      "d": "Open <b>mosaicusneo_firmware.ino</b>. If the IDE asks to move it into a folder with the same name, confirm with <b>OK</b>."
+    },
+    "s3": {
+      "t": "Connect Arduino with the USB cable",
+      "d": "The “ON” LED lights up. If there is a Bluetooth module on D0, unplug its TXD wire now."
+    },
+    "s4": {
+      "t": "Choose board and port"
+    },
+    "s5": {
+      "t": "Press “Upload” (→ arrow)",
+      "d": "The TX/RX LEDs blink; after a few seconds <b>Done uploading</b> appears."
+    },
+    "s6": {
+      "t": "Check in MosaicusNeo",
+      "d": "Close the IDE, press <b>Connect Arduino</b> and choose the port. The status becomes <b>Arduino ready · firmware {v}</b>."
+    },
+    "ch340": "Clone with a CH340 chip and no port? Install the CH340 driver for your system and plug the cable back in.",
+    "serialBusy": "The serial port can be opened by only one program at a time: with the IDE's Serial Monitor open, MosaicusNeo can't connect, and vice versa."
+  },
+  "wiring": {
+    "intro": "Every project has its own wiring diagram, made from its components and the pins you chose: open the project and go to the “Wiring” tab. There you'll find the breadboard diagram (or the compact schematic), the parts list and the steps, hole by hole.",
+    "breadboard": "The breadboard",
+    "bb1": "The five holes of a column (a–e or f–j) are connected to each other; the central groove separates them.",
+    "bb2": "The side rails run the whole length: red (+) for 5V, blue (−) for GND.",
+    "bb3": "D0 and D1 are reserved for the USB cable and Bluetooth: don't connect components to them.",
+    "where": "The diagram updates as you add or change components. Bluetooth, SD card and button are components like any other: add them to the project and they appear in the diagram.",
+    "open": "Open the Wiring tab",
+    "empty": "The open project has no Arduino components yet: add some in the “Components” tab first."
+  },
+  "measure": {
+    "s1": {
+      "t": "Choose the experiment",
+      "d": "From the list on the left. The components and their pins appear at the top."
+    },
+    "s2": {
+      "t": "Check the wiring",
+      "d": "“Wiring” tab (on the right; at the bottom on a phone)."
+    },
+    "s3": {
+      "t": "Connect Arduino"
+    },
+    "s4": {
+      "t": "Name the measurement",
+      "d": "Above the “Start” button, e.g. “Group 3 · inclined plane”. If you leave it empty: the experiment's title with date and time."
+    },
+    "s5": {
+      "t": "Start and stop",
+      "d": "With “Start” the points arrive in real time. With “Stop” the measurement is saved in the Notebook."
+    },
+    "s6": {
+      "t": "Select a range",
+      "d": "Drag on the chart: the range is highlighted on all charts. Double-click to clear; pinch or Ctrl + scroll wheel to zoom."
+    },
+    "s7": {
+      "t": "Analyze it",
+      "d": "“Analyze the range” opens Analysis on the new panel. The “+” next to it adds the panel without changing page."
+    },
+    "more": "Other commands",
+    "m1": "<b>Charts</b>: the menu above the charts chooses the quantities. The “raw data” are the readings before conversion.",
+    "m2": "<b>Table</b> and <b>Export</b> (icons on the right): the numeric values, or Excel, CSV, image, GPX files.",
+    "m3": "<b>Zero</b> (crosshair, with the ultrasonic sensor): the current position becomes zero.",
+    "m4": "<b>Notebook</b>: all measurements, with search and filters. “Open” brings one back to Measure, “Analyze” sends it whole to Analysis.",
+    "m5": "<b>Whiteboard mode</b> (Appearance menu): large text and lighter charts, for whiteboards and slow PCs."
+  },
+  "rigs": {
+    "intro": "Every experiment and every project has a list of <b>components</b>: sensors, displays, LEDs and buzzers, each with its own pins and reading rate. Up to 6 sensors at once, even of the same type (e.g. two thermistors to compare two cups).",
+    "projects": "Projects",
+    "projectsIntro": "A <b>project</b> is a set of components you choose. You'll find it in <b>“My projects”</b>, at the top of the sidebar:",
+    "p1": "<b>New project</b>: start from scratch.",
+    "p2": "<b>Copy as project</b> (in an experiment, “Components” tab): start from its components.",
+    "p3": "With an account, projects are available on all your devices.",
+    "personal": "If you modify a ready-made experiment you get a <b>personal version</b>; “Restore” goes back to the original.",
+    "edit": "Editing the components",
+    "s1": {
+      "t": "Open the “Components” tab",
+      "d": "On the right; on a phone, the button under the title."
+    },
+    "s2": {
+      "t": "Add or remove components",
+      "d": "“Add a component” opens the catalog: search by name or quantity, filter by category."
+    },
+    "s3": {
+      "t": "Choose the pins",
+      "d": "Pins already in use can't be selected. Analog sensors go on A0…A5."
+    },
+    "s4": {
+      "t": "Choose the rate",
+      "d": "“One reading every … ms”. Limits: DHT at least 1000 ms, GPS one reading per second, sonar down to 30 ms."
+    },
+    "s5": {
+      "t": "Adjust the options",
+      "d": "Calibration, positive direction, DHT model… The less used ones are in “Advanced options”."
+    },
+    "phone": "Phone sensors",
+    "phoneText": "Without Arduino you can use the phone's accelerometer, gyroscope and microphone: experiments in the “Tools” section of the list, or the “Phone, no Arduino” category in “Add a component”. Open the app on the phone (Chrome on Android, Safari on iPhone) and press <b>Enable sensors</b>; on iPhone, confirm the permission. They can't be mixed with Arduino components in the same project.",
+    "errorNote": "With an error in the components (duplicate pin, too many sensors…) “Start” stays disabled; the message tells you how to fix it."
+  },
+  "analysis": {
+    "intro": "Every range sent from Measure or from the Notebook becomes a <b>panel</b>, with chart, tools and data. Above the chart choose the quantities on the axes, including one as a function of another (e.g. T as a function of altitude).",
+    "tools": "Tools",
+    "tool": {
+      "range": {
+        "t": "Range",
+        "d": "Drag to choose the data. Range statistics: mean ± standard error of the mean (s/√n), standard deviation s, minimum and maximum, change Δy and average ratio Δy/Δx (e.g. average velocity)."
+      },
+      "eyeLine": {
+        "t": "Line by eye",
+        "d": "Move the two handles until the line passes between the points (⬆⬇ count the points above and below), then tap two points on the line to read Δy/Δx. “Compare with least squares” compares it with the least-squares line."
+      },
+      "tangent": {
+        "t": "Tangent",
+        "d": "Tap a point on the curve: slope at that point, e.g. the instantaneous velocity."
+      },
+      "fit": {
+        "t": "Fit",
+        "d": "Choose a model (line, parabola, exponential, damped sinusoid…): parameters with uncertainty and physical meaning. “Check residuals” shows the residuals. “Compare all models”: a table with s, R² and an assessment of the residuals; the best one is highlighted."
+      },
+      "ruler": {
+        "t": "Ruler",
+        "d": "On a wave: place the two lines on two crests and enter how many periods N lie between them. T = Δt/N, f = 1/T."
+      },
+      "sheet": {
+        "t": "Data sheet",
+        "d": "All the values. “New column” computes a quantity from a formula (e.g. x^2, ln(T − 21), sqrt(L/g))."
+      }
+    },
+    "results": "Results and panels",
+    "r1": "<b>Save</b> adds a result to the panel. The eye icon shows or hides it on the chart.",
+    "r2": "A panel can be collapsed or <b>duplicated</b>, to try another analysis on the same data.",
+    "r3": "Tick the panels and press <b>Export to Excel</b>: a summary sheet, one with all the results and one per panel."
+  },
+  "sd": {
+    "intro": "With a <b>microSD card</b> Arduino measures on its own, powered by a power bank or a battery: no computer, no phone, even for hours. With a <b>button</b> you decide when to start and stop. They are components like any other: add them from “Add a component” (<b>Storage</b> and <b>Controls</b> groups) or from the ▾ menu of “Connect” → <b>Record to SD card</b>.",
+    "need": "What you need",
+    "n1": "A microSD module with a regulator (“Micro SD Card Adapter”): it runs on 5V. It always uses D10 (CS), D11 (MOSI), D12 (MISO) and D13 (SCK): move components that used them to other pins.",
+    "n2": "A microSD card formatted as <b>FAT32</b>, up to 32 GB (larger ones come as exFAT: reformat them to FAT32).",
+    "n3": "Optional: a button between a digital pin and GND (no resistor).",
+    "n4": "Firmware v{v}.",
+    "record": "Recording",
+    "s1": {
+      "t": "Prepare Arduino (once per project)",
+      "d": "With Arduino connected via the USB cable: in the <b>SD card</b> component's card press <b>Prepare Arduino</b>. Arduino receives sensors, pins and rates, saves them (they persist when powered off) and tests the card."
+    },
+    "s2": {
+      "t": "Power it without a computer",
+      "d": "Unplug the cable and connect a power bank to the USB socket, or a 9 V battery to the barrel jack."
+    },
+    "s3": {
+      "t": "Start and stop",
+      "d": "With the button: press to start, press again to stop; each recording is a new file (LOG00001.CSV, LOG00002.CSV…). Without a button: it records from when you switch it on until you switch it off. Arduino saves every 2 s: cutting the power loses at most the last few moments."
+    },
+    "s4": {
+      "t": "Import into the Notebook",
+      "d": "Put the card in the computer and press <b>Import from SD card</b> (in the Notebook or in the component's card): each file becomes a measurement, with the usual quantities, charts and Analysis."
+    },
+    "statusNote": "The display, LED and buzzer tell you what's happening: “SD READY · PRESS” waits for the button, “SD 1:23 · REC” is recording, “PROBLEM · SD” if the card is missing or not FAT32.",
+    "buttonTitle": "The button with the app",
+    "buttonText": "With the app connected, via cable or Bluetooth, the button works like “Start” and “Stop”: handy when your hands are busy with the experiment. If you connect the app while Arduino is recording to the card, the recording is closed and you measure as usual."
+  },
+  "field": {
+    "iosNote": "On iPhone and iPad: <b>BLE</b> modules only, and only in the <b>Bluefy</b> browser.",
+    "intro": "With a Bluetooth module and a power bank you measure outdoors, with the phone. The module is a component: add <b>Bluetooth HC-06</b> or <b>Bluetooth LE</b> to the project (or pick it from the ▾ menu of “Connect”: it joins the components automatically), and the diagram and steps include it. Both types connect to the same pins, D0 and D1 (see <wiring>Wiring the components</wiring>).",
+    "table": {
+      "classic": "HC-06 (classic)",
+      "ble": "BLE (HM-10, AT-09, HC-08)",
+      "android": "Android",
+      "androidBoard": "Android / whiteboard",
+      "yesChrome": "yes (Chrome)",
+      "iphone": "iPhone / iPad",
+      "no": "no",
+      "yesBluefy": "yes, with the Bluefy browser",
+      "computer": "Computer",
+      "ifPaired": "if paired beforehand",
+      "yesChromeEdge": "yes (Chrome, Edge)",
+      "before": "Before connecting",
+      "pairIt": "pair it in the settings",
+      "nothing": "nothing: you pick it from the app"
+    },
+    "config": "Configuring the module (just once)",
+    "c1": {
+      "t": "Wire the module as in the diagram",
+      "d": "VCC to 5V, GND to GND, TXD → D0, RXD ← D1 through the 1 kΩ / 2 kΩ voltage divider."
+    },
+    "c2": {
+      "t": "Connect Arduino to the computer with the USB cable",
+      "d": "The module's LED blinks: no phone is connected."
+    },
+    "c3": {
+      "t": "“Connect Arduino”",
+      "d": "Wait for “Arduino ready”."
+    },
+    "c4": {
+      "t": "Press “Configure”",
+      "d": "In “Wiring”, with Bluetooth on, in the Bluetooth module's step."
+    },
+    "c5": {
+      "t": "Wait for confirmation",
+      "d": "The module is now called “MosaicusNeo” and communicates at 115200 baud, like Arduino."
+    },
+    "phone": "Measuring with the phone",
+    "p1": {
+      "t": "Power Arduino from a power bank",
+      "d": "The USB cable goes to the power bank, not to the computer."
+    },
+    "p2": {
+      "t": "Open MosaicusNeo",
+      "d": "Android: Chrome. iPhone and iPad: <b>Bluefy</b> (free, App Store), with the app's address."
+    },
+    "p3": {
+      "t": "Connect",
+      "d": "HC-06: pair “MosaicusNeo” in the Bluetooth settings (PIN 1234), then “Connect via Bluetooth”. BLE: menu ▾ → <b>Bluetooth LE</b> → “MosaicusNeo” (on iPhone: “Connect via Bluetooth LE”)."
+    },
+    "p4": {
+      "t": "Start",
+      "d": "The screen stays on during the measurement and the Notebook saves every 30 s: if the phone locks up, the data are kept."
+    },
+    "gps": "GPS",
+    "gpsText": "The first fix takes from 30 seconds to a few minutes, outdoors with a clear sky; the module's LED blinks when it has a position. Points without a position stay in the table but don't appear on the map. The map colors the points by the chosen quantity. Export to GPX (Google Earth, Strava) or GeoJSON (QGIS)."
+  },
+  "outputs": {
+    "intro": "Display, RGB LED and buzzer show Arduino's status without looking at the phone. They are added like the other components: “Components” tab → <b>Add a component</b>, “Display, LEDs, sounds” category. They require firmware v{v} or later.",
+    "colSituation": "Situation",
+    "colDisplay": "Display",
+    "colLed": "LED",
+    "colBuzzer": "Buzzer",
+    "rows": {
+      "waiting": {
+        "situation": "Powered on, the app isn't connected",
+        "display": "WAITING · APP · USB v1.6 (with a Bluetooth module: USB/BT 1.6)",
+        "led": "blue, blinking",
+        "beep": "1 beep every 3 s"
+      },
+      "connected": {
+        "situation": "Connected, idle",
+        "display": "CONNECTED · OK (over Bluetooth: “BT”)",
+        "led": "solid blue",
+        "beep": "1 beep every 3 s"
+      },
+      "rejected": {
+        "situation": "A component was rejected",
+        "display": "CONFIG · DHT · pin doppio",
+        "led": "red, fast blinking",
+        "beep": "3 beeps every 3 s"
+      },
+      "gpsSearch": {
+        "situation": "Measurement started, GPS searching",
+        "display": "GPS SEARCH · 3 sat",
+        "led": "yellow, blinking",
+        "beep": "2 beeps every 3 s"
+      },
+      "noResponse": {
+        "situation": "A sensor isn't responding",
+        "display": "PROBLEM · DHT",
+        "led": "red, fast blinking",
+        "beep": "3 beeps every 3 s"
+      },
+      "several": {
+        "situation": "Several sensors in trouble",
+        "display": "ERROR 1/2 · DHT · #2 wires?",
+        "led": "follows the most serious",
+        "beep": "follows the most serious"
+      },
+      "measuring": {
+        "situation": "Measuring, all good",
+        "display": "REC 1:23 · 23.4°",
+        "led": "solid green",
+        "beep": "silent (a “beep-beep” when it gets there)"
+      }
+    },
+    "buzzerNote": "<b>As long as the buzzer sounds, something isn't ready.</b> When it's silent, Arduino is measuring normally.",
+    "gpsTitle": "GPS searching",
+    "gpsText": "Right after power-on, or indoors, the GPS searches for satellites: yellow, 2 beeps, and the display shows the number of satellites in view. Outdoors the fix arrives within 30 seconds to a few minutes. If no data at all arrive from the GPS, check the wires: red, 3 beeps, “GPS wires?”.",
+    "multiTitle": "Several sensors, configuration and Bluetooth",
+    "mu1": "If several sensors have a problem, the display shows them in turn every 2.5 seconds, errors first and then those still searching: “ERROR 1/2”, “ERROR 2/2”. LED and buzzer always follow the most serious.",
+    "mu2": "With two sensors of the same type, the display tells which one by number: “#2” is the second DHT in the component list.",
+    "mu3": "If Arduino rejects a component (duplicate pin, non-analog pin, second GPS), the display shows “CONFIG” with the reason until you fix the pins and restart the measurement.",
+    "mu4": "While waiting for the app, the display shows how to connect and the firmware version: “USB v1.6”. Bluetooth is optional: after “Configure” in the Bluetooth step, if the module responds, Arduino remembers it and the display shows “USB/BT 1.6”.",
+    "firmwareNote": "These features require firmware v{v}.",
+    "details": "Details",
+    "d1": "Arduino remembers the indicators: on later power-ups it immediately shows “waiting for the app”, even before you connect the phone.",
+    "d2": "During the measurement the display shows the first quantity in large digits and the second below it, updated every second.",
+    "d3": "“Test display, LED and buzzer” (“Components” tab, with Arduino connected) changes the LED's color, sounds the buzzer and writes “HELLO” on the display.",
+    "d4": "The measurement card shows in small print what the display, LED and buzzer are showing at that moment.",
+    "d5": "To silence the buzzer: option “Beep until everything is ready” → no.",
+    "d6": "Display, MPU-6050 accelerometer and MLX90614 infrared thermometer can share the two I2C pins (usually A4 and A5)."
+  },
+  "data": {
+    "whereTitle": "Where they are saved",
+    "where": "Notebook measurements and Analysis panels stay <b>in this device's browser</b>, even offline. Clearing browsing data deletes them: export what you want to keep.",
+    "accountTitle": "Account (optional)",
+    "account": "With “Sign in” you create an account with email and password. Measurements, panels, projects and preferences are saved to the cloud and are available on all your devices; measurements made before signing in also move to the account. When you sign out, the data disappear from the device but stay in the cloud: suitable for school computers.",
+    "delete": "To delete the account: account menu → <b>Delete account</b>. The account and the data in the cloud are deleted immediately and permanently; export what you want to keep first.",
+    "formatsTitle": "Export formats",
+    "f1": "<b>Excel (.xlsx)</b>: the data and a sheet with the components, pins and options used.",
+    "f2": "<b>CSV for Italian Excel</b> (decimal comma) or <b>standard CSV</b> (Google Sheets, Python).",
+    "f3": "<b>Image</b> of the charts; <b>GPX</b> and <b>GeoJSON</b> for GPS tracks.",
+    "f4": "<b>Raw data</b> (CSV or Excel): the readings as they arrive from Arduino (ADC counts, echo µs, DHT bytes, NMEA fields), one row per reading. For scripts in Python, R or MATLAB."
+  },
+  "problems": {
+    "noPort": {
+      "q": "“Connect Arduino” shows no port",
+      "a": "Unsupported browser, charge-only cable, missing driver or port in use. Use Chrome or Edge on a computer; try another cable or another USB port; with a CH340 clone install the CH340 driver; close the Arduino IDE."
+    },
+    "noFirmware": {
+      "q": "“Firmware not found”",
+      "a": "The MosaicusNeo firmware isn't on Arduino. Upload it: <firmware>Uploading the firmware</firmware>. With a Bluetooth module on D0, unplug the TXD wire during the upload."
+    },
+    "oldFirmware": {
+      "q": "“The firmware on Arduino is old”",
+      "a": "Recent features (projects, Bluetooth LE) require v{v}. Download the firmware again and re-upload it."
+    },
+    "dht": {
+      "q": "The DHT11 gives empty values or “—”",
+      "a": "Wrong wiring or readings too frequent. Check DATA on the chosen pin and VCC to 5V; the bare sensor (4 pins) needs 10 kΩ between DATA and 5V. Read at most once per second (DHT22: every 2 s)."
+    },
+    "sonar": {
+      "q": "The sonar jumps or misses points",
+      "a": "The echo gets lost or bounces off other objects. Use a large, flat target, between 5 cm and 3 m, with a clear beam. In the advanced options you can discard anomalous jumps and adjust the smoothing of velocity and acceleration."
+    },
+    "thermistor": {
+      "q": "The thermistor temperature is off by a few degrees",
+      "a": "The configuration differs from the actual circuit. Check the “thermistor position in the divider” (between 5V and the pin, or between the pin and GND) and, in the advanced options, the thermistor's R₀ and B. A calibration offset is added to all values."
+    },
+    "gps": {
+      "q": "The GPS can't find its position",
+      "a": "With “searching for satellites” the GPS is working but has no signal yet: move outdoors, away from tall buildings, and wait a few minutes. If no data arrive at all, check that the GPS TX is on the chosen “Arduino RX” pin."
+    },
+    "bluetooth": {
+      "q": "The Bluetooth module doesn't show up",
+      "a1": "HC-06: it isn't paired or the device doesn't support it. Pair it in the phone's settings (PIN 1234 or 0000); it works only on Android.",
+      "a2": "BLE: you search for it from the app, not from the settings. If “MosaicusNeo” isn't there, the module isn't configured: look for HMSoft, BT05 or HC-08. On iPhone use Bluefy, not Safari.",
+      "a3": "It connects but no data arrive: the module is still at 9600 baud. Repeat “Configure” with the USB cable (<field>In the field and Bluetooth</field>)."
+    },
+    "slow": {
+      "q": "The app is slow",
+      "a": "Underpowered device or too many charts. Turn on <b>whiteboard mode</b> (Appearance menu): it disables animations and draws lighter charts. Close other tabs; in long measurements show fewer charts (“Charts” menu)."
+    },
+    "report": "Problem not listed here? <issues>Report it on GitHub</issues>: describe the device, browser, components and what happens."
+  }
+}

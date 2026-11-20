@@ -4,6 +4,7 @@
 // dei lab, dalla guida e dal piè di pagina; l'indirizzo /privacy porta qui (/?privacy).
 
 import { useRef } from "react";
+import { useTranslations } from "next-intl";
 import { create } from "zustand";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Drawer, DrawerContent, DrawerDescription, DrawerHeader, DrawerTitle } from "@/components/ui/drawer";
@@ -15,9 +16,8 @@ export const openPrivacy = () => usePrivacy.setState({ open: true });
 const setOpen = (open: boolean) => usePrivacy.setState({ open });
 
 const CONTACT = "alex.corazza@icloud.com";
-const UPDATED = "19 novembre 2026";
-const TITLE = "Informativa sulla privacy";
-const DESCRIPTION = `Ultimo aggiornamento: ${UPDATED}`;
+// data dell'ultimo aggiornamento (mese da 0): il testo la scrive nella lingua dell'app
+const UPDATED = new Date(2026, 10, 19);
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
@@ -28,65 +28,76 @@ function Section({ title, children }: { title: string; children: React.ReactNode
   );
 }
 
+function ext(href: string) {
+  return function ExtLink(c: React.ReactNode) { return <a href={href} target="_blank" rel="noopener">{c}</a>; };
+}
+const tags = {
+  b: (c: React.ReactNode) => <b>{c}</b>,
+  mail: (c: React.ReactNode) => <a href={`mailto:${CONTACT}`}>{c}</a>,
+  gh: ext(REPO_URL),
+  osm: ext("https://osmfoundation.org/wiki/Privacy_Policy"),
+  garante: ext("https://www.garanteprivacy.it"),
+  contact: CONTACT,
+};
+
 function PrivacyText() {
+  const t = useTranslations("app.privacy");
   return (
     <div className="flex flex-col gap-6">
       <div className="rounded-xl border bg-muted/40 p-4 text-sm leading-relaxed">
-        <b className="font-semibold">In breve.</b> Senza account le tue misure restano nel browser del tuo dispositivo e non le riceve nessuno.
-        Con un account (facoltativo) misure, riquadri, progetti e preferenze si salvano nel cloud per ritrovarli su altri dispositivi.
-        Niente pubblicità, niente statistiche di utilizzo, niente profilazione.
+        {t.rich("summary", { b: (c) => <b className="font-semibold">{c}</b> })}
       </div>
 
-      <Section title="Titolare del trattamento">
+      <Section title={t("controller.title")}>
         <p><b>Alex Corazza</b> · <a href={`mailto:${CONTACT}`}>{CONTACT}</a></p>
-        <p>Scrivi a questo indirizzo per domande sulla privacy o per esercitare i tuoi diritti. Il codice dell&apos;app è pubblico su <a href={REPO_URL} target="_blank" rel="noopener">GitHub</a>: puoi verificare che cosa fa con i dati.</p>
+        <p>{t.rich("controller.p1", tags)}</p>
       </Section>
 
-      <Section title="Dati che restano sul tuo dispositivo">
-        <p>Misure del Quaderno, riquadri di Elaborazione, progetti, preferenze (tema, modalità LIM, ultime scelte) sono salvati nel browser (IndexedDB e localStorage). Non vengono inviati a nessuno se non accedi con un account.</p>
-        <p>Li cancelli eliminando i dati del sito dalle impostazioni del browser. Esportali prima, se vuoi conservarli.</p>
+      <Section title={t("local.title")}>
+        <p>{t("local.p1")}</p>
+        <p>{t("local.p2")}</p>
       </Section>
 
-      <Section title="Sensori, microfono, USB e Bluetooth">
-        <p>I dati di Arduino (via cavo o Bluetooth), dei sensori di movimento e del microfono vengono elaborati nel browser. L&apos;audio del microfono non viene registrato né inviato: l&apos;app ne ricava solo frequenza e livello, o la forma d&apos;onda mostrata sullo schermo.</p>
-        <p>Se usi un GPS collegato ad Arduino, le posizioni fanno parte della misura: restano sul dispositivo, oppure nel tuo account se accedi.</p>
+      <Section title={t("sensors.title")}>
+        <p>{t("sensors.p1")}</p>
+        <p>{t("sensors.p2")}</p>
       </Section>
 
-      <Section title="Account (facoltativo)">
-        <p>Per creare un account servono un indirizzo email e una password. Con l&apos;account vengono salvati nel cloud: misure, riquadri, progetti e preferenze dei lab. Ogni utente può leggere e modificare solo i propri dati.</p>
-        <p>Usiamo l&apos;email solo per l&apos;accesso e per i messaggi necessari (conferma dell&apos;indirizzo, recupero della password). La password è gestita dal servizio di autenticazione e non è mai visibile in chiaro.</p>
-        <p>Base giuridica: l&apos;esecuzione del servizio che chiedi creando l&apos;account (art. 6, par. 1, lett. b del GDPR).</p>
-        <p>Se hai meno di 14 anni, crea un account solo con il consenso di un genitore o di chi ne fa le veci. L&apos;app funziona anche senza account.</p>
+      <Section title={t("account.title")}>
+        <p>{t("account.p1")}</p>
+        <p>{t("account.p2")}</p>
+        <p>{t("account.p3")}</p>
+        <p>{t("account.p4")}</p>
       </Section>
 
-      <Section title="Fornitori">
-        <p><b>Supabase</b> conserva account e dati sincronizzati, come responsabile del trattamento. <b>Vercel</b> ospita il sito e registra dati tecnici delle richieste (indirizzo IP, browser) per farlo funzionare e proteggerlo. Le mappe caricano le immagini da <b>OpenStreetMap</b>: il tuo indirizzo IP e la zona visualizzata arrivano ai loro server (<a href="https://osmfoundation.org/wiki/Privacy_Policy" target="_blank" rel="noopener">informativa di OpenStreetMap</a>).</p>
-        <p>Alcuni server possono trovarsi fuori dall&apos;Unione Europea: in quel caso il trasferimento avviene con le garanzie previste dal GDPR, come le clausole contrattuali standard.</p>
+      <Section title={t("providers.title")}>
+        <p>{t.rich("providers.p1", tags)}</p>
+        <p>{t("providers.p2")}</p>
       </Section>
 
-      <Section title="Cookie e archiviazione locale">
-        <p>Non usiamo cookie di profilazione né strumenti di statistica. Il browser conserva solo ciò che serve al funzionamento: i dati dell&apos;app descritti sopra e, se accedi, la sessione dell&apos;account.</p>
+      <Section title={t("cookies.title")}>
+        <p>{t("cookies.p1")}</p>
       </Section>
 
-      <Section title="Per quanto tempo">
-        <p>I dati dell&apos;account restano finché l&apos;account esiste. Uscendo, spariscono da quel dispositivo ma restano nel cloud.</p>
-        <p><b>Puoi eliminare l&apos;account in qualsiasi momento dall&apos;app</b>: menu dell&apos;account → «Elimina account». L&apos;account, l&apos;indirizzo email e tutti i dati sincronizzati (misure, riquadri, progetti, preferenze) vengono cancellati subito e definitivamente dal server, insieme alle loro copie sul dispositivo che usi. Sugli altri dispositivi le copie locali restano finché non esci dall&apos;account o non cancelli i dati del sito. Eventuali copie di sicurezza del fornitore vengono eliminate con la loro normale rotazione.</p>
-        <p>Se non riesci ad accedere, chiedi la cancellazione a <a href={`mailto:${CONTACT}`}>{CONTACT}</a>.</p>
+      <Section title={t("retention.title")}>
+        <p>{t("retention.p1")}</p>
+        <p>{t.rich("retention.p2", tags)}</p>
+        <p>{t.rich("retention.p3", tags)}</p>
       </Section>
 
-      <Section title="I tuoi diritti">
-        <p>Puoi chiedere accesso, rettifica, cancellazione, limitazione e portabilità dei tuoi dati, e opporti al trattamento. Dall&apos;app puoi già esportare le misure in Excel o CSV ed eliminare l&apos;account con tutti i dati.</p>
-        <p>Se ritieni che i tuoi dati siano trattati in modo non corretto, puoi presentare reclamo al <a href="https://www.garanteprivacy.it" target="_blank" rel="noopener">Garante per la protezione dei dati personali</a>.</p>
+      <Section title={t("rights.title")}>
+        <p>{t("rights.p1")}</p>
+        <p>{t.rich("rights.p2", tags)}</p>
       </Section>
 
-      <Section title="Modifiche">
-        <p>Se questa informativa cambia, la data in alto viene aggiornata.</p>
+      <Section title={t("changes.title")}>
+        <p>{t("changes.p1")}</p>
       </Section>
 
       <p className="border-t pt-4 text-xs text-muted-foreground">
-        MosaicusNeo · software libero con licenza MIT ·{" "}
-        <a className="underline" href={REPO_URL} target="_blank" rel="noopener">codice sorgente su GitHub</a> ·{" "}
-        <a className="underline" href={ISSUES_URL} target="_blank" rel="noopener">segnala un problema</a>
+        {t("footer.license")} ·{" "}
+        <a className="underline" href={REPO_URL} target="_blank" rel="noopener">{t("footer.source")}</a> ·{" "}
+        <a className="underline" href={ISSUES_URL} target="_blank" rel="noopener">{t("footer.report")}</a>
       </p>
     </div>
   );
@@ -96,6 +107,8 @@ function PrivacyText() {
 export function PrivacyDialog() {
   const open = usePrivacy((s) => s.open);
   const mobile = useIsMobile();
+  const t = useTranslations("app.privacy");
+  const title = t("title"), description = t("updated", { date: UPDATED });
   // il fuoco va al testo (si scorre con la tastiera), non al primo link: niente anello sull'email
   const body = useRef<HTMLDivElement>(null);
   if (mobile) {
@@ -103,8 +116,8 @@ export function PrivacyDialog() {
       <Drawer open={open} onOpenChange={setOpen} showSwipeHandle>
         <DrawerContent>
           <DrawerHeader className="pb-2 text-left">
-            <DrawerTitle>{TITLE}</DrawerTitle>
-            <DrawerDescription>{DESCRIPTION}</DrawerDescription>
+            <DrawerTitle>{title}</DrawerTitle>
+            <DrawerDescription>{description}</DrawerDescription>
           </DrawerHeader>
           <div className="min-h-0 flex-1 touch-pan-y overflow-y-auto overscroll-contain px-4 pt-2 pb-[calc(env(safe-area-inset-bottom)+1.5rem)]">
             <PrivacyText />
@@ -117,8 +130,8 @@ export function PrivacyDialog() {
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogContent initialFocus={body} className="flex max-h-[88dvh] flex-col gap-0 overflow-hidden p-0 sm:max-w-2xl">
         <DialogHeader className="border-b px-6 pt-6 pb-4">
-          <DialogTitle className="text-xl">{TITLE}</DialogTitle>
-          <DialogDescription>{DESCRIPTION}</DialogDescription>
+          <DialogTitle className="text-xl">{title}</DialogTitle>
+          <DialogDescription>{description}</DialogDescription>
         </DialogHeader>
         <div ref={body} tabIndex={-1} className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-6 py-5 outline-none">
           <PrivacyText />

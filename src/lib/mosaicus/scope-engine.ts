@@ -16,6 +16,7 @@ import { micAnalyser, monitorAnalyser, readSamples, Voice, closeMic, audioSuppor
 import { generatorOn } from "./synth-engine.js";
 import { prefs } from "@/lib/prefs";
 import type { InstrumentApi } from "@/lib/lab-store";
+import { t as tx } from "@/i18n";
 
 export const LIVE = "#C6F432";
 const SLOT_IDS = ["A", "B", "C"];
@@ -26,10 +27,18 @@ export const WIN_STEPS = [2, 3, 4, 5, 6, 8, 10, 12, 15, 20, 25, 30, 40, 50];    
 export const DT_STEPS = [20, 50, 100, 250, 500, 1000, 2500];                        // µs tra due campioni (Arduino)
 export const N_ARD = 400;
 const KEEP_MS = 51;          // ms conservati dopo il trigger per ogni traccia
-export const EXAMPLES: [string, string][] = [
-  ["sinusoide", "Diapason"], ["flauto", "Flauto"], ["clarinetto", "Clarinetto"], ["violino", "Violino"], ["voce", "Voce «a»"],
-];
-const EX_NAME: Record<string, string> = Object.fromEntries([...EXAMPLES, ["beats", "Battimenti"]]);
+export const EXAMPLES: [string, string][] = (["sinusoide", "flauto", "clarinetto", "violino", "voce"] as const).map((id) => [id, tx(`engine.scope.examples.${id}`)]);
+const EX_NAME: Record<string, string> = Object.fromEntries([...EXAMPLES, ["beats", tx("engine.scope.examples.beats")]]);
+// testi disegnati a ogni fotogramma: tradotti una volta sola
+const AU = tx("engine.scope.arbitraryUnit");
+const TXT = {
+  sameHeights: tx("engine.scope.normHeights"), sameAmps: tx("engine.scope.normAmps"), noTrigger: tx("engine.scope.noTrigger"),
+  spectrum: tx("engine.scope.spectrumTag"), pickSource: tx("engine.scope.pickSource"), connectArduino: tx("engine.scope.connectArduino"),
+  pressStart: tx("engine.scope.pressStart"), live: tx("engine.scope.live"), waiting: tx("engine.scope.waitingTrigger"),
+  freq: tx("engine.scope.readout.frequency"), period: tx("engine.scope.readout.period"), note: tx("engine.scope.readout.note"),
+  pp: tx("engine.scope.readout.peakToPeak"), mean: tx("engine.scope.readout.mean"),
+};
+const AMP: Record<string, string> = Object.fromEntries(["V", "mA", AU].map((u) => [u, tx("engine.scope.amplitudeUnit", { unit: u })]));
 
 export interface Frame {
   y: Float32Array; adc?: number[]; sr: number; off: number; unit: string; fired?: boolean; peak?: number;
@@ -74,14 +83,14 @@ export function createScopeEngine(api: InstrumentApi & { toast: (m: string) => v
 
   // ---------------- sorgenti audio ----------------
   async function selectSource(src: "mic" | "ex") {
-    if (!audioSupported()) { api.toast("Questo browser non supporta l'audio (Web Audio API)."); return; }
+    if (!audioSupported()) { api.toast(tx("engine.scope.noAudio")); return; }
     if (src === S.source) return;
     if (src !== "ex") stopExample();
     if (src !== "mic") closeMic();
     try {
       S.analyser = src === "mic" ? await micAnalyser() : monitorAnalyser();
     } catch (e) {
-      api.toast(`Microfono non disponibile: ${(e as Error).message}`);
+      api.toast(tx("engine.scope.micUnavailable", { msg: (e as Error).message }));
       return;
     }
     S.source = src; S.showLive = true; S.live = null; S.fHist = [];
@@ -118,15 +127,15 @@ export function createScopeEngine(api: InstrumentApi & { toast: (m: string) => v
   // ---------------- Arduino ----------------
   const acqCommand = () => `START,SCOPE,${S.dt},${N_ARD},${Math.round((S.level / 5) * 1023)},${S.edge},${S.single ? 0 : 1}`;
   async function startAcq() {
-    if (!api.ready()) { api.toast("Collega prima Arduino o il «Simulatore»."); return; }
+    if (!api.ready()) { api.toast(tx("engine.common.connectFirst")); return; }
     S.acq = true; S.showLive = true; onChange();
     await api.send(acqCommand());
-    S.msg = S.single && S.edge ? "In attesa del trigger…" : "";
+    S.msg = S.single && S.edge ? TXT.waiting : "";
   }
   async function stopAcq() { if (!S.acq) return; S.acq = false; S.msg = ""; onChange(); try { await api.send("STOP"); } catch { /* scollegato */ } }
   async function restartAcq() { if (!S.acq) return; await api.send("STOP"); await api.send(acqCommand()); }
   const toQty = (adc: number) => { const V = (adc * 5) / 1023 - S.V0; return S.qty === "I" ? (V / S.R) * 1000 : V; };
-  const unit = () => (ard ? (S.qty === "I" ? "mA" : "V") : "u.a.");
+  const unit = () => (ard ? (S.qty === "I" ? "mA" : "V") : AU);
   function reconvert() {
     for (const f of [S.live, ...S.slots]) if (f?.adc) { f.y = Float32Array.from(f.adc, toQty); f.unit = unit(); analyse(f, true); }
     redraw(); updateReadouts(true);
@@ -141,7 +150,7 @@ export function createScopeEngine(api: InstrumentApi & { toast: (m: string) => v
     const fr: Frame = { adc, y: Float32Array.from(adc, toQty), sr: 1e6 / dt, off: 0, unit: unit(), fired: !!fired };
     analyse(fr, true);
     S.live = fr; S.msg = "";
-    if (S.single) { void stopAcq(); api.toast("Traccia catturata. Premi «Congela» per conservarla."); }
+    if (S.single) { void stopAcq(); api.toast(tx("engine.scope.captured")); }
     redraw(); updateReadouts(true); onChange();
     return true;
   }
@@ -172,7 +181,7 @@ export function createScopeEngine(api: InstrumentApi & { toast: (m: string) => v
     let trig = S.edge ? findTrigger(buf, { level: mean, hyst: 0.35 * peak, edge: S.edge, from, to }) : -1;
     if (trig < 0) trig = to;
     const i0 = Math.floor(trig);
-    const fr: Frame = { y: buf.slice(i0, Math.min(N, i0 + keep + 1)), sr, off: trig - i0, unit: "u.a.", peak, pitchBuf: buf.subarray(N - 4096) };
+    const fr: Frame = { y: buf.slice(i0, Math.min(N, i0 + keep + 1)), sr, off: trig - i0, unit: AU, peak, pitchBuf: buf.subarray(N - 4096) };
     const doSpec = S.nTick % 3 === 0 || !S.live?.spec;
     if (doSpec) fr.specBuf = buf; else fr.spec = S.live!.spec;
     return analyse(fr, doSpec);
@@ -214,7 +223,7 @@ export function createScopeEngine(api: InstrumentApi & { toast: (m: string) => v
     const frames: Frame[] = [...S.slots.filter((s) => s.visible), ...(S.live && S.showLive ? [S.live] : [])];
     const tr = frames.map((f) => ({ ...traceXY(f, tmax, S.same), color: f === S.live ? LIVE : slotColor((f as Slot).id), dash: f === S.live ? null : slotDash((f as Slot).id), width: f === S.live ? 2 : 2.8, glow: f === S.live }));
     let y0, y1, yLabel;
-    if (S.same) { y0 = -1.2; y1 = 1.2; yLabel = "altezze normalizzate"; }
+    if (S.same) { y0 = -1.2; y1 = 1.2; yLabel = TXT.sameHeights; }
     else {
       let lo = Infinity, hi = -Infinity;
       tr.forEach((t) => t.y.forEach((v) => { if (v < lo) lo = v; if (v > hi) hi = v; }));
@@ -229,11 +238,11 @@ export function createScopeEngine(api: InstrumentApi & { toast: (m: string) => v
     wave.draw({
       x0: 0, x1: tmax, y0, y1, traces: tr, markers: [],
       xLabel: `${fmtIt(tmax / 10, 3)} ms/div`, yLabel,
-      note: S.msg || (ard && S.live && !S.live.fired && S.edge ? "senza trigger" : ""),
+      note: S.msg || (ard && S.live && !S.live.fired && S.edge ? TXT.noTrigger : ""),
     });
     if (ard && !S.same && S.edge && S.qty === "V" && wave.map) drawLevel(S.level - S.V0);
-    const msg = !ard && !S.source ? "Scegli una sorgente e premi ▶ Avvia"
-      : !frames.length ? (ard && !S.acq ? "Collega Arduino, poi premi ▶ Avvia" : "Premi ▶ Avvia") : "";
+    const msg = !ard && !S.source ? TXT.pickSource
+      : !frames.length ? (ard && !S.acq ? TXT.connectArduino : TXT.pressStart) : "";
     if (msg !== S.screenMsg) { S.screenMsg = msg; onChange(); }
     drawSpectrum(frames);
   }
@@ -271,13 +280,13 @@ export function createScopeEngine(api: InstrumentApi & { toast: (m: string) => v
     if (base) for (let n = 1; n * base <= fmax && n <= 12; n++) markers.push({ x: n * base, label: String(n), color: "rgba(198,244,50,0.55)" });
     spec.draw({
       x0: 0, x1: fmax, y0: 0, y1: (S.same ? 1 : gmax || 1) * 1.12, traces: tr, markers, centerX: false, centerY: false,
-      xLabel: `${fmtIt(fmax / 10, 0)} Hz/div · spettro`, yLabel: S.same ? "ampiezze normalizzate" : `ampiezza (${unit()})`,
+      xLabel: `${fmtIt(fmax / 10, 0)} Hz/div · ${TXT.spectrum}`, yLabel: S.same ? TXT.sameAmps : AMP[unit()],
     });
   }
 
   function renderRecipe() {
     const rows = [
-      ...(S.live && S.showLive ? [{ ...S.live, id: "ora", name: "dal vivo", color: LIVE }] : []),
+      ...(S.live && S.showLive ? [{ ...S.live, id: "ora", name: TXT.live, color: LIVE }] : []),
       ...S.slots.filter((s) => s.visible).map((s) => ({ ...s, color: slotColor(s.id) })),
     ];
     S.recipe = rows.filter((r) => r.recipe).map((r) => ({ id: r.id, name: r.name, color: r.color, amps: r.recipe! }));
@@ -295,13 +304,13 @@ export function createScopeEngine(api: InstrumentApi & { toast: (m: string) => v
     const fm = S.fHist.length ? [...S.fHist].sort((a, b) => a - b)[S.fHist.length >> 1] : NaN;
     const note = !ard && Number.isFinite(fm) ? noteOf(fm) : null;
     const cells: [string, string, string][] = [
-      ["frequenza f", Number.isFinite(fm) ? fmtIt(sig(fm, 4), fm < 100 ? 2 : 1) : "—", "Hz"],
-      ["periodo T", Number.isFinite(fm) ? fmtIt(sig(1000 / fm, 3), 3) : "—", "ms"],
+      [TXT.freq, Number.isFinite(fm) ? fmtIt(sig(fm, 4), fm < 100 ? 2 : 1) : "—", "Hz"],
+      [TXT.period, Number.isFinite(fm) ? fmtIt(sig(1000 / fm, 3), 3) : "—", "ms"],
     ];
-    if (note) cells.push(["nota", note.label, `${note.cents >= 0 ? "+" : "−"}${Math.abs(note.cents)} cent`]);
+    if (note) cells.push([TXT.note, note.label, `${note.cents >= 0 ? "+" : "−"}${Math.abs(note.cents)} cent`]);
     if (ard && src) {
       let lo = Infinity, hi = -Infinity, s = 0; src.y.forEach((v) => { lo = Math.min(lo, v); hi = Math.max(hi, v); s += v; });
-      cells.push(["picco-picco", fmtIt(sig(hi - lo, 3), 3), unit()], ["media", fmtIt(sig(s / src.y.length, 3), 3), unit()]);
+      cells.push([TXT.pp, fmtIt(sig(hi - lo, 3), 3), unit()], [TXT.mean, fmtIt(sig(s / src.y.length, 3), 3), unit()]);
     }
     S.readouts = cells;
     onChange();
@@ -329,11 +338,11 @@ export function createScopeEngine(api: InstrumentApi & { toast: (m: string) => v
     if (S.live && S.showLive) return [{ ...S.live, id: "A", visible: true, name: ard ? "A" : S.source === "ex" ? EX_NAME[S.example ?? ""] || "A" : "A" }];
     return [];
   }
-  const meta = (list: Slot[]) => list.map((s) => `${s.id}${s.name !== s.id ? ` = ${s.name}` : ""}: ${Number.isFinite(s.f) ? `${fmtIt(sig(s.f, 4), 1)} Hz` : "f non trovata"}${!ard && noteOf(s.f) ? ` (${noteOf(s.f)?.label})` : ""}`).join(" · ");
+  const meta = (list: Slot[]) => list.map((s) => `${s.id}${s.name !== s.id ? ` = ${s.name}` : ""}: ${Number.isFinite(s.f) ? `${fmtIt(sig(s.f, 4), 1)} Hz` : tx("engine.scope.fNotFound")}${!ard && noteOf(s.f) ? ` (${noteOf(s.f)?.label})` : ""}`).join(" · ");
 
   async function sendWaves() {
     const list = chosen();
-    if (!list.length) { api.toast("Nessuna traccia da inviare: premi prima ▶ Avvia."); return; }
+    if (!list.length) { api.toast(tx("engine.scope.noTraceToSend")); return; }
     const tmax = windowMs(), base = list[0], dt = 1000 / base.sr;
     const n = Math.min(Math.floor(tmax / dt) + 1, 6000);
     const rows: Record<string, number>[] = [];
@@ -346,16 +355,16 @@ export function createScopeEngine(api: InstrumentApi & { toast: (m: string) => v
     }
     const u = list[0].unit;
     await api.sendBox({
-      title: `Oscilloscopio · ${list.map((s) => s.name).join(", ")}`,
+      title: tx("engine.scope.waveTitle", { names: list.map((s) => s.name).join(", ") }),
       subtitle: meta(list), wave: true, tUnit: "ms", t1: 0, t2: rows[rows.length - 1].t,
-      columns: [{ key: "t", sym: "t", unit: "ms", name: "tempo dal trigger" }, ...list.map((s) => ({ key: s.id, sym: s.id, unit: u, name: s.name }))],
+      columns: [{ key: "t", sym: "t", unit: "ms", name: tx("engine.scope.colTime") }, ...list.map((s) => ({ key: s.id, sym: s.id, unit: u, name: s.name }))],
       xKey: "t", yKey: list[0].id, rows,
-    }, `${list.length === 1 ? "Forma d'onda inviata" : `${list.length} forme d'onda inviate`} a Elaborazione · ${rows.length} punti.`);
+    }, tx("engine.scope.wavesSent", { n: list.length, points: rows.length }));
   }
 
   async function sendSpectra() {
     const list = chosen().filter((s) => s.spec);
-    if (!list.length) { api.toast("Nessuno spettro da inviare: premi prima ▶ Avvia."); return; }
+    if (!list.length) { api.toast(tx("engine.scope.noSpectrumToSend")); return; }
     const fmax = Math.min(...list.map((s) => s.spec!.df * (s.spec!.mag.length - 1)), S.fRef ? S.fRef * 10 : 5000);
     const df = list[0].spec!.df, n = Math.min(Math.floor(fmax / df) + 1, 6000);
     const rows: Record<string, number>[] = [];
@@ -365,11 +374,11 @@ export function createScopeEngine(api: InstrumentApi & { toast: (m: string) => v
       rows.push(r);
     }
     await api.sendBox({
-      title: `Spettro · ${list.map((s) => s.name).join(", ")}`,
+      title: tx("engine.scope.spectrumTitle", { names: list.map((s) => s.name).join(", ") }),
       subtitle: meta(list), wave: true, tUnit: "Hz", t1: 0, t2: rows[rows.length - 1].f,
-      columns: [{ key: "f", sym: "f", unit: "Hz", name: "frequenza" }, ...list.map((s) => ({ key: s.id, sym: s.id, unit: s.unit, name: `ampiezza ${s.name}` }))],
+      columns: [{ key: "f", sym: "f", unit: "Hz", name: tx("engine.scope.colFrequency") }, ...list.map((s) => ({ key: s.id, sym: s.id, unit: s.unit, name: tx("engine.scope.colAmplitude", { name: s.name }) }))],
       xKey: "f", yKey: list[0].id, rows,
-    }, `${list.length === 1 ? "Spettro inviato" : `${list.length} spettri inviati`} a Elaborazione.`);
+    }, tx("engine.scope.spectraSent", { n: list.length }));
   }
 
   // ---------------- comandi dal pannello ----------------
@@ -416,7 +425,7 @@ export function createScopeEngine(api: InstrumentApi & { toast: (m: string) => v
       void restartAcq();
     },
     levelToMean() {
-      if (!S.live?.adc) { api.toast("Serve prima una traccia: ▶ Avvia."); return; }
+      if (!S.live?.adc) { api.toast(tx("engine.scope.needTrace")); return; }
       const m = S.live.adc.reduce((a, b) => a + b, 0) / S.live.adc.length;
       S.level = Math.round((m / 1023) * 5 * 100) / 100; save(); redraw(); onChange();
       void restartAcq();

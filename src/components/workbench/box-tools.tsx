@@ -5,6 +5,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { useEffect, useRef, useState } from "react";
 import { ArrowLeft, ArrowRight, ChevronDown, Minus, Plus, Save } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Chart, ChartGroup } from "@/lib/mosaicus/chart.js";
@@ -13,6 +14,9 @@ import { formatMeasure, fmt } from "@/lib/mosaicus/analysis.js";
 import type { BoxColumn } from "@/lib/workbench-store";
 import { fmtNum } from "@/lib/prefs";
 import { cn } from "@/lib/utils";
+import { intlLocale } from "@/i18n";
+
+const bold = (c: React.ReactNode) => <b>{c}</b>;
 
 export const n4 = (v: number) => fmt(v, 4);
 export const cssVar = (name: string) => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
@@ -61,8 +65,9 @@ export function EyePanel({ eye, cx, cy, su, meaning, up, down, onNext, onBack, o
   eye: EyeState; cx: BoxColumn; cy: BoxColumn; su: string; meaning: string | null; up: number; down: number;
   onNext: () => void; onBack: () => void; onCompare: () => void; onSave: (r: { m: number; q: number; A: { x: number; y: number }; B: { x: number; y: number } }) => void;
 }) {
+  const t = useTranslations("workbench.tools");
   const balance = Math.abs(up - down) <= Math.max(2, 0.15 * (up + down));
-  const steps = ["Tira la retta", "Misura la pendenza"];
+  const steps = [t("eye.step1"), t("eye.step2")];
   let result: { m: number; q: number; A: { x: number; y: number }; B: { x: number; y: number } } | null = null;
   if (eye.step === 2 && eye.pts.length === 2) {
     const [A, B] = eye.pts, ya = read3(A.y), yb = read3(B.y);
@@ -73,21 +78,21 @@ export function EyePanel({ eye, cx, cy, su, meaning, up, down, onNext, onBack, o
   return (
     <div className="flex flex-col gap-3">
       <ol className="flex gap-2 text-xs">
-        {steps.map((t, i) => (
-          <li key={t} className={cn("flex items-center gap-1.5 rounded-full border px-2 py-0.5", eye.step === i + 1 ? "border-primary bg-primary text-primary-foreground" : eye.step > i + 1 ? "text-muted-foreground line-through" : "text-muted-foreground")}>
-            <b>{i + 1}</b> {t}
+        {steps.map((label, i) => (
+          <li key={label} className={cn("flex items-center gap-1.5 rounded-full border px-2 py-0.5", eye.step === i + 1 ? "border-primary bg-primary text-primary-foreground" : eye.step > i + 1 ? "text-muted-foreground line-through" : "text-muted-foreground")}>
+            <b>{i + 1}</b> {label}
           </li>
         ))}
       </ol>
       {eye.step === 1 ? (
         <>
-          <Say>Trascina i <b>cerchi verdi</b> finché la retta passa in mezzo ai punti: quanti sopra, tanti sotto.</Say>
-          <p className={cn("tabular text-sm font-semibold", balance ? "text-success" : "text-muted-foreground")}>⬆ {up} · ⬇ {down} {balance ? "✓ bilanciata" : ""}</p>
-          <Button size="sm" className="self-start" onClick={onNext}>Fatto <ArrowRight /></Button>
+          <Say>{t.rich("eye.drag", { b: bold })}</Say>
+          <p className={cn("tabular text-sm font-semibold", balance ? "text-success" : "text-muted-foreground")}>⬆ {up} · ⬇ {down} {balance ? t("eye.balanced") : ""}</p>
+          <Button size="sm" className="self-start" onClick={onNext}>{t("eye.done")} <ArrowRight /></Button>
         </>
       ) : (
         <>
-          {!result && <Say>Tocca <b>due punti della retta</b>, lontani tra loro.</Say>}
+          {!result && <Say>{t.rich("eye.pickTwo", { b: bold })}</Say>}
           {result && (
             <>
               <CalcBox>
@@ -96,15 +101,15 @@ export function EyePanel({ eye, cx, cy, su, meaning, up, down, onNext, onBack, o
               </CalcBox>
               {meaning && <Meaning>{cap(meaning)} ≈ <b>{n4(result.m)} {su}</b></Meaning>}
               {eye.cmp && (
-                <p className="text-sm">Minimi quadrati: <b>{formatMeasure(eye.cmp.m, eye.cmp.s, su)}</b> · differenza {rel.toLocaleString("it-IT", { maximumFractionDigits: 1 })} % · {rel <= 3 ? <b className="text-success">ottima ✓</b> : rel <= 10 ? <b className="text-success">buona ✓</b> : <b className="text-warning">da ritoccare ↺</b>}</p>
+                <p className="text-sm">{t.rich("eye.leastSquares", { b: bold, value: formatMeasure(eye.cmp.m, eye.cmp.s, su), rel: rel.toLocaleString(intlLocale, { maximumFractionDigits: 1 }) })} · {rel <= 3 ? <b className="text-success">{t("eye.excellent")}</b> : rel <= 10 ? <b className="text-success">{t("eye.good")}</b> : <b className="text-warning">{t("eye.adjust")}</b>}</p>
               )}
               <div className="flex flex-wrap gap-2">
-                <Button size="sm" onClick={() => onSave(result!)}><Save /> Salva</Button>
-                <Button size="sm" variant="outline" onClick={onCompare}>{eye.cmp ? "Nascondi i minimi quadrati" : "Confronta con i minimi quadrati"}</Button>
+                <Button size="sm" onClick={() => onSave(result!)}><Save /> {t("save")}</Button>
+                <Button size="sm" variant="outline" onClick={onCompare}>{eye.cmp ? t("eye.hideLsq") : t("eye.compareLsq")}</Button>
               </div>
             </>
           )}
-          <Button size="sm" variant="ghost" className="self-start" onClick={onBack}><ArrowLeft /> Ritocca la retta</Button>
+          <Button size="sm" variant="ghost" className="self-start" onClick={onBack}><ArrowLeft /> {t("eye.back")}</Button>
         </>
       )}
     </div>
@@ -116,18 +121,19 @@ export function EyePanel({ eye, cx, cy, su, meaning, up, down, onNext, onBack, o
 // ---------------------------------------------------------------------------
 export interface TangentResult { m: number; P: { x: number; y: number }; dx: number; near: number }
 export function TangentPanel({ t, cx, cy, su, meaning, onSave }: { t: TangentResult | null | "few"; cx: BoxColumn; cy: BoxColumn; su: string; meaning: string | null; onSave: () => void }) {
-  if (!t) return <Say>Tocca un punto della curva.</Say>;
-  if (t === "few") return <><Say>Tocca un punto della curva.</Say><p className="text-sm text-destructive">Servono almeno 3 punti vicini.</p></>;
+  const tr = useTranslations("workbench.tools");
+  if (!t) return <Say>{tr("tangent.tap")}</Say>;
+  if (t === "few") return <><Say>{tr("tangent.tap")}</Say><p className="text-sm text-destructive">{tr("tangent.needThree")}</p></>;
   return (
     <div className="flex flex-col gap-3">
       <CalcBox>
         <div>m = <Frac top={`Δ${cy.sym}`} bottom={`Δ${cx.sym}`} /> = <Frac top={fmtNum(t.m * t.dx)} bottom={fmtNum(t.dx)} /> = <b>{n4(t.m)} {su}</b></div>
       </CalcBox>
-      {meaning && <Meaning>{cap(meaning)} istantanea in {cx.sym} = {fmtNum(t.P.x)} {cx.unit}: <b>{n4(t.m)} {su}</b></Meaning>}
-      <Why title="Come si calcola">
-        <p>I dati misurati non hanno una formula: si prendono i {t.near} punti più vicini a P e si calcola la parabola che li approssima meglio. La tangente è la retta che tocca quella parabola in P. Il triangolo mostra la pendenza: di quanto varia {cy.sym} quando {cx.sym} aumenta di {fmtNum(t.dx)} {cx.unit}.</p>
+      {meaning && <Meaning>{tr.rich("tangent.instant", { b: bold, meaning, Meaning: cap(meaning), x: cx.sym, v: fmtNum(t.P.x), unit: cx.unit, m: n4(t.m), su })}</Meaning>}
+      <Why title={tr("tangent.howTitle")}>
+        <p>{tr("tangent.how", { n: t.near, y: cy.sym, x: cx.sym, dx: fmtNum(t.dx), unit: cx.unit })}</p>
       </Why>
-      <Button size="sm" className="self-start" onClick={onSave}><Save /> Salva</Button>
+      <Button size="sm" className="self-start" onClick={onSave}><Save /> {tr("save")}</Button>
     </div>
   );
 }
@@ -141,6 +147,7 @@ export function FitPanel({ suggested, model, fit, phys, cx, cy, onModel, onSave,
   onModel: (id: string) => void; onSave: () => void; showResid: boolean; onResid: () => void;
   compare: ModelRow[] | null; onCompare: () => void;
 }) {
+  const t = useTranslations("workbench.tools");
   const others = MODEL_ORDER.filter((id: string) => !suggested.includes(id));
   const [more, setMore] = useState(!suggested.length);
   const btn = (id: string, sug = false) => (
@@ -158,36 +165,36 @@ export function FitPanel({ suggested, model, fit, phys, cx, cy, onModel, onSave,
   const isLine = model === "lin";
   return (
     <div className="flex flex-col gap-3">
-      {!!suggested.length && <div className="flex flex-wrap items-center gap-1.5"><span className="text-xs text-muted-foreground">Consigliati</span>{suggested.map((id) => btn(id, true))}</div>}
+      {!!suggested.length && <div className="flex flex-wrap items-center gap-1.5"><span className="text-xs text-muted-foreground">{t("fit.suggested")}</span>{suggested.map((id) => btn(id, true))}</div>}
       <Collapsible open={more} onOpenChange={setMore}>
-        <CollapsibleTrigger className="flex items-center gap-1.5 text-xs font-semibold"><ChevronDown className={cn("size-3.5 transition-transform", !more && "-rotate-90")} /> {suggested.length ? "Altri modelli" : "Modelli"}</CollapsibleTrigger>
+        <CollapsibleTrigger className="flex items-center gap-1.5 text-xs font-semibold"><ChevronDown className={cn("size-3.5 transition-transform", !more && "-rotate-90")} /> {suggested.length ? t("fit.otherModels") : t("fit.models")}</CollapsibleTrigger>
         <CollapsibleContent className="flex flex-wrap gap-1.5 pt-2">{others.map((id: string) => btn(id))}</CollapsibleContent>
       </Collapsible>
-      <Button size="xs" variant="ghost" className="self-start" onClick={onCompare}>{compare ? "Nascondi il confronto" : "Confronta tutti i modelli"}</Button>
+      <Button size="xs" variant="ghost" className="self-start" onClick={onCompare}>{compare ? t("fit.hideCompare") : t("fit.compareAll")}</Button>
       {compare && <CompareModels rows={compare} current={model} unit={cy.unit} onPick={onModel} />}
       {fit?.error && <p className="text-sm text-destructive">{fit.error}</p>}
       {fit && !fit.error && (
         <>
           <p className="rounded-md bg-muted px-3 py-2 text-center font-semibold tabular">{fit.eq}</p>
           <table className="w-full"><tbody>{rowsOf(phys.length ? phys : [fit.params[0]])}</tbody></table>
-          <p className="text-xs text-muted-foreground">Scarto tipico dei punti dalla curva: <b>{fmt(fit.s, 2)} {cy.unit}</b> intorno alla curva · {fit.n} punti · {fmtNum(fit.t1)}–{fmtNum(fit.t2)} {cx.unit}</p>
+          <p className="text-xs text-muted-foreground">{t.rich("fit.spread", { b: bold, s: fmt(fit.s, 2), unit: cy.unit, n: fit.n, t1: fmtNum(fit.t1), t2: fmtNum(fit.t2), xunit: cx.unit })}</p>
           <div className="flex flex-col gap-1.5">
-            <Why title="Tutti i parametri">
+            <Why title={t("fit.allParams")}>
               <p className="font-mono">{(MODELS as any)[model!].formula}</p>
               <table className="w-full"><tbody>{rowsOf(fit.params)}</tbody></table>
             </Why>
-            <Why title="Da dove viene l'incertezza">
-              <p><b>Deviazione standard dei dati</b>, s = {n4(fit.s)} {cy.unit}: lo scarto tipico dei punti dalla curva. Si calcola dai residui r (dato − curva): s = √( Σr² / (n − p) ), con n punti e p parametri.</p>
-              <p><b>Incertezza tipo</b> di un parametro: il numero dopo il ±. Cresce con s, diminuisce con il numero di punti e con la loro estensione.{isLine ? ` Per la pendenza: σₘ = s / √Σ(${cx.sym} − ${cx.sym}̄)², quindi un tratto più lungo sull'asse orizzontale dà una pendenza più precisa.` : " Nei modelli non lineari si ricava dalla stessa s, pesata per quanto ogni parametro sposta la curva."}</p>
-              <p>La retta a occhio applica la stessa idea a mano: confronta i due risultati.</p>
+            <Why title={t("fit.uncTitle")}>
+              <p>{t.rich("fit.unc1", { b: bold, s: n4(fit.s), unit: cy.unit })}</p>
+              <p>{t.rich("fit.unc2", { b: bold })} {isLine ? t("fit.uncLine", { x: cx.sym }) : t("fit.uncNonlin")}</p>
+              <p>{t("fit.unc3")}</p>
             </Why>
-            <Why title={<>Che cosa indica R² = {Number.isFinite(fit.r2) ? fit.r2.toLocaleString("it-IT", { maximumFractionDigits: 5 }) : "—"}</>}>
-              <p>R² è la frazione della variazione dei dati spiegata dal modello: <b>1</b> se i punti stanno tutti sulla curva, <b>0</b> se il modello non spiega nulla. Un R² alto non prova che il modello sia giusto (una retta su un tratto di parabola può dare R² = 0,99): per questo si verificano i residui.</p>
+            <Why title={t("fit.r2Title", { r2: Number.isFinite(fit.r2) ? fit.r2.toLocaleString(intlLocale, { maximumFractionDigits: 5 }) : "—" })}>
+              <p>{t.rich("fit.r2Body", { b: bold })}</p>
             </Why>
           </div>
           <div className="flex flex-wrap gap-2">
-            <Button size="sm" onClick={onSave}><Save /> Salva</Button>
-            <Button size="sm" variant="outline" onClick={onResid}>{showResid ? "Nascondi i residui" : "Verifica i residui"}</Button>
+            <Button size="sm" onClick={onSave}><Save /> {t("save")}</Button>
+            <Button size="sm" variant="outline" onClick={onResid}>{showResid ? t("fit.hideResid") : t("fit.checkResid")}</Button>
           </div>
         </>
       )}
@@ -196,6 +203,7 @@ export function FitPanel({ suggested, model, fit, phys, cx, cy, onModel, onSave,
 }
 
 export function Residuals({ fit, T, xLabel, cy }: { fit: any; T: number[]; xLabel: string; cy: BoxColumn }) {
+  const t = useTranslations("workbench.tools.resid");
   const ref = useRef<HTMLCanvasElement>(null);
   useEffect(() => {
     const g = new ChartGroup({ includeZero: false });
@@ -212,15 +220,15 @@ export function Residuals({ fit, T, xLabel, cy }: { fit: any; T: number[]; xLabe
   const rt = runsTest(fit.residuals);
   return (
     <div className="flex flex-col gap-2 rounded-lg border p-3">
-      <b className="text-sm">Residui = dato − modello</b>
-      <div className="relative h-40"><canvas ref={ref} aria-label="Grafico dei residui" className="absolute inset-0 size-full" /></div>
+      <b className="text-sm">{t("title")}</b>
+      <div className="relative h-40"><canvas ref={ref} aria-label={t("chart")} className="absolute inset-0 size-full" /></div>
       {rt.verdict === "sistematici" ? (
-        <p className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">✗ Residui <b>sistematici</b>: cambiano segno {rt.runs} volte contro le circa {fmtNum(rt.mu, 0)} attese per dati casuali. I punti formano una «pancia» rispetto alla curva: <b>il modello non descrive questo tratto</b>. Cambia modello o tratto.</p>
+        <p className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">{t.rich("systematic", { b: bold, runs: rt.runs, mu: fmtNum(rt.mu, 0) })}</p>
       ) : rt.verdict === "casuali" ? (
-        <p className="rounded-md bg-success/10 px-3 py-2 text-sm text-success">✓ Residui <b>casuali</b> intorno a zero: cambiano segno {rt.runs} volte, circa le {fmtNum(rt.mu, 0)} attese. Il modello è <b>adeguato</b> per questo tratto.</p>
-      ) : <p className="text-sm text-muted-foreground">Troppo pochi punti per valutare i residui.</p>}
-      <Why title="Come funziona la verifica">
-        <p>Con il modello giusto ogni punto cade sopra o sotto la curva a caso, come nel lancio di una moneta, e il segno dei residui cambia spesso. Con il modello sbagliato si vedono lunghi tratti tutti sopra e poi tutti sotto. Si contano i cambi di segno e si confrontano con quelli attesi per il caso (<i>test delle successioni</i> di Wald–Wolfowitz): il verdetto è negativo se sono più di 2 deviazioni standard sotto l&apos;atteso.</p>
+        <p className="rounded-md bg-success/10 px-3 py-2 text-sm text-success">{t.rich("random", { b: bold, runs: rt.runs, mu: fmtNum(rt.mu, 0) })}</p>
+      ) : <p className="text-sm text-muted-foreground">{t("tooFew")}</p>}
+      <Why title={t("howTitle")}>
+        <p>{t.rich("how", { i: (c) => <i>{c}</i> })}</p>
       </Why>
     </div>
   );
@@ -232,19 +240,20 @@ export function Residuals({ fit, T, xLabel, cy }: { fit: any; T: number[]; xLabe
 export interface RulerState { x1: number; x2: number; n: number }
 export const TO_SECONDS: Record<string, number> = { s: 1, ms: 1e-3, "µs": 1e-6, us: 1e-6, min: 60 };
 export function RulerPanel({ r, cx, onN, onSave }: { r: RulerState; cx: BoxColumn; onN: (n: number) => void; onSave: () => void }) {
+  const t = useTranslations("workbench.tools");
   const lo = Math.min(r.x1, r.x2), hi = Math.max(r.x1, r.x2), d = hi - lo;
   const isFreq = cx.unit === "Hz";
   const toS = TO_SECONDS[cx.unit];
   const T = d / r.n, f = toS ? 1 / (T * toS) : NaN;
   return (
     <div className="flex flex-col gap-3">
-      <Say>{isFreq ? <>Metti le linee su due <b>picchi</b> e conta gli intervalli tra i due.</> : <>Metti le linee su due punti <b>uguali</b> dell&apos;onda (due creste) e conta i periodi tra i due.</>}</Say>
+      <Say>{t.rich(isFreq ? "ruler.peaks" : "ruler.crests", { b: bold })}</Say>
       <div className="flex items-center gap-2 text-sm">
         <span>N =</span>
-        <Button size="icon-xs" variant="outline" onClick={() => onN(Math.max(1, r.n - 1))} aria-label="Uno in meno"><Minus /></Button>
+        <Button size="icon-xs" variant="outline" onClick={() => onN(Math.max(1, r.n - 1))} aria-label={t("ruler.fewer")}><Minus /></Button>
         <b className="tabular w-6 text-center text-base">{r.n}</b>
-        <Button size="icon-xs" variant="outline" onClick={() => onN(r.n + 1)} aria-label="Uno in più"><Plus /></Button>
-        <span className="text-muted-foreground">{isFreq ? "intervalli" : r.n === 1 ? "periodo" : "periodi"}</span>
+        <Button size="icon-xs" variant="outline" onClick={() => onN(r.n + 1)} aria-label={t("ruler.more")}><Plus /></Button>
+        <span className="text-muted-foreground">{t(isFreq ? "ruler.intervals" : "ruler.periods", { n: r.n })}</span>
       </div>
       <CalcBox>
         {isFreq ? (
@@ -256,8 +265,8 @@ export function RulerPanel({ r, cx, onN, onSave }: { r: RulerState; cx: BoxColum
           </>
         )}
       </CalcBox>
-      <p className="text-xs text-muted-foreground">Più periodi abbracci, più la misura è precisa: l&apos;errore di lettura si divide per N.</p>
-      <Button size="sm" className="self-start" onClick={onSave}><Save /> Salva</Button>
+      <p className="text-xs text-muted-foreground">{t("ruler.precision")}</p>
+      <Button size="sm" className="self-start" onClick={onSave}><Save /> {t("save")}</Button>
     </div>
   );
 }
@@ -295,7 +304,8 @@ export function computeStats(x: number[], y: number[], sel: [number, number] | n
 export function StatsPanel({ st, selected, cx, cy, su, meaning, onClear, onSave }: {
   st: Stats | null; selected: boolean; cx: BoxColumn; cy: BoxColumn; su: string; meaning: string | null; onClear: () => void; onSave: () => void;
 }) {
-  if (!st) return <Say>Servono almeno 2 punti. Trascina sul grafico per scegliere un tratto.</Say>;
+  const t = useTranslations("workbench.tools");
+  if (!st) return <Say>{t("stats.needTwo")}</Say>;
   const u = cy.unit ? ` ${cy.unit}` : "";
   const row = (label: React.ReactNode, value: React.ReactNode, hint?: string) => (
     <tr className="border-b last:border-0" title={hint}>
@@ -306,20 +316,20 @@ export function StatsPanel({ st, selected, cx, cy, su, meaning, onClear, onSave 
   return (
     <div className="flex flex-col gap-3">
       <p className="text-xs text-muted-foreground">
-        {selected ? <>Tratto {fmtNum(st.x1)} – {fmtNum(st.x2)} {cx.unit} · {st.n} punti <button type="button" className="ml-1 underline underline-offset-2" onClick={onClear}>usa tutti i dati</button></> : <>Tutti i dati · {st.n} punti. Trascina per scegliere un tratto.</>}
+        {selected ? <>{t("stats.selected", { a: fmtNum(st.x1), b: fmtNum(st.x2), unit: cx.unit, n: st.n })} <button type="button" className="ml-1 underline underline-offset-2" onClick={onClear}>{t("stats.useAll")}</button></> : <>{t("stats.allData", { n: st.n })}</>}
       </p>
       <table className="w-full"><tbody>
-        {row(<>media {cy.sym}̄</>, formatMeasure(st.mean, st.sem, cy.unit), "± = errore della media, s/√n")}
-        {row("deviazione standard s", `${n4(st.sd)}${u}`, "scarto tipico dei singoli valori dalla media")}
-        {row("minimo · massimo", `${n4(st.min)} · ${n4(st.max)}${u}`)}
-        {row(<>variazione Δ{cy.sym}</>, `${n4(st.last - st.first)}${u}`, "ultimo valore − primo valore del tratto")}
-        {row(meaning ? `${meaning} media` : <>rapporto Δ{cy.sym}/Δ{cx.sym}</>, `${n4(st.rate)} ${su}`)}
+        {row(t("stats.mean", { y: cy.sym }), formatMeasure(st.mean, st.sem, cy.unit), t("stats.meanHint"))}
+        {row(t("stats.sd"), `${n4(st.sd)}${u}`, t("stats.sdHint"))}
+        {row(t("stats.minMax"), `${n4(st.min)} · ${n4(st.max)}${u}`)}
+        {row(t("stats.change", { y: cy.sym }), `${n4(st.last - st.first)}${u}`, t("stats.changeHint"))}
+        {row(meaning ? t("stats.meanMeaning", { meaning }) : t("stats.rate", { y: cy.sym, x: cx.sym }), `${n4(st.rate)} ${su}`)}
       </tbody></table>
-      <Why title="Media, s ed errore della media">
-        <p><b>s</b> è lo scarto tipico dei singoli valori dalla media. <b>L&apos;errore della media</b> (il numero dopo il ±) è s/√n: con più punti la media è più precisa, anche se ogni valore oscilla quanto prima.</p>
-        <p>Usa la media su un tratto in cui la grandezza resta costante, come una temperatura di equilibrio o una posizione a riposo.</p>
+      <Why title={t("stats.whyTitle")}>
+        <p>{t.rich("stats.why1", { b: bold })}</p>
+        <p>{t("stats.why2")}</p>
       </Why>
-      <Button size="sm" className="self-start" onClick={onSave}><Save /> Salva</Button>
+      <Button size="sm" className="self-start" onClick={onSave}><Save /> {t("save")}</Button>
     </div>
   );
 }
@@ -330,6 +340,7 @@ export function StatsPanel({ st, selected, cx, cy, su, meaning, onClear, onSave 
 export interface ModelRow { id: string; label: string; r2: number; s: number; n: number; verdict: string; error?: string }
 
 export function CompareModels({ rows, current, unit, onPick }: { rows: ModelRow[]; current: string | null; unit: string; onPick: (id: string) => void }) {
+  const t = useTranslations("workbench.tools.compare");
   const ok = rows.filter((r) => !r.error);
   const best = ok.length ? ok.reduce((a, b) => (b.s < a.s ? b : a)).id : null;
   return (
@@ -337,22 +348,22 @@ export function CompareModels({ rows, current, unit, onPick }: { rows: ModelRow[
       <div className="overflow-x-auto">
         <table className="w-full text-xs">
           <thead className="text-left text-muted-foreground">
-            <tr><th className="py-1 pr-2 font-medium">Modello</th><th className="py-1 pr-2 text-right font-medium">s ({unit || "—"})</th><th className="py-1 pr-2 text-right font-medium">R²</th><th className="py-1 text-right font-medium">Residui</th></tr>
+            <tr><th className="py-1 pr-2 font-medium">{t("model")}</th><th className="py-1 pr-2 text-right font-medium">s ({unit || "—"})</th><th className="py-1 pr-2 text-right font-medium">R²</th><th className="py-1 text-right font-medium">{t("residuals")}</th></tr>
           </thead>
           <tbody>
             {rows.map((r) => (
               <tr key={r.id} onClick={() => !r.error && onPick(r.id)}
                 className={cn("border-t", r.error ? "text-muted-foreground" : "cursor-pointer hover:bg-muted/60", current === r.id && "bg-accent/50")}>
-                <td className="py-1 pr-2 font-medium">{r.label}{r.id === best && <span className="ml-1.5 rounded bg-success/15 px-1 text-[0.6rem] font-semibold text-success">migliore</span>}</td>
+                <td className="py-1 pr-2 font-medium">{r.label}{r.id === best && <span className="ml-1.5 rounded bg-success/15 px-1 text-[0.6rem] font-semibold text-success">{t("best")}</span>}</td>
                 <td className="py-1 pr-2 text-right tabular">{r.error ? "—" : fmt(r.s, 2)}</td>
-                <td className="py-1 pr-2 text-right tabular">{r.error || !Number.isFinite(r.r2) ? "—" : r.r2.toLocaleString("it-IT", { maximumFractionDigits: 4 })}</td>
-                <td className="py-1 text-right">{r.error ? "" : r.verdict === "casuali" ? <span className="text-success">casuali ✓</span> : r.verdict === "sistematici" ? <span className="text-destructive">sistematici</span> : "—"}</td>
+                <td className="py-1 pr-2 text-right tabular">{r.error || !Number.isFinite(r.r2) ? "—" : r.r2.toLocaleString(intlLocale, { maximumFractionDigits: 4 })}</td>
+                <td className="py-1 text-right">{r.error ? "" : r.verdict === "casuali" ? <span className="text-success">{t("random")}</span> : r.verdict === "sistematici" ? <span className="text-destructive">{t("systematic")}</span> : "—"}</td>
               </tr>
             ))}
           </tbody>
         </table>
       </div>
-      <p className="text-[0.7rem] leading-relaxed text-muted-foreground">Il modello migliore ha la <b>s più piccola</b> e <b>residui casuali</b>. A parità di risultato, scegli il più semplice con un senso fisico. Tocca una riga per usarlo.</p>
+      <p className="text-[0.7rem] leading-relaxed text-muted-foreground">{t.rich("footer", { b: bold })}</p>
     </div>
   );
 }

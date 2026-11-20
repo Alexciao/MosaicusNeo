@@ -2,6 +2,7 @@
 
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useTheme } from "next-themes";
+import { useTranslations } from "next-intl";
 import { ArrowRight, Binary, ChartLine, Check, ChevronDown, Download, Plus, FileSpreadsheet, FileText, Image as ImageIcon, MapPinned, Maximize2, MoveHorizontal, Route, Scan, Table2, X, ZoomIn, ZoomOut } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -37,6 +38,7 @@ function ChartStack() {
   const viewId = useLab((s) => s.viewId);
   const lim = useLab((s) => s.lim);
   const dragHint = useLab((s) => s.dragHint);
+  const t = useTranslations("app.chart");
   const { resolvedTheme } = useTheme();
   const canvases = useRef(new Map<string, HTMLCanvasElement>());
   const key = `${rig.id}|${visible.join(",")}`;
@@ -79,11 +81,11 @@ function ChartStack() {
           <div key={`${rig.id}-${id}`} className={cn("relative min-h-0 flex-1 border-l-[3px] transition-colors", id === viewId && visible.length > 1 ? "border-l-brand" : "border-l-transparent", i > 0 && "border-t")}
             style={{ flexGrow: i === visible.length - 1 ? 1.25 : 1 }}>
             <canvas ref={(el) => { if (el) canvases.current.set(id, el); else canvases.current.delete(id); }}
-              aria-label={`Grafico ${v?.label ?? id}`} className="absolute inset-0 size-full touch-none" style={{ cursor: "crosshair" }} />
+              aria-label={t("canvas", { name: v?.label ?? id })} className="absolute inset-0 size-full touch-none" style={{ cursor: "crosshair" }} />
             {i === 0 && dragHint && (
               <div aria-hidden className="pointer-events-none absolute inset-x-0 top-1/3 flex flex-col items-center gap-2">
                 <span className="mz-drag-hand grid size-10 place-items-center rounded-full bg-foreground/80 text-background"><MoveHorizontal className="size-5" /></span>
-                <span className="rounded-full bg-foreground/80 px-3 py-1 text-xs font-medium text-background">trascina per scegliere un tratto</span>
+                <span className="rounded-full bg-foreground/80 px-3 py-1 text-xs font-medium text-background">{t("dragHint")}</span>
               </div>
             )}
           </div>
@@ -104,6 +106,7 @@ function countIn(rows: { t: number }[], [a, b]: [number, number]) {
 function DataDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (o: boolean) => void }) {
   const rows = useLab((s) => s.rows);
   const selection = useLab((s) => s.selection);
+  const t = useTranslations("app.chart");
   void rows;
   const cols = columnsOf();
   const sel = open ? selectedRows() : [];
@@ -112,9 +115,9 @@ function DataDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (o: b
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="flex max-h-[90svh] flex-col sm:max-w-5xl">
         <DialogHeader>
-          <DialogTitle>Dati {selection ? "del tratto selezionato" : "della misura"}</DialogTitle>
+          <DialogTitle>{selection ? t("dataSel") : t("dataAll")}</DialogTitle>
           <DialogDescription>
-            {sel.length} letture{sel.length > 500 ? " · qui le ultime 500, l'export le contiene tutte" : ""}. Ogni riga è la lettura di un solo sensore: le altre colonne restano vuote.
+            {t("dataDesc", { n: sel.length, more: sel.length > 500 ? "true" : "false" })}
           </DialogDescription>
         </DialogHeader>
         <div className="min-h-0 flex-1 overflow-auto rounded-md border">
@@ -126,7 +129,7 @@ function DataDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (o: b
               {shown.length ? shown.map((r, i) => (
                 <TableRow key={i}>{cols.map((c) => <TableCell key={c.key} className="tabular">{c.key in r ? fmtCell(r[c.key]) : ""}</TableCell>)}</TableRow>
               )) : (
-                <TableRow><TableCell colSpan={cols.length} className="text-muted-foreground">Ancora nessun dato.</TableCell></TableRow>
+                <TableRow><TableCell colSpan={cols.length} className="text-muted-foreground">{t("noData")}</TableCell></TableRow>
               )}
             </TableBody>
           </Table>
@@ -144,6 +147,7 @@ export function ChartCard() {
   const nSel = useLab((s) => (s.selection ? countIn(s.rows, s.selection) : s.rows.length));
   const running = useLab((s) => s.running);
   const [table, setTable] = useState(false);
+  const t = useTranslations("app.chart");
   const views = viewsOf(rig);
   const physical = views.filter((v) => !v.raw), raw = views.filter((v) => v.raw);
   const map = hasMap(rig);
@@ -158,11 +162,11 @@ export function ChartCard() {
       <div className="flex flex-wrap items-center gap-2">
         <DropdownMenu>
           <DropdownMenuTrigger render={<Button size="sm" variant="outline" className="max-w-full" />}>
-            <ChartLine /> <span className="truncate">Grafici: {shownNames}</span> <ChevronDown />
+            <ChartLine /> <span className="truncate">{t("charts", { names: shownNames })}</span> <ChevronDown />
           </DropdownMenuTrigger>
           <DropdownMenuContent align="start" className="w-64">
             <DropdownMenuGroup>
-              <DropdownMenuLabel>Grandezze</DropdownMenuLabel>
+              <DropdownMenuLabel>{t("quantities")}</DropdownMenuLabel>
               {physical.map((v) => (
                 <DropdownMenuCheckboxItem key={v.id} checked={visible.includes(v.id)} onCheckedChange={() => toggleView(v.id)} closeOnClick={false}>
                   {v.yLabel}
@@ -173,7 +177,7 @@ export function ChartCard() {
               <>
                 <DropdownMenuSeparator />
                 <DropdownMenuGroup>
-                  <DropdownMenuLabel>Dati grezzi dei sensori</DropdownMenuLabel>
+                  <DropdownMenuLabel>{t("rawSensors")}</DropdownMenuLabel>
                   {raw.map((v) => (
                     <DropdownMenuCheckboxItem key={v.id} checked={visible.includes(v.id)} onCheckedChange={() => toggleView(v.id)} closeOnClick={false}>
                       {v.yLabel}
@@ -185,32 +189,32 @@ export function ChartCard() {
           </DropdownMenuContent>
         </DropdownMenu>
         <div className="ml-auto flex items-center gap-1">
-          <div role="group" aria-label="Zoom sull'asse dei tempi" className="flex rounded-lg border">
-            <Tip label="Ingrandisci · anche pizzico o Ctrl + rotella"><Button size="icon-sm" variant="ghost" onClick={() => g.zoomCenter(0.6)} aria-label="Ingrandisci"><ZoomIn /></Button></Tip>
-            <Tip label="Riduci"><Button size="icon-sm" variant="ghost" onClick={() => g.zoomCenter(1 / 0.6)} aria-label="Riduci"><ZoomOut /></Button></Tip>
-            <Tip label="Zoom sulla selezione"><Button size="icon-sm" variant="ghost" aria-label="Zoom sulla selezione" onClick={() => { if (!g.zoomToSelection()) toast("Nessun tratto selezionato. Trascina su un grafico per sceglierne uno."); }}><Scan /></Button></Tip>
-            <Tip label="Mostra tutti i dati"><Button size="icon-sm" variant="ghost" onClick={() => g.fitAll()} aria-label="Adatta"><Maximize2 /></Button></Tip>
+          <div role="group" aria-label={t("zoomGroup")} className="flex rounded-lg border">
+            <Tip label={t("zoomInTip")}><Button size="icon-sm" variant="ghost" onClick={() => g.zoomCenter(0.6)} aria-label={t("zoomIn")}><ZoomIn /></Button></Tip>
+            <Tip label={t("zoomOut")}><Button size="icon-sm" variant="ghost" onClick={() => g.zoomCenter(1 / 0.6)} aria-label={t("zoomOut")}><ZoomOut /></Button></Tip>
+            <Tip label={t("zoomSel")}><Button size="icon-sm" variant="ghost" aria-label={t("zoomSel")} onClick={() => { if (!g.zoomToSelection()) toast(t("noSel")); }}><Scan /></Button></Tip>
+            <Tip label={t("fitTip")}><Button size="icon-sm" variant="ghost" onClick={() => g.fitAll()} aria-label={t("fit")}><Maximize2 /></Button></Tip>
           </div>
-          <Tip label="Tabella dei dati"><Button size="icon-sm" variant="outline" aria-label="Tabella dei dati" disabled={!hasRows} onClick={() => setTable(true)}><Table2 /></Button></Tip>
+          <Tip label={t("table")}><Button size="icon-sm" variant="outline" aria-label={t("table")} disabled={!hasRows} onClick={() => setTable(true)}><Table2 /></Button></Tip>
           <DropdownMenu>
-            <Tip label={selection ? "Esporta la selezione" : "Esporta tutta la misura"}>
-              <DropdownMenuTrigger render={<Button size="icon-sm" variant="outline" aria-label="Esporta" disabled={!hasRows} />}><Download /></DropdownMenuTrigger>
+            <Tip label={selection ? t("exportSel") : t("exportAll")}>
+              <DropdownMenuTrigger render={<Button size="icon-sm" variant="outline" aria-label={t("export")} disabled={!hasRows} />}><Download /></DropdownMenuTrigger>
             </Tip>
             <DropdownMenuContent align="end" className="w-64">
               <DropdownMenuGroup>
-                <DropdownMenuLabel>{selection ? "Esporta la selezione" : "Esporta tutta la misura"}</DropdownMenuLabel>
-                <DropdownMenuItem onClick={() => doExport("xlsx")}><FileSpreadsheet /> Excel (.xlsx)</DropdownMenuItem>
-                <DropdownMenuItem onClick={() => doExport("csv-it")}><FileText /> CSV per Excel in italiano</DropdownMenuItem>
-                <DropdownMenuItem onClick={() => doExport("csv")}><FileText /> CSV standard (Fogli Google, Python)</DropdownMenuItem>
-                <DropdownMenuItem onClick={() => doExport("png")}><ImageIcon /> Immagine dei grafici (.png)</DropdownMenuItem>
-                {map && <DropdownMenuItem onClick={() => doExport("gpx")}><Route /> Traccia GPX</DropdownMenuItem>}
-                {map && <DropdownMenuItem onClick={() => doExport("geojson")}><MapPinned /> GeoJSON</DropdownMenuItem>}
+                <DropdownMenuLabel>{selection ? t("exportSel") : t("exportAll")}</DropdownMenuLabel>
+                <DropdownMenuItem onClick={() => doExport("xlsx")}><FileSpreadsheet /> {t("xlsx")}</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => doExport("csv-it")}><FileText /> {t("csvIt")}</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => doExport("csv")}><FileText /> {t("csv")}</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => doExport("png")}><ImageIcon /> {t("png")}</DropdownMenuItem>
+                {map && <DropdownMenuItem onClick={() => doExport("gpx")}><Route /> {t("gpx")}</DropdownMenuItem>}
+                {map && <DropdownMenuItem onClick={() => doExport("geojson")}><MapPinned /> {t("geojson")}</DropdownMenuItem>}
               </DropdownMenuGroup>
               <DropdownMenuSeparator />
               <DropdownMenuGroup>
-                <DropdownMenuLabel className="flex flex-col gap-0.5">Dati grezzi di Arduino<span className="font-normal text-muted-foreground">Una riga per lettura, valori non convertiti</span></DropdownMenuLabel>
-                <DropdownMenuItem onClick={() => doExport("raw-csv")}><Binary /> CSV grezzo (.csv)</DropdownMenuItem>
-                <DropdownMenuItem onClick={() => doExport("raw-xlsx")}><Binary /> Excel grezzo (.xlsx)</DropdownMenuItem>
+                <DropdownMenuLabel className="flex flex-col gap-0.5">{t("raw")}<span className="font-normal text-muted-foreground">{t("rawHint")}</span></DropdownMenuLabel>
+                <DropdownMenuItem onClick={() => doExport("raw-csv")}><Binary /> {t("rawCsv")}</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => doExport("raw-xlsx")}><Binary /> {t("rawXlsx")}</DropdownMenuItem>
               </DropdownMenuGroup>
             </DropdownMenuContent>
           </DropdownMenu>
@@ -222,22 +226,22 @@ export function ChartCard() {
       {hasRows && (
         <div className={cn("flex flex-wrap items-center gap-2 rounded-lg px-1 transition-colors", selection && !running && "bg-[var(--mz-sel)] px-2 py-1")}>
           <p className="text-sm">
-            {selection ? <><b className="tabular">{fmtVal(selection[0], 2)} – {fmtVal(selection[1], 2)} s</b> · {nSel} letture</>
-              : <span className="text-muted-foreground">Trascina su un grafico per scegliere un tratto · doppio clic per annullare</span>}
+            {selection ? <><b className="tabular">{fmtVal(selection[0], 2)} – {fmtVal(selection[1], 2)} s</b> · {t("readings", { n: nSel })}</>
+              : <span className="text-muted-foreground">{t("selectHint")}</span>}
           </p>
           <div className="ml-auto flex items-center gap-2">
-            {selection && <Button size="sm" variant="ghost" onClick={clearSelection}><X /> Annulla</Button>}
+            {selection && <Button size="sm" variant="ghost" onClick={clearSelection}><X /> {t("clear")}</Button>}
             {sentId != null ? (
               <Button size="sm" variant="outline" onClick={() => goElab(sentId)}>
-                <Check className="text-brand" /> Già in Elaborazione · Apri <ArrowRight />
+                <Check className="text-brand" /> {t("sent")} <ArrowRight />
               </Button>
             ) : (
               <div className="flex">
                 <Button size="sm" variant={selection ? "default" : "outline"} disabled={running} className="rounded-r-none" onClick={() => void sendSelection()}>
-                  {selection ? "Analizza il tratto" : "Analizza tutta la misura"} <ArrowRight />
+                  {selection ? t("analyzeSel") : t("analyzeAll")} <ArrowRight />
                 </Button>
-                <Tip label="Aggiungi a Elaborazione e resta qui">
-                  <Button size="icon-sm" variant={selection ? "default" : "outline"} disabled={running} aria-label="Aggiungi a Elaborazione senza aprirla"
+                <Tip label={t("addTip")}>
+                  <Button size="icon-sm" variant={selection ? "default" : "outline"} disabled={running} aria-label={t("addAria")}
                     className={cn("rounded-l-none", selection ? "border-l border-l-primary-foreground/15" : "border-l-0")} onClick={() => void sendSelection({ open: false })}>
                     <Plus />
                   </Button>

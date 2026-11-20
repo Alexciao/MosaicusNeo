@@ -17,6 +17,7 @@ import { all, bindRepo, get, putQuiet, removeQuiet, type Store } from "./repo";
 import { onPrefChange } from "@/lib/prefs";
 import { useWorkbench } from "@/lib/workbench-store";
 import { refreshSessions, reloadParams } from "@/lib/lab-store";
+import { t } from "@/i18n";
 
 export type CloudStatus = "off" | "idle" | "syncing" | "offline" | "error";
 interface CloudState {
@@ -203,11 +204,11 @@ export async function syncNow({ pull = true, quiet = true } = {}) {
     }
     await pushSettings(user);
     set({ status: "idle", lastSync: Date.now(), pending: await countPending(user) });
-    if (!quiet && !refreshed) toast.success("Dati sincronizzati.");
+    if (!quiet && !refreshed) toast.success(t("lab.cloud.synced"));
   } catch (e) {
     const offline = typeof navigator !== "undefined" && !navigator.onLine;
     set({ status: offline ? "offline" : "error", error: offline ? null : (e as Error).message, pending: await countPending(user) });
-    if (!quiet) toast.error(offline ? "Sei offline. La sincronizzazione riprende quando torna la rete." : `Sincronizzazione non riuscita: ${(e as Error).message}`);
+    if (!quiet) toast.error(offline ? t("lab.cloud.offline") : t("lab.cloud.syncFailed", { msg: (e as Error).message }));
   } finally {
     running = false;
     if (again) { again = false; void syncNow({ pull: false }); }
@@ -262,7 +263,7 @@ async function onSignedIn(user: string) {
       if (!r.owner) { await putQuiet(t, { ...r, owner: user, dirty: true, updated: r.updated ?? Date.now() }); adopted++; }
     }
   }
-  if (adopted) toast.success(`${adopted === 1 ? "1 elemento creato" : `${adopted} elementi creati`} su questo dispositivo ${adopted === 1 ? "è stato aggiunto" : "sono stati aggiunti"} al tuo account.`);
+  if (adopted) toast.success(t("lab.cloud.adopted", { n: adopted }));
   await Promise.all([refreshSessions(), useWorkbench.getState().load()]);
   await syncNow();
 }
@@ -319,7 +320,7 @@ export async function deleteAccount() {
   if (error) {
     const missing = error.code === "PGRST202" || /could not find the function|does not exist/i.test(error.message);
     throw new Error(missing
-      ? "La cancellazione non è ancora attiva sul server. Scrivi all'indirizzo indicato nell'informativa sulla privacy."
+      ? t("lab.cloud.deleteUnavailable")
       : authError(error.message));
   }
   for (const t of ["sessions", "boxes"] as Store[]) {
@@ -336,11 +337,11 @@ export async function deleteAccount() {
 
 function authError(msg: string) {
   const m = msg.toLowerCase();
-  if (m.includes("invalid login")) return "Email o password non corretti.";
-  if (m.includes("email not confirmed")) return "Conferma prima l'indirizzo email con il link che ti è stato inviato.";
-  if (m.includes("already registered")) return "Esiste già un account con questa email. Usa «Accedi».";
-  if (m.includes("password should be")) return "La password deve avere almeno 6 caratteri.";
-  if (m.includes("rate limit")) return "Troppi tentativi: riprova tra qualche minuto.";
-  if (m.includes("fetch")) return "Server non raggiungibile. Controlla la connessione.";
+  if (m.includes("invalid login")) return t("lab.cloud.auth.invalidLogin");
+  if (m.includes("email not confirmed")) return t("lab.cloud.auth.emailNotConfirmed");
+  if (m.includes("already registered")) return t("lab.cloud.auth.alreadyRegistered");
+  if (m.includes("password should be")) return t("lab.cloud.auth.passwordShort");
+  if (m.includes("rate limit")) return t("lab.cloud.auth.rateLimit");
+  if (m.includes("fetch")) return t("lab.cloud.auth.unreachable");
   return msg;
 }

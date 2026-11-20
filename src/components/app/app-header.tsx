@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useTranslations } from "next-intl";
 import { useTheme } from "next-themes";
 import { BookOpen, Bug, ChartLine, FlaskConical, Monitor, Moon, Presentation, ShieldCheck, Sun } from "lucide-react";
 import { GithubMark } from "./github-mark";
@@ -18,19 +19,21 @@ import { GlideNav } from "./glide-nav";
 import { GuideButton } from "./guide-dialog";
 import { openPrivacy } from "./privacy-dialog";
 import { AccountMenu } from "./account-menu";
+import { LanguageMenu } from "./language-menu";
 import { APP_VERSION } from "@/lib/version";
 
 export function NavTabs({ className }: { className?: string }) {
   const page = useLab((s) => s.page);
   const n = useWorkbench((s) => s.boxes.length);
   const nSessions = useLab((s) => s.sessions?.length ?? 0);
+  const t = useTranslations("app.nav");
   const items: [Page, string, typeof FlaskConical, number?][] = [
-    ["misura", "Misura", FlaskConical],
-    ["quaderno", "Quaderno", BookOpen, nSessions],
-    ["elab", "Elaborazione", ChartLine, n],
+    ["misura", t("misura"), FlaskConical],
+    ["quaderno", t("quaderno"), BookOpen, nSessions],
+    ["elab", t("elab"), ChartLine, n],
   ];
   return (
-    <GlideNav label="Pagine" value={page} className={className}
+    <GlideNav label={t("pages")} value={page} className={className}
       items={items.map(([id, label, Icon, badge]) => ({
         id,
         onSelect: () => showPage(id),
@@ -48,36 +51,37 @@ export function NavTabs({ className }: { className?: string }) {
 function AppearanceMenu() {
   const { theme = "system", resolvedTheme, setTheme } = useTheme();
   const lim = useLab((s) => s.lim);
+  const t = useTranslations("app.appearance");
   const Icon = resolvedTheme === "dark" ? Moon : Sun;
   return (
     <DropdownMenu>
       <Tooltip>
-        <TooltipTrigger render={<DropdownMenuTrigger render={<Button variant="ghost" size="icon" aria-label="Aspetto" />} />}>
+        <TooltipTrigger render={<DropdownMenuTrigger render={<Button variant="ghost" size="icon" aria-label={t("label")} />} />}>
           <Icon />
         </TooltipTrigger>
-        <TooltipContent>Aspetto</TooltipContent>
+        <TooltipContent>{t("label")}</TooltipContent>
       </Tooltip>
       <DropdownMenuContent align="end" className="w-56">
         <DropdownMenuGroup>
-          <DropdownMenuLabel>Tema</DropdownMenuLabel>
+          <DropdownMenuLabel>{t("theme")}</DropdownMenuLabel>
           <DropdownMenuRadioGroup value={theme} onValueChange={(v) => setTheme(String(v))}>
-            <DropdownMenuRadioItem closeOnClick value="light"><Sun /> Chiaro</DropdownMenuRadioItem>
-            <DropdownMenuRadioItem closeOnClick value="dark"><Moon /> Scuro</DropdownMenuRadioItem>
-            <DropdownMenuRadioItem closeOnClick value="system"><Monitor /> Sistema</DropdownMenuRadioItem>
+            <DropdownMenuRadioItem closeOnClick value="light"><Sun /> {t("light")}</DropdownMenuRadioItem>
+            <DropdownMenuRadioItem closeOnClick value="dark"><Moon /> {t("dark")}</DropdownMenuRadioItem>
+            <DropdownMenuRadioItem closeOnClick value="system"><Monitor /> {t("system")}</DropdownMenuRadioItem>
           </DropdownMenuRadioGroup>
         </DropdownMenuGroup>
         <DropdownMenuSeparator />
         <DropdownMenuCheckboxItem checked={lim} onCheckedChange={(v) => setLim(!!v)} className="items-start">
           <Presentation className="mt-0.5" />
           <span className="flex flex-col">
-            Modalità LIM
-            <span className="text-xs text-muted-foreground">Testi più grandi, grafici più leggeri. Per LIM e PC lenti.</span>
+            {t("lim")}
+            <span className="text-xs text-muted-foreground">{t("limHint")}</span>
           </span>
         </DropdownMenuCheckboxItem>
         <DropdownMenuSeparator />
-        <DropdownMenuItem render={<a href={REPO_URL} target="_blank" rel="noopener" />}><GithubMark /> Codice sorgente su GitHub</DropdownMenuItem>
-        <DropdownMenuItem render={<a href={ISSUES_URL} target="_blank" rel="noopener" />}><Bug /> Segnala un problema</DropdownMenuItem>
-        <DropdownMenuItem onClick={openPrivacy}><ShieldCheck /> Informativa sulla privacy</DropdownMenuItem>
+        <DropdownMenuItem render={<a href={REPO_URL} target="_blank" rel="noopener" />}><GithubMark /> {t("source")}</DropdownMenuItem>
+        <DropdownMenuItem render={<a href={ISSUES_URL} target="_blank" rel="noopener" />}><Bug /> {t("report")}</DropdownMenuItem>
+        <DropdownMenuItem onClick={openPrivacy}><ShieldCheck /> {t("privacy")}</DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
   );
@@ -86,10 +90,11 @@ function AppearanceMenu() {
 export function AppHeader() {
   // sul computer, in Misura con la barra dei lab aperta, l'account sta in fondo alla barra
   const inSidebar = useLab((s) => s.page === "misura" && s.labsSidebar);
+  const t = useTranslations("app.header");
   return (
     <header className="sticky top-0 z-40 border-b bg-background">
       <div className="mx-auto flex h-14 w-full max-w-[1600px] items-center gap-3 px-4">
-        <Link href="/" aria-label="MosaicusNeo, pagina iniziale"
+        <Link href="/" aria-label={t("home")}
           onClick={(e) => { if (e.metaKey || e.ctrlKey || e.shiftKey || e.button !== 0) return; e.preventDefault(); goHome(); }}
           className="-mx-1.5 flex min-w-0 items-center gap-2.5 rounded-lg px-1.5 py-1 transition-opacity outline-none hover:opacity-80 focus-visible:ring-3 focus-visible:ring-ring/50">
           <img src="/icons/icon.svg" alt="" width={28} height={28} className="rounded-md" />
@@ -103,6 +108,7 @@ export function AppHeader() {
         <div className="ml-auto flex items-center gap-1">
           <div className="mr-1 hidden lg:flex"><ConnectionControls /></div>
           <GuideButton />
+          <LanguageMenu />
           <AppearanceMenu />
           <AccountMenu className={inSidebar ? "lg:hidden" : undefined} />
         </div>

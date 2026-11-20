@@ -13,6 +13,7 @@
 // che compare esplicitamente nell'equazione come (t − t₁) con il suo valore numerico.
 
 import { polyfit, evalPoly, invert, fmt } from './analysis.js';
+import { t as tr } from '@/i18n';
 
 const SUP = ['', '', '²', '³', '⁴'];
 const powUnit = (xU, k) => (k === 0 ? '' : k === 1 ? `/${xU}` : `/${xU}${SUP[k]}`);
@@ -111,7 +112,7 @@ const binom = (n, k) => { let r = 1; for (let i = 1; i <= k; i++) r = (r * (n - 
 
 function polyModel(deg, label) {
   return {
-    label, short: deg === 1 ? 'retta' : `polinomio di grado ${deg}`,
+    label, short: deg === 1 ? tr('engine.fits.lin.short') : tr('engine.fits.poly.short', { deg }),
     formula: deg === 1 ? 'y = m·x + q' : `y = c₀ + c₁·x${deg >= 2 ? ' + c₂·x²' : ''}${deg >= 3 ? ' + c₃·x³' : ''}${deg >= 4 ? ' + c₄·x⁴' : ''}`,
     minPoints: deg + 2,
     run(t, y, U) {
@@ -126,8 +127,8 @@ function polyModel(deg, label) {
       if (deg === 1) {
         // retta: sempre nella forma familiare y = m·x + q (q = valore per x = 0)
         return {
-          params: [{ key: 'm', sym: 'm (pendenza)', value: a[1], sigma: sa[1], unit: joinU(U.y, powUnit(U.x, 1)) },
-            { key: 'q', sym: `q (valore di ${ys} per ${xs} = 0)`, value: a[0], sigma: sa[0], unit: U.y }],
+          params: [{ key: 'm', sym: tr('engine.fits.lin.m'), value: a[1], sigma: sa[1], unit: joinU(U.y, powUnit(U.x, 1)) },
+            { key: 'q', sym: tr('engine.fits.lin.q', { ys, xs }), value: a[0], sigma: sa[0], unit: U.y }],
           eq: `${ys} = ${n4(a[1])}·${xs}${sgn(a[0])}${n4(Math.abs(a[0]))}`,
           curve: (tt) => evalPoly(a, tt), tRef: null,
         };
@@ -136,7 +137,7 @@ function polyModel(deg, label) {
       const far = Math.abs(t1) > 1e-9;
       const cc = far ? f.coef : a, ss = far ? f.sigma : sa, xx = shifted(xs, t1);
       return {
-        params: cc.map((c, k) => ({ key: `c${k}`, sym: k === 0 && far ? `c₀ (valore di ${ys} per ${xs} = ${n4(t1)})` : `c${'₀₁₂₃₄'[k]}`, value: c, sigma: ss[k], unit: joinU(U.y, powUnit(U.x, k)) })),
+        params: cc.map((c, k) => ({ key: `c${k}`, sym: k === 0 && far ? tr('engine.fits.poly.c0', { ys, xs, x1: n4(t1) }) : `c${'₀₁₂₃₄'[k]}`, value: c, sigma: ss[k], unit: joinU(U.y, powUnit(U.x, k)) })),
         eq: `${ys} = ` + cc.map((c, k) => (k === 0 ? n4(c) : `${sgn(c)}${n4(Math.abs(c))}·${xx}${SUP[k] || ''}`)).join(''),
         curve: (tt) => evalPoly(f.coef, tt - t1), tRef: far ? t1 : null,
       };
@@ -149,21 +150,21 @@ const shifted = (xs, t1) => (Math.abs(t1) < 1e-12 ? xs : `(${xs} − ${n4(t1)})`
 
 export const MODELS = {
   mean: {
-    label: 'Costante (media)', short: 'media', formula: 'y = ȳ', minPoints: 2,
+    label: tr('engine.fits.mean.label'), short: tr('engine.fits.mean.short'), formula: 'y = ȳ', minPoints: 2,
     run(t, y, U) {
       const f = polyfit(t, y, 0, 0); if (!f) return null;
       return {
-        params: [{ key: 'mean', sym: 'ȳ', value: f.coef[0], sigma: f.sigma[0], unit: U.y }, { key: 'sd', sym: 's (dispersione dei dati)', value: f.s, sigma: NaN, unit: U.y }],
+        params: [{ key: 'mean', sym: 'ȳ', value: f.coef[0], sigma: f.sigma[0], unit: U.y }, { key: 'sd', sym: tr('engine.fits.mean.sd'), value: f.s, sigma: NaN, unit: U.y }],
         eq: `${U.ys || 'y'} = ${n4(f.coef[0])}`, curve: () => f.coef[0], tRef: null,
       };
     },
   },
-  lin: polyModel(1, 'Retta'),
-  poly2: polyModel(2, 'Parabola (grado 2)'),
-  poly3: polyModel(3, 'Polinomio di grado 3'),
-  poly4: polyModel(4, 'Polinomio di grado 4'),
+  lin: polyModel(1, tr('engine.fits.lin.label')),
+  poly2: polyModel(2, tr('engine.fits.poly2.label')),
+  poly3: polyModel(3, tr('engine.fits.poly.label', { deg: 3 })),
+  poly4: polyModel(4, tr('engine.fits.poly.label', { deg: 4 })),
   exp: {
-    label: 'Esponenziale', short: 'esponenziale', formula: 'y = A·e^(k·(x − x₁))', minPoints: 4,
+    label: tr('engine.fits.exp.label'), short: tr('engine.fits.exp.short'), formula: 'y = A·e^(k·(x − x₁))', minPoints: 4,
     run(t, y, U) {
       const t0 = t[0], tau = t.map((v) => v - t0);
       let p0 = [y[0] || 1, 0];
@@ -180,14 +181,14 @@ export const MODELS = {
     },
   },
   expC: {
-    label: 'Esponenziale con asintoto', short: 'esponenziale con asintoto', formula: 'y = C + A·e^(k·(x − x₁))', minPoints: 5,
+    label: tr('engine.fits.expC.label'), short: tr('engine.fits.expC.short'), formula: 'y = C + A·e^(k·(x − x₁))', minPoints: 5,
     run(t, y, U) {
       const t0 = t[0], tau = t.map((v) => v - t0);
       const f = (p, x) => p[0] + p[1] * Math.exp(p[2] * x);
       const r = levenberg(f, guessExpC(tau, y), tau, y);
       return {
         params: [
-          { key: 'C', sym: 'C (asintoto)', value: r.p[0], sigma: r.sigma[0], unit: U.y },
+          { key: 'C', sym: tr('engine.fits.expC.C'), value: r.p[0], sigma: r.sigma[0], unit: U.y },
           { key: 'A', sym: 'A', value: r.p[1], sigma: r.sigma[1], unit: U.y },
           { key: 'k', sym: 'k', value: r.p[2], sigma: r.sigma[2], unit: `${U.x}⁻¹` },
         ],
@@ -196,21 +197,21 @@ export const MODELS = {
     },
   },
   power: {
-    label: 'Potenza', short: 'potenza', formula: 'y = A·xⁿ', minPoints: 4,
+    label: tr('engine.fits.power.label'), short: tr('engine.fits.power.short'), formula: 'y = A·xⁿ', minPoints: 4,
     run(t, y, U) {
-      if (!t.every((v) => v > 0)) return { error: 'La legge di potenza richiede x > 0 in tutto l\'intervallo: scegli un tratto senza valori nulli o negativi.' };
+      if (!t.every((v) => v > 0)) return { error: tr('engine.fits.power.needPositive') };
       let p0 = [y[0] || 1, 1];
       if (y.every((v) => v > 0)) { const g = polyfit(t.map(Math.log), y.map(Math.log), 1, 0); if (g) p0 = [Math.exp(g.coef[0]), g.coef[1]]; }
       const f = (p, x) => p[0] * Math.pow(x, p[1]);
       const r = levenberg(f, p0, t, y);
       return {
-        params: [{ key: 'A', sym: 'A', value: r.p[0], sigma: r.sigma[0], unit: '' }, { key: 'n', sym: 'n (esponente)', value: r.p[1], sigma: r.sigma[1], unit: '' }],
+        params: [{ key: 'A', sym: 'A', value: r.p[0], sigma: r.sigma[0], unit: '' }, { key: 'n', sym: tr('engine.fits.power.n'), value: r.p[1], sigma: r.sigma[1], unit: '' }],
         eq: `${U.ys || 'y'} = ${n4(r.p[0])}·${U.xs || 'x'}^${n4(r.p[1])}`, curve: (tt) => f(r.p, tt), tRef: null,
       };
     },
   },
   dsin: {
-    label: 'Sinusoide smorzata', short: 'sinusoide smorzata', formula: 'y = C + A·e^(−γ·(x − x₁))·sin(ω·(x − x₁) + φ)', minPoints: 8,
+    label: tr('engine.fits.dsin.label'), short: tr('engine.fits.dsin.short'), formula: 'y = C + A·e^(−γ·(x − x₁))·sin(ω·(x − x₁) + φ)', minPoints: 8,
     run(t, y, U) {
       const t0 = t[0], tau = t.map((v) => v - t0);
       const f = (p, x) => p[0] + p[1] * Math.exp(-p[2] * x) * Math.sin(p[3] * x + p[4]);
@@ -222,11 +223,11 @@ export const MODELS = {
       const p = [C, A, g, w, ph];
       return {
         params: [
-          { key: 'C', sym: 'C (centro)', value: C, sigma: r.sigma[0], unit: U.y },
-          { key: 'A', sym: 'A (ampiezza a inizio intervallo)', value: A, sigma: r.sigma[1], unit: U.y },
-          { key: 'g', sym: 'γ (smorzamento)', value: g, sigma: r.sigma[2], unit: `${U.x}⁻¹` },
-          { key: 'w', sym: 'ω (pulsazione)', value: w, sigma: r.sigma[3], unit: `rad/${U.x}` },
-          { key: 'phi', sym: 'φ (fase a inizio intervallo)', value: ph, sigma: r.sigma[4], unit: 'rad' },
+          { key: 'C', sym: tr('engine.fits.dsin.C'), value: C, sigma: r.sigma[0], unit: U.y },
+          { key: 'A', sym: tr('engine.fits.dsin.A'), value: A, sigma: r.sigma[1], unit: U.y },
+          { key: 'g', sym: tr('engine.fits.dsin.g'), value: g, sigma: r.sigma[2], unit: `${U.x}⁻¹` },
+          { key: 'w', sym: tr('engine.fits.dsin.w'), value: w, sigma: r.sigma[3], unit: `rad/${U.x}` },
+          { key: 'phi', sym: tr('engine.fits.dsin.phi'), value: ph, sigma: r.sigma[4], unit: 'rad' },
         ],
         eq: (() => { const xx = shifted(U.xs || 'x', t0); return `${U.ys || 'y'} = ${n4(C)}${sgn(A)}${n4(A)}·e^(${g >= 0 ? '−' : '+'}${n4(Math.abs(g))}·${xx})·sin(${n4(w)}·${xx}${sgn(ph)}${n4(Math.abs(ph))})`; })(), curve: (tt) => f(p, tt - t0), tRef: t0,
       };
@@ -243,13 +244,13 @@ export const MODEL_ORDER = ['lin', 'poly2', 'poly3', 'poly4', 'exp', 'expC', 'po
  */
 export function runModel(id, t, y, units) {
   const M = MODELS[id];
-  if (!M) return { error: 'Modello sconosciuto.' };
-  if (t.length < M.minPoints) return { error: `Servono almeno ${M.minPoints} punti validi nell'intervallo.` };
+  if (!M) return { error: tr('engine.fits.err.unknown') };
+  if (t.length < M.minPoints) return { error: tr('engine.fits.err.minPoints', { n: M.minPoints }) };
   let r;
-  try { r = M.run(t, y, units); } catch (e) { return { error: `Fit non riuscito (${e.message}).` }; }
-  if (!r) return { error: 'Fit non riuscito: scegli un altro intervallo.' };
+  try { r = M.run(t, y, units); } catch (e) { return { error: tr('engine.fits.err.failedWith', { msg: e.message }) }; }
+  if (!r) return { error: tr('engine.fits.err.failed') };
   if (r.error) return r;
-  if (r.params.some((p) => p.key !== 'sd' && !isFinite(p.value))) return { error: 'Il fit non converge: cambia modello o intervallo.' };
+  if (r.params.some((p) => p.key !== 'sd' && !isFinite(p.value))) return { error: tr('engine.fits.err.noConverge') };
   const n = t.length;
   const residuals = y.map((v, i) => v - r.curve(t[i]));
   const mean = y.reduce((s, v) => s + v, 0) / n;
@@ -280,6 +281,7 @@ export function runsTest(residuals) {
   const mu = (2 * np * nm) / (n || 1) + 1;
   const varR = n > 1 ? ((mu - 1) * (mu - 2)) / (n - 1) : NaN;
   const z = varR > 0 ? (runs - mu) / Math.sqrt(varR) : NaN;
+  // verdict è una chiave confrontata altrove (box-tools): resta in italiano
   const verdict = !isFinite(z) ? 'pochi dati' : z < -2 ? 'sistematici' : 'casuali';
   return { n, np, nm, runs, mu, z, verdict };
 }

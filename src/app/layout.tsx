@@ -11,9 +11,9 @@ const inter = Inter({
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://mosaicusneo.alexcorazza.com"),
-  title: "MosaicusNeo · micro-laboratorio di fisica",
+  title: "MosaicusNeo · physics micro-lab",
   description:
-    "Esperimenti di fisica con Arduino e con i sensori del telefono: grafici in tempo reale, oscilloscopio, synth, analisi dei dati, esportazione in Excel. Funziona anche offline.",
+    "Physics experiments with Arduino and your phone's sensors: real-time charts, oscilloscope, synth, data analysis, Excel export. Works offline too.",
   applicationName: "MosaicusNeo",
   appleWebApp: { capable: true, title: "MosaicusNeo", statusBarStyle: "black-translucent" },
 };
@@ -29,7 +29,7 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
-    <html lang="it" className={`${inter.variable} h-full antialiased`} suppressHydrationWarning>
+    <html lang="en" className={`${inter.variable} h-full antialiased`} suppressHydrationWarning>
       <body className="min-h-full">
         <Providers>{children}</Providers>
       </body>

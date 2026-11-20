@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useTranslations } from "next-intl";
 import { BookOpen, ChartLine, FlaskConical, LayoutGrid, Square, Volume2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useLab, boot, showPage, selectLab } from "@/lib/lab-store";
@@ -23,6 +24,7 @@ import { REPO_URL, ISSUES_URL } from "@/lib/links";
 function MobileNav() {
   const page = useLab((s) => s.page);
   const n = useWorkbench((s) => s.boxes.length);
+  const t = useTranslations("app.nav");
   const item = (active: boolean, label: string, Icon: typeof FlaskConical, onClick: () => void, badge?: number) => (
     <button type="button" onClick={onClick} className={cn("relative flex flex-1 flex-col items-center gap-0.5 py-2 text-[0.7rem] font-medium", active ? "text-foreground" : "text-muted-foreground")}>
       <Icon className="size-5" />{label}
@@ -30,11 +32,11 @@ function MobileNav() {
     </button>
   );
   return (
-    <nav aria-label="Navigazione" className="fixed inset-x-0 bottom-0 z-40 flex border-t bg-card pb-[env(safe-area-inset-bottom)] md:hidden">
-      {item(false, "Lab", LayoutGrid, () => { showPage("misura"); useLab.setState({ labsOpen: true }); })}
-      {item(page === "misura", "Misura", FlaskConical, () => showPage("misura"))}
-      {item(page === "quaderno", "Quaderno", BookOpen, () => showPage("quaderno"))}
-      {item(page === "elab", "Elaborazione", ChartLine, () => showPage("elab"), n)}
+    <nav aria-label={t("mobile")} className="fixed inset-x-0 bottom-0 z-40 flex border-t bg-card pb-[env(safe-area-inset-bottom)] md:hidden">
+      {item(false, t("labs"), LayoutGrid, () => { showPage("misura"); useLab.setState({ labsOpen: true }); })}
+      {item(page === "misura", t("misura"), FlaskConical, () => showPage("misura"))}
+      {item(page === "quaderno", t("quaderno"), BookOpen, () => showPage("quaderno"))}
+      {item(page === "elab", t("elab"), ChartLine, () => showPage("elab"), n)}
     </nav>
   );
 }
@@ -44,22 +46,24 @@ function GenChip() {
   const [, setTick] = useState(0);
   const labId = useLab((s) => s.labId);
   const page = useLab((s) => s.page);
-  useEffect(() => { const off = onGeneratorChange(() => setTick((t) => t + 1)); return () => { off(); }; }, []);
+  const t = useTranslations("app.genChip");
+  useEffect(() => { const off = onGeneratorChange(() => setTick((x) => x + 1)); return () => { off(); }; }, []);
   const G = generatorState();
   if (!G.on || (labId === "synth" && page === "misura")) return null;
   return (
     <div className="fixed right-4 bottom-20 z-40 flex items-center gap-1 rounded-full border bg-screen p-1 pl-3 text-lime shadow-lg md:bottom-4">
-      <button type="button" className="flex items-center gap-2 text-sm font-semibold" onClick={() => { showPage("misura"); selectLab("synth"); }} title="Apri il synth">
+      <button type="button" className="flex items-center gap-2 text-sm font-semibold" onClick={() => { showPage("misura"); selectLab("synth"); }} title={t("open")}>
         <Volume2 className="size-4" />
         {fmtVal(G.f, G.f < 100 ? 1 : 0)} Hz{G.two ? ` + ${fmtVal(G.f + G.df, 1)} Hz` : ""}
       </button>
-      <Button size="icon-sm" variant="ghost" className="rounded-full text-lime hover:bg-white/10 hover:text-lime" onClick={() => stopGenerator()} aria-label="Spegni il synth"><Square className="fill-current" /></Button>
+      <Button size="icon-sm" variant="ghost" className="rounded-full text-lime hover:bg-white/10 hover:text-lime" onClick={() => stopGenerator()} aria-label={t("stop")}><Square className="fill-current" /></Button>
     </div>
   );
 }
 
 export function MosaicusApp() {
   const page = useLab((s) => s.page);
+  const t = useTranslations("app.footer");
   // Le due pagine restano montate (si nasconde quella non attiva): cambiare pagina è istantaneo
   // e i grafici non si ricostruiscono. Elaborazione si monta alla prima visita.
   const [seen, setSeen] = useState<Record<string, boolean>>({ [page]: true });
@@ -85,10 +89,10 @@ export function MosaicusApp() {
         {seen.elab && <div hidden={page !== "elab"} className="mz-enter"><WorkbenchPage /></div>}
       </main>
       <footer className="px-4 py-6 text-center text-xs text-muted-foreground">
-        MosaicusNeo · basato su Mosaicus di Ermes Ferdinando Rosi · software libero con licenza MIT ·{" "}
+        {t("credits")} ·{" "}
         <a className="inline-flex items-center gap-1 underline" href={REPO_URL} target="_blank" rel="noopener"><GithubMark className="size-3" />GitHub</a> ·{" "}
-        <a className="underline" href={ISSUES_URL} target="_blank" rel="noopener">segnala un problema</a> ·{" "}
-        <button type="button" className="font-medium text-foreground underline" onClick={openPrivacy}>privacy</button>
+        <a className="underline" href={ISSUES_URL} target="_blank" rel="noopener">{t("report")}</a> ·{" "}
+        <button type="button" className="font-medium text-foreground underline" onClick={openPrivacy}>{t("privacy")}</button>
       </footer>
       <MobileNav />
       <GenChip />

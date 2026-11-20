@@ -1,0 +1,204 @@
+{
+  "common": {
+    "connectFirst": "Connect Arduino or the “Simulator” first."
+  },
+  "fits": {
+    "lin": {
+      "label": "Straight line",
+      "short": "straight line",
+      "m": "m (slope)",
+      "q": "q (value of {ys} at {xs} = 0)"
+    },
+    "poly": {
+      "label": "Polynomial of degree {deg}",
+      "short": "polynomial of degree {deg}",
+      "c0": "c₀ (value of {ys} at {xs} = {x1})"
+    },
+    "poly2": {
+      "label": "Parabola (degree 2)"
+    },
+    "mean": {
+      "label": "Constant (mean)",
+      "short": "mean",
+      "sd": "s (spread of the data)"
+    },
+    "exp": {
+      "label": "Exponential",
+      "short": "exponential"
+    },
+    "expC": {
+      "label": "Exponential with asymptote",
+      "short": "exponential with asymptote",
+      "C": "C (asymptote)"
+    },
+    "power": {
+      "label": "Power law",
+      "short": "power law",
+      "needPositive": "A power law needs x > 0 over the whole interval: choose a stretch with no zero or negative values.",
+      "n": "n (exponent)"
+    },
+    "dsin": {
+      "label": "Damped sinusoid",
+      "short": "damped sinusoid",
+      "C": "C (center)",
+      "A": "A (amplitude at the start of the interval)",
+      "g": "γ (damping)",
+      "w": "ω (angular frequency)",
+      "phi": "φ (phase at the start of the interval)"
+    },
+    "err": {
+      "unknown": "Unknown model.",
+      "minPoints": "At least {n} valid points are needed in the interval.",
+      "failedWith": "Fit failed ({msg}).",
+      "failed": "Fit failed: choose a different interval.",
+      "noConverge": "The fit does not converge: change the model or the interval."
+    }
+  },
+  "formula": {
+    "badNumber": "invalid number near “{near}”",
+    "badSymbol": "unrecognized symbol: “{c}”",
+    "missingParen": "a closing parenthesis “)” is missing",
+    "expected": "expected “{t}”",
+    "incomplete": "the formula is incomplete",
+    "unknownName": "“{name}” is neither a column nor a known function (columns: {columns})",
+    "misplaced": "“{t}” out of place",
+    "empty": "write a formula",
+    "trailing": "extra text at the end: “{text}”"
+  },
+  "audio": {
+    "noMicApi": "this browser does not give access to the microphone",
+    "micNeedsHttps": "the microphone only works on a secure page (https)"
+  },
+  "phone": {
+    "needsHttps": "the phone sensors only work on a secure page (https)",
+    "motionDenied": "Permission for the motion sensors was denied. On iPhone: Settings → Safari → Motion & Orientation Access, then reload the page.",
+    "noMotionData": "No data from the motion sensors: open the app on the phone (computers usually don’t have them).",
+    "micUnavailable": "Microphone not available: {msg}."
+  },
+  "ble": {
+    "noSerial": "the device does not offer a BLE serial port (FFE0 service or Nordic UART)"
+  },
+  "dsp": {
+    "noteNames": "C C♯ D D♯ E F F♯ G G♯ A A♯ B",
+    "timbres": {
+      "sinusoide": "Sine (tuning fork)",
+      "flauto": "Flute",
+      "clarinetto": "Clarinet",
+      "violino": "Violin",
+      "voce": "Voice, vowel “a”",
+      "voceShort": "Voice “a”",
+      "organo": "Organ",
+      "quadra": "Square wave",
+      "dente": "Sawtooth"
+    }
+  },
+  "synth": {
+    "noAudio": "This browser does not support audio.",
+    "noTilt": "This device has no tilt sensor.",
+    "tiltNeedsHttps": "The tilt sensor only works on a secure page (https).",
+    "motionDenied": "Access to the motion sensors denied: allow it in the browser settings.",
+    "modes": {
+      "keys": "Keyboard",
+      "ribbon": "Ribbon",
+      "tilt": "Tilt",
+      "sonar": "Ultrasound"
+    },
+    "screen": {
+      "live": "live",
+      "computed": "computed",
+      "twoPeriods": "2 periods"
+    },
+    "waves": {
+      "sinusoide": "Sine",
+      "quadra": "Square",
+      "triangolare": "Triangle",
+      "dente": "Sawtooth"
+    },
+    "env": {
+      "continuo": "Sustained",
+      "pizzicato": "Plucked",
+      "campana": "Bell"
+    },
+    "scaleGroups": {
+      "bright": "bright",
+      "melancholic": "melancholic",
+      "exotic": "exotic",
+      "blues": "blues",
+      "other": "other"
+    },
+    "scales": {
+      "maggiore": "major · Ionian",
+      "lidia": "Lydian",
+      "misolidia": "Mixolydian",
+      "pentatonica": "pentatonic",
+      "minore": "minor · Aeolian",
+      "dorica": "Dorian",
+      "frigia": "Phrygian",
+      "locria": "Locrian",
+      "minoreArmonica": "harmonic minor",
+      "minoreMelodica": "melodic minor",
+      "pentatonicaMin": "minor pentatonic",
+      "araba": "Arabic",
+      "napoletana": "Neapolitan",
+      "ungherese": "Hungarian",
+      "giapponese": "Japanese",
+      "spagnola": "Spanish",
+      "blues": "blues",
+      "bluesMag": "major blues",
+      "esatonale": "whole-tone",
+      "diminuita": "diminished",
+      "cromatica": "chromatic",
+      "continua": "continuous"
+    }
+  },
+  "scope": {
+    "examples": {
+      "sinusoide": "Tuning fork",
+      "flauto": "Flute",
+      "clarinetto": "Clarinet",
+      "violino": "Violin",
+      "voce": "Voice “a”",
+      "beats": "Beats"
+    },
+    "arbitraryUnit": "a.u.",
+    "normHeights": "normalized heights",
+    "normAmps": "normalized amplitudes",
+    "noTrigger": "no trigger",
+    "spectrumTag": "spectrum",
+    "pickSource": "Choose a source and press ▶ Start",
+    "connectArduino": "Connect Arduino, then press ▶ Start",
+    "pressStart": "Press ▶ Start",
+    "live": "live",
+    "waitingTrigger": "Waiting for the trigger…",
+    "readout": {
+      "frequency": "frequency f",
+      "period": "period T",
+      "note": "note",
+      "peakToPeak": "peak-to-peak",
+      "mean": "mean"
+    },
+    "amplitudeUnit": "amplitude ({unit})",
+    "noAudio": "This browser does not support audio (Web Audio API).",
+    "micUnavailable": "Microphone not available: {msg}",
+    "captured": "Trace captured. Press “Freeze” to keep it.",
+    "fNotFound": "f not found",
+    "noTraceToSend": "No trace to send: press ▶ Start first.",
+    "noSpectrumToSend": "No spectrum to send: press ▶ Start first.",
+    "needTrace": "You need a trace first: ▶ Start.",
+    "waveTitle": "Oscilloscope · {names}",
+    "spectrumTitle": "Spectrum · {names}",
+    "colTime": "time from trigger",
+    "colFrequency": "frequency",
+    "colAmplitude": "amplitude {name}",
+    "wavesSent": "{n, plural, one {Waveform sent} other {# waveforms sent}} to Analysis · {points} points.",
+    "spectraSent": "{n, plural, one {Spectrum sent} other {# spectra sent}} to Analysis."
+  },
+  "device": {
+    "pc": "Computer",
+    "android": "Android phone or tablet",
+    "ios": "iPhone or iPad",
+    "board": "Interactive whiteboard",
+    "unknownOs": "unknown system",
+    "unknownBrowser": "an unknown browser"
+  }
+}

@@ -9,7 +9,13 @@ import type { LucideIcon } from "lucide-react";
 import { AudioLines, AudioWaveform, Droplets, Rotate3d, Smartphone, MapPinned, MoveRight, Piano, Thermometer, WavesHorizontal, Zap } from "lucide-react";
 import type { SensorType } from "./catalog";
 import { makeSensor, type SensorInstance } from "./rig";
+import { t } from "@/i18n";
 import type { Options, Tone, WiringBlock } from "./types";
+
+const TOPIC = {
+  kinematics: t("sensors.topics.kinematics"), thermo: t("sensors.topics.thermo"), field: t("sensors.topics.field"), tools: t("lab.info.toolsTopic"),
+};
+const IDEA = t("sensors.presets.idea");
 
 export interface PresetSensor { type: SensorType; pins?: Record<string, number>; options?: Options; interval?: number; label?: string }
 export interface Preset {
@@ -31,69 +37,71 @@ export interface Preset {
 
 export const PRESETS: Preset[] = [
   {
-    id: "motion", topic: "Cinematica", title: "Moto rettilineo", subtitle: "Uniforme e accelerato · HC-SR04",
+    id: "motion", topic: TOPIC.kinematics, title: t("sensors.presets.motion.title"), subtitle: t("sensors.presets.motion.subtitle"),
     icon: MoveRight, tone: "sky", sim: "incline",
     sensors: [{ type: "sonar", interval: 50 }],
     visible: ["x", "v", "a"], readouts: ["x", "v"],
-    tips: [{ title: "Idea", tip: true, text: "Carrello su un piano inclinato, con un bersaglio piatto tra 5 cm e 1 m dal sensore. Il fit della parabola su x(t) dà l'accelerazione." }],
+    tips: [{ title: IDEA, tip: true, text: t("sensors.presets.motion.tip") }],
   },
   {
-    id: "harmonic", topic: "Cinematica", title: "Moto armonico", subtitle: "Oscillazioni · HC-SR04",
+    id: "harmonic", topic: TOPIC.kinematics, title: t("sensors.presets.harmonic.title"), subtitle: t("sensors.presets.harmonic.subtitle"),
     icon: WavesHorizontal, tone: "rose", sim: "spring",
     sensors: [{ type: "sonar", interval: 50, options: { window: 2 } }],
     visible: ["x", "v", "a"], readouts: ["x", "v"],
-    tips: [{ title: "Idea", tip: true, text: "Massa appesa a una molla, sensore a terra rivolto verso l'alto, cartoncino sotto la massa. Il fit della sinusoide smorzata dà periodo e smorzamento." }],
+    tips: [{ title: IDEA, tip: true, text: t("sensors.presets.harmonic.tip") }],
   },
   {
-    id: "cooling", topic: "Termologia", title: "Raffreddamento", subtitle: "Legge di Newton · termistore NTC",
-    icon: Thermometer, tone: "rose", sim: "cooling", simNote: "tempo ×30",
+    id: "cooling", topic: TOPIC.thermo, title: t("sensors.presets.cooling.title"), subtitle: t("sensors.presets.cooling.subtitle"),
+    icon: Thermometer, tone: "rose", sim: "cooling", simNote: t("sensors.presets.cooling.simNote"),
     sensors: [{ type: "ntc", interval: 1000 }],
     visible: ["T"], readouts: ["T", "R"],
-    tips: [{ title: "Idea", tip: true, text: "Scalda il termistore in acqua calda o in una patata calda, poi lascialo raffreddare in aria. Usa il fit esponenziale con asintoto, oppure la retta su ln(T − Tₐ)." }],
+    tips: [{ title: IDEA, tip: true, text: t("sensors.presets.cooling.tip") }],
   },
   {
-    id: "humidity", topic: "Termologia", title: "Umidità e temperatura", subtitle: "Punto di rugiada · DHT11",
-    icon: Droplets, tone: "sky", sim: "breath", simNote: "tempo ×5",
+    id: "humidity", topic: TOPIC.thermo, title: t("sensors.presets.humidity.title"), subtitle: t("sensors.presets.humidity.subtitle"),
+    icon: Droplets, tone: "sky", sim: "breath", simNote: t("sensors.presets.humidity.simNote"),
     sensors: [{ type: "dht", interval: 2000 }],
     visible: ["RH", "T"], readouts: ["RH", "T", "Td"],
-    tips: [{ title: "Idea", tip: true, text: "Soffia sul sensore: l'umidità sale di colpo e scende lentamente. Il fit esponenziale della discesa dà il tempo caratteristico." }],
+    tips: [{ title: IDEA, tip: true, text: t("sensors.presets.humidity.tip") }],
   },
   {
-    id: "gpsmap", topic: "Sul campo", title: "Mappa della temperatura", subtitle: "GPS + DHT11 · telefono via Bluetooth",
-    icon: MapPinned, tone: "lime", sim: "walk", simNote: "passeggiata, tempo ×5",
+    id: "gpsmap", topic: TOPIC.field, title: t("sensors.presets.gpsmap.title"), subtitle: t("sensors.presets.gpsmap.subtitle"),
+    icon: MapPinned, tone: "lime", sim: "walk", simNote: t("sensors.presets.gpsmap.simNote"),
     sensors: [{ type: "gps", interval: 2000 }, { type: "dht", interval: 2000 }],
     visible: ["T", "alt"], readouts: ["T", "RH", "sats", "s"],
     tips: [
-      { title: "Misurare senza cavo", tip: true, text: "Attiva l'interruttore «Bluetooth» nella scheda «Collegamenti» e scegli il modulo (HC-06 o BLE): lo schema mostra come collegarlo. Alimenta Arduino con un power bank; durante la misura i dati vengono salvati nel Quaderno ogni 30 s." },
-      { title: "Il primo fix", tip: true, text: "All'aperto il GPS trova i satelliti in un tempo tra 30 s e qualche minuto. I punti senza posizione restano in tabella ma non compaiono sulla mappa." },
+      { title: t("sensors.presets.gpsmap.wirelessTitle"), tip: true, text: t("sensors.presets.gpsmap.wireless") },
+      { title: t("sensors.presets.gpsmap.fixTitle"), tip: true, text: t("sensors.presets.gpsmap.fix") },
     ],
   },
   // --- sensori del telefono, senza Arduino
   {
-    id: "phoneAcc", topic: "Telefono", title: "Accelerometro", subtitle: "Pendolo, ascensore · telefono",
+    id: "phoneAcc", topic: TOPIC.tools, title: t("sensors.presets.phoneAcc.title"), subtitle: t("sensors.presets.phoneAcc.subtitle"),
     icon: Smartphone, tone: "lime", sim: "phone-pendulum",
     sensors: [{ type: "pmotion", interval: 20 }],
     visible: ["ax", "ay", "az"], readouts: ["am", "ay"],
-    tips: [{ title: "Idea", tip: true, text: "Pendolo: appendi il telefono a due spaghi, schermo verso di te, e fallo oscillare; il fit della sinusoide su a_y dà il periodo. Ascensore: telefono sul pavimento, guarda a_z alla partenza e all'arrivo." }],
+    tips: [{ title: IDEA, tip: true, text: t("sensors.presets.phoneAcc.tip") }],
   },
   {
-    id: "phoneGyro", topic: "Telefono", title: "Giroscopio", subtitle: "Moto circolare · telefono",
+    id: "phoneGyro", topic: TOPIC.tools, title: t("sensors.presets.phoneGyro.title"), subtitle: t("sensors.presets.phoneGyro.subtitle"),
     icon: Rotate3d, tone: "sky", sim: "phone-turn",
     sensors: [{ type: "pmotion", interval: 20 }],
     visible: ["gz"], readouts: ["gz", "ax"],
-    tips: [{ title: "Idea", tip: true, text: "Telefono su una sedia girevole o un giradischi: ω_z resta costante nel moto circolare uniforme, e aₓ verso il centro vale ω²r. Nel pendolo il giroscopio oscilla con il periodo del pendolo, a_y con frequenza doppia: perché?" }],
+    tips: [{ title: IDEA, tip: true, text: t("sensors.presets.phoneGyro.tip") }],
   },
   {
-    id: "phoneSound", topic: "Telefono", title: "Frequenza nel tempo", subtitle: "Effetto Doppler · microfono",
+    id: "phoneSound", topic: TOPIC.tools, title: t("sensors.presets.phoneSound.title"), subtitle: t("sensors.presets.phoneSound.subtitle"),
     icon: AudioLines, tone: "rose", sim: "phone-sound",
     sensors: [{ type: "psound", interval: 50 }],
     visible: ["freq", "level"], readouts: ["freq", "level"],
-    tips: [{ title: "Idea", tip: true, text: "Un'auto o un motorino che suona passandoti davanti: la frequenza scende quando ti supera. Dal salto di frequenza ricavi la velocità: v ≈ c·Δf / (2f)." }],
+    tips: [{ title: IDEA, tip: true, text: t("sensors.presets.phoneSound.tip") }],
   },
 ];
-export const PRESET_TOPICS = ["Cinematica", "Termologia", "Sul campo", "Telefono"];
+export const PRESET_TOPICS = [TOPIC.kinematics, TOPIC.thermo, TOPIC.field];
+/** Esperimenti con i soli sensori del telefono: nella barra stanno tra gli strumenti. */
+export const PHONE_PRESETS = PRESETS.filter((p) => p.topic === TOPIC.tools);
 /** Argomenti chiusi all'inizio nella barra: il centro dell'app resta Arduino. */
-export const COLLAPSED_TOPICS = ["Telefono"];
+export const COLLAPSED_TOPICS: string[] = [];
 export const presetById = (id: string | null | undefined) => PRESETS.find((p) => p.id === id);
 
 /** I sensori di un preset come istanze (pin e opzioni di partenza). */
@@ -125,20 +133,20 @@ export interface Instrument {
 
 export const INSTRUMENTS: Instrument[] = [
   {
-    id: "scope", kind: "scope", source: "audio", title: "Oscilloscopio", subtitle: "Forma d'onda di un suono", icon: AudioWaveform, tone: "lime",
-    wiring: [{ title: "Microfono del dispositivo", text: "Basta il microfono del telefono o del computer. L'audio non viene registrato né inviato." }],
+    id: "scope", kind: "scope", source: "audio", title: t("sensors.instruments.scope.title"), subtitle: t("sensors.instruments.scope.subtitle"), icon: AudioWaveform, tone: "lime",
+    wiring: [{ title: t("sensors.instruments.scope.wiringTitle"), text: t("sensors.instruments.scope.wiring") }],
   },
   {
-    id: "synth", kind: "synth", source: "arduino", optionalLink: true, title: "Synth", subtitle: "Genera un suono · tastiera, tocco, inclinazione, HC-SR04",
+    id: "synth", kind: "synth", source: "arduino", optionalLink: true, title: "Synth", subtitle: t("sensors.instruments.synth.subtitle"),
     icon: Piano, tone: "saffron", sim: "hand",
-    wiring: [{ title: "Con Arduino (facoltativo)", schematic: "hcsr04", pins: { trig: "D12", echo: "D11" }, text: "HC-SR04 con TRIG su D12 ed ECHO su D11, rivolto verso l'alto. Muovi la mano tra 5 e 50 cm sopra il sensore." }],
+    wiring: [{ title: t("sensors.instruments.synth.wiringTitle"), schematic: "hcsr04", pins: { trig: "D12", echo: "D11" }, text: t("sensors.instruments.synth.wiring") }],
   },
   {
-    id: "escope", kind: "scope", source: "arduino", title: "Oscilloscopio elettrico", subtitle: "Tensione su A0 · microfono, bobina", icon: Zap, tone: "sky", sim: "scope",
+    id: "escope", kind: "scope", source: "arduino", title: t("sensors.instruments.escope.title"), subtitle: t("sensors.instruments.escope.subtitle"), icon: Zap, tone: "sky", sim: "scope",
     wiring: [
-      { title: "Solo 0–5 V", warn: true, text: "Mai la rete elettrica. Il segnale va su A0." },
-      { title: "Microfono del kit", schematic: "mic" },
-      { title: "Bobina e magnete", schematic: "coil", text: "Usa il trigger singolo e fai cadere il magnete nella bobina." },
+      { title: t("sensors.instruments.escope.safeTitle"), warn: true, text: t("sensors.instruments.escope.safe") },
+      { title: t("sensors.instruments.escope.micTitle"), schematic: "mic" },
+      { title: t("sensors.instruments.escope.coilTitle"), schematic: "coil", text: t("sensors.instruments.escope.coil") },
     ],
   },
 ];

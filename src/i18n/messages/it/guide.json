@@ -1,0 +1,602 @@
+{
+  "button": "Guida",
+  "dialog": {
+    "title": "Guida di MosaicusNeo",
+    "description": "Manuale: firmware, collegamenti, misure, elaborazione, Bluetooth.",
+    "nav": "Capitoli",
+    "footer": "MosaicusNeo v{app} · firmware v{fw} · basato su Mosaicus (© 2026 Ermes Ferdinando Rosi) · licenza MIT · <repo>codice sorgente su GitHub</repo> · <issues>segnala un problema</issues> · <privacy>informativa sulla privacy</privacy>"
+  },
+  "chapters": {
+    "start": "Inizia qui",
+    "device": "Il tuo dispositivo",
+    "firmware": "Caricare il firmware",
+    "wiring": "Collegare i componenti",
+    "measure": "Misurare",
+    "rigs": "Progetti e componenti",
+    "analysis": "Elaborazione",
+    "field": "Sul campo e Bluetooth",
+    "sd": "Scheda SD e pulsante",
+    "outputs": "Display, LED e cicalino",
+    "data": "Dati e account",
+    "problems": "Problemi comuni"
+  },
+  "picker": {
+    "label": "Istruzioni per",
+    "aria": "Istruzioni per quale dispositivo",
+    "itemThis": "{label} (questo)",
+    "badgeThis": "· questo",
+    "this": "questo"
+  },
+  "otherDevice": {
+    "text": "Stai leggendo le istruzioni per: <b>{reading}</b>. Questo dispositivo: {here}.",
+    "back": "Torna al mio"
+  },
+  "checks": {
+    "usbTitle": "Cavo USB",
+    "bleTitle": "Bluetooth LE",
+    "hc06Title": "Bluetooth HC-06",
+    "secureTitle": "Connessione sicura",
+    "installedTitle": "Installata come app",
+    "usb": {
+      "android": "Il browser del telefono non usa il cavo verso Arduino: collegati via Bluetooth.",
+      "ios": "iPhone e iPad non permettono il cavo verso Arduino: serve un modulo Bluetooth LE.",
+      "ok": "Puoi collegare Arduino con il cavo USB.",
+      "chromiumOff": "Collegamento seriale disattivato in questo browser: aggiorna Chrome o Edge.",
+      "otherBrowser": "{browser} non comunica con Arduino: apri questa pagina in Chrome o Edge."
+    },
+    "ble": {
+      "off": "Supportato, ma il Bluetooth è spento o assente: attivalo nelle impostazioni.",
+      "ok": "Puoi collegarti a un modulo Bluetooth LE (HM-10, AT-09, HC-08).",
+      "ios": "I browser di iPhone non danno il Bluetooth alle pagine web: installa Bluefy (gratuito, App Store) e apri lì MosaicusNeo.",
+      "chromiumOff": "Bluetooth web non disponibile (su Linux va attivato in chrome://flags).",
+      "otherBrowser": "{browser} non supporta il Bluetooth web: usa Chrome o Edge."
+    },
+    "hc06": {
+      "ios": "L'HC-06 usa il Bluetooth classico, che iPhone e iPad non supportano: serve un modulo BLE.",
+      "androidOk": "Puoi usare l'HC-06: associalo prima nelle impostazioni Bluetooth (PIN 1234).",
+      "androidChrome": "Serve Chrome 138 o successivo (qui: {version}): aggiornalo dal Play Store.",
+      "androidOther": "Serve Chrome per Android 138 o successivo.",
+      "pcWarn": "Funziona solo se l'HC-06 è già associato nelle impostazioni Bluetooth del sistema. Un modulo BLE non richiede associazione.",
+      "pcNo": "Serve Chrome o Edge."
+    },
+    "secure": {
+      "ok": "Pagina in https: USB e Bluetooth consentiti.",
+      "no": "Apri l'app dal suo indirizzo https: senza, il browser blocca USB e Bluetooth."
+    },
+    "installed": {
+      "ok": "Si apre anche senza rete.",
+      "ios": "Facoltativo: Condividi → «Aggiungi alla schermata Home».",
+      "other": "Facoltativo: menu del browser → «Installa MosaicusNeo». Poi si apre anche senza rete."
+    }
+  },
+  "port": {
+    "windows": "Nel menu in alto: <b>Arduino Uno</b> e la porta <b>COM3, COM4…</b> che compare quando colleghi il cavo.",
+    "mac": "Nel menu in alto: <b>Arduino Uno</b> e la porta <b>/dev/cu.usbmodem…</b> (cloni: <b>/dev/cu.wchusbserial…</b>).",
+    "linux": "Nel menu in alto: <b>Arduino Uno</b> e <b>/dev/ttyACM0</b> (o <b>/dev/ttyUSB0</b>). Senza permessi: <code>sudo usermod -aG dialout $USER</code>, poi esci e rientra.",
+    "chromeos": "Usa l''<b>Arduino Cloud Editor</b> con il suo plugin: scegli <b>Arduino Uno</b> e la porta che compare.",
+    "other": "Nel menu in alto: <b>Arduino Uno</b> e la porta (Windows: COM3, COM4…; Mac: /dev/cu.usbmodem…; Linux: /dev/ttyACM0)."
+  },
+  "connectHow": {
+    "pc": "«Collega Arduino» e scegli la porta USB. Con un modulo BLE: menu ▾ → «Bluetooth LE».",
+    "android": "HC-06 già associato: «Collega via Bluetooth». Modulo BLE: menu ▾ → «Bluetooth LE».",
+    "ios": "In Bluefy: «Collega via Bluetooth LE» → «MosaicusNeo».",
+    "wait": "Attendi <b>Arduino pronto</b>. Senza hardware: «Simulatore»."
+  },
+  "path": {
+    "pc": {
+      "s1": {
+        "t": "Usa Chrome o Edge",
+        "d": "Firefox e Safari non comunicano con Arduino."
+      },
+      "s2": {
+        "t": "Carica il firmware",
+        "d": "Una volta sola: <firmware>Caricare il firmware</firmware>."
+      },
+      "s3": {
+        "t": "Collega i componenti",
+        "d": "Segui lo schema: <wiring>Collegare i componenti</wiring>."
+      },
+      "s4": {
+        "t": "Collega Arduino con il cavo USB",
+        "d": "«Collega Arduino» → scegli la porta{port} → attendi «Arduino pronto»."
+      },
+      "s5": {
+        "t": "Misura e analizza",
+        "d": "«Avvia», «Ferma», seleziona un tratto sul grafico e «Analizza il tratto». Vedi <measure>Misurare</measure>."
+      }
+    },
+    "android": {
+      "s1": {
+        "t": "Da un computer: carica il firmware",
+        "d": "Il telefono non programma Arduino. Una volta sola: <firmware>Caricare il firmware</firmware>."
+      },
+      "s2": {
+        "t": "Aggiungi un modulo Bluetooth",
+        "d": "HC-06 o BLE (HM-10, AT-09, HC-08): è un componente come gli altri, in «Aggiungi un componente» → <b>Bluetooth</b> (o dal menu ▾ di «Collega»). Lo schema lo include."
+      },
+      "s3": {
+        "t": "Dal computer: configura il modulo",
+        "d": "Una volta sola, con Arduino via USB: <field>Sul campo e Bluetooth</field>."
+      },
+      "s4": {
+        "t": "Sul telefono, in Chrome: collega",
+        "d": "HC-06: associa «MosaicusNeo» nelle impostazioni Bluetooth (PIN 1234), poi «Collega via Bluetooth». BLE: menu ▾ → «Bluetooth LE»."
+      },
+      "s5": {
+        "t": "Alimenta Arduino con un power bank e misura",
+        "d": "Lo schermo resta acceso durante la misura. Il Quaderno si salva ogni 30 s."
+      }
+    },
+    "ios": {
+      "note": "Su iPhone e iPad servono un modulo <b>Bluetooth LE</b> (HM-10, AT-09/BT05, HC-08) e il browser gratuito <b>Bluefy</b>. Cavo e HC-06 non funzionano: è un limite di iOS.",
+      "s1": {
+        "t": "Da un computer: carica il firmware",
+        "d": "Una volta sola: <firmware>Caricare il firmware</firmware>."
+      },
+      "s2": {
+        "t": "Collega il modulo BLE",
+        "d": "Aggiungi il componente <b>Bluetooth LE</b> (in «Aggiungi un componente» → <b>Bluetooth</b>): lo schema lo include."
+      },
+      "s3": {
+        "t": "Dal computer: configura il modulo",
+        "d": "Una volta sola, con Arduino via USB: <field>Sul campo e Bluetooth</field>."
+      },
+      "s4": {
+        "t": "Installa Bluefy e apri MosaicusNeo",
+        "d": "Dall'App Store. Scrivi l'indirizzo dell'app nella barra di Bluefy."
+      },
+      "s5": {
+        "t": "Collega e misura",
+        "d": "Arduino sul power bank, poi «Collega via Bluetooth LE» → «MosaicusNeo»."
+      }
+    },
+    "board": {
+      "s1": {
+        "t": "Attiva la modalità LIM",
+        "d": "Testi grandi e grafici più leggeri per le lavagne lente. <lim>Attivala ora</lim> (anche dal menu Aspetto, in alto)."
+      },
+      "s2": {
+        "t": "Scegli da dove arrivano i dati",
+        "d": "La lavagna non usa il cavo verso Arduino. Puoi: usare un modulo Bluetooth (come su Android, con Chrome); misurare dal computer di classe e proiettarlo; accedere con lo stesso account e aprire dal Quaderno le misure fatte altrove."
+      },
+      "s3": {
+        "t": "Con il Bluetooth",
+        "d": "Firmware e configurazione del modulo si fanno una volta da un computer: <field>Sul campo e Bluetooth</field>."
+      },
+      "s4": {
+        "t": "Per discutere i dati in classe",
+        "d": "Quaderno → «Analizza»: in Elaborazione fit e tangenti si usano anche al tocco."
+      }
+    }
+  },
+  "share": {
+    "open": "Sull'altro dispositivo apri questo indirizzo: <b>{url}</b>",
+    "share": "Condividi il link",
+    "copy": "Copia il link",
+    "copied": "Link copiato."
+  },
+  "startDevice": {
+    "path": "Il tuo percorso: {device}",
+    "check": "Controlla il dispositivo →",
+    "cannot": "Questo dispositivo non può ancora collegarsi ad Arduino. Cosa manca e come rimediare: <device>Il tuo dispositivo</device>."
+  },
+  "yourDevice": {
+    "using": "Stai usando: {device}",
+    "worksHere": "Che cosa funziona qui",
+    "unknown": "Non riesco a riconoscere il dispositivo.",
+    "which": "Con quale dispositivo misuri",
+    "whichText": "Le istruzioni della guida seguono questa scelta (modificabile anche dal menu in alto). Se leggi dal computer ma misuri con il telefono, scegli il telefono.",
+    "compare": "Confronto dei dispositivi",
+    "colDevice": "Dispositivo",
+    "colUsb": "Cavo USB",
+    "colBt": "Bluetooth",
+    "rows": {
+      "pc": {
+        "name": "Computer (Chrome, Edge)",
+        "usb": "sì",
+        "bt": "BLE sì; HC-06 se già associato"
+      },
+      "android": {
+        "name": "Android (Chrome)",
+        "usb": "—",
+        "bt": "HC-06 e BLE"
+      },
+      "ios": {
+        "name": "iPhone, iPad",
+        "usb": "—",
+        "bt": "solo BLE, nel browser Bluefy"
+      },
+      "board": {
+        "name": "Lavagna Android",
+        "usb": "—",
+        "bt": "come Android (Chrome)"
+      }
+    }
+  },
+  "start": {
+    "intro": "MosaicusNeo legge i sensori collegati ad Arduino, mostra i grafici in tempo reale, salva le misure e le analizza. Funziona nel browser, anche senza rete.",
+    "needTitle": "Che cosa serve",
+    "need": {
+      "arduino": "<b>Arduino Uno</b> o un clone (es. Elegoo UNO R3), con il cavo USB.",
+      "parts": "<b>I componenti</b> dell'esperimento, una breadboard e cavetti jumper.",
+      "computer": "<b>Un computer</b> con Chrome o Edge: serve per caricare il firmware e per misurare via cavo.",
+      "optional": "<b>Facoltativo</b>: modulo Bluetooth e power bank, per misurare senza cavo con il telefono."
+    },
+    "stepsTitle": "I passaggi",
+    "steps": {
+      "s1": {
+        "t": "Firmware",
+        "d": "una volta sola"
+      },
+      "s2": {
+        "t": "Esperimento",
+        "d": "elenco a sinistra"
+      },
+      "s3": {
+        "t": "Collegamenti",
+        "d": "segui lo schema"
+      },
+      "s4": {
+        "t": "Misura",
+        "d": "Avvia → Ferma"
+      },
+      "s5": {
+        "t": "Analisi",
+        "d": "Elaborazione"
+      }
+    },
+    "simulator": "Senza hardware premi <b>Simulatore</b>: genera dati realistici per ogni esperimento."
+  },
+  "firmware": {
+    "intro": "Il firmware è il programma che gira su Arduino. È uno solo per tutti gli esperimenti: lo carichi una volta, poi l'app gli indica quali componenti leggere.",
+    "pcOnly": "Il firmware si carica <b>da un computer</b> (Windows, Mac, Linux o Chromebook) con il cavo USB: {device} non programma Arduino. Poi misuri con {target, select, board {la lavagna} other {il telefono}} via Bluetooth.",
+    "download": "Scarica il firmware v{v}",
+    "source": "Codice su GitHub",
+    "fileNote": "mosaicusneo_firmware.ino · nessuna libreria da installare",
+    "s1": {
+      "t": "Installa Arduino IDE 2",
+      "d": "Da arduino.cc → Software. Su Chromebook o su computer senza permessi di installazione usa l'Arduino Cloud Editor."
+    },
+    "s2": {
+      "t": "Apri il file scaricato",
+      "d": "Apri <b>mosaicusneo_firmware.ino</b>. Se l'IDE chiede di spostarlo in una cartella con lo stesso nome, conferma con <b>OK</b>."
+    },
+    "s3": {
+      "t": "Collega Arduino con il cavo USB",
+      "d": "Si accende il LED «ON». Se c'è un modulo Bluetooth su D0, stacca ora il suo filo TXD."
+    },
+    "s4": {
+      "t": "Scegli scheda e porta"
+    },
+    "s5": {
+      "t": "Premi «Carica» (freccia →)",
+      "d": "I LED TX/RX lampeggiano; dopo qualche secondo compare <b>Caricamento completato</b>."
+    },
+    "s6": {
+      "t": "Verifica in MosaicusNeo",
+      "d": "Chiudi l'IDE, premi <b>Collega Arduino</b> e scegli la porta. Lo stato diventa <b>Arduino pronto · firmware {v}</b>."
+    },
+    "ch340": "Clone con chip CH340 e nessuna porta? Installa il driver CH340 per il tuo sistema e ricollega il cavo.",
+    "serialBusy": "La porta seriale si apre da un solo programma alla volta: con il Monitor seriale dell'IDE aperto, MosaicusNeo non si collega, e viceversa."
+  },
+  "wiring": {
+    "intro": "Ogni progetto ha il suo schema dei collegamenti, fatto dai suoi componenti e dai pin che hai scelto: apri il progetto e vai nella scheda «Collegamenti». Lì trovi lo schema sulla breadboard (o quello compatto), l'occorrente e i passi, foro per foro.",
+    "breadboard": "La breadboard",
+    "bb1": "I cinque fori di una colonna (a–e oppure f–j) sono collegati tra loro; il solco centrale li separa.",
+    "bb2": "I binari laterali corrono per tutta la lunghezza: rosso (+) per il 5V, blu (−) per il GND.",
+    "bb3": "D0 e D1 sono riservati al cavo USB e al Bluetooth: non collegarci componenti.",
+    "where": "Lo schema si aggiorna quando aggiungi o cambi i componenti. Bluetooth, scheda SD e pulsante sono componenti come gli altri: aggiungili al progetto e compaiono nello schema.",
+    "open": "Apri la scheda Collegamenti",
+    "empty": "Il progetto aperto non ha ancora componenti di Arduino: aggiungili prima nella scheda «Componenti»."
+  },
+  "measure": {
+    "s1": {
+      "t": "Scegli l'esperimento",
+      "d": "Dall'elenco a sinistra. In alto compaiono i componenti con i loro pin."
+    },
+    "s2": {
+      "t": "Controlla i collegamenti",
+      "d": "Scheda «Collegamenti» (a destra; sul telefono in basso)."
+    },
+    "s3": {
+      "t": "Collega Arduino"
+    },
+    "s4": {
+      "t": "Dai un nome alla misura",
+      "d": "Sopra il pulsante «Avvia», es. «Gruppo 3 · piano inclinato». Se lo lasci vuoto: titolo dell'esperimento con data e ora."
+    },
+    "s5": {
+      "t": "Avvia e ferma",
+      "d": "Con «Avvia» i punti arrivano in tempo reale. Con «Ferma» la misura viene salvata nel Quaderno."
+    },
+    "s6": {
+      "t": "Seleziona un tratto",
+      "d": "Trascina sul grafico: il tratto si evidenzia su tutti i grafici. Doppio clic per annullare; pizzico o Ctrl + rotella per lo zoom."
+    },
+    "s7": {
+      "t": "Analizzalo",
+      "d": "«Analizza il tratto» apre Elaborazione sul nuovo riquadro. Il «+» accanto aggiunge il riquadro senza cambiare pagina."
+    },
+    "more": "Altri comandi",
+    "m1": "<b>Grafici</b>: il menu sopra i grafici sceglie le grandezze. I «dati grezzi» sono le letture prima delle conversioni.",
+    "m2": "<b>Tabella</b> ed <b>Esporta</b> (icone a destra): i valori numerici, o file Excel, CSV, immagine, GPX.",
+    "m3": "<b>Azzera</b> (mirino, con il sensore a ultrasuoni): la posizione attuale diventa lo zero.",
+    "m4": "<b>Quaderno</b>: tutte le misure, con ricerca e filtri. «Apri» la riporta in Misura, «Analizza» la manda intera in Elaborazione.",
+    "m5": "<b>Modalità LIM</b> (menu Aspetto): testi grandi e grafici più leggeri, per lavagne e PC lenti."
+  },
+  "rigs": {
+    "intro": "Ogni esperimento e ogni progetto ha un elenco di <b>componenti</b>: sensori, display, LED e cicalino, ciascuno con i suoi pin e il suo ritmo di lettura. Fino a 6 sensori insieme, anche dello stesso tipo (es. due termistori per confrontare due tazze).",
+    "projects": "Progetti",
+    "projectsIntro": "Un <b>progetto</b> è un insieme di componenti scelto da te. Lo trovi in <b>«I miei progetti»</b>, in cima alla barra laterale:",
+    "p1": "<b>Nuovo progetto</b>: parti da zero.",
+    "p2": "<b>Copia come progetto</b> (in un esperimento, scheda «Componenti»): parti dai suoi componenti.",
+    "p3": "Con un account, i progetti sono disponibili su tutti i tuoi dispositivi.",
+    "personal": "Se modifichi un esperimento pronto ottieni una <b>versione personale</b>; «Ripristina» torna all'originale.",
+    "edit": "Modificare i componenti",
+    "s1": {
+      "t": "Apri la scheda «Componenti»",
+      "d": "A destra; sul telefono, il pulsante sotto il titolo."
+    },
+    "s2": {
+      "t": "Aggiungi o togli componenti",
+      "d": "«Aggiungi un componente» apre il catalogo: cerca per nome o grandezza, filtra per categoria."
+    },
+    "s3": {
+      "t": "Scegli i pin",
+      "d": "I pin già occupati non sono selezionabili. I sensori analogici vanno su A0…A5."
+    },
+    "s4": {
+      "t": "Scegli il ritmo",
+      "d": "«Una lettura ogni … ms». Limiti: DHT almeno 1000 ms, GPS una lettura al secondo, sonar fino a 30 ms."
+    },
+    "s5": {
+      "t": "Regola le opzioni",
+      "d": "Taratura, verso positivo, modello del DHT… Le meno usate sono in «Opzioni avanzate»."
+    },
+    "phone": "Sensori del telefono",
+    "phoneText": "Senza Arduino si possono usare l'accelerometro, il giroscopio e il microfono del telefono: esperimenti nella sezione «Strumenti» dell'elenco, oppure categoria «Telefono, senza Arduino» in «Aggiungi un componente». Apri l'app sul telefono (Chrome su Android, Safari su iPhone) e premi <b>Attiva i sensori</b>; su iPhone conferma il permesso. Non si mescolano con i componenti di Arduino nello stesso progetto.",
+    "errorNote": "Con un errore nei componenti (pin doppio, troppi sensori…) «Avvia» resta disattivato; il messaggio indica come correggerlo."
+  },
+  "analysis": {
+    "intro": "Ogni tratto inviato da Misura o dal Quaderno diventa un <b>riquadro</b>, con grafico, strumenti e dati. Sopra il grafico scegli le grandezze sugli assi, anche una in funzione dell'altra (es. T in funzione dell'altitudine).",
+    "tools": "Strumenti",
+    "tool": {
+      "range": {
+        "t": "Tratto",
+        "d": "Trascina per scegliere i dati. Statistiche del tratto: media ± errore della media (s/√n), deviazione standard s, minimo e massimo, variazione Δy e rapporto medio Δy/Δx (es. velocità media)."
+      },
+      "eyeLine": {
+        "t": "Retta a occhio",
+        "d": "Sposta le due maniglie finché la retta passa tra i punti (⬆⬇ contano i punti sopra e sotto), poi tocca due punti della retta per leggere Δy/Δx. «Confronta con i minimi quadrati» la confronta con la retta dei minimi quadrati."
+      },
+      "tangent": {
+        "t": "Tangente",
+        "d": "Tocca un punto della curva: pendenza in quel punto, es. la velocità istantanea."
+      },
+      "fit": {
+        "t": "Fit",
+        "d": "Scegli un modello (retta, parabola, esponenziale, sinusoide smorzata…): parametri con incertezza e significato fisico. «Verifica i residui» mostra i residui. «Confronta tutti i modelli»: tabella con s, R² e giudizio sui residui; il migliore è evidenziato."
+      },
+      "ruler": {
+        "t": "Righello",
+        "d": "Su un'onda: metti le due linee su due creste e indica quanti periodi N ci sono tra loro. T = Δt/N, f = 1/T."
+      },
+      "sheet": {
+        "t": "Foglio dei dati",
+        "d": "Tutti i valori. «Nuova colonna» calcola una grandezza da una formula (es. x^2, ln(T − 21), sqrt(L/g))."
+      }
+    },
+    "results": "Risultati e riquadri",
+    "r1": "<b>Salva</b> aggiunge un risultato al riquadro. L'icona a occhio lo mostra o lo nasconde sul grafico.",
+    "r2": "Un riquadro si può comprimere o <b>duplicare</b>, per provare un'altra analisi sugli stessi dati.",
+    "r3": "Spunta i riquadri e premi <b>Esporta in Excel</b>: un foglio di riepilogo, uno con tutti i risultati e uno per riquadro."
+  },
+  "sd": {
+    "intro": "Con una <b>scheda microSD</b> Arduino misura da solo, alimentato da un power bank o da una pila: niente computer, niente telefono, anche per ore. Con un <b>pulsante</b> decidi tu quando iniziare e fermare. Sono componenti come gli altri: li aggiungi da «Aggiungi un componente» (gruppi <b>Memoria</b> e <b>Comandi</b>) o dal menu ▾ di «Collega» → <b>Registra sulla scheda SD</b>.",
+    "need": "Che cosa serve",
+    "n1": "Un modulo microSD con regolatore («Micro SD Card Adapter»): va a 5V. Usa sempre D10 (CS), D11 (MOSI), D12 (MISO) e D13 (SCK): sposta su altri pin i componenti che li usavano.",
+    "n2": "Una scheda microSD formattata <b>FAT32</b>, fino a 32 GB (quelle più grandi escono in exFAT: riformattale in FAT32).",
+    "n3": "Facoltativo: un pulsante tra un pin digitale e GND (nessuna resistenza).",
+    "n4": "Il firmware v{v}.",
+    "record": "Registrare",
+    "s1": {
+      "t": "Prepara Arduino (una volta per progetto)",
+      "d": "Arduino collegato con il cavo USB: nella scheda del componente <b>Scheda SD</b> premi <b>Prepara Arduino</b>. Arduino riceve sensori, pin e ritmi, li salva (restano anche da spento) e prova la scheda."
+    },
+    "s2": {
+      "t": "Alimentalo senza computer",
+      "d": "Stacca il cavo e collega un power bank alla presa USB, o una pila da 9 V al jack."
+    },
+    "s3": {
+      "t": "Avvia e ferma",
+      "d": "Con il pulsante: premi per iniziare, premi di nuovo per fermare; ogni registrazione è un file nuovo (LOG00001.CSV, LOG00002.CSV…). Senza pulsante: registra da quando lo accendi a quando lo spegni. Arduino salva ogni 2 s: staccando la corrente perdi al massimo gli ultimi istanti."
+    },
+    "s4": {
+      "t": "Importa nel Quaderno",
+      "d": "Metti la scheda nel computer e premi <b>Importa dalla scheda SD</b> (nel Quaderno o nella scheda del componente): ogni file diventa una misura, con le grandezze, i grafici e l'Elaborazione di sempre."
+    },
+    "statusNote": "Il display, il LED e il cicalino dicono che cosa succede: «SD READY · PRESS» aspetta il pulsante, «SD 1:23 · REC» sta registrando, «PROBLEM · SD» se la scheda manca o non è FAT32.",
+    "buttonTitle": "Il pulsante con l'app",
+    "buttonText": "Con l'app collegata, via cavo o Bluetooth, il pulsante fa come «Avvia» e «Ferma»: comodo quando le mani servono all'esperimento. Se colleghi l'app mentre Arduino registra sulla scheda, la registrazione si chiude e si misura come sempre."
+  },
+  "field": {
+    "iosNote": "Su iPhone e iPad: solo moduli <b>BLE</b> e solo nel browser <b>Bluefy</b>.",
+    "intro": "Con un modulo Bluetooth e un power bank misuri all'aperto, con il telefono. Il modulo è un componente: aggiungi <b>Bluetooth HC-06</b> o <b>Bluetooth LE</b> al progetto (oppure sceglilo dal menu ▾ di «Collega»: entra da solo nei componenti), e schema e passi lo includono. I due tipi si collegano agli stessi pin, D0 e D1 (vedi <wiring>Collegare i componenti</wiring>).",
+    "table": {
+      "classic": "HC-06 (classico)",
+      "ble": "BLE (HM-10, AT-09, HC-08)",
+      "android": "Android",
+      "androidBoard": "Android / LIM",
+      "yesChrome": "sì (Chrome)",
+      "iphone": "iPhone / iPad",
+      "no": "no",
+      "yesBluefy": "sì, con il browser Bluefy",
+      "computer": "Computer",
+      "ifPaired": "se associato prima",
+      "yesChromeEdge": "sì (Chrome, Edge)",
+      "before": "Prima di collegarsi",
+      "pairIt": "associalo nelle impostazioni",
+      "nothing": "nulla: si sceglie dall'app"
+    },
+    "config": "Configurare il modulo (una volta sola)",
+    "c1": {
+      "t": "Collega il modulo come nello schema",
+      "d": "VCC a 5V, GND a GND, TXD → D0, RXD ← D1 attraverso il partitore 1 kΩ / 2 kΩ."
+    },
+    "c2": {
+      "t": "Collega Arduino al computer con il cavo USB",
+      "d": "Il LED del modulo lampeggia: nessun telefono è collegato."
+    },
+    "c3": {
+      "t": "«Collega Arduino»",
+      "d": "Attendi «Arduino pronto»."
+    },
+    "c4": {
+      "t": "Premi «Configura»",
+      "d": "In «Collegamenti», con Bluetooth attivo, nel passo del modulo Bluetooth."
+    },
+    "c5": {
+      "t": "Attendi la conferma",
+      "d": "Il modulo ora si chiama «MosaicusNeo» e comunica a 115200 baud, come Arduino."
+    },
+    "phone": "Misurare con il telefono",
+    "p1": {
+      "t": "Alimenta Arduino con un power bank",
+      "d": "Il cavo USB va al power bank, non al computer."
+    },
+    "p2": {
+      "t": "Apri MosaicusNeo",
+      "d": "Android: Chrome. iPhone e iPad: <b>Bluefy</b> (gratuito, App Store), con l'indirizzo dell'app."
+    },
+    "p3": {
+      "t": "Collega",
+      "d": "HC-06: associa «MosaicusNeo» nelle impostazioni Bluetooth (PIN 1234), poi «Collega via Bluetooth». BLE: menu ▾ → <b>Bluetooth LE</b> → «MosaicusNeo» (su iPhone: «Collega via Bluetooth LE»)."
+    },
+    "p4": {
+      "t": "Avvia",
+      "d": "Lo schermo resta acceso durante la misura e il Quaderno si salva ogni 30 s: se il telefono si blocca, i dati restano."
+    },
+    "gps": "GPS",
+    "gpsText": "Il primo fix richiede da 30 secondi a qualche minuto, all'aperto e con il cielo libero; il LED del modulo lampeggia quando ha la posizione. I punti senza posizione restano in tabella ma non compaiono sulla mappa. La mappa colora i punti secondo la grandezza scelta. Esporta in GPX (Google Earth, Strava) o GeoJSON (QGIS)."
+  },
+  "outputs": {
+    "intro": "Display, LED RGB e cicalino mostrano lo stato di Arduino senza guardare il telefono. Si aggiungono come gli altri componenti: scheda «Componenti» → <b>Aggiungi un componente</b>, categoria «Display, LED, suoni». Richiedono il firmware v{v} o successivo.",
+    "colSituation": "Situazione",
+    "colDisplay": "Display",
+    "colLed": "LED",
+    "colBuzzer": "Cicalino",
+    "rows": {
+      "waiting": {
+        "situation": "Acceso, l'app non è collegata",
+        "display": "WAITING · APP · USB v1.6 (con un modulo Bluetooth: USB/BT 1.6)",
+        "led": "blu, lampeggia",
+        "beep": "1 bip ogni 3 s"
+      },
+      "connected": {
+        "situation": "Collegato, fermo",
+        "display": "CONNECTED · OK (via Bluetooth: «BT»)",
+        "led": "blu fisso",
+        "beep": "1 bip ogni 3 s"
+      },
+      "rejected": {
+        "situation": "Un componente è stato rifiutato",
+        "display": "CONFIG · DHT · pin doppio",
+        "led": "rosso, lampeggia veloce",
+        "beep": "3 bip ogni 3 s"
+      },
+      "gpsSearch": {
+        "situation": "Misura avviata, GPS in ricerca",
+        "display": "GPS SEARCH · 3 sat",
+        "led": "giallo, lampeggia",
+        "beep": "2 bip ogni 3 s"
+      },
+      "noResponse": {
+        "situation": "Un sensore non risponde",
+        "display": "PROBLEM · DHT",
+        "led": "rosso, lampeggia veloce",
+        "beep": "3 bip ogni 3 s"
+      },
+      "several": {
+        "situation": "Più sensori in difficoltà",
+        "display": "ERROR 1/2 · DHT · #2 wires?",
+        "led": "segue il più grave",
+        "beep": "segue il più grave"
+      },
+      "measuring": {
+        "situation": "Sta misurando, tutto a posto",
+        "display": "REC 1:23 · 23.4°",
+        "led": "verde fisso",
+        "beep": "silenzio (un «bip-bip» quando ci arriva)"
+      }
+    },
+    "buzzerNote": "<b>Finché il cicalino suona, qualcosa non è pronto.</b> Quando tace, Arduino sta misurando regolarmente.",
+    "gpsTitle": "GPS in ricerca",
+    "gpsText": "Appena acceso, o al chiuso, il GPS cerca i satelliti: giallo, 2 bip, e sul display il numero di satelliti visti. All'aperto il fix arriva in 30 secondi o qualche minuto. Se dal GPS non arriva alcun dato, controlla i fili: rosso, 3 bip, «GPS wires?».",
+    "multiTitle": "Più sensori, configurazione e Bluetooth",
+    "mu1": "Se più sensori hanno un problema, il display li mostra a turno ogni 2,5 secondi, prima gli errori e poi quelli in ricerca: «ERROR 1/2», «ERROR 2/2». LED e cicalino seguono sempre il più grave.",
+    "mu2": "Con due sensori dello stesso tipo, il display indica quale con il numero: «#2» è il secondo DHT nell'elenco dei componenti.",
+    "mu3": "Se Arduino rifiuta un componente (pin doppio, pin non analogico, secondo GPS), il display mostra «CONFIG» con il motivo finché non correggi i pin e riavvii la misura.",
+    "mu4": "In attesa dell'app il display mostra come collegarsi e la versione del firmware: «USB v1.6». Il Bluetooth è facoltativo: dopo «Configura» nel passo Bluetooth, se il modulo risponde, Arduino lo ricorda e il display mostra «USB/BT 1.6».",
+    "firmwareNote": "Queste funzioni richiedono il firmware v{v}.",
+    "details": "Dettagli",
+    "d1": "Arduino memorizza gli indicatori: alle accensioni successive mostra subito «in attesa dell'app», anche prima di collegare il telefono.",
+    "d2": "Durante la misura il display mostra la prima grandezza in grande e la seconda sotto, aggiornate ogni secondo.",
+    "d3": "«Prova display, LED e cicalino» (scheda «Componenti», con Arduino collegato) cambia colore al LED, fa suonare il cicalino e scrive «HELLO» sul display.",
+    "d4": "La scheda della misura riporta in piccolo che cosa mostrano in quel momento display, LED e cicalino.",
+    "d5": "Per silenziare il cicalino: opzione «Bip finché non è tutto pronto» → no.",
+    "d6": "Display, accelerometro MPU-6050 e termometro a infrarossi MLX90614 possono condividere i due pin I2C (di solito A4 e A5)."
+  },
+  "data": {
+    "whereTitle": "Dove sono salvati",
+    "where": "Misure del Quaderno e riquadri di Elaborazione restano <b>nel browser di questo dispositivo</b>, anche senza rete. Cancellando i dati di navigazione si perdono: esporta ciò che vuoi conservare.",
+    "accountTitle": "Account (facoltativo)",
+    "account": "Con «Accedi» crei un account con email e password. Misure, riquadri, progetti e preferenze vengono salvati nel cloud e sono disponibili su tutti i tuoi dispositivi; anche le misure fatte prima di accedere passano all'account. Quando esci, i dati spariscono dal dispositivo ma restano nel cloud: adatto ai computer della scuola.",
+    "delete": "Per eliminare l'account: menu dell'account → <b>Elimina account</b>. Account e dati nel cloud vengono cancellati subito e per sempre; esporta prima quello che vuoi conservare.",
+    "formatsTitle": "Formati di esportazione",
+    "f1": "<b>Excel (.xlsx)</b>: i dati e un foglio con componenti, pin e opzioni usati.",
+    "f2": "<b>CSV per Excel in italiano</b> (virgola decimale) o <b>CSV standard</b> (Fogli Google, Python).",
+    "f3": "<b>Immagine</b> dei grafici; <b>GPX</b> e <b>GeoJSON</b> per le tracce GPS.",
+    "f4": "<b>Dati grezzi</b> (CSV o Excel): le letture come arrivano da Arduino (conteggi ADC, µs dell'eco, byte del DHT, campi NMEA), una riga per lettura. Per script in Python, R o MATLAB."
+  },
+  "problems": {
+    "noPort": {
+      "q": "«Collega Arduino» non mostra nessuna porta",
+      "a": "Browser non supportato, cavo solo di ricarica, driver mancante o porta occupata. Usa Chrome o Edge su computer; prova un altro cavo o un'altra porta USB; con un clone CH340 installa il driver CH340; chiudi l'IDE di Arduino."
+    },
+    "noFirmware": {
+      "q": "«Firmware non trovato»",
+      "a": "Su Arduino non c'è il firmware MosaicusNeo. Caricalo: <firmware>Caricare il firmware</firmware>. Con un modulo Bluetooth su D0, stacca il filo TXD durante il caricamento."
+    },
+    "oldFirmware": {
+      "q": "«Il firmware su Arduino è vecchio»",
+      "a": "Le funzioni recenti (progetti, Bluetooth LE) richiedono la v{v}. Scarica di nuovo il firmware e ricaricalo."
+    },
+    "dht": {
+      "q": "Il DHT11 dà valori vuoti o «—»",
+      "a": "Collegamento errato o letture troppo frequenti. Verifica DATA sul pin scelto e VCC a 5V; il sensore senza modulo (4 piedini) richiede 10 kΩ tra DATA e 5V. Leggi al massimo una volta al secondo (DHT22: ogni 2 s)."
+    },
+    "sonar": {
+      "q": "Il sonar dà salti o punti mancanti",
+      "a": "L'eco si perde o rimbalza su altri oggetti. Usa un bersaglio piatto e ampio, tra 5 cm e 3 m, con il fascio libero. Nelle opzioni avanzate puoi scartare i salti anomali e regolare la lisciatura di velocità e accelerazione."
+    },
+    "thermistor": {
+      "q": "La temperatura del termistore è sbagliata di qualche grado",
+      "a": "Configurazione diversa dal circuito reale. Verifica la «posizione del termistore nel partitore» (tra 5V e il pin, o tra il pin e GND) e, nelle opzioni avanzate, R₀ e B del termistore. Una correzione di taratura si somma a tutti i valori."
+    },
+    "gps": {
+      "q": "Il GPS non trova la posizione",
+      "a": "Con «cerco i satelliti» il GPS funziona, ma non ha ancora segnale: spostati all'aperto, lontano da edifici alti, e attendi qualche minuto. Se non arriva alcun dato, verifica che il TX del GPS sia sul pin «RX di Arduino» scelto."
+    },
+    "bluetooth": {
+      "q": "Il modulo Bluetooth non compare",
+      "a1": "HC-06: non è associato o il dispositivo non lo supporta. Associalo nelle impostazioni del telefono (PIN 1234 o 0000); funziona solo su Android.",
+      "a2": "BLE: si cerca dall'app, non dalle impostazioni. Se «MosaicusNeo» non c'è, il modulo non è configurato: cerca HMSoft, BT05 o HC-08. Su iPhone usa Bluefy, non Safari.",
+      "a3": "Si collega ma non arrivano dati: il modulo è ancora a 9600 baud. Ripeti «Configura» con il cavo USB (<field>Sul campo e Bluetooth</field>)."
+    },
+    "slow": {
+      "q": "L'app è lenta",
+      "a": "Dispositivo poco potente o troppi grafici. Attiva la <b>modalità LIM</b> (menu Aspetto): disattiva le animazioni e disegna grafici più leggeri. Chiudi le altre schede; nelle misure lunghe mostra meno grafici (menu «Grafici»)."
+    },
+    "report": "Il problema non è qui? <issues>Segnalalo su GitHub</issues>: descrivi dispositivo, browser, componenti e che cosa succede."
+  }
+}

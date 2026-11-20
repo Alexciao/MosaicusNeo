@@ -1,5 +1,6 @@
 "use client";
 
+import { useTranslations } from "next-intl";
 import { Bluetooth, BluetoothSearching, Cable, ChevronDown, Cpu, MemoryStick, Smartphone, Unplug, Usb } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
@@ -28,7 +29,6 @@ export function StatusPill({ className }: { className?: string }) {
 
 /** Android: la Web Serial di Chrome vede solo le porte seriali Bluetooth (HC-06 associato). */
 export const isAndroid = () => typeof navigator !== "undefined" && /Android/i.test(navigator.userAgent);
-export const connectLabel = () => (isAndroid() ? "Collega via Bluetooth" : "Collega Arduino");
 /** Questo browser può collegarsi ad Arduino in qualche modo? */
 export const canReachArduino = () => serialSupported() || bleSupported();
 
@@ -40,54 +40,55 @@ export const canReachArduino = () => serialSupported() || bleSupported();
 export function ConnectButton({ size = "sm" }: { size?: "sm" | "lg" }) {
   const serial = serialSupported(), ble = bleSupported();
   const bt = useLab((s) => btOf(s.rig));
+  const t = useTranslations("app.connect");
   // il collegamento principale segue il modulo Bluetooth del progetto, se c'è
   const primary: "usb" | "hc06" | "ble" = !serial && ble ? "ble" : bt === "ble" && ble ? "ble" : isAndroid() ? "hc06" : "usb";
   const icon = primary === "ble" ? <BluetoothSearching /> : primary === "hc06" ? <Bluetooth /> : <Usb />;
-  const label = primary === "ble" ? "Collega via Bluetooth LE" : connectLabel();
+  const label = primary === "ble" ? t("ble") : isAndroid() ? t("bt") : t("usb");
   return (
     <div className="flex">
       <Button size={size} disabled={!serial && !ble} className="rounded-r-none" onClick={() => void connectVia(primary)}>
         {icon} {label}
       </Button>
       <DropdownMenu>
-        <DropdownMenuTrigger render={<Button size={size === "lg" ? "icon-lg" : "icon-sm"} aria-label="Altri modi di collegamento" className="rounded-l-none border-l border-l-primary-foreground/15" disabled={!serial && !ble} />}>
+        <DropdownMenuTrigger render={<Button size={size === "lg" ? "icon-lg" : "icon-sm"} aria-label={t("more")} className="rounded-l-none border-l border-l-primary-foreground/15" disabled={!serial && !ble} />}>
           <ChevronDown />
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="w-72">
           <DropdownMenuGroup>
-            <DropdownMenuLabel>Come è collegato Arduino?</DropdownMenuLabel>
+            <DropdownMenuLabel>{t("how")}</DropdownMenuLabel>
             {!isAndroid() && (
               <DropdownMenuItem disabled={!serial} onClick={() => void connectVia("usb")}>
                 <Cable />
                 <span className="flex flex-col">
-                  <span>Cavo USB</span>
-                  {!serial && <span className="text-xs text-muted-foreground">non disponibile in questo browser</span>}
+                  <span>{t("cable")}</span>
+                  {!serial && <span className="text-xs text-muted-foreground">{t("unavailable")}</span>}
                 </span>
               </DropdownMenuItem>
             )}
             <DropdownMenuItem disabled={!serial} onClick={() => void connectVia("hc06")}>
               <Bluetooth />
               <span className="flex flex-col">
-                <span>Bluetooth classico (HC-06)</span>
-                <span className="text-xs text-muted-foreground">{!serial ? "non disponibile in questo browser" : bt === "hc06" ? "il modulo del progetto" : "associalo prima nelle impostazioni · entra nei componenti"}</span>
+                <span>{t("hc06")}</span>
+                <span className="text-xs text-muted-foreground">{!serial ? t("unavailable") : bt === "hc06" ? t("projectModule") : t("hc06Hint")}</span>
               </span>
             </DropdownMenuItem>
             <DropdownMenuItem disabled={!ble} onClick={() => void connectVia("ble")}>
               <BluetoothSearching />
               <span className="flex flex-col">
-                <span>Bluetooth LE (HM-10, AT-09, HC-08)</span>
-                <span className="text-xs text-muted-foreground">{!ble ? "non disponibile in questo browser" : bt === "ble" ? "il modulo del progetto · anche su iPhone con Bluefy" : "anche su iPhone con Bluefy · entra nei componenti"}</span>
+                <span>{t("bleItem")}</span>
+                <span className="text-xs text-muted-foreground">{!ble ? t("unavailable") : bt === "ble" ? t("bleProject") : t("bleHint")}</span>
               </span>
             </DropdownMenuItem>
           </DropdownMenuGroup>
           <DropdownMenuSeparator />
           <DropdownMenuGroup>
-            <DropdownMenuLabel>Senza collegamento</DropdownMenuLabel>
+            <DropdownMenuLabel>{t("noLink")}</DropdownMenuLabel>
             <DropdownMenuItem disabled={!serial} onClick={() => void recordOnSd()}>
               <MemoryStick />
               <span className="flex flex-col">
-                <span>Registra sulla scheda SD</span>
-                <span className="text-xs text-muted-foreground">{serial ? "Arduino misura da solo, a batteria · si prepara col cavo USB" : "si prepara da un computer con il cavo USB"}</span>
+                <span>{t("sd")}</span>
+                <span className="text-xs text-muted-foreground">{serial ? t("sdHint") : t("sdNoSerial")}</span>
               </span>
             </DropdownMenuItem>
           </DropdownMenuGroup>
@@ -99,7 +100,8 @@ export function ConnectButton({ size = "sm" }: { size?: "sm" | "lg" }) {
 
 /** Sensori del telefono: il permesso si chiede con questo clic (iPhone). */
 export function PhoneButton({ size = "sm" }: { size?: "sm" | "lg" }) {
-  return <Button size={size} onClick={() => void connect("phone")}><Smartphone /> Attiva i sensori</Button>;
+  const t = useTranslations("app.connect");
+  return <Button size={size} onClick={() => void connect("phone")}><Smartphone /> {t("phone")}</Button>;
 }
 
 /** Collegamento ad Arduino, ai sensori del telefono o al simulatore: solo se il lab ne ha bisogno. */
@@ -107,6 +109,7 @@ export function ConnectionControls({ className }: { className?: string }) {
   const labId = useLab((s) => s.labId);
   const rig = useLab((s) => s.rig);
   const linkKind = useLab((s) => s.linkKind);
+  const t = useTranslations("app.connect");
   const info = labInfo(labId);
   const phone = !info.instrument && needsPhone(rig);
   const arduino = info.instrument ? info.instrument.source === "arduino" : needsArduino(rig);
@@ -116,13 +119,13 @@ export function ConnectionControls({ className }: { className?: string }) {
       <StatusPill className="max-w-64" />
       {linkKind ? (
         <Button variant="outline" size="sm" onClick={() => void disconnect()}>
-          <Unplug /> {linkKind === "telefono" ? "Disattiva" : "Scollega"}
+          <Unplug /> {linkKind === "telefono" ? t("phoneOff") : t("disconnect")}
         </Button>
       ) : (
         <>
           {phone ? <PhoneButton /> : <ConnectButton />}
           <Button variant="outline" size="sm" onClick={() => void connect("sim")}>
-            <Cpu /> Simulatore
+            <Cpu /> {t("sim")}
           </Button>
         </>
       )}

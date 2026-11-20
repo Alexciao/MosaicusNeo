@@ -7,12 +7,13 @@
 // Aggiungere un sensore = aggiungere una voce qui (e, se è di Arduino, un tipo nel firmware).
 
 import type { LucideIcon } from "lucide-react";
-import { Activity, AudioLines, BellRing, Bluetooth, BluetoothSearching, CircleDot, MemoryStick, Droplets, Lightbulb, Monitor, Move3d, MoveHorizontal, Radar, Satellite, ScanLine, Smartphone, Sun, Thermometer, ThermometerSnowflake, Weight } from "lucide-react";
+import { Activity, AudioLines, BellRing, Bluetooth, BluetoothSearching, CircleDot, MemoryStick, Droplets, Lightbulb, Monitor, Move3d, MoveHorizontal, Radar, Satellite, ScanLine, Smartphone, Sun, Thermometer, ThermometerSnowflake, Weight, Wind } from "lucide-react";
 import { localPolyDerivs } from "@/lib/mosaicus/analysis.js";
 import { nmeaToDeg, haversine, nmeaTime } from "@/lib/mosaicus/geo";
+import { t } from "@/i18n";
 import type { Options, Param, Tone, WiringBlock } from "./types";
 
-export type SensorType = "ntc" | "dht" | "sonar" | "gps" | "analog" | "ldr" | "ds18b20" | "gate" | "hx711" | "imu" | "mlx" | "oled" | "rgb" | "buzzer" | "button" | "sd" | "hc06" | "ble" | "pmotion" | "psound";
+export type SensorType = "ntc" | "dht" | "sonar" | "gps" | "analog" | "ldr" | "ds18b20" | "gate" | "hx711" | "imu" | "mlx" | "sps30" | "oled" | "rgb" | "buzzer" | "button" | "sd" | "hc06" | "ble" | "pmotion" | "psound";
 export type Rec = Record<string, number | boolean> & { t: number };
 
 /** bus: i pin I2C si possono condividere tra più dispositivi I2C (display, MPU-6050, MLX90614);
@@ -32,7 +33,7 @@ export interface SensorDef {
   icon: LucideIcon;
   tone: Tone;
   /** tipo nel firmware (CFG,ADD,…,<tipo>,… oppure OUT,ADD,<tipo>,… per gli indicatori) */
-  fw: "NTC" | "ANA" | "DHT" | "SONAR" | "GPS" | "DS18" | "GATE" | "HX711" | "IMU" | "MLX" | "OLED" | "RGB" | "BUZ" | "BTN" | "SD" | "BT" | "PMOT" | "PSND";
+  fw: "NTC" | "ANA" | "DHT" | "SONAR" | "GPS" | "DS18" | "GATE" | "HX711" | "IMU" | "MLX" | "SPS" | "OLED" | "RGB" | "BUZ" | "BTN" | "SD" | "BT" | "PMOT" | "PSND";
   /** gruppo nel catalogo (se manca: sensore, o uscita per gli indicatori, o telefono) */
   group?: ComponentGroup;
   /** sensore del telefono o del computer: niente Arduino, non si mescola con i componenti di Arduino */
@@ -108,20 +109,20 @@ function trackDistance(recs: Rec[]) {
 // ---------------------------------------------------------------------------
 const ntc: SensorDef = {
   rawFields: ["adc"],
-  type: "ntc", title: "Termistore NTC", short: "NTC", measures: "temperatura",
-  description: "Temperatura da una resistenza che varia con il calore, in partitore con 10 kΩ. Risponde in fretta e si può immergere.",
+  type: "ntc", title: t("sensors.catalog.ntc.title"), short: "NTC", measures: t("sensors.catalog.ntc.measures"),
+  description: t("sensors.catalog.ntc.description"),
   icon: Thermometer, tone: "rose", fw: "NTC",
-  pins: [{ key: "a", role: "uscita del partitore", kind: "analog", def: 14 }],
+  pins: [{ key: "a", role: t("sensors.catalog.dividerOut"), kind: "analog", def: 14 }],
   interval: { def: 1000, min: 100 }, max: 6,
   options: [
-    { key: "orientation", label: "Posizione del termistore nel partitore", type: "select", value: "ntc5v",
-      options: [["ntc5v", "NTC tra 5 V e il pin (come nel kit Elegoo)"], ["ntcgnd", "NTC tra il pin e GND"]] },
-    { key: "tAmb", label: "Temperatura ambiente Tₐ, per ln(T − Tₐ)", unit: "°C", value: 21, step: 0.1, advanced: true },
-    { key: "rSeries", label: "Resistenza fissa del partitore", unit: "Ω", value: 10000, step: 100, advanced: true },
-    { key: "r0", label: "R₀ del termistore (a T₀)", unit: "Ω", value: 10000, step: 100, advanced: true },
-    { key: "t0", label: "T₀ di riferimento", unit: "°C", value: 25, step: 0.1, advanced: true },
-    { key: "beta", label: "Coefficiente B (Beta)", unit: "K", value: 3950, step: 10, advanced: true },
-    { key: "offset", label: "Correzione di taratura, sommata a T", unit: "°C", value: 0, step: 0.1, advanced: true },
+    { key: "orientation", label: t("sensors.catalog.ntc.orientation"), type: "select", value: "ntc5v",
+      options: [["ntc5v", t("sensors.catalog.ntc.ntc5v")], ["ntcgnd", t("sensors.catalog.ntc.ntcgnd")]] },
+    { key: "tAmb", label: t("sensors.catalog.ntc.tAmb"), unit: "°C", value: 21, step: 0.1, advanced: true },
+    { key: "rSeries", label: t("sensors.catalog.ntc.rSeries"), unit: "Ω", value: 10000, step: 100, advanced: true },
+    { key: "r0", label: t("sensors.catalog.ntc.r0"), unit: "Ω", value: 10000, step: 100, advanced: true },
+    { key: "t0", label: t("sensors.catalog.ntc.t0"), unit: "°C", value: 25, step: 0.1, advanced: true },
+    { key: "beta", label: t("sensors.catalog.ntc.beta"), unit: "K", value: 3950, step: 10, advanced: true },
+    { key: "offset", label: t("sensors.catalog.offsetT"), unit: "°C", value: 0, step: 0.1, advanced: true },
   ],
   quantities: () => [{ key: "T", digits: 2, primary: true }, { key: "lnT", digits: 3 }, { key: "R", digits: 0, raw: true }, { key: "adc", digits: 1, raw: true }],
   parse([adc], o) {
@@ -133,21 +134,21 @@ const ntc: SensorDef = {
     const ta = num(o.tAmb);
     return { t: 0, adc, R, T, lnT: T - ta > 0 ? Math.log(T - ta) : NaN };
   },
-  wiring: (p) => [{ title: "Termistore NTC", schematic: "ntc", pins: { sig: p.a }, text: `Partitore con una resistenza da 10 kΩ; il punto centrale va su ${p.a}.` }],
+  wiring: (p) => [{ title: t("sensors.catalog.ntc.title"), schematic: "ntc", pins: { sig: p.a }, text: t("sensors.catalog.ntc.wiring", { pin: p.a }) }],
 };
 
 const dht: SensorDef = {
   rawFields: ["byte0", "byte1", "byte2", "byte3", "error"],
-  type: "dht", title: "DHT11 / DHT22", short: "DHT", measures: "temperatura e umidità",
-  description: "Temperatura, umidità relativa e punto di rugiada. Al massimo 1 lettura al secondo (DHT22: ogni 2 s).",
+  type: "dht", title: "DHT11 / DHT22", short: "DHT", measures: t("sensors.catalog.dht.measures"),
+  description: t("sensors.catalog.dht.description"),
   icon: Droplets, tone: "sky", fw: "DHT",
   pins: [{ key: "a", role: "DATA", kind: "digital", def: 2 }],
   interval: { def: 2000, min: 1000 }, max: 6,
   options: [
-    { key: "model", label: "Modello", type: "select", value: "dht11",
-      options: [["dht11", "DHT11 (blu, ±2 °C, ±5 %)"], ["dht22", "DHT22 / AM2302 (bianco, ±0,5 °C, ±2 %)"]] },
-    { key: "offsetT", label: "Correzione di taratura della temperatura", unit: "°C", value: 0, step: 0.1, advanced: true },
-    { key: "offsetRH", label: "Correzione di taratura dell'umidità", unit: "%", value: 0, step: 0.5, advanced: true },
+    { key: "model", label: t("sensors.catalog.dht.model"), type: "select", value: "dht11",
+      options: [["dht11", t("sensors.catalog.dht.dht11")], ["dht22", t("sensors.catalog.dht.dht22")]] },
+    { key: "offsetT", label: t("sensors.catalog.dht.offsetT"), unit: "°C", value: 0, step: 0.1, advanced: true },
+    { key: "offsetRH", label: t("sensors.catalog.dht.offsetRH"), unit: "%", value: 0, step: 0.5, advanced: true },
   ],
   fwOpt: (o) => (o.model === "dht22" ? 22 : 11),
   minInterval: (o) => (o.model === "dht22" ? 2000 : 1000),
@@ -164,25 +165,25 @@ const dht: SensorDef = {
     const T = ok ? d.T + num(o.offsetT) : NaN, RH = ok ? Math.min(100, Math.max(0, d.RH + num(o.offsetRH))) : NaN;
     return { t: 0, b0: f[0], b1: f[1], b2: f[2], b3: f[3], ok, T, RH, Td: dewPoint(T, RH), AH: absoluteHumidity(T, RH) };
   },
-  wiring: (p) => [{ title: "DHT11 / DHT22", schematic: "dht", pins: { data: p.a }, text: `DATA su ${p.a}, VCC a 5 V, GND a GND. Il modulo a 3 pin ha già il pull-up; il sensore a 4 pin senza schedina richiede 10 kΩ tra DATA e 5 V.` }],
+  wiring: (p) => [{ title: "DHT11 / DHT22", schematic: "dht", pins: { data: p.a }, text: t("sensors.catalog.dht.wiring", { pin: p.a }) }],
 };
 
 const sonar: SensorDef = {
   rawFields: ["echo_us"],
-  type: "sonar", title: "Ultrasuoni HC-SR04", short: "HC-SR04", measures: "posizione, velocità, accelerazione",
-  description: "Distanza dal tempo di volo di un impulso a ultrasuoni, da 2 cm a 4 m; ne ricava velocità e accelerazione.",
+  type: "sonar", title: t("sensors.catalog.sonar.title"), short: "HC-SR04", measures: t("sensors.catalog.sonar.measures"),
+  description: t("sensors.catalog.sonar.description"),
   icon: MoveHorizontal, tone: "sky", fw: "SONAR",
   pins: [{ key: "a", role: "TRIG", kind: "digital", def: 12 }, { key: "b", role: "ECHO", kind: "digital", def: 11 }],
   interval: { def: 50, min: 30 }, max: 3,
   options: [
-    { key: "tAir", label: "Temperatura dell'aria, per la velocità del suono", unit: "°C", value: 20, step: 0.5 },
-    { key: "direction", label: "Verso positivo", type: "select", value: "away",
-      options: [["away", "Allontanamento dal sensore"], ["toward", "Avvicinamento al sensore"]] },
-    { key: "window", label: "Smussamento di v e a (punti per lato)", value: 4, min: 1, step: 1, advanced: true },
-    { key: "origin", label: "Origine delle posizioni (distanza dal sensore)", unit: "m", value: 0, step: 0.001, advanced: true },
-    { key: "dMin", label: "Distanza minima accettata", unit: "m", value: 0.03, step: 0.01, advanced: true },
-    { key: "dMax", label: "Distanza massima accettata", unit: "m", value: 3.0, step: 0.1, advanced: true },
-    { key: "spike", label: "Scarta salti anomali maggiori di", unit: "m", value: 0.10, step: 0.01, advanced: true },
+    { key: "tAir", label: t("sensors.catalog.sonar.tAir"), unit: "°C", value: 20, step: 0.5 },
+    { key: "direction", label: t("sensors.catalog.sonar.direction"), type: "select", value: "away",
+      options: [["away", t("sensors.catalog.sonar.away")], ["toward", t("sensors.catalog.sonar.toward")]] },
+    { key: "window", label: t("sensors.catalog.sonar.window"), value: 4, min: 1, step: 1, advanced: true },
+    { key: "origin", label: t("sensors.catalog.sonar.origin"), unit: "m", value: 0, step: 0.001, advanced: true },
+    { key: "dMin", label: t("sensors.catalog.sonar.dMin"), unit: "m", value: 0.03, step: 0.01, advanced: true },
+    { key: "dMax", label: t("sensors.catalog.sonar.dMax"), unit: "m", value: 3.0, step: 0.1, advanced: true },
+    { key: "spike", label: t("sensors.catalog.sonar.spike"), unit: "m", value: 0.10, step: 0.01, advanced: true },
   ],
   quantities: () => [
     { key: "x", digits: 3, primary: true }, { key: "v", digits: 2, line: true, primary: true }, { key: "a", digits: 2, line: true },
@@ -214,19 +215,19 @@ const sonar: SensorDef = {
     good.forEach((r, i) => { r.x = x[i]; r.v = d1[i]; r.a = d2[i]; });
     for (const r of rows) if (!r.ok) { r.x = NaN; r.v = NaN; r.a = NaN; }
   },
-  wiring: (p) => [{ title: "HC-SR04", schematic: "hcsr04", pins: { trig: p.a, echo: p.b }, text: "Usa un bersaglio piatto e ampio. Più sensori a ultrasuoni si disturbano a vicenda: puntali in direzioni diverse." }],
+  wiring: (p) => [{ title: "HC-SR04", schematic: "hcsr04", pins: { trig: p.a, echo: p.b }, text: t("sensors.catalog.sonar.wiring") }],
 };
 
 const gps: SensorDef = {
   rawFields: ["fix", "lat_nmea", "lon_nmea", "alt_m", "sats", "hdop", "speed_knots", "utc_hhmmss", "date_ddmmyy"],
-  type: "gps", title: "GPS (NEO-6M / NEO-7M)", short: "GPS", measures: "posizione, altitudine, velocità",
-  description: "Posizione, altitudine e velocità da un modulo GPS seriale a 9600 baud (es. Velleman VMA430). Funziona solo all'aperto, con il cielo libero.",
+  type: "gps", title: "GPS (NEO-6M / NEO-7M)", short: "GPS", measures: t("sensors.catalog.gps.measures"),
+  description: t("sensors.catalog.gps.description"),
   icon: Satellite, tone: "lime", fw: "GPS",
-  pins: [{ key: "a", role: "RX di Arduino ← TX del GPS", kind: "digital", def: 4 }, { key: "b", role: "TX di Arduino → RX del GPS", kind: "digital", def: 3, note: "collegamento facoltativo; il pin resta comunque occupato" }],
+  pins: [{ key: "a", role: t("sensors.catalog.gps.pinRx"), kind: "digital", def: 4 }, { key: "b", role: t("sensors.catalog.gps.pinTx"), kind: "digital", def: 3, note: t("sensors.catalog.gps.pinTxNote") }],
   interval: { def: 2000, min: 1000 }, max: 1,
   options: [
-    { key: "minSats", label: "Satelliti minimi per accettare una posizione", value: 4, min: 3, step: 1, advanced: true },
-    { key: "maxHdop", label: "HDOP massimo accettato (più basso, più preciso)", value: 5, min: 1, step: 0.5, advanced: true },
+    { key: "minSats", label: t("sensors.catalog.gps.minSats"), value: 4, min: 3, step: 1, advanced: true },
+    { key: "maxHdop", label: t("sensors.catalog.gps.maxHdop"), value: 5, min: 1, step: 0.5, advanced: true },
   ],
   quantities: () => [
     { key: "alt", digits: 0, line: true }, { key: "speed", digits: 1, line: true }, { key: "s", digits: 0, line: true, primary: true },
@@ -244,27 +245,27 @@ const gps: SensorDef = {
     };
   },
   derive: (rows) => trackDistance(rows),
-  wiring: (p) => [{ title: "GPS", schematic: "gps", pins: { rx: p.a, tx: p.b }, text: "Antenna con la faccia di ceramica verso il cielo. Il primo fix all'aperto richiede da 30 s a qualche minuto; quando c'è, il LED del modulo lampeggia." }],
+  wiring: (p) => [{ title: "GPS", schematic: "gps", pins: { rx: p.a, tx: p.b }, text: t("sensors.catalog.gps.wiring") }],
 };
 
 const analog: SensorDef = {
   rawFields: ["adc"],
-  type: "analog", title: "Tensione analogica", short: "Analogico", measures: "tensione (0–5 V) o una grandezza tarata",
-  description: "Qualsiasi segnale tra 0 e 5 V (potenziometro, sensore di pressione o di forza); con una taratura lineare diventa una grandezza fisica.",
+  type: "analog", title: t("sensors.catalog.analog.title"), short: t("sensors.catalog.analog.short"), measures: t("sensors.catalog.analog.measures"),
+  description: t("sensors.catalog.analog.description"),
   icon: Activity, tone: "saffron", fw: "ANA",
-  pins: [{ key: "a", role: "segnale (0–5 V)", kind: "analog", def: 15 }],
+  pins: [{ key: "a", role: t("sensors.catalog.analog.pin"), kind: "analog", def: 15 }],
   interval: { def: 100, min: 10 }, max: 6,
   options: [
-    { key: "calibrate", label: "Taratura lineare y = k·V + q", type: "select", value: "no", options: [["no", "No: mostra la tensione"], ["yes", "Sì"]] },
-    { key: "sym", label: "Simbolo della grandezza tarata", type: "text", value: "y" },
-    { key: "unit", label: "Unità della grandezza tarata", type: "text", value: "" },
-    { key: "k", label: "Coefficiente k", value: 1, step: 0.001 },
-    { key: "q", label: "Termine noto q", value: 0, step: 0.001 },
-    { key: "vref", label: "Tensione di riferimento", unit: "V", value: 5, step: 0.01, advanced: true },
+    { key: "calibrate", label: t("sensors.catalog.analog.calibrate"), type: "select", value: "no", options: [["no", t("sensors.catalog.analog.calNo")], ["yes", t("sensors.catalog.analog.calYes")]] },
+    { key: "sym", label: t("sensors.catalog.analog.sym"), type: "text", value: "y" },
+    { key: "unit", label: t("sensors.catalog.analog.unit"), type: "text", value: "" },
+    { key: "k", label: t("sensors.catalog.analog.k"), value: 1, step: 0.001 },
+    { key: "q", label: t("sensors.catalog.analog.q"), value: 0, step: 0.001 },
+    { key: "vref", label: t("sensors.catalog.analog.vref"), unit: "V", value: 5, step: 0.01, advanced: true },
   ],
   quantities: (o) => [
     { key: "V", digits: 3, line: true, primary: o.calibrate !== "yes" },
-    ...(o.calibrate === "yes" ? [{ key: "Y", digits: 3, line: true, primary: true, sym: String(o.sym || "y"), unit: String(o.unit || ""), name: `${o.sym || "y"} (tarata)` }] : []),
+    ...(o.calibrate === "yes" ? [{ key: "Y", digits: 3, line: true, primary: true, sym: String(o.sym || "y"), unit: String(o.unit || ""), name: t("sensors.catalog.analog.calibrated", { sym: String(o.sym || "y") }) }] : []),
     { key: "adc", digits: 1, raw: true },
   ],
   parse([adc], o) {
@@ -272,19 +273,19 @@ const analog: SensorDef = {
     const V = (adc * num(o.vref)) / 1023;
     return { t: 0, adc, V, Y: o.calibrate === "yes" ? num(o.k) * V + num(o.q) : NaN };
   },
-  wiring: (p) => [{ title: "Segnale analogico", schematic: "analog", pins: { sig: p.a }, warn: true, text: `Segnale su ${p.a}, GND in comune con Arduino. Solo tra 0 e 5 V: mai tensioni più alte, mai la rete elettrica.` }],
+  wiring: (p) => [{ title: t("sensors.catalog.analog.wiringTitle"), schematic: "analog", pins: { sig: p.a }, warn: true, text: t("sensors.catalog.analog.wiring", { pin: p.a }) }],
 };
 
 const ldr: SensorDef = {
   rawFields: ["adc"],
-  type: "ldr", title: "Fotoresistenza (luce)", short: "LDR", measures: "luminosità relativa",
-  description: "Luminosità relativa (0–100 %) da una fotoresistenza in partitore: non misura i lux.",
+  type: "ldr", title: t("sensors.catalog.ldr.title"), short: "LDR", measures: t("sensors.catalog.ldr.measures"),
+  description: t("sensors.catalog.ldr.description"),
   icon: Sun, tone: "saffron", fw: "ANA",
-  pins: [{ key: "a", role: "uscita del partitore", kind: "analog", def: 16 }],
+  pins: [{ key: "a", role: t("sensors.catalog.dividerOut"), kind: "analog", def: 16 }],
   interval: { def: 100, min: 10 }, max: 6,
   options: [
-    { key: "orientation", label: "Posizione della fotoresistenza", type: "select", value: "ldr5v",
-      options: [["ldr5v", "Tra 5 V e il pin (più luce = valore più alto)"], ["ldrgnd", "Tra il pin e GND"]] },
+    { key: "orientation", label: t("sensors.catalog.ldr.orientation"), type: "select", value: "ldr5v",
+      options: [["ldr5v", t("sensors.catalog.ldr.ldr5v")], ["ldrgnd", t("sensors.catalog.ldr.ldrgnd")]] },
   ],
   quantities: () => [{ key: "light", digits: 1, line: true, primary: true }, { key: "adc", digits: 1, raw: true }],
   parse([adc], o) {
@@ -292,38 +293,38 @@ const ldr: SensorDef = {
     const u = adc / 1023;
     return { t: 0, adc, light: 100 * (o.orientation === "ldrgnd" ? 1 - u : u) };
   },
-  wiring: (p) => [{ title: "Fotoresistenza", schematic: "ldr", pins: { sig: p.a }, text: `Fotoresistenza tra 5 V e ${p.a}, resistenza da 10 kΩ tra ${p.a} e GND.` }],
+  wiring: (p) => [{ title: t("sensors.catalog.ldr.wiringTitle"), schematic: "ldr", pins: { sig: p.a }, text: t("sensors.catalog.ldr.wiring", { pin: p.a }) }],
 };
 
 
 const ds18b20: SensorDef = {
   rawFields: ["raw_16th_C", "error"],
-  type: "ds18b20", title: "Sonda DS18B20", short: "DS18B20", measures: "temperatura (anche in acqua)",
-  description: "Temperatura da −55 a 125 °C con ±0,5 °C, senza taratura; la versione in sonda d'acciaio si immerge in acqua.",
+  type: "ds18b20", title: t("sensors.catalog.ds18b20.title"), short: "DS18B20", measures: t("sensors.catalog.ds18b20.measures"),
+  description: t("sensors.catalog.ds18b20.description"),
   icon: ThermometerSnowflake, tone: "sky", fw: "DS18", since: "1.2",
-  pins: [{ key: "a", role: "DATA", kind: "digital", def: 7, note: "Con una resistenza da 4,7 kΩ tra DATA e 5V." }],
+  pins: [{ key: "a", role: "DATA", kind: "digital", def: 7, note: t("sensors.catalog.ds18b20.pinNote") }],
   interval: { def: 1000, min: 1000 }, max: 3,
-  options: [{ key: "offset", label: "Correzione di taratura, sommata a T", unit: "°C", value: 0, step: 0.1, advanced: true }],
+  options: [{ key: "offset", label: t("sensors.catalog.offsetT"), unit: "°C", value: 0, step: 0.1, advanced: true }],
   quantities: () => [{ key: "T", digits: 2, line: true, primary: true }, { key: "ds", digits: 0, raw: true, hidden: true }],
   parse([raw, err]) {
     const ok = err === 0 && Number.isFinite(raw);
     return { t: 0, ds: raw, ok, T: ok ? raw / 16 : NaN };
   },
   derive(recs, o) { for (const r of recs) if (r.ok) r.T = (r.T as number) + num(o.offset); },
-  wiring: (p) => [{ title: "DS18B20", schematic: "dht", pins: { data: p.a }, text: `Rosso a 5V, nero a GND, giallo (DATA) su ${p.a}. Serve una resistenza da 4,7 kΩ tra DATA e 5V (già presente sulle schedine con morsetti).` }],
+  wiring: (p) => [{ title: "DS18B20", schematic: "dht", pins: { data: p.a }, text: t("sensors.catalog.ds18b20.wiring", { pin: p.a }) }],
 };
 
 const gate: SensorDef = {
   rawFields: ["state"],
-  type: "gate", title: "Fotocellula / ingresso digitale", short: "Fotocellula", measures: "istanti di passaggio, periodo, tempo di oscuramento",
-  description: "Istante in cui un oggetto interrompe il raggio, per periodi, tempi di passaggio e velocità; funziona anche con un pulsante.",
+  type: "gate", title: t("sensors.catalog.gate.title"), short: t("sensors.catalog.gate.short"), measures: t("sensors.catalog.gate.measures"),
+  description: t("sensors.catalog.gate.description"),
   icon: ScanLine, tone: "rose", fw: "GATE", since: "1.2", events: true,
-  pins: [{ key: "a", role: "OUT", kind: "digital", def: 2, note: "Su D2 o D3 gli istanti sono precisi al µs; sugli altri pin al ms." }],
+  pins: [{ key: "a", role: "OUT", kind: "digital", def: 2, note: t("sensors.catalog.gate.pinNote") }],
   interval: { def: 1000, min: 1000 }, max: 2,
   options: [
-    { key: "blocked", label: "Quando il raggio è interrotto, l'uscita è", type: "select", value: "high", options: [["high", "alta (5 V) · quasi tutti i moduli"], ["low", "bassa (0 V)"]] },
-    { key: "pullup", label: "Resistenza di pull-up interna", type: "select", value: "no", options: [["no", "no (modulo con uscita propria)"], ["yes", "sì (pulsante, uscita a collettore aperto)"]], advanced: true },
-    { key: "width", label: "Larghezza dell'oggetto, per la velocità", unit: "mm", value: 20, min: 0, step: 1 },
+    { key: "blocked", label: t("sensors.catalog.gate.blocked"), type: "select", value: "high", options: [["high", t("sensors.catalog.gate.high")], ["low", t("sensors.catalog.gate.low")]] },
+    { key: "pullup", label: t("sensors.catalog.gate.pullup"), type: "select", value: "no", options: [["no", t("sensors.catalog.gate.pullupNo")], ["yes", t("sensors.catalog.gate.pullupYes")]], advanced: true },
+    { key: "width", label: t("sensors.catalog.gate.width"), unit: "mm", value: 20, min: 0, step: 1 },
   ],
   fwOpt: (o) => (o.blocked === "low" ? 1 : 0) | (o.pullup === "yes" ? 2 : 0),
   quantities: () => [
@@ -353,22 +354,22 @@ const gate: SensorDef = {
       r.n = n;
     }
   },
-  wiring: (p) => [{ title: "Fotocellula", pins: { out: p.a }, text: `VCC a 5V, GND a GND, OUT (o D0 del modulo) su ${p.a}.` }],
+  wiring: (p) => [{ title: t("sensors.catalog.gate.wiringTitle"), pins: { out: p.a }, text: t("sensors.catalog.gate.wiring", { pin: p.a }) }],
 };
 
 const hx711: SensorDef = {
   rawFields: ["counts", "error"],
-  type: "hx711", title: "Cella di carico + HX711", short: "Bilancia", measures: "massa e forza",
-  description: "Massa e forza da una cella di carico con amplificatore HX711, fino a 10 letture al secondo; va tarata con un peso noto.",
+  type: "hx711", title: t("sensors.catalog.hx711.title"), short: t("sensors.catalog.hx711.short"), measures: t("sensors.catalog.hx711.measures"),
+  description: t("sensors.catalog.hx711.description"),
   icon: Weight, tone: "saffron", fw: "HX711", since: "1.2",
   pins: [{ key: "a", role: "DT", kind: "digital", def: 5 }, { key: "b", role: "SCK", kind: "digital", def: 6 }],
   interval: { def: 100, min: 100 }, max: 2,
   options: [
-    { key: "scale", label: "Taratura: conteggi per grammo", value: 420, step: 0.1 },
-    { key: "autotare", label: "Azzera all'avvio (tara)", type: "select", value: "yes", options: [["yes", "sì: il carico iniziale vale 0"], ["no", "no: usa la tara indicata"]] },
-    { key: "tare", label: "Tara (conteggi a vuoto)", value: 0, step: 1, advanced: true },
-    { key: "g", label: "Accelerazione di gravità, per la forza", unit: "m/s²", value: 9.81, step: 0.01, advanced: true },
-    { key: "sign", label: "Verso", type: "select", value: "1", options: [["1", "spingere = positivo"], ["-1", "tirare = positivo"]], advanced: true },
+    { key: "scale", label: t("sensors.catalog.hx711.scale"), value: 420, step: 0.1 },
+    { key: "autotare", label: t("sensors.catalog.hx711.autotare"), type: "select", value: "yes", options: [["yes", t("sensors.catalog.hx711.autotareYes")], ["no", t("sensors.catalog.hx711.autotareNo")]] },
+    { key: "tare", label: t("sensors.catalog.hx711.tare"), value: 0, step: 1, advanced: true },
+    { key: "g", label: t("sensors.catalog.hx711.g"), unit: "m/s²", value: 9.81, step: 0.01, advanced: true },
+    { key: "sign", label: t("sensors.catalog.hx711.sign"), type: "select", value: "1", options: [["1", t("sensors.catalog.hx711.push")], ["-1", t("sensors.catalog.hx711.pull")]], advanced: true },
   ],
   quantities: () => [{ key: "m", digits: 1, line: true, primary: true }, { key: "F", digits: 3, line: true, primary: true }, { key: "cnt", digits: 0, raw: true }],
   parse([c, err]) { const ok = err === 0 && Number.isFinite(c); return { t: 0, cnt: c, ok }; },
@@ -381,24 +382,24 @@ const hx711: SensorDef = {
       r.m = m; r.F = (m / 1000) * g;
     }
   },
-  wiring: (p) => [{ title: "HX711", pins: { dt: p.a, sck: p.b }, text: `Cella: rosso E+, nero E−, bianco A−, verde A+ sull'HX711. HX711: VCC 5V, GND, DT su ${p.a}, SCK su ${p.b}.` }],
+  wiring: (p) => [{ title: "HX711", pins: { dt: p.a, sck: p.b }, text: t("sensors.catalog.hx711.wiring", { dt: p.a, sck: p.b }) }],
 };
 
 const IMU_RANGE: Record<string, number> = { "2": 0, "4": 1, "8": 2, "16": 3 };
 const imu: SensorDef = {
   rawFields: ["ax_raw", "ay_raw", "az_raw", "gx_raw", "gy_raw", "gz_raw", "error"],
-  type: "imu", title: "Accelerometro MPU-6050", short: "MPU-6050", measures: "accelerazione sui 3 assi, rotazione",
-  description: "Accelerazione e velocità angolare sui 3 assi, fino a 100 letture al secondo; usa il bus I2C insieme al display.",
+  type: "imu", title: t("sensors.catalog.imu.title"), short: "MPU-6050", measures: t("sensors.catalog.imu.measures"),
+  description: t("sensors.catalog.imu.description"),
   icon: Move3d, tone: "lime", fw: "IMU", since: "1.2",
   pins: [
-    { key: "a", role: "SDA", kind: "digital", def: 18, bus: "sda", note: "Di solito A4, condiviso con il display." },
-    { key: "b", role: "SCL", kind: "digital", def: 19, bus: "scl", note: "Di solito A5." },
+    { key: "a", role: "SDA", kind: "digital", def: 18, bus: "sda", note: t("sensors.catalog.imu.sdaNote") },
+    { key: "b", role: "SCL", kind: "digital", def: 19, bus: "scl", note: t("sensors.catalog.usuallyA5") },
   ],
   interval: { def: 20, min: 10 }, max: 2,
   options: [
-    { key: "range", label: "Fondo scala", type: "select", value: "2", options: [["2", "±2 g (più preciso)"], ["4", "±4 g"], ["8", "±8 g"], ["16", "±16 g (urti)"]] },
-    { key: "addr", label: "Indirizzo", type: "select", value: "68", options: [["68", "0x68 (AD0 a GND o libero)"], ["69", "0x69 (AD0 a 5V)"]], advanced: true },
-    { key: "gravity", label: "Sottrai la gravità dall'asse verticale", type: "select", value: "no", options: [["no", "no"], ["z", "sì, asse z verticale"]], advanced: true },
+    { key: "range", label: t("sensors.catalog.imu.range"), type: "select", value: "2", options: [["2", t("sensors.catalog.imu.range2")], ["4", "±4 g"], ["8", "±8 g"], ["16", t("sensors.catalog.imu.range16")]] },
+    { key: "addr", label: t("sensors.catalog.imu.addr"), type: "select", value: "68", options: [["68", t("sensors.catalog.imu.addr68")], ["69", t("sensors.catalog.imu.addr69")]], advanced: true },
+    { key: "gravity", label: t("sensors.catalog.imu.gravity"), type: "select", value: "no", options: [["no", t("sensors.catalog.no")], ["z", t("sensors.catalog.imu.gravityZ")]], advanced: true },
   ],
   fwOpt: (o) => (IMU_RANGE[String(o.range)] ?? 0) | (o.addr === "69" ? 4 : 0),
   quantities: () => [
@@ -414,7 +415,7 @@ const imu: SensorDef = {
     if (o.gravity === "z") a[2] -= G;
     return { t: 0, ax: a[0], ay: a[1], az: a[2], am, gx: gx / 131, gy: gy / 131, gz: gz / 131 };
   },
-  wiring: (p) => [{ title: "MPU-6050 (GY-521)", pins: { sda: p.a, scl: p.b }, text: `VCC a 5V, GND a GND, SDA su ${p.a}, SCL su ${p.b}.` }],
+  wiring: (p) => [{ title: "MPU-6050 (GY-521)", pins: { sda: p.a, scl: p.b }, text: t("sensors.catalog.imu.wiring", { sda: p.a, scl: p.b }) }],
 };
 
 /**
@@ -430,18 +431,18 @@ export function mlxCorrect(Tobj: number, Tamb: number, eps: number) {
 }
 const mlx: SensorDef = {
   rawFields: ["obj_raw_0.02K", "amb_raw_0.02K", "error"],
-  type: "mlx", title: "Termometro a infrarossi MLX90614", short: "MLX90614", measures: "temperatura senza contatto (e del sensore)",
-  description: "Temperatura di una superficie senza toccarla, da −70 a 380 °C, più la temperatura del sensore; usa il bus I2C insieme al display.",
+  type: "mlx", title: t("sensors.catalog.mlx.title"), short: "MLX90614", measures: t("sensors.catalog.mlx.measures"),
+  description: t("sensors.catalog.mlx.description"),
   icon: Radar, tone: "rose", fw: "MLX", since: "1.4",
   pins: [
-    { key: "a", role: "SDA", kind: "digital", def: 18, bus: "sda", note: "Di solito A4, condiviso con il display e l'MPU-6050." },
-    { key: "b", role: "SCL", kind: "digital", def: 19, bus: "scl", note: "Di solito A5." },
+    { key: "a", role: "SDA", kind: "digital", def: 18, bus: "sda", note: t("sensors.catalog.mlx.sdaNote") },
+    { key: "b", role: "SCL", kind: "digital", def: 19, bus: "scl", note: t("sensors.catalog.usuallyA5") },
   ],
   // tutti i MLX90614 rispondono all'indirizzo 0x5A: due sullo stesso bus si disturberebbero
   interval: { def: 250, min: 100 }, max: 1,
   options: [
-    { key: "eps", label: "Emissività della superficie (pelle 0,98, acqua 0,96, legno e plastica 0,90–0,95)", value: 0.95, min: 0.1, step: 0.01 },
-    { key: "offset", label: "Correzione di taratura, sommata a T", unit: "°C", value: 0, step: 0.1, advanced: true },
+    { key: "eps", label: t("sensors.catalog.mlx.eps"), value: 0.95, min: 0.1, step: 0.01 },
+    { key: "offset", label: t("sensors.catalog.offsetT"), unit: "°C", value: 0, step: 0.1, advanced: true },
   ],
   quantities: () => [
     { key: "T", digits: 2, line: true, primary: true },
@@ -454,7 +455,40 @@ const mlx: SensorDef = {
     const Traw = obj * 0.02 - 273.15, Ts = amb * 0.02 - 273.15;
     return { t: 0, ok, Traw, Ts, T: mlxCorrect(Traw, Ts, num(o.eps)) + num(o.offset) };
   },
-  wiring: (p) => [{ title: "MLX90614 (GY-906)", pins: { sda: p.a, scl: p.b }, text: `VIN (o VCC) a 5V, GND a GND, SDA su ${p.a}, SCL su ${p.b}. Il sensore vede un cono di circa 90°: avvicinalo alla superficie, a pochi centimetri.` }],
+  wiring: (p) => [{ title: "MLX90614 (GY-906)", pins: { sda: p.a, scl: p.b }, text: t("sensors.catalog.mlx.wiring", { sda: p.a, scl: p.b }) }],
+};
+
+// Polveri sottili (Sensirion SPS30): conteggio laser delle particelle, un dato al secondo.
+// Su Arduino Uno va in I2C (SEL a GND): la seriale a 115200 baud non si può fare via software.
+// Indirizzo fisso 0x69, lo stesso dell'MPU-6050 con AD0 alto.
+const sps30: SensorDef = {
+  rawFields: ["pm1_ug_m3", "pm2.5_ug_m3", "pm4_ug_m3", "pm10_ug_m3", "nc0.5_cm3", "nc1_cm3", "nc2.5_cm3", "nc4_cm3", "nc10_cm3", "tps_um", "error"],
+  type: "sps30", title: t("sensors.catalog.sps30.title"), short: "SPS30", measures: t("sensors.catalog.sps30.measures"),
+  description: t("sensors.catalog.sps30.description"),
+  icon: Wind, tone: "sky", fw: "SPS", since: "1.6",
+  pins: [
+    { key: "a", role: "SDA", kind: "digital", def: 18, bus: "sda", note: t("sensors.catalog.sps30.sdaNote") },
+    { key: "b", role: "SCL", kind: "digital", def: 19, bus: "scl", note: t("sensors.catalog.usuallyA5") },
+  ],
+  interval: { def: 1000, min: 1000 }, max: 1,
+  options: [],
+  quantities: () => [
+    { key: "pm1", digits: 1, line: true },
+    { key: "pm25", digits: 1, line: true, primary: true },
+    { key: "pm4", digits: 1, line: true },
+    { key: "pm10", digits: 1, line: true, primary: true },
+    { key: "nc05", digits: 1, line: true, hidden: true }, { key: "nc1", digits: 1, line: true, hidden: true },
+    { key: "nc25", digits: 1, line: true, hidden: true }, { key: "nc4", digits: 1, line: true, hidden: true },
+    { key: "nc10", digits: 1, line: true, hidden: true },
+    { key: "tps", digits: 2, line: true },
+  ],
+  parse(v) {
+    const [pm1, pm25, pm4, pm10, nc05, nc1, nc25, nc4, nc10, tps, err] = v;
+    const ok = err === 0 && Number.isFinite(pm25);
+    const val = (x: number) => (ok ? x : NaN);
+    return { t: 0, ok, pm1: val(pm1), pm25: val(pm25), pm4: val(pm4), pm10: val(pm10), nc05: val(nc05), nc1: val(nc1), nc25: val(nc25), nc4: val(nc4), nc10: val(nc10), tps: val(tps) };
+  },
+  wiring: (p) => [{ title: "Sensirion SPS30", pins: { sda: p.a, scl: p.b }, text: t("sensors.catalog.sps30.wiring", { sda: p.a, scl: p.b }) }],
 };
 
 // ---------------------------------------------------------------------------
@@ -464,45 +498,45 @@ const outputBase = { rawFields: [] as string[], interval: { def: 0, min: 0 }, ma
 
 const oled: SensorDef = {
   ...outputBase,
-  type: "oled", title: "Display OLED 64×32 (0,49\")", short: "Display", measures: "stato e valore principale",
-  description: "Display I2C SSD1306 da 0,49\" (64×32 pixel): mostra lo stato di Arduino e, durante la misura, il tempo e il valore principale.",
+  type: "oled", title: t("sensors.catalog.oled.title"), short: "Display", measures: t("sensors.catalog.oled.measures"),
+  description: t("sensors.catalog.oled.description"),
   icon: Monitor, tone: "sky", fw: "OLED",
   pins: [
-    { key: "a", role: "SDA", kind: "digital", def: 18, bus: "sda", note: "Di solito A4." },
-    { key: "b", role: "SCL", kind: "digital", def: 19, bus: "scl", note: "Di solito A5." },
+    { key: "a", role: "SDA", kind: "digital", def: 18, bus: "sda", note: t("sensors.catalog.usuallyA4") },
+    { key: "b", role: "SCL", kind: "digital", def: 19, bus: "scl", note: t("sensors.catalog.usuallyA5") },
   ],
   options: [],
-  wiring: (p) => [{ title: "Display OLED", pins: { sda: p.a, scl: p.b }, text: `VCC (o VDD) a 5V, GND a GND, SDA su ${p.a}, SCL su ${p.b}.` }],
+  wiring: (p) => [{ title: t("sensors.catalog.oled.wiringTitle"), pins: { sda: p.a, scl: p.b }, text: t("sensors.catalog.oled.wiring", { sda: p.a, scl: p.b }) }],
 };
 
 const rgb: SensorDef = {
   ...outputBase,
-  type: "rgb", title: "LED RGB", short: "LED RGB", measures: "stato a colori",
-  description: "Blu: in attesa dell'app (lampeggia) o pronto · giallo lampeggiante: GPS o sensore in ricerca · rosso lampeggiante: problema · verde: misura in corso.",
+  type: "rgb", title: t("sensors.catalog.rgb.title"), short: t("sensors.catalog.rgb.title"), measures: t("sensors.catalog.rgb.measures"),
+  description: t("sensors.catalog.rgb.description"),
   icon: Lightbulb, tone: "rose", fw: "RGB",
   pins: [
-    { key: "a", role: "R (rosso)", kind: "digital", def: 9 },
-    { key: "b", role: "G (verde)", kind: "digital", def: 10 },
-    { key: "c", role: "B (blu)", kind: "digital", def: 11 },
+    { key: "a", role: t("sensors.catalog.rgb.pinR"), kind: "digital", def: 9 },
+    { key: "b", role: t("sensors.catalog.rgb.pinG"), kind: "digital", def: 10 },
+    { key: "c", role: t("sensors.catalog.rgb.pinB"), kind: "digital", def: 11 },
   ],
-  options: [{ key: "common", label: "Tipo di LED", type: "select", value: "cathode", options: [["cathode", "catodo comune (piedino lungo a GND)"], ["anode", "anodo comune (piedino lungo a 5V)"]] }],
+  options: [{ key: "common", label: t("sensors.catalog.rgb.common"), type: "select", value: "cathode", options: [["cathode", t("sensors.catalog.rgb.cathode")], ["anode", t("sensors.catalog.rgb.anode")]] }],
   fwOpt: (o) => (o.common === "anode" ? 1 : 0),
-  wiring: (p, o) => [{ title: "LED RGB", pins: { r: p.a, g: p.b, b: p.c }, text: `Una resistenza da 220 Ω per colore: R su ${p.a}, G su ${p.b}, B su ${p.c}; piedino lungo a ${o.common === "anode" ? "5V" : "GND"}.` }],
+  wiring: (p, o) => [{ title: t("sensors.catalog.rgb.title"), pins: { r: p.a, g: p.b, b: p.c }, text: t("sensors.catalog.rgb.wiring", { r: p.a, g: p.b, b: p.c, common: o.common === "anode" ? "5V" : "GND" }) }],
 };
 
 const buzzer: SensorDef = {
   ...outputBase,
-  type: "buzzer", title: "Cicalino (buzzer)", short: "Cicalino", measures: "segnali acustici di stato",
-  description: "Ogni 3 s finché qualcosa non è pronto: 1 bip in attesa o fermo, 2 GPS o sensore in ricerca, 3 problema. Silenzio: misura in corso.",
+  type: "buzzer", title: t("sensors.catalog.buzzer.title"), short: t("sensors.catalog.buzzer.short"), measures: t("sensors.catalog.buzzer.measures"),
+  description: t("sensors.catalog.buzzer.description"),
   icon: BellRing, tone: "saffron", fw: "BUZ",
-  pins: [{ key: "a", role: "+ (segnale)", kind: "digital", def: 8 }],
+  pins: [{ key: "a", role: t("sensors.catalog.buzzer.pin"), kind: "digital", def: 8 }],
   options: [
-    { key: "kind", label: "Tipo", type: "select", value: "active", options: [["active", "attivo (suona con 5 V continui)"], ["passive", "passivo (va pilotato con una nota)"]] },
-    { key: "nag", label: "Bip finché non è tutto pronto", type: "select", value: "yes", options: [["yes", "sì"], ["no", "no"]] },
-    { key: "confirm", label: "Bip di conferma all'avvio e alla fine", type: "select", value: "yes", options: [["yes", "sì"], ["no", "no"]] },
+    { key: "kind", label: t("sensors.catalog.buzzer.kind"), type: "select", value: "active", options: [["active", t("sensors.catalog.buzzer.active")], ["passive", t("sensors.catalog.buzzer.passive")]] },
+    { key: "nag", label: t("sensors.catalog.buzzer.nag"), type: "select", value: "yes", options: [["yes", t("sensors.catalog.yes")], ["no", t("sensors.catalog.no")]] },
+    { key: "confirm", label: t("sensors.catalog.buzzer.confirm"), type: "select", value: "yes", options: [["yes", t("sensors.catalog.yes")], ["no", t("sensors.catalog.no")]] },
   ],
   fwOpt: (o) => (o.kind === "passive" ? 1 : 0) | (o.nag !== "no" ? 2 : 0) | (o.confirm !== "no" ? 4 : 0),
-  wiring: (p) => [{ title: "Cicalino", pins: { s: p.a }, text: `Piedino + (il più lungo, o «S») su ${p.a}, piedino − a GND.` }],
+  wiring: (p) => [{ title: t("sensors.catalog.buzzer.wiringTitle"), pins: { s: p.a }, text: t("sensors.catalog.buzzer.wiring", { pin: p.a }) }],
 };
 
 // ---------------------------------------------------------------------------
@@ -510,18 +544,18 @@ const buzzer: SensorDef = {
 // ---------------------------------------------------------------------------
 const button: SensorDef = {
   ...outputBase, group: "control", since: "1.5",
-  type: "button", title: "Pulsante Avvia/Ferma", short: "Pulsante", measures: "avvia e ferma la misura da Arduino",
-  description: "Un pulsante su Arduino che fa come «Avvia» e «Ferma»: con l'app collegata (cavo o Bluetooth) e con la scheda SD, dove avvia e ferma la registrazione senza computer.",
+  type: "button", title: t("sensors.catalog.button.title"), short: t("sensors.catalog.button.short"), measures: t("sensors.catalog.button.measures"),
+  description: t("sensors.catalog.button.description"),
   icon: CircleDot, tone: "lime", fw: "BTN",
-  pins: [{ key: "a", role: "pulsante", kind: "digital", def: 3, note: "L'altro piedino va a GND: la resistenza di pull-up è dentro Arduino." }],
+  pins: [{ key: "a", role: t("sensors.catalog.button.pin"), kind: "digital", def: 3, note: t("sensors.catalog.button.pinNote") }],
   options: [],
-  wiring: (p) => [{ title: "Pulsante", pins: { s: p.a }, text: `Un piedino del pulsante su ${p.a}, l'altro a GND.` }],
+  wiring: (p) => [{ title: t("sensors.catalog.button.wiringTitle"), pins: { s: p.a }, text: t("sensors.catalog.button.wiring", { pin: p.a }) }],
 };
 
 const sd: SensorDef = {
   ...outputBase, group: "storage", since: "1.5",
-  type: "sd", title: "Scheda microSD (registra senza computer)", short: "Scheda SD", measures: "registra le misure sulla scheda",
-  description: "Arduino registra le misure su una scheda microSD, alimentato da un power bank o da una pila: niente cavo né telefono. Con il pulsante avvii e fermi; senza, registra da quando lo accendi. Poi importi i file nel Quaderno.",
+  type: "sd", title: t("sensors.catalog.sd.title"), short: t("sensors.catalog.sd.short"), measures: t("sensors.catalog.sd.measures"),
+  description: t("sensors.catalog.sd.description"),
   icon: MemoryStick, tone: "saffron", fw: "SD",
   pins: [
     // CS su D10: con la scheda SD D10 resta comunque riservato (su Arduino Uno l'SPI smette di
@@ -534,7 +568,7 @@ const sd: SensorDef = {
   options: [],
   // bit0: senza pulsante, registra appena Arduino si accende
   fwOpt: () => 1,
-  wiring: (p) => [{ title: "Scheda microSD", pins: { cs: p.a }, text: `Modulo microSD (con regolatore, va a 5V): GND, VCC a 5V, MISO su D12, MOSI su D11, SCK su D13, CS su D10. Scheda formattata FAT32, fino a 32 GB.` }],
+  wiring: (p) => [{ title: t("sensors.catalog.sd.wiringTitle"), pins: { cs: p.a }, text: t("sensors.catalog.sd.wiring") }],
 };
 
 // ---------------------------------------------------------------------------
@@ -546,37 +580,36 @@ const btBase = {
   quantities: () => [] as QView[], parse: () => null, options: [] as Param[],
   pins: [
     { key: "a" as const, role: "TXD → D0 (RX)", kind: "digital" as const, def: 0, fixed: true },
-    { key: "b" as const, role: "RXD ← D1 (TX)", kind: "digital" as const, def: 1, fixed: true, note: "Con il partitore 1 kΩ + 2 kΩ: l'RXD del modulo regge 3,3 V." },
+    { key: "b" as const, role: "RXD ← D1 (TX)", kind: "digital" as const, def: 1, fixed: true, note: t("sensors.catalog.bt.rxdNote") },
   ],
 };
 const hc06: SensorDef = {
   ...btBase,
-  type: "hc06", title: "Bluetooth HC-06 (classico)", short: "HC-06", measures: "misura senza cavo, da Android",
-  description: "Modulo Bluetooth classico: misuri senza cavo con Chrome su Android (non su iPhone). Arduino va alimentato da un power bank.",
+  type: "hc06", title: t("sensors.catalog.hc06.title"), short: "HC-06", measures: t("sensors.catalog.hc06.measures"),
+  description: t("sensors.catalog.hc06.description"),
   icon: Bluetooth, tone: "sky",
-  wiring: () => [{ title: "Bluetooth HC-06", text: "VCC a 5V, GND a GND, TXD su D0, RXD su D1 attraverso il partitore 1 kΩ + 2 kΩ." }],
+  wiring: () => [{ title: "Bluetooth HC-06", text: t("sensors.catalog.bt.wiring") }],
 };
 const ble: SensorDef = {
   ...btBase,
-  type: "ble", title: "Bluetooth LE (HM-10, AT-09, HC-08)", short: "Bluetooth LE", measures: "misura senza cavo, anche da iPhone",
-  description: "Modulo Bluetooth Low Energy: misuri senza cavo con Chrome su computer e Android, e da iPhone con il browser Bluefy. Arduino va alimentato da un power bank.",
+  type: "ble", title: "Bluetooth LE (HM-10, AT-09, HC-08)", short: "Bluetooth LE", measures: t("sensors.catalog.ble.measures"),
+  description: t("sensors.catalog.ble.description"),
   icon: BluetoothSearching, tone: "sky",
-  wiring: () => [{ title: "Bluetooth LE", text: "VCC a 5V, GND a GND, TXD su D0, RXD su D1 attraverso il partitore 1 kΩ + 2 kΩ." }],
+  wiring: () => [{ title: "Bluetooth LE", text: t("sensors.catalog.bt.wiring") }],
 };
 
 // ---------------------------------------------------------------------------
 // Sensori del telefono (senza Arduino): stesso protocollo, li legge PhoneLink
 // ---------------------------------------------------------------------------
-const PHONE_AXES = "Telefono in verticale davanti a te: x verso destra, y verso l'alto lungo lo schermo, z uscente dallo schermo. A telefono fermo sul tavolo a_z ≈ +9,8 m/s²: l'accelerometro misura la reazione del tavolo, opposta alla gravità.";
 const pmotion: SensorDef = {
   rawFields: ["ax", "ay", "az", "gx", "gy", "gz"],
-  type: "pmotion", title: "Accelerometro e giroscopio del telefono", short: "Telefono", measures: "accelerazione e rotazione sui 3 assi",
-  description: "I sensori di movimento del telefono, fino a circa 60 letture al secondo. Niente Arduino: apri l'app sul telefono.",
+  type: "pmotion", title: t("sensors.catalog.pmotion.title"), short: t("sensors.catalog.pmotion.short"), measures: t("sensors.catalog.pmotion.measures"),
+  description: t("sensors.catalog.pmotion.description"),
   icon: Smartphone, tone: "lime", fw: "PMOT", phone: true,
   pins: [], interval: { def: 20, min: 10 }, max: 1,
   options: [
-    { key: "sign", label: "Segno dell'accelerometro", type: "select", value: "std", advanced: true,
-      options: [["std", "standard (sul tavolo a_z ≈ +9,8)"], ["inv", "invertito"]] },
+    { key: "sign", label: t("sensors.catalog.pmotion.sign"), type: "select", value: "std", advanced: true,
+      options: [["std", t("sensors.catalog.pmotion.std")], ["inv", t("sensors.catalog.pmotion.inv")]] },
   ],
   quantities: () => [
     { key: "ax", digits: 2, line: true, primary: true }, { key: "ay", digits: 2, line: true }, { key: "az", digits: 2, line: true, primary: true },
@@ -589,75 +622,76 @@ const pmotion: SensorDef = {
     return { t: 0, ax: k * ax, ay: k * ay, az: k * az, am: Math.hypot(ax, ay, az), gx, gy, gz };
   },
   wiring: () => [
-    { title: "Niente da collegare", text: "Apri MosaicusNeo sul telefono (Chrome su Android, Safari su iPhone) e premi «Attiva i sensori». Su iPhone conferma il permesso." },
-    { title: "Gli assi del telefono", text: PHONE_AXES },
+    { title: t("sensors.catalog.nothingToConnect"), text: t("sensors.catalog.pmotion.wiring") },
+    { title: t("sensors.catalog.pmotion.axesTitle"), text: t("sensors.catalog.pmotion.axes") },
   ],
 };
 const psound: SensorDef = {
   rawFields: ["f_hz", "level_db"],
-  type: "psound", title: "Microfono (frequenza e livello)", short: "Microfono", measures: "frequenza dominante e livello del suono",
-  description: "Frequenza dominante (50 Hz – 5 kHz) e livello relativo dal microfono del telefono o del computer. L'audio non viene registrato.",
+  type: "psound", title: t("sensors.catalog.psound.title"), short: t("sensors.catalog.psound.short"), measures: t("sensors.catalog.psound.measures"),
+  description: t("sensors.catalog.psound.description"),
   icon: AudioLines, tone: "rose", fw: "PSND", phone: true,
   pins: [], interval: { def: 50, min: 30 }, max: 1,
   options: [],
   quantities: () => [{ key: "freq", digits: 1, primary: true }, { key: "level", digits: 1, line: true, primary: true }],
   parse([f, L]) { return { t: 0, freq: f, level: L }; },
-  wiring: () => [{ title: "Niente da collegare", text: "Usa il microfono del dispositivo: premi «Attiva i sensori» e consenti l'accesso al microfono." }],
+  wiring: () => [{ title: t("sensors.catalog.nothingToConnect"), text: t("sensors.catalog.psound.wiring") }],
 };
 
-export const SENSORS: Record<SensorType, SensorDef> = { ntc, dht, sonar, gps, analog, ldr, ds18b20, gate, hx711, imu, mlx, oled, rgb, buzzer, button, sd, hc06, ble, pmotion, psound };
+export const SENSORS: Record<SensorType, SensorDef> = { ntc, dht, sonar, gps, analog, ldr, ds18b20, gate, hx711, imu, mlx, sps30, oled, rgb, buzzer, button, sd, hc06, ble, pmotion, psound };
 export const isPhoneType = (t: SensorType) => !!SENSORS[t].phone;
 /** Tutti i componenti, nell'ordine del catalogo «Aggiungi un componente». */
-export const COMPONENTS: SensorType[] = ["dht", "ntc", "ds18b20", "mlx", "sonar", "imu", "gate", "gps", "ldr", "hx711", "analog", "button", "oled", "rgb", "buzzer", "sd", "hc06", "ble", "pmotion", "psound"];
+export const COMPONENTS: SensorType[] = ["dht", "ntc", "ds18b20", "mlx", "sps30", "sonar", "imu", "gate", "gps", "ldr", "hx711", "analog", "button", "oled", "rgb", "buzzer", "sd", "hc06", "ble", "pmotion", "psound"];
 export const OUTPUTS: SensorType[] = COMPONENTS.filter((t) => SENSORS[t].output);
 /** Gruppo di un componente nel catalogo. */
 export const groupOf = (t: SensorType): ComponentGroup => SENSORS[t].group ?? (SENSORS[t].phone ? "phone" : SENSORS[t].output ? "output" : "sensor");
 /** Occupa uno dei 6 posti di Arduino (è un sensore vero)? */
 export const isSlot = (t: SensorType) => !SENSORS[t].output && !SENSORS[t].link;
 export const GROUPS: [ComponentGroup, string, string][] = [
-  ["sensor", "Sensori", "misurano: gli ingressi di Arduino"],
-  ["control", "Comandi", "per avviare e fermare da Arduino"],
-  ["output", "Display, LED e suoni", "mostrano lo stato di Arduino"],
-  ["storage", "Memoria", "registrano senza computer"],
-  ["comm", "Bluetooth", "per collegarsi senza cavo"],
-  ["phone", "Telefono", "i sensori del telefono, senza Arduino"],
+  ["sensor", t("sensors.groups.sensor.name"), t("sensors.groups.sensor.hint")],
+  ["control", t("sensors.groups.control.name"), t("sensors.groups.control.hint")],
+  ["output", t("sensors.groups.output.name"), t("sensors.groups.output.hint")],
+  ["storage", t("sensors.groups.storage.name"), t("sensors.groups.storage.hint")],
+  ["comm", t("sensors.groups.comm.name"), t("sensors.groups.comm.hint")],
+  ["phone", t("sensors.groups.phone.name"), t("sensors.groups.phone.hint")],
 ];
 
 /** Categorie per filtrare il catalogo (un componente può stare in più categorie). */
 /** Argomenti per filtrare i sensori (dentro il gruppo «Sensori»; un sensore può stare in più argomenti). */
-export type ComponentTag = "temp" | "motion" | "light" | "force" | "place" | "volt";
+export type ComponentTag = "temp" | "motion" | "light" | "force" | "place" | "volt" | "air";
 export const TAGS: [ComponentTag, string][] = [
-  ["temp", "Temperatura e clima"], ["motion", "Movimento e tempo"], ["light", "Luce"], ["force", "Forza e massa"],
-  ["place", "Posizione"], ["volt", "Tensione"],
+  ["temp", t("sensors.tags.temp")], ["motion", t("sensors.tags.motion")], ["light", t("sensors.tags.light")], ["force", t("sensors.tags.force")],
+  ["place", t("sensors.tags.place")], ["volt", t("sensors.tags.volt")], ["air", t("sensors.tags.air")],
 ];
 export const COMPONENT_TAGS: Record<SensorType, ComponentTag[]> = {
-  dht: ["temp"], ntc: ["temp"], ds18b20: ["temp"], mlx: ["temp"], sonar: ["motion", "place"], imu: ["motion", "force"], gate: ["motion", "light"],
+  dht: ["temp"], ntc: ["temp"], ds18b20: ["temp"], mlx: ["temp"], sps30: ["air"], sonar: ["motion", "place"], imu: ["motion", "force"], gate: ["motion", "light"],
   gps: ["place", "motion"], ldr: ["light"], hx711: ["force"], analog: ["volt"],
   oled: [], rgb: [], buzzer: [], button: [], sd: [], hc06: [], ble: [],
   pmotion: ["motion"], psound: [],
 };
 /** Parole in più per la ricerca (nomi comuni, sinonimi, kit). */
 export const COMPONENT_KEYWORDS: Record<SensorType, string> = {
-  pmotion: "telefono smartphone accelerometro giroscopio pendolo ascensore rotazione phyphox",
-  psound: "telefono microfono suono frequenza doppler glissato livello decibel",
-  dht: "umidità rugiada aria meteo clima dht11 dht22 am2302",
-  ntc: "termistore termometro calore raffreddamento newton resistenza",
-  ds18b20: "sonda impermeabile acqua liquido termometro onewire",
-  sonar: "ultrasuoni distanza sonar carrello caduta moto velocità accelerazione hcsr04 hc-sr04",
-  mlx: "infrarossi termometro senza contatto pistola termocamera superficie pelle mlx90614 gy906 gy-906 melexis",
-  imu: "accelerometro giroscopio inclinazione vibrazioni urti oscillazioni gy521 gy-521 mpu6050",
-  gate: "fotocellula fotoporta pendolo periodo cronometro forcella infrarossi pulsante interruttore",
-  gps: "satelliti mappa percorso altitudine passeggiata neo6m neo-6m neo7m",
-  ldr: "fotoresistenza luminosità buio lampada fotocellula",
-  hx711: "bilancia peso cella di carico newton dinamometro",
-  analog: "potenziometro voltmetro tensione segnale generico pila",
-  oled: "schermo display ssd1306 stato scritte",
-  rgb: "led colori luce stato semaforo",
-  buzzer: "cicalino suono beep allarme avviso",
-  button: "pulsante tasto bottone avvia ferma start stop interruttore",
-  sd: "scheda sd microsd memoria registrazione datalogger senza computer power bank pila batteria file",
-  hc06: "bluetooth classico hc06 hc-06 hc05 hc-05 android senza cavo wireless",
-  ble: "bluetooth le low energy hm10 hm-10 at09 at-09 hc08 hc-08 bt05 iphone bluefy senza cavo wireless",
+  pmotion: t("sensors.keywords.pmotion"),
+  psound: t("sensors.keywords.psound"),
+  dht: t("sensors.keywords.dht"),
+  ntc: t("sensors.keywords.ntc"),
+  ds18b20: t("sensors.keywords.ds18b20"),
+  sonar: t("sensors.keywords.sonar"),
+  mlx: t("sensors.keywords.mlx"),
+  sps30: t("sensors.keywords.sps30"),
+  imu: t("sensors.keywords.imu"),
+  gate: t("sensors.keywords.gate"),
+  gps: t("sensors.keywords.gps"),
+  ldr: t("sensors.keywords.ldr"),
+  hx711: t("sensors.keywords.hx711"),
+  analog: t("sensors.keywords.analog"),
+  oled: t("sensors.keywords.oled"),
+  rgb: t("sensors.keywords.rgb"),
+  buzzer: t("sensors.keywords.buzzer"),
+  button: t("sensors.keywords.button"),
+  sd: t("sensors.keywords.sd"),
+  hc06: t("sensors.keywords.hc06"),
+  ble: t("sensors.keywords.ble"),
 };
 export const isOutput = (t: SensorType) => !!SENSORS[t].output;
 export const MAX_ARDUINO = 6;

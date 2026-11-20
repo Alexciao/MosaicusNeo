@@ -4,10 +4,12 @@
 // (decine di microsecondi): nei grafici, che scrivono centinaia di etichette per fotogramma,
 // era la prima causa di scatti. Qui i formattatori si creano una volta e si riusano.
 
+import { intlLocale } from '@/i18n';
+
 const cache = new Map();
 
 /** Formattatore it-IT con minDigits…maxDigits decimali (memorizzato). */
-export function nf(minDigits, maxDigits, locale = 'it-IT') {
+export function nf(minDigits, maxDigits, locale = intlLocale) {
   const key = `${locale}|${minDigits}|${maxDigits}`;
   let f = cache.get(key);
   if (!f) {
