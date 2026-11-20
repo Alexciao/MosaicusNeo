@@ -26,7 +26,7 @@ export function WiringSection({ id, icon: Icon, title, meta, tone = "default", d
         {showIcon && <Icon className={cn("size-4 shrink-0", tone === "warn" ? "text-destructive" : "text-tone-saffron-fg")} aria-hidden />}
         <span className={cn("min-w-0 flex-1 truncate text-sm font-semibold", tone === "warn" && "text-destructive")}>{title}</span>
         {meta != null && <span className="shrink-0 text-[13px] text-muted-foreground tabular">{meta}</span>}
-        <ChevronDown className={cn("size-4 shrink-0 text-muted-foreground transition-transform duration-200 group-hover/sec:text-foreground", !open && "-rotate-90")} aria-hidden />
+        <ChevronDown aria-hidden className={cn("size-4 shrink-0 text-muted-foreground transition-transform duration-200 ease-out group-hover/sec:text-foreground", !open && "-rotate-90")} />
       </CollapsibleTrigger>
       <CollapsibleContent>
         <div className="pb-4">{children}</div>

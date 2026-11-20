@@ -28,7 +28,7 @@ export function BoxMap({ box, rows, selection }: { box: Box; rows: Record<string
   return (
     <Collapsible open={open} onOpenChange={setOpen} className="border-t">
       <CollapsibleTrigger className="flex w-full items-center gap-2 px-4 py-3 text-sm font-semibold">
-        <ChevronDown className={cn("size-4 transition-transform", !open && "-rotate-90")} /> {t("title")}
+        <ChevronDown aria-hidden className={cn("size-4 transition-transform duration-200 ease-out", !open && "-rotate-90")} /> {t("title")}
         <span className="font-normal text-muted-foreground"><Sym>{t("color", { q: `${cy.sym}${cy.unit ? ` (${cy.unit})` : ""}` })}</Sym></span>
       </CollapsibleTrigger>
       <CollapsibleContent className="px-4 pb-4">

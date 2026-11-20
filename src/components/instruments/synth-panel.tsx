@@ -34,8 +34,28 @@ function WaveIcon({ d }: { d: string }) {
   );
 }
 
-/** Tastiera di due ottave (da La₃): tasti bianchi in fila, neri sovrapposti. */
+/** Tasti fisici (posizione, non lettera: vale anche con la tastiera italiana) → semitoni dal Do₄. */
+const KEY_CODES = ["KeyA", "KeyW", "KeyS", "KeyE", "KeyD", "KeyF", "KeyT", "KeyG", "KeyY", "KeyH", "KeyU", "KeyJ", "KeyK", "KeyO", "KeyL", "KeyP", "Semicolon"];
+
+/** Tastiera di due ottave (dal Do₄): tasti bianchi in fila, neri sovrapposti. Si suona anche dalla
+ *  tastiera del computer (A…L, con W E T Y U O P per i diesis) e, col fuoco su un tasto, con Invio/Spazio. */
 function PianoKeys({ onKey, activeF }: { onKey: (n: number) => void; activeF: number | null }) {
+  const t = useTranslations("app.synth");
+  const root = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const onDown = (e: KeyboardEvent) => {
+      if (e.repeat || e.metaKey || e.ctrlKey || e.altKey) return;
+      const el = e.target as HTMLElement | null;
+      if (el?.closest("input, textarea, select, [contenteditable=true], [role=dialog]")) return;
+      if (!root.current?.offsetParent) return;          // tastiera nascosta (altra modalità)
+      const i = KEY_CODES.indexOf(e.code);
+      if (i < 0) return;
+      e.preventDefault();
+      onKey(-9 + i);
+    };
+    window.addEventListener("keydown", onDown);
+    return () => window.removeEventListener("keydown", onDown);
+  }, [onKey]);
   const lowN = -9, octaves = 2;
   const whites: { n: number; name: string; oct: number; c: boolean }[] = [];
   const blacks: { n: number; i: number; name: string; oct: number }[] = [];
@@ -47,10 +67,12 @@ function PianoKeys({ onKey, activeF }: { onKey: (n: number) => void; activeF: nu
   const on = (n: number) => activeF != null && Math.abs(1200 * Math.log2(activeF / noteFreq(n))) < 3;
   const W = whites.length;
   return (
-    <div className="relative h-36 w-full touch-none select-none sm:h-40">
+    <div className="flex flex-col gap-1.5">
+    <div ref={root} className="relative h-36 w-full touch-none select-none sm:h-40">
       <div className="flex h-full gap-px">
         {whites.map((k) => (
-          <button key={k.n} type="button" title={`${k.name}${k.oct}`} onPointerDown={(e) => { e.preventDefault(); onKey(k.n); }}
+          <button key={k.n} type="button" title={`${k.name}${k.oct}`} aria-label={`${k.name}${k.oct}`} onPointerDown={(e) => { e.preventDefault(); onKey(k.n); }}
+            onClick={(e) => { if (e.detail === 0) onKey(k.n); }}
             className={cn("flex flex-1 items-end justify-center rounded-b-md border bg-white pb-1.5 text-[0.65rem] font-medium text-neutral-500 shadow-sm transition-colors hover:bg-neutral-50 dark:border-white/10",
               on(k.n) && "bg-primary text-primary-foreground hover:bg-primary dark:border-primary")}>
             {k.c ? `${k.name}${k.oct}` : k.name}
@@ -58,10 +80,13 @@ function PianoKeys({ onKey, activeF }: { onKey: (n: number) => void; activeF: nu
         ))}
       </div>
       {blacks.map((k) => (
-        <button key={k.n} type="button" title={`${k.name}${k.oct}`} onPointerDown={(e) => { e.preventDefault(); onKey(k.n); }}
+        <button key={k.n} type="button" title={`${k.name}${k.oct}`} aria-label={`${k.name}${k.oct}`} onPointerDown={(e) => { e.preventDefault(); onKey(k.n); }}
+          onClick={(e) => { if (e.detail === 0) onKey(k.n); }}
           className={cn("absolute top-0 h-[60%] -translate-x-1/2 rounded-b-md bg-neutral-900 shadow-md transition-colors hover:bg-neutral-700 dark:bg-black dark:ring-1 dark:ring-white/15", on(k.n) && "bg-primary hover:bg-primary")}
           style={{ left: `${(k.i / W) * 100}%`, width: `${(100 / W) * 0.62}%` }} />
       ))}
+    </div>
+    <p className="hidden text-xs text-muted-foreground pointer-fine:block">{t("keysHint")}</p>
     </div>
   );
 }
@@ -163,7 +188,7 @@ export function SynthPanel({ exp }: { exp: Instrument }) {
         </div>
         <Collapsible open={eqOpen} onOpenChange={setEqOpen} className="border-t">
           <CollapsibleTrigger className="flex h-10 w-full items-center gap-2 px-4 text-sm font-medium outline-none hover:bg-foreground/[0.02] focus-visible:bg-foreground/[0.04]">
-            <ChevronDown className={cn("size-4 text-muted-foreground transition-transform", !eqOpen && "-rotate-90")} /> {t("formula")}
+            <ChevronDown aria-hidden className={cn("size-4 text-muted-foreground transition-transform duration-200 ease-out", !eqOpen && "-rotate-90")} /> {t("formula")}
           </CollapsibleTrigger>
           <CollapsibleContent className="px-4 pb-4">
             <p className="rounded-md bg-muted px-3 py-2 font-mono text-[13px]">y = {eq || "0"}{(SY.tail as number[]).some(Boolean) ? t("higher") : ""}</p>
@@ -180,9 +205,9 @@ export function SynthPanel({ exp }: { exp: Instrument }) {
         <div className={cn("flex flex-col gap-4", mode !== "keys" && "hidden")}>
           <PianoKeys onKey={ctl.pressKey} activeF={mode === "keys" ? SY.f : null} />
           <div className="flex flex-wrap items-center gap-2">
-            <Button size="icon-sm" variant="outline" onClick={() => ctl.setF(SY.f - 1)} aria-label="−1 Hz"><Minus /></Button>
+            <Button size="icon-sm" variant="outline" onClick={() => ctl.setF(SY.f - 1)} aria-label={t("stepDown")}><Minus /></Button>
             <Slider className="min-w-40 flex-1 data-horizontal:w-auto" min={0} max={1000} step={1} value={toSlider(SY.f)} onValueChange={(v) => ctl.setF(fromSlider(v as number))} aria-label={t("freq")} />
-            <Button size="icon-sm" variant="outline" onClick={() => ctl.setF(SY.f + 1)} aria-label="+1 Hz"><Plus /></Button>
+            <Button size="icon-sm" variant="outline" onClick={() => ctl.setF(SY.f + 1)} aria-label={t("stepUp")}><Plus /></Button>
             <Input type="text" inputMode="decimal" className="h-8 w-24 tabular" aria-label={t("freqHz")}
               value={fText ?? String(SY.f)} onChange={(e) => setFText(e.target.value)} onFocus={() => setFText(String(SY.f))}
               onBlur={() => { const v = parseFloat(String(fText).replace(",", ".")); if (Number.isFinite(v)) ctl.setF(Math.min(FMAX, Math.max(FMIN, v))); setFText(null); }}
@@ -206,7 +231,7 @@ export function SynthPanel({ exp }: { exp: Instrument }) {
         </div>
 
         <div className={cn("flex flex-col gap-4", mode === "keys" && "hidden")}>
-          <div className="relative h-24 overflow-hidden rounded-md bg-screen touch-none">
+          <div className="relative h-24 overflow-hidden rounded-md bg-screen touch-none select-none">
             <canvas ref={ribRef} aria-label={t("ribbon")} className="absolute inset-0 size-full" />
           </div>
           <p className="text-sm text-muted-foreground">{hint[mode]}</p>

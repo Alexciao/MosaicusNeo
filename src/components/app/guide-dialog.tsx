@@ -667,7 +667,7 @@ function ChapterLink({ id, children }: { id: string; children: React.ReactNode }
 
 export function GuideButton({ className }: { className?: string }) {
   const t = useTranslations("guide");
-  return <Button variant="ghost" size="sm" className={className} aria-label={t("button")} onClick={() => openGuide("start")}><CircleHelp /> <span className="hidden sm:inline">{t("button")}</span></Button>;
+  return <Button variant="ghost" size="sm" className={cn("max-sm:w-8 max-sm:px-0", className)} aria-label={t("button")} onClick={() => openGuide("start")}><CircleHelp /> <span className="hidden sm:inline">{t("button")}</span></Button>;
 }
 
 /** La finestra della guida (una sola per l'app; si apre con openGuide). */

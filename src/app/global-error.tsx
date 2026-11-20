@@ -25,10 +25,10 @@ export default function GlobalError({ error }: { error: unknown; retry: () => vo
       <body style={{ margin: 0, minHeight: "100svh", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "system-ui, sans-serif", colorScheme: "light dark", background: "Canvas", color: "CanvasText" }}>
         <title>MosaicusNeo</title>
         {message !== null && (
-          <div style={{ maxWidth: 420, padding: 24 }}>
+          <div role="alert" style={{ maxWidth: 420, minWidth: 0, padding: 24 }}>
             <h1 style={{ fontSize: 22, margin: "0 0 8px" }}>{t.title}</h1>
             <p style={{ margin: "0 0 12px", opacity: 0.75 }}>{t.body}</p>
-            <pre style={{ fontSize: 12, whiteSpace: "pre-wrap", opacity: 0.6, margin: "0 0 16px" }}>{message}</pre>
+            <pre style={{ fontSize: 12, whiteSpace: "pre-wrap", overflowWrap: "anywhere", opacity: 0.6, margin: "0 0 16px" }}>{message}</pre>
             <button type="button" onClick={() => location.reload()} style={{ font: "inherit", padding: "8px 16px", borderRadius: 8, cursor: "pointer" }}>{t.reload}</button>
           </div>
         )}

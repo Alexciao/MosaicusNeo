@@ -541,6 +541,14 @@ export function removeSensor(id: string) {
   const rig = get().rig;
   commitRig({ ...rig, sensors: rig.sensors.filter((s) => s.id !== id) });
 }
+/** «Annulla» dopo removeSensor: rimette il componente al suo posto, se si è ancora sullo stesso progetto. */
+export function restoreSensor(rigId: string, sensor: SensorInstance, index: number) {
+  const rig = get().rig;
+  if (rig.id !== rigId || get().running || rig.sensors.some((s) => s.id === sensor.id)) return;
+  const sensors = [...rig.sensors];
+  sensors.splice(Math.min(index, sensors.length), 0, sensor);
+  commitRig({ ...rig, sensors });
+}
 export function moveSensor(id: string, dir: -1 | 1) {
   const rig = get().rig, i = rig.sensors.findIndex((s) => s.id === id), j = i + dir;
   if (i < 0 || j < 0 || j >= rig.sensors.length) return;
@@ -719,7 +727,17 @@ export async function connect(kind: "arduino" | "ble" | "sim" | "phone") {
     await l.open();
   } catch (err) {
     const e = err as Error;
-    if (e?.name !== "NotFoundError") toast.error(t(kind === "ble" ? "lab.toast.bleError" : kind === "phone" ? "lab.toast.phoneError" : "lab.toast.portError", { msg: e.message }));
+    // nessun dispositivo scelto nella finestra del browser: non è un errore, nessun messaggio
+    if (e?.name === "NotFoundError") return;
+    const retry = { label: t("lab.action.retry"), onClick: () => void connect(kind) };
+    // permesso negato: lo stato resta visibile nella barra e la notifica dice cosa fare
+    if (e?.name === "NotAllowedError" || e?.name === "SecurityError") {
+      setStatus(t("lab.status.denied"), "err");
+      toast.error(t(kind === "phone" ? "lab.toast.deniedPhone" : "lab.toast.deniedDevice"), { duration: 10000, action: retry });
+      return;
+    }
+    setStatus(t("lab.status.failed"), "err");
+    toast.error(t(kind === "ble" ? "lab.toast.bleError" : kind === "phone" ? "lab.toast.phoneError" : "lab.toast.portError", { msg: e.message }), { action: retry });
     return;
   }
   link = l;

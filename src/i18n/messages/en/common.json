@@ -3,5 +3,9 @@
     "label": "Language",
     "stopFirst": "Stop the measurement before changing language."
   },
-  "dismiss": "Dismiss"
+  "dismiss": "Dismiss",
+  "close": "Close",
+  "toggleSidebar": "Show or hide the lab list",
+  "sidebarTitle": "Labs",
+  "sidebarDesc": "Pick an experiment or one of your projects."
 }

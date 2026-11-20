@@ -18,8 +18,10 @@ import { validateRig, usedPins, sensorLabel, inputsOf, indicatorsOf, type Sensor
 import { QUANTITIES } from "@/lib/sensors/quantities";
 import type { Param } from "@/lib/sensors/types";
 import {
-  useLab, labInfo, updateSensor, addSensor, addSensors, checkAdd, removeSensor, pressSimButton, newRig, testOutputs,
+  useLab, labInfo, updateSensor, addSensor, addSensors, checkAdd, removeSensor, restoreSensor, pressSimButton, newRig, testOutputs,
 } from "@/lib/lab-store";
+import { presetById } from "@/lib/sensors/presets";
+import { toast } from "@/lib/toast";
 import { confirm } from "@/lib/confirm";
 import { cn } from "@/lib/utils";
 import { isPhoneWidth } from "@/lib/prefs";
@@ -118,10 +120,21 @@ function SensorCard({ s, defaultOpen }: { s: SensorInstance; defaultOpen: boolea
               {def.events && <span> · {t("events")}</span>}
             </span>
           </span>
-          <ChevronDown className={cn("size-4 shrink-0 text-muted-foreground transition-transform", !open && "-rotate-90")} aria-hidden />
+          <ChevronDown aria-hidden className={cn("size-4 shrink-0 text-muted-foreground transition-transform duration-200 ease-out", !open && "-rotate-90")} />
         </CollapsibleTrigger>
         <Button size="icon-sm" variant="ghost" aria-label={t("removeNamed", { name: sensorLabel(s) })} disabled={running} className="text-muted-foreground hover:text-destructive"
-          onClick={async () => { if (await confirm({ title: t("removeTitle", { name: sensorLabel(s) }), action: t("remove"), destructive: true })) removeSensor(s.id); }}>
+          onClick={async () => {
+            const rig = useLab.getState().rig;
+            // esperimento pronto: toglierlo ne crea una copia, quindi si chiede prima; nei propri progetti
+            // si toglie subito e si può annullare dalla notifica
+            if (presetById(rig.id)) {
+              if (await confirm({ title: t("removeTitle", { name: sensorLabel(s) }), action: t("remove"), destructive: true })) removeSensor(s.id);
+              return;
+            }
+            const index = rig.sensors.findIndex((x) => x.id === s.id);
+            removeSensor(s.id);
+            toast(t("removed", { name: sensorLabel(s) }), { action: { label: t("undo"), onClick: () => restoreSensor(rig.id, s, index) } });
+          }}>
           <Trash />
         </Button>
       </div>
@@ -180,7 +193,7 @@ function SensorCard({ s, defaultOpen }: { s: SensorInstance; defaultOpen: boolea
         {!!advanced.length && (
           <Collapsible open={adv} onOpenChange={setAdv}>
             <CollapsibleTrigger className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground hover:text-foreground">
-              <ChevronDown className={cn("size-3.5 transition-transform", !adv && "-rotate-90")} /> {t("advanced")}
+              <ChevronDown aria-hidden className={cn("size-3.5 transition-transform duration-200 ease-out", !adv && "-rotate-90")} /> {t("advanced")}
             </CollapsibleTrigger>
             <CollapsibleContent className="grid gap-3 pt-3 sm:grid-cols-2">
               {advanced.map((p) => (
@@ -405,9 +418,9 @@ export function ComponentPicker({ open, onOpenChange }: { open: boolean; onOpenC
             placeholder={t("searchPlaceholder")} aria-label={t("searchAria")}
             role="combobox" aria-expanded aria-controls="picker-list" aria-activedescendant={active ? optId(active) : undefined}
             autoComplete="off" spellCheck={false}
-            className="h-12 min-w-0 flex-1 bg-transparent text-[15px] outline-none placeholder:text-muted-foreground" />
+            className="h-12 min-w-0 flex-1 bg-transparent text-base outline-none placeholder:text-muted-foreground sm:text-[15px]" />
           {query && (
-            <button type="button" aria-label={t("clearSearch")} onClick={() => setQuery("")} className="rounded p-1 text-muted-foreground hover:text-foreground"><X className="size-4" /></button>
+            <button type="button" aria-label={t("clearSearch")} onClick={() => setQuery("")} className="rounded p-1 text-muted-foreground hover:text-foreground"><X aria-hidden className="size-4" /></button>
           )}
           <DialogClose render={<Button variant="ghost" size="icon-sm" aria-label={t("close")} />}><X /></DialogClose>
         </div>
@@ -458,7 +471,7 @@ export function ComponentPicker({ open, onOpenChange }: { open: boolean; onOpenC
             )}
           </div>
           {/* anteprima */}
-          <aside className="hidden min-h-0 border-l md:block" aria-live="polite">
+          <aside className="hidden min-h-0 border-l md:block">
             {active && <PickerDetail type={active} disabled={!!activeDisabled} why={activeWhy} selecting={selecting} selected={sel.includes(active)} onPick={() => (selecting ? toggle(active) : pick(active))} />}
           </aside>
         </div>

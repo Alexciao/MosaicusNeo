@@ -385,6 +385,8 @@
     "outputsHint": "Facoltativo: un display, un LED RGB o un cicalino mostrano se Arduino è pronto o sta misurando.",
     "howItWorks": "Come funzionano",
     "quantities": "Grandezze misurate",
-    "noRoom": "Non sta su 3 breadboard intere affiancate: togli prima un componente."
+    "noRoom": "Non sta su 3 breadboard intere affiancate: togli prima un componente.",
+    "removed": "«{name}» tolto dal progetto",
+    "undo": "Annulla"
   }
 }

@@ -48,7 +48,7 @@ function Item({ id, title, icon: Icon, tone, menu }: Entry) {
         className="h-8 gap-2.5 px-2 text-[13px] font-medium text-foreground/80 hover:bg-foreground/[0.04] hover:text-foreground active:bg-foreground/[0.06] data-active:bg-foreground/[0.06] data-active:font-medium data-active:text-foreground dark:font-normal dark:data-active:font-medium">
         <Icon className={cn("size-4!", toneFg[tone])} aria-hidden />
         <span className="min-w-0 flex-1 truncate">{title}</span>
-        {live && <span className="size-1.5 shrink-0 rounded-full bg-destructive" title={t("live")} aria-label={t("live")} />}
+        {live && <span role="img" className="size-1.5 shrink-0 rounded-full bg-destructive" title={t("live")} aria-label={t("live")} />}
       </SidebarMenuButton>
       {menu}
     </SidebarMenuItem>
@@ -165,7 +165,7 @@ function Section({ id, title, forceOpen, children, defaultOpen = true }: { id: s
         <SidebarGroupLabel render={<CollapsibleTrigger />}
           className="group/label h-7 cursor-pointer gap-1 px-2 text-xs font-medium text-muted-foreground hover:text-foreground">
           <span className="flex-1 truncate text-left">{title}</span>
-          <ChevronDown className={cn("size-3.5! opacity-0 transition-[opacity,transform] duration-150 group-hover/label:opacity-100 group-focus-visible/label:opacity-100", !open && "-rotate-90 opacity-100")} />
+          <ChevronDown aria-hidden className={cn("size-3.5! opacity-0 transition-[opacity,rotate] duration-150 ease-out group-hover/label:opacity-100 group-focus-visible/label:opacity-100 pointer-coarse:opacity-100", !open && "-rotate-90 opacity-100")} />
         </SidebarGroupLabel>
         <CollapsibleContent>
           <SidebarGroupContent>{children}</SidebarGroupContent>

@@ -90,7 +90,7 @@ export function ScopePanel({ exp }: { exp: Instrument }) {
           <Segmented label={t("source")} value={(S.source ?? "") as "mic" | "ex" | ""} onChange={(v) => v && void engine.selectSource(v)}
             items={[["mic", <><Mic /> {t("micSource")}</>], ["ex", <><Music /> {t("examples")}</>]]} />
         )}
-        <dl className="flex flex-wrap items-baseline gap-x-6 gap-y-1 md:ml-auto" aria-live="polite">
+        <dl className="flex flex-wrap items-baseline gap-x-6 gap-y-1 md:ml-auto">
           {S.readouts.map(([l, v, u]) => (
             <div key={l} className="flex items-baseline gap-2">
               <dt className="text-xs text-muted-foreground"><ReadoutLabel text={l} /></dt>
@@ -197,7 +197,7 @@ export function ScopePanel({ exp }: { exp: Instrument }) {
       {ard && (
         <Collapsible open={advOpen} onOpenChange={setAdvOpen} className="border-t">
           <CollapsibleTrigger className="flex h-10 w-full items-center gap-2 px-4 text-sm font-medium outline-none hover:bg-foreground/[0.02] focus-visible:bg-foreground/[0.04]">
-            <ChevronDown className={cn("size-4 text-muted-foreground transition-transform", !advOpen && "-rotate-90")} /> {t("measured")}
+            <ChevronDown aria-hidden className={cn("size-4 text-muted-foreground transition-transform duration-200 ease-out", !advOpen && "-rotate-90")} /> {t("measured")}
           </CollapsibleTrigger>
           <CollapsibleContent className="grid gap-3 px-4 pb-4 sm:grid-cols-3">
             <div className="flex flex-col gap-1.5">

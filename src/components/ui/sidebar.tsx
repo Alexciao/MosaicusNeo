@@ -4,6 +4,7 @@ import * as React from "react"
 import { mergeProps } from "@base-ui/react/merge-props"
 import { useRender } from "@base-ui/react/use-render"
 import { cva, type VariantProps } from "class-variance-authority"
+import { useTranslations } from "next-intl"
 import { cn } from "cn"
 
 import { useIsMobile } from "@/hooks/use-mobile"
@@ -112,7 +113,10 @@ function SidebarProvider({
         (event.metaKey || event.ctrlKey)
       ) {
         event.preventDefault()
+        // da tastiera si apre e chiude di colpo: niente animazione su un'azione ripetuta a mano
+        document.documentElement.dataset.sidebarInstant = ""
         toggleSidebar()
+        requestAnimationFrame(() => requestAnimationFrame(() => { delete document.documentElement.dataset.sidebarInstant }))
       }
     }
 
@@ -174,6 +178,7 @@ function Sidebar({
   collapsible?: "offcanvas" | "icon" | "none"
 }) {
   const { isMobile, state, openMobile, setOpenMobile } = useSidebar()
+  const t = useTranslations("common")
 
   if (collapsible === "none") {
     return (
@@ -201,8 +206,8 @@ function Sidebar({
           className="bg-sidebar text-sidebar-foreground"
         >
           <DrawerHeader className="sr-only">
-            <DrawerTitle>Sidebar</DrawerTitle>
-            <DrawerDescription>Displays the mobile sidebar.</DrawerDescription>
+            <DrawerTitle>{t("sidebarTitle")}</DrawerTitle>
+            <DrawerDescription>{t("sidebarDesc")}</DrawerDescription>
           </DrawerHeader>
           <div className="flex min-h-0 w-full flex-1 flex-col">{children}</div>
         </DrawerContent>
@@ -263,6 +268,7 @@ function SidebarTrigger({
   ...props
 }: React.ComponentProps<typeof Button>) {
   const { toggleSidebar } = useSidebar()
+  const t = useTranslations("common")
 
   return (
     <Button
@@ -278,24 +284,25 @@ function SidebarTrigger({
       {...props}
     >
       <PanelLeftIcon />
-      <span className="sr-only">Toggle Sidebar</span>
+      <span className="sr-only">{t("toggleSidebar")}</span>
     </Button>
   )
 }
 
 function SidebarRail({ className, ...props }: React.ComponentProps<"button">) {
   const { toggleSidebar } = useSidebar()
+  const t = useTranslations("common")
 
   return (
     <button
       data-sidebar="rail"
       data-slot="sidebar-rail"
-      aria-label="Toggle Sidebar"
+      aria-label={t("toggleSidebar")}
       tabIndex={-1}
       onClick={toggleSidebar}
-      title="Toggle Sidebar"
+      title={t("toggleSidebar")}
       className={cn(
-        "absolute inset-y-0 z-20 hidden w-4 transition-all ease-linear group-data-[side=left]:-right-4 group-data-[side=right]:left-0 after:absolute after:inset-y-0 after:start-1/2 after:w-[2px] hover:after:bg-sidebar-border sm:flex ltr:-translate-x-1/2 rtl:-translate-x-1/2",
+        "absolute inset-y-0 z-20 hidden w-4 group-data-[side=left]:-right-4 group-data-[side=right]:left-0 after:absolute after:inset-y-0 after:start-1/2 after:w-[2px] after:transition-colors hover:after:bg-sidebar-border sm:flex ltr:-translate-x-1/2 rtl:-translate-x-1/2",
         "in-data-[side=left]:cursor-w-resize in-data-[side=right]:cursor-e-resize",
         "[[data-side=left][data-state=collapsed]_&]:cursor-e-resize [[data-side=right][data-state=collapsed]_&]:cursor-w-resize",
         "group-data-[collapsible=offcanvas]:translate-x-0 group-data-[collapsible=offcanvas]:after:left-full hover:group-data-[collapsible=offcanvas]:bg-sidebar",

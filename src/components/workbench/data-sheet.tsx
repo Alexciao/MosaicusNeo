@@ -18,15 +18,19 @@ import { cn } from "@/lib/utils";
 import { Sym } from "@/components/app/sym";
 
 const MAX_ROWS = 2000;
+/** Righe disegnate alla volta: 2000 righe tutte insieme rallentano la pagina sui computer della scuola. */
+const PAGE_ROWS = 200;
 
 export function DataSheet({ box, rows, errors }: { box: Box; rows: Record<string, number>[]; errors: Record<string, string> }) {
   const t = useTranslations("workbench.sheet");
   const updateBox = useWorkbench((s) => s.updateBox);
   const [open, setOpen] = useState(false);
+  const [limit, setLimit] = useState(PAGE_ROWS);
   const [pending, setPending] = useState<{ sym: string; unit: string; formula: string } | null>(null);
   const cols = [...box.columns, ...box.computed];
   const isComp = (key: string) => box.computed.some((c) => c.key === key);
-  const shown = rows.slice(0, MAX_ROWS);
+  const shown = rows.slice(0, Math.min(MAX_ROWS, limit));
+  const more = Math.min(MAX_ROWS, rows.length) - shown.length;
 
   const preview = useMemo(() => {
     if (!pending) return null;
@@ -36,7 +40,7 @@ export function DataSheet({ box, rows, errors }: { box: Box; rows: Record<string
       return { err: "", vals: shown.map((r) => fn(r)) };
     } catch (e) { return { err: (e as Error).message, vals: null }; }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pending, rows, box.computed]);
+  }, [pending, rows, box.computed, limit]);
   const [addErr, setAddErr] = useState("");
 
   const setAxis = (ax: "x" | "y", key: string) => updateBox(box.id, ax === "x" ? { xKey: key } : { yKey: key });
@@ -64,7 +68,7 @@ export function DataSheet({ box, rows, errors }: { box: Box; rows: Record<string
   const axBtn = (ax: "x" | "y", key: string) => {
     const on = (ax === "x" ? box.xKey : box.yKey) === key;
     return (
-      <button type="button" onClick={() => setAxis(ax, key)} title={ax === "x" ? t("toX") : t("toY")}
+      <button type="button" onClick={() => setAxis(ax, key)} title={ax === "x" ? t("toX") : t("toY")} aria-label={ax === "x" ? t("toX") : t("toY")} aria-pressed={on}
         className={cn("grid size-6 place-items-center rounded border text-xs font-bold transition-colors", on ? (ax === "x" ? "border-sky-500 bg-sky-500 text-white" : "border-primary bg-primary text-primary-foreground") : "hover:bg-muted")}>
         {ax}
       </button>
@@ -75,7 +79,7 @@ export function DataSheet({ box, rows, errors }: { box: Box; rows: Record<string
   return (
     <Collapsible open={open} onOpenChange={setOpen} className="border-t">
       <CollapsibleTrigger className="flex w-full items-center gap-2 px-4 py-3 text-sm font-semibold">
-        <ChevronDown className={cn("size-4 transition-transform", !open && "-rotate-90")} /> {t("title")}
+        <ChevronDown aria-hidden className={cn("size-4 transition-transform duration-200 ease-out", !open && "-rotate-90")} /> {t("title")}
         <span className="font-normal text-muted-foreground">{t("counts", { rows: rows.length, cols: cols.length })}</span>
       </CollapsibleTrigger>
       <CollapsibleContent className="px-4 pb-4">
@@ -94,7 +98,7 @@ export function DataSheet({ box, rows, errors }: { box: Box; rows: Record<string
                         </div>
                         <div className="mt-1 flex justify-end gap-1">
                           {axBtn("x", c.key)}{axBtn("y", c.key)}
-                          {isComp(c.key) && <button type="button" onClick={() => void remove(c.key)} title={t("deleteColumn")} className="grid size-6 place-items-center rounded border text-muted-foreground hover:text-destructive"><X className="size-3" /></button>}
+                          {isComp(c.key) && <button type="button" onClick={() => void remove(c.key)} title={t("deleteColumn")} aria-label={t("deleteColumn")} className="grid size-6 place-items-center rounded border text-muted-foreground hover:text-destructive"><X aria-hidden className="size-3" /></button>}
                         </div>
                         {errors[c.key] && <div className="mt-1 text-left text-[0.7rem] font-normal text-destructive">{errors[c.key]}</div>}
                       </th>
@@ -103,10 +107,10 @@ export function DataSheet({ box, rows, errors }: { box: Box; rows: Record<string
                       {pending ? (
                         <div className="flex flex-col gap-1.5">
                           <div className="flex gap-1.5">
-                            <Input autoFocus placeholder={t("symPh")} value={pending.sym} onChange={(e) => setPending({ ...pending, sym: e.target.value })} aria-label={t("symAria")} className="h-7 text-xs" />
-                            <Input placeholder={t("unitPh")} value={pending.unit} onChange={(e) => setPending({ ...pending, unit: e.target.value })} aria-label={t("unitAria")} className="h-7 w-20 text-xs" />
+                            <Input autoFocus placeholder={t("symPh")} value={pending.sym} onChange={(e) => setPending({ ...pending, sym: e.target.value })} aria-label={t("symAria")} className="h-7 text-xs max-sm:text-base" />
+                            <Input placeholder={t("unitPh")} value={pending.unit} onChange={(e) => setPending({ ...pending, unit: e.target.value })} aria-label={t("unitAria")} className="h-7 w-20 text-xs max-sm:text-base" />
                           </div>
-                          <Input placeholder={t("formulaPh")} value={pending.formula} onChange={(e) => setPending({ ...pending, formula: e.target.value })} onKeyDown={(e) => { if (e.key === "Enter") add(); }} aria-label={t("formulaAria")} className="h-7 font-mono text-xs" />
+                          <Input placeholder={t("formulaPh")} value={pending.formula} onChange={(e) => setPending({ ...pending, formula: e.target.value })} onKeyDown={(e) => { if (e.key === "Enter") add(); }} aria-label={t("formulaAria")} className="h-7 font-mono text-xs max-sm:text-base" />
                           {(addErr || preview?.err) && <p className="text-[0.7rem] font-normal text-destructive">{addErr || preview?.err}</p>}
                           <div className="flex gap-1.5">
                             <Button size="xs" onClick={add}><Check /> {t("add")}</Button>
@@ -129,6 +133,11 @@ export function DataSheet({ box, rows, errors }: { box: Box; rows: Record<string
                 </tbody>
               </table>
             </div>
+            {more > 0 && (
+              <Button size="sm" variant="outline" className="mt-2" onClick={() => setLimit((l) => l + PAGE_ROWS)}>
+                {t("showMore", { n: Math.min(PAGE_ROWS, more) })}
+              </Button>
+            )}
             {rows.length > MAX_ROWS && <p className="mt-2 text-xs text-muted-foreground">{t("truncated", { max: MAX_ROWS, n: rows.length })}</p>}
           </>
         )}

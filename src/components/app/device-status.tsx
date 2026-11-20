@@ -41,12 +41,12 @@ export function Diagnostics() {
   const allOk = !active;
   const HeadIcon = allOk ? CircleCheck : errors ? CircleAlert : TriangleAlert;
   return (
-    <section aria-live="polite" aria-label={t("title")}
-      className={cn("overflow-hidden rounded-lg border animate-in fade-in-0", errors ? "border-destructive/30" : allOk ? "border-success/30" : "border-warning/40")}>
+    <section aria-label={t("title")}
+      className={cn("mz-enter overflow-hidden rounded-lg border", errors ? "border-destructive/30" : allOk ? "border-success/30" : "border-warning/40")}>
       <header className={cn("flex items-center gap-2 px-3 py-2", errors ? "bg-destructive/[0.06]" : allOk ? "bg-success/[0.06]" : "bg-warning/[0.08]")}>
-        <HeadIcon className={cn("size-4 shrink-0", errors ? "text-destructive" : allOk ? "text-success" : "text-warning")} />
+        <HeadIcon aria-hidden className={cn("size-4 shrink-0", errors ? "text-destructive" : allOk ? "text-success" : "text-warning")} />
         <h3 className="text-sm font-semibold">{t("title")}</h3>
-        <span className="text-xs text-muted-foreground tabular">
+        <span aria-live="polite" className="text-xs text-muted-foreground tabular">
           {allOk ? t("allResolved") : t("live", { n: items.length, active })}
         </span>
         {ended && !running && (
@@ -253,7 +253,7 @@ export function DeviceMirror() {
       {has("oled") && <Oled {...txt} />}
       {has("rgb") && (
         <span className="inline-flex items-center gap-2">
-          <span className="size-3.5 rounded-full ring-2 ring-background transition-[background-color,box-shadow] duration-75" style={{ background: ledOn ? led.color : "#334155", boxShadow: ledOn ? `0 0 10px ${led.color}` : "none" }} />
+          <span className="size-3.5 rounded-full ring-2 ring-background" style={{ background: ledOn ? led.color : "#334155", boxShadow: ledOn ? `0 0 10px ${led.color}` : "none" }} />
           {t(`led.${device.st}`)}
         </span>
       )}

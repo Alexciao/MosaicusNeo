@@ -99,7 +99,7 @@ export function LabHeading({ onPick, onSensors }: { onPick: () => void; onSensor
               return (
                 <li key={s.id} className="inline-flex h-7 shrink-0 items-center gap-1.5 rounded-md border bg-card pr-2 pl-1 text-xs whitespace-nowrap">
                   <span className="grid size-5 place-items-center" aria-hidden><ComponentThumb type={s.type} className="size-full" /></span>
-                  <span className="font-medium">{sensorLabel(s)}</span>
+                  <span className="max-w-40 truncate font-medium" title={sensorLabel(s)}>{sensorLabel(s)}</span>
                   {pins.length > 0 && <span aria-hidden className="mx-0.5 h-3.5 w-px bg-border" />}
                   {pins.map(([role, pin], k) => (
                     <span key={k} className="font-mono text-[11px]">

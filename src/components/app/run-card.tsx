@@ -72,8 +72,11 @@ function Readouts() {
           return (
             <div key={c.key} className={cn("flex min-w-0 flex-col gap-2 bg-card px-4 py-3.5", odd && i === cells.length - 1 && "col-span-2 sm:col-span-1")}>
               <dt className="truncate text-xs text-muted-foreground" title={c.label}>{c.label}</dt>
-              <dd className="flex items-baseline gap-1 leading-none whitespace-nowrap tabular">
-                <span className={cn("text-[1.875rem] font-medium tracking-[-0.02em]", empty && "text-muted-foreground/50")}>{c.value}</span>
+              <dd className="flex flex-wrap items-baseline gap-x-1 gap-y-1 leading-none tabular">
+                <span className={cn("font-medium tracking-[-0.02em] whitespace-nowrap sm:text-[1.875rem]",
+                  // sul telefono la cella è mezza larghezza: i valori lunghi rimpiccioliscono invece di uscire
+                  c.value.length <= 6 ? "text-[1.625rem]" : c.value.length <= 8 ? "text-[1.375rem]" : "text-[1.125rem]",
+                  empty && "text-muted-foreground/50")}>{c.value}</span>
                 {c.unit && <span className="text-sm text-muted-foreground">{c.unit}</span>}
               </dd>
             </div>
@@ -104,7 +107,7 @@ export function RunCard() {
             <input value={name} onChange={(e) => setSessionName(e.target.value)} onBlur={() => void commitSessionName()}
               onKeyDown={(e) => { if (e.key === "Enter") e.currentTarget.blur(); }}
               placeholder={t("namePlaceholder")} aria-label={t("nameLabel")} autoComplete="off" spellCheck={false}
-              className="min-w-0 flex-1 truncate bg-transparent text-[15px] font-medium text-foreground outline-none placeholder:font-normal placeholder:text-muted-foreground" />
+              className="min-w-0 flex-1 truncate bg-transparent text-base font-medium sm:text-[15px] text-foreground outline-none placeholder:font-normal placeholder:text-muted-foreground" />
             <Pencil aria-hidden className="size-3.5 shrink-0 text-muted-foreground opacity-0 transition-opacity group-hover/name:opacity-100 group-focus-within/name:opacity-0" />
           </label>
         </div>

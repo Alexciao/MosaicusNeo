@@ -8,7 +8,8 @@
     "elab": "Analysis"
   },
   "header": {
-    "home": "MosaicusNeo, home page"
+    "home": "MosaicusNeo, home page",
+    "skip": "Skip to content"
   },
   "appearance": {
     "label": "Settings",
@@ -373,7 +374,10 @@
     "hintSonar": "Connect Arduino or the simulator, press Play and move your hand {near}–{far} cm above the sensor: the closer it is, the higher the note.",
     "notes": "Notes",
     "tonic": "Tonic",
-    "speakerHint": "Timbres are easiest to tell apart between 300 and 1000 Hz: the phone's speaker reproduces low notes poorly."
+    "speakerHint": "Timbres are easiest to tell apart between 300 and 1000 Hz: the phone's speaker reproduces low notes poorly.",
+    "stepDown": "Lower by 1 Hz",
+    "stepUp": "Raise by 1 Hz",
+    "keysHint": "From the computer keyboard: A to L play the white keys, W E T Y U O P the black ones."
   },
   "diag": {
     "title": "Diagnostics",
@@ -406,5 +410,9 @@
     "copy": "Copy details",
     "copied": "Details copied",
     "report": "Report the problem"
+  },
+  "update": {
+    "ready": "A new version is available",
+    "reload": "Reload"
   }
 }
