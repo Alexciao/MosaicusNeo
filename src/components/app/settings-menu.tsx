@@ -38,7 +38,7 @@ export function SettingsMenu() {
   return (
     <>
       {enabled && !user && (
-        <Button variant="ghost" size="sm" disabled={!ready} onClick={() => setSigning(true)} aria-label={ta("signIn")}>
+        <Button variant="ghost" size="sm" className="max-sm:w-8 max-sm:px-0" disabled={!ready} onClick={() => setSigning(true)} aria-label={ta("signIn")}>
           <LogIn /> <span className="hidden sm:inline">{ta("signIn")}</span>
         </Button>
       )}

@@ -42,18 +42,18 @@ export function AppHeader() {
     <header className="mz-glass sticky top-0 z-40 border-b bg-background/90 pt-[env(safe-area-inset-top)] backdrop-blur-md supports-[backdrop-filter]:bg-background/80">
       <a href="#main" className="sr-only rounded-md bg-foreground px-3 py-2 text-sm font-medium text-background focus:not-sr-only focus:absolute focus:px-3 focus:py-2 focus:top-[calc(env(safe-area-inset-top)+0.75rem)] focus:left-3 focus:z-50">{t("skip")}</a>
       {/* a tutta larghezza: il marchio sta sul filo della barra dei lab, non spostato dal centraggio */}
-      <div className="flex h-14 w-full items-center gap-3 pr-[max(0.875rem,env(safe-area-inset-right))] pl-[max(0.875rem,env(safe-area-inset-left))]">
+      <div className="flex h-14 w-full items-center gap-2 pr-[max(0.875rem,env(safe-area-inset-right))] pl-[max(0.875rem,env(safe-area-inset-left))]">
         <Link href="/" aria-label={t("home")}
           onClick={(e) => { if (e.metaKey || e.ctrlKey || e.shiftKey || e.button !== 0) return; e.preventDefault(); goHome(); }}
           className="-mx-1.5 flex min-w-0 items-center gap-2.5 rounded-lg px-1.5 py-1 transition-opacity outline-none hover:opacity-80 focus-visible:ring-3 focus-visible:ring-ring/50">
           <LogoMark size={22} className="shrink-0 text-foreground" />
-          <h1 className="text-[15px] font-semibold tracking-[-0.01em]">MosaicusNeo</h1>
+          <h1 className="truncate text-[15px] font-semibold tracking-[-0.01em]">MosaicusNeo</h1>
         </Link>
         <div className="mx-1 hidden h-5 w-px bg-border md:block" />
         <NavTabs className="hidden md:flex" />
-        <div className="ml-auto flex items-center gap-1">
+        <div className="ml-auto flex shrink-0 items-center gap-0.5 sm:gap-1">
           <ConnectionControls className="mr-2 hidden lg:flex" />
-          <ConnectionDrawer className="mr-1 lg:hidden" />
+          <ConnectionDrawer className="sm:mr-1 lg:hidden" />
           <GuideButton />
           <SettingsMenu />
         </div>

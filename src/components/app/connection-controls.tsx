@@ -240,11 +240,11 @@ export function ConnectionDrawer({ className }: { className?: string }) {
   );
   return (
     <>
-      <Button variant={linkKind ? "ghost" : optional ? "outline" : "brand"} size="sm" className={cn("max-w-44", className)} onClick={() => setOpen(true)}
+      <Button variant={linkKind ? "ghost" : optional ? "outline" : "brand"} size="sm" className={cn("max-w-44 max-[369px]:w-8 max-[369px]:px-0", className)} onClick={() => setOpen(true)}
         aria-label={linkKind ? `${t("connection")}: ${status.text}` : t("connection")}>
         {linkKind
-          ? <><span className={cn("size-2 shrink-0 rounded-full", dot[status.tone])} aria-hidden /><span className="truncate">{linkKind === "simulatore" ? t("sim") : linkKind === "telefono" ? t("phoneShort") : "Arduino"}</span></>
-          : <><Usb /> {t("connect")}</>}
+          ? <><span className={cn("size-2 shrink-0 rounded-full", dot[status.tone])} aria-hidden /><span className="hidden truncate min-[370px]:inline">{linkKind === "simulatore" ? t("sim") : linkKind === "telefono" ? t("phoneShort") : "Arduino"}</span></>
+          : <><Usb /> <span className="hidden min-[370px]:inline">{t("connect")}</span></>}
       </Button>
       <Drawer open={open} onOpenChange={setOpen} showSwipeHandle>
         <DrawerContent>
