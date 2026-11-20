@@ -14,8 +14,8 @@ import { btOf, type SensorInstance } from "@/lib/sensors/rig";
 import { SENSORS, type SensorType } from "@/lib/sensors/catalog";
 import { useLab, bluetoothSetup, addSensor } from "@/lib/lab-store";
 import { prefs, isPhoneWidth } from "@/lib/prefs";
-import { cn } from "@/lib/utils";
 import { GlideNav } from "./glide-nav";
+import { PanZoom } from "./pan-zoom";
 import { BoardDiagram, ComponentThumb, boardPlan, ardName, type StepGroup } from "./board-diagram";
 import { RigDiagram, buildModules, resistorsOf, OHMS, BAND_NAMES, type BtModule, type Conn, type Mod, type ModRow } from "./rig-diagram";
 import { SdHowTo } from "./sd-controls";
@@ -249,9 +249,9 @@ export function WiringGuide({ sensors: all, editable = false }: { sensors: Senso
             <DialogTitle>{t("dialogTitle")}</DialogTitle>
             <DialogDescription>{t("dialogDescription")}</DialogDescription>
           </DialogHeader>
-          <div className={cn("min-h-0 flex-1 overflow-auto rounded-lg border bg-background p-2")}>
-            {draw("h-auto min-w-[900px] w-full")}
-          </div>
+          <PanZoom className="min-h-0 flex-1" key={`${style}${bt}`}>
+            {draw("block h-auto w-full")}
+          </PanZoom>
         </DialogContent>
       </Dialog>
     </div>

@@ -7,7 +7,6 @@ import {
 } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
@@ -22,6 +21,7 @@ import { fmtVal } from "@/lib/prefs";
 import { cn } from "@/lib/utils";
 import { toneBg } from "@/components/app/tone";
 import { SdImportButton } from "@/components/app/sd-controls";
+import { PageHeader, EmptyState } from "@/components/app/page-header";
 import { t as tr, intlLocale, locale } from "@/i18n";
 
 type Sort = "new" | "old" | "name" | "size";
@@ -92,58 +92,43 @@ export function NotebookPage() {
   const reset = () => { setQ(""); setLab("all"); setSrc("all"); };
 
   return (
-    <div className="mx-auto flex w-full max-w-[1100px] flex-col gap-4 p-3 sm:p-4">
-      <Card className="flex flex-col gap-4 p-4">
-        <div className="flex flex-wrap items-start gap-x-4 gap-y-2">
-          <div className="mr-auto">
-            <h2 className="text-xl font-bold tracking-tight">{t("title")}</h2>
-            <p className="text-sm text-muted-foreground">
-              {t("intro")}
-            </p>
-          </div>
-          <SdImportButton />
-        </div>
+    <div className="mx-auto flex w-full max-w-[1100px] flex-col gap-4 p-3 sm:p-6">
+      <PageHeader title={t("title")}
+        subtitle={sessions?.length
+          ? (filtered ? <>{t("filteredCount", { shown: list.length, total: sessions.length })} · <button type="button" className="underline underline-offset-2 hover:text-foreground" onClick={reset}>{t("showAll")}</button></> : t("count", { n: sessions.length }))
+          : t("intro")}
+        actions={<SdImportButton />} />
+      {!!sessions?.length && (
         <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
           <div className="relative min-w-0 flex-1 sm:min-w-56">
             <Search className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" />
-            <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder={t("search")} aria-label={t("searchAria")} className="pl-8" />
+            <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder={t("search")} aria-label={t("searchAria")} className="bg-card pl-8" />
           </div>
           <Select value={lab} onValueChange={(v) => v && setLab(String(v))} items={labItems}>
-            <SelectTrigger aria-label={t("filterLab")} className="sm:w-48"><SelectValue /></SelectTrigger>
+            <SelectTrigger aria-label={t("filterLab")} className="bg-card sm:w-44"><SelectValue /></SelectTrigger>
             <SelectContent>{Object.entries(labItems).map(([k, v]) => <SelectItem key={k} value={k}>{v}</SelectItem>)}</SelectContent>
           </Select>
           <Select value={src} onValueChange={(v) => v && setSrc(v as Src)} items={SOURCES}>
-            <SelectTrigger aria-label={t("filterSource")} className="sm:w-48"><SelectValue /></SelectTrigger>
+            <SelectTrigger aria-label={t("filterSource")} className="bg-card sm:w-44"><SelectValue /></SelectTrigger>
             <SelectContent>{Object.entries(SOURCES).map(([k, v]) => <SelectItem key={k} value={k}>{v}</SelectItem>)}</SelectContent>
           </Select>
           <Select value={sort} onValueChange={(v) => v && setSort(v as Sort)} items={SORTS}>
-            <SelectTrigger aria-label={t("sortAria")} className="sm:w-40"><SelectValue /></SelectTrigger>
+            <SelectTrigger aria-label={t("sortAria")} className="bg-card sm:w-40"><SelectValue /></SelectTrigger>
             <SelectContent>{Object.entries(SORTS).map(([k, v]) => <SelectItem key={k} value={k}>{v}</SelectItem>)}</SelectContent>
           </Select>
         </div>
-        {sessions && sessions.length > 0 && (
-          <p className="-mt-1 text-xs text-muted-foreground">
-            {filtered ? <>{t("filteredCount", { shown: list.length, total: sessions.length })} · <button type="button" className="underline underline-offset-2 hover:text-foreground" onClick={reset}>{t("showAll")}</button></> : <>{t("count", { n: sessions.length })}</>}
-          </p>
-        )}
-      </Card>
+      )}
 
       {sessions == null && <p className="px-1 text-sm text-muted-foreground">{t("loading")}</p>}
 
       {sessions?.length === 0 && (
-        <Card className="flex flex-col items-center gap-3 p-10 text-center">
-          <span className="grid size-14 place-items-center rounded-2xl bg-tone-sky text-tone-ink"><BookOpen className="size-7" /></span>
-          <h3 className="text-lg font-semibold">{t("emptyTitle")}</h3>
-          <p className="max-w-md text-sm text-muted-foreground">{t("emptyBody")}</p>
-          <Button variant="outline" onClick={() => showPage("misura")}><FlaskConical /> {t("goMeasure")}</Button>
-        </Card>
+        <EmptyState icon={BookOpen} title={t("emptyTitle")} body={t("emptyBody")}
+          action={<Button variant="outline" size="sm" onClick={() => showPage("misura")}><FlaskConical /> {t("goMeasure")}</Button>} />
       )}
 
       {sessions && sessions.length > 0 && !list.length && (
-        <Card className="flex flex-col items-center gap-2 p-8 text-center">
-          <p className="text-sm text-muted-foreground">{t("noMatch")}</p>
-          <Button size="sm" variant="outline" onClick={reset}><X /> {t("clearFilters")}</Button>
-        </Card>
+        <EmptyState icon={Search} title={t("noMatch")}
+          action={<Button size="sm" variant="outline" onClick={reset}><X /> {t("clearFilters")}</Button>} />
       )}
 
       {groups.map((g) => g.items.length > 0 && (
@@ -183,7 +168,7 @@ function SessionRow({ s, showDate }: { s: SessionSummary; showDate: boolean }) {
               : <CloudCheck className="size-3.5 shrink-0 text-success" aria-label={t("inCloud")} />)}
           </p>
           <p className="truncate text-xs text-muted-foreground">
-            {s.labTitle} · {when} · {duration(s.duration)} · {t("readings", { n: s.n })}
+            {s.name.startsWith(s.labTitle) ? "" : `${s.labTitle} · `}{when} · {duration(s.duration)} · {t("readings", { n: s.n })}
           </p>
           <div className="mt-1.5 flex flex-wrap items-center gap-1">
             {s.source === "simulatore"

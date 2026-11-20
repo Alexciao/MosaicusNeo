@@ -172,10 +172,10 @@ export class Chart {
     const r = this.c.getBoundingClientRect();
     const dpr = canvasDpr();
     const W = Math.max(1, Math.round(r.width * dpr)), H = Math.max(1, Math.round(r.height * dpr));
-    if (this.c.width !== W || this.c.height !== H) {
-      this.c.width = this._base.width = W;
-      this.c.height = this._base.height = H;
-    }
+    // anche lo strato di base: un grafico nuovo su una tela già misurata (cambio di lab o di grafici)
+    // ha il buffer ancora a 300×150
+    if (this.c.width !== W || this.c.height !== H) { this.c.width = W; this.c.height = H; }
+    if (this._base.width !== W || this._base.height !== H) { this._base.width = W; this._base.height = H; }
     this.w = r.width; this.h = r.height; this.dpr = dpr;
     this.invalidate();
   }

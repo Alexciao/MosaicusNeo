@@ -199,23 +199,23 @@
     "exported": "{n, plural, one {Panel exported to Excel.} other {# panels exported to Excel.}}"
   },
   "live": {
-    "noData": "{name}: no data",
-    "hintMic": "allow access to the microphone",
-    "hintPhone": "open the app on the phone: computers usually don’t have these sensors",
-    "hintWiresPins": "check wires and pins",
-    "gpsSearching": "{name}: searching for satellites",
-    "gpsSearchingSats": "{name}: searching for satellites ({n} in view)",
-    "gpsHint": "outdoors, open sky: from 30 s to a few minutes",
-    "gpsFix": "{name}: position found",
-    "gpsFixSats": "{name}: position found · {n} satellites",
-    "noReply": "{name}: not responding",
-    "hintDs18b20": "check the 4.7 kΩ resistor between DATA and 5V",
-    "hintI2c": "check SDA and SCL",
-    "hintWires": "check the wires",
-    "noEcho": "{name}: no echo",
-    "hintSonar": "a flat target between 5 cm and 3 m is needed",
-    "ntcFault": "{name}: probe disconnected or shorted",
-    "hintDivider": "check the voltage divider"
+    "noData": "No data",
+    "hintMic": "Allow access to the microphone",
+    "hintPhone": "Open the app on the phone: computers usually don’t have these sensors",
+    "hintWiresPins": "Check wires and pins",
+    "gpsSearching": "Searching for satellites",
+    "gpsSearchingSats": "Searching for satellites ({n} in view)",
+    "gpsHint": "Outdoors, open sky: from 30 s to a few minutes",
+    "gpsFix": "Position found",
+    "gpsFixSats": "Position found · {n} satellites",
+    "noReply": "Not responding",
+    "hintDs18b20": "Check the 4.7 kΩ resistor between DATA and 5V",
+    "hintI2c": "Check SDA and SCL",
+    "hintWires": "Check the wires",
+    "noEcho": "No echo",
+    "hintSonar": "A flat target between 5 cm and 3 m is needed",
+    "ntcFault": "Probe disconnected or shorted",
+    "hintDivider": "Check the voltage divider"
   },
   "cloud": {
     "synced": "Data synced.",
@@ -239,5 +239,11 @@
     "name": "{a} + {b}",
     "done": "Combined: “{name}”",
     "doneHint": "Both measurements on one time axis, corrected for the drift between the two Arduino clocks. It’s in the Notebook."
+  },
+  "diag": {
+    "rejected": "Rejected by Arduino’s configuration",
+    "accessories": "Accessories rejected by the configuration",
+    "noReply": "Arduino isn’t responding to the configuration",
+    "notStarted": "The measurement didn’t start"
   }
 }

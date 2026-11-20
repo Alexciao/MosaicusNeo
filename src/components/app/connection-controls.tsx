@@ -109,6 +109,7 @@ export function ConnectionControls({ className }: { className?: string }) {
   const labId = useLab((s) => s.labId);
   const rig = useLab((s) => s.rig);
   const linkKind = useLab((s) => s.linkKind);
+  const idle = useLab((s) => s.status.tone === "off");
   const t = useTranslations("app.connect");
   const info = labInfo(labId);
   const phone = !info.instrument && needsPhone(rig);
@@ -116,7 +117,8 @@ export function ConnectionControls({ className }: { className?: string }) {
   if (!arduino && !phone) return null;
   return (
     <div className={cn("flex min-w-0 items-center gap-1.5", className)}>
-      <StatusPill className="max-w-64" />
+      {/* «Nessun dispositivo» accanto a «Collega Arduino» non aggiunge niente: lo stato solo quando c'è */}
+      {!idle && <StatusPill className="max-w-64" />}
       {linkKind ? (
         <Button variant="outline" size="sm" onClick={() => void disconnect()}>
           <Unplug /> {linkKind === "telefono" ? t("phoneOff") : t("disconnect")}

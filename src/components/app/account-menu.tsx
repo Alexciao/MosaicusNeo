@@ -2,7 +2,7 @@
 // Account (facoltativo): accesso, registrazione, password dimenticata, stato della sincronizzazione.
 
 import { useState } from "react";
-import { toast } from "sonner";
+import { toast } from "@/lib/toast";
 import { useTranslations } from "next-intl";
 import { t as tr, intlLocale } from "@/i18n";
 import { ChevronsUpDown, CloudCheck, CloudExclamationPoint, CloudOff, CloudSync, LoaderCircle, LogIn, LogOut, RefreshCw, ShieldCheck, Trash, UserRound } from "lucide-react";

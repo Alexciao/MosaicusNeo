@@ -23,9 +23,9 @@
     "privacy": "Privacy notice"
   },
   "footer": {
-    "credits": "MosaicusNeo · based on Mosaicus by Ermes Ferdinando Rosi · free software under the MIT license",
-    "report": "report a problem",
-    "privacy": "privacy"
+    "credits": "Based on Mosaicus by Ermes Ferdinando Rosi · MIT license",
+    "report": "Report an issue",
+    "privacy": "Privacy"
   },
   "genChip": {
     "open": "Open the synth",
@@ -151,13 +151,13 @@
     "namePlaceholder": "Measurement name, e.g. Group 3 · inclined plane",
     "nameLabel": "Measurement name",
     "time": "Time",
-    "sim": "Simulator",
-    "wiring": "Wiring diagram",
     "connecting": "Connecting…",
     "stop": "Stop",
     "start": "Start",
     "zeroTitle": "Use the current position as the origin",
-    "zeroLabel": "Zero the position"
+    "needLink": "Connect Arduino or start the simulator to begin.",
+    "needPhone": "Turn on the phone sensors to begin.",
+    "zeroShort": "Zero"
   },
   "confirm": {
     "cancel": "Cancel",
@@ -359,5 +359,27 @@
     "notes": "Notes",
     "tonic": "Tonic",
     "speakerHint": "Timbres are easiest to tell apart between 300 and 1000 Hz: the phone's speaker reproduces low notes poorly."
+  },
+  "diag": {
+    "title": "Diagnostics",
+    "live": "{n, plural, one {# issue} other {# issues}}{active, plural, =0 {} other { · # ongoing}}",
+    "after": "Found during the last measurement: review them and fix them before starting again.",
+    "setup": "Before starting",
+    "allResolved": "All resolved",
+    "dismiss": "Close diagnostics",
+    "general": "Arduino",
+    "since": "since {t}",
+    "range": "{from}–{to}",
+    "resolved": "Resolved",
+    "stillAtStop": "Still present at stop",
+    "stillActive": "Ongoing",
+    "repeats": "{n, plural, one {came back # time} other {came back # times}}",
+    "check": "What to check",
+    "wiring": "Wiring",
+    "component": "Component",
+    "severity": {
+      "error": "Error",
+      "search": "Waiting"
+    }
   }
 }

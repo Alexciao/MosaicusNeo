@@ -308,15 +308,16 @@ export const hasErrors = (issues: Issue[]) => issues.some((i) => i.level === "er
 // ---------------------------------------------------------------------------
 /** Comandi di configurazione. outputs: anche gli indicatori (firmware 1.2 o più recente). */
 export function firmwareCommands(rig: Rig, res: Resolved, { outputs = false } = {}): string[] {
-  const cmds = ["CFG,CLEAR"];
+  // OUT,CLEAR per primo: il firmware rifiuta un sensore su un pin occupato da un accessorio, e gli
+  // accessori salvati (EEPROM) da un progetto precedente restano attivi finché non si cancellano.
+  // Prima si mandava dopo i sensori: un HC-SR04 su D11 veniva rifiutato per il LED RGB di ieri.
+  const cmds = outputs ? ["OUT,CLEAR", "CFG,CLEAR"] : ["CFG,CLEAR"];
   for (const s of res.arduino) {
     const def = SENSORS[s.type];
     const min = def.minInterval?.(s.options) ?? def.interval.min;
     cmds.push(`CFG,ADD,${res.code.get(s.id)},${def.fw},${Math.max(min, Math.round(s.interval))},${s.pins.a ?? 0},${s.pins.b ?? 0},${def.fwOpt?.(s.options) ?? 0}`);
   }
   if (outputs) {
-    // sempre, anche senza indicatori: così si cancellano quelli salvati da un montaggio precedente
-    cmds.push("OUT,CLEAR");
     for (const s of outputsOf(rig)) {
       const def = SENSORS[s.type];
       // MOSI, MISO e SCK (fissi) li conosce già il firmware; il CS (pin a) si manda sempre

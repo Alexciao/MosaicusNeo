@@ -1,7 +1,7 @@
 {
   "page": {
     "title": "Elaborazione",
-    "count": "{n, plural, one {# riquadro} other {# riquadri}} · il più recente in cima",
+    "count": "{n, plural, one {# riquadro} other {# riquadri}}",
     "subtitleEmpty": "Analisi dei tratti di misura",
     "selectAll": "Seleziona tutti i riquadri",
     "all": "Tutti",
@@ -11,7 +11,8 @@
     "nav": "Riquadri",
     "emptyTitle": "Nessun riquadro",
     "emptyBody": "In «Misura» trascina su un grafico per scegliere un tratto, poi premi «Analizza il tratto». Dal «Quaderno» puoi inviare una misura intera.",
-    "goMeasure": "Vai a Misura"
+    "goMeasure": "Vai a Misura",
+    "exportOne": "Esporta in Excel"
   },
   "box": {
     "expand": "Apri il riquadro",
@@ -160,7 +161,7 @@
       "needTwo": "Servono almeno 2 punti. Trascina sul grafico per scegliere un tratto.",
       "selected": "Tratto {a} – {b} {unit} · {n} punti",
       "useAll": "usa tutti i dati",
-      "allData": "Tutti i dati · {n} punti. Trascina per scegliere un tratto.",
+      "allData": "Tutti i dati · {n} punti.",
       "mean": "media {y}̄",
       "meanHint": "± = errore della media, s/√n",
       "sd": "deviazione standard s",
@@ -230,7 +231,7 @@
     "today": "Oggi",
     "yesterday": "Ieri",
     "title": "Quaderno",
-    "intro": "Le misure si salvano qui quando premi «Ferma». Le registrazioni della scheda SD si importano da qui.",
+    "intro": "Le misure si salvano qui quando premi «Ferma».",
     "search": "Cerca per nome, lab o sensore",
     "searchAria": "Cerca nel Quaderno",
     "filterLab": "Filtra per lab",

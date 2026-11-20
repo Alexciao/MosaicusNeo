@@ -199,23 +199,23 @@
     "exported": "{n, plural, one {Riquadro esportato in Excel.} other {# riquadri esportati in Excel.}}"
   },
   "live": {
-    "noData": "{name}: nessun dato",
-    "hintMic": "consenti l'accesso al microfono",
-    "hintPhone": "apri l'app sul telefono: i computer di solito non hanno questi sensori",
-    "hintWiresPins": "controlla fili e pin",
-    "gpsSearching": "{name}: ricerca dei satelliti",
-    "gpsSearchingSats": "{name}: ricerca dei satelliti ({n} in vista)",
-    "gpsHint": "all'aperto, cielo libero: da 30 s a qualche minuto",
-    "gpsFix": "{name}: posizione trovata",
-    "gpsFixSats": "{name}: posizione trovata · {n} satelliti",
-    "noReply": "{name}: non risponde",
-    "hintDs18b20": "controlla la resistenza da 4,7 kΩ tra DATA e 5V",
-    "hintI2c": "controlla SDA e SCL",
-    "hintWires": "controlla i fili",
-    "noEcho": "{name}: nessun eco",
-    "hintSonar": "serve un bersaglio piatto tra 5 cm e 3 m",
-    "ntcFault": "{name}: sonda staccata o in corto",
-    "hintDivider": "controlla il partitore"
+    "noData": "Nessun dato",
+    "hintMic": "Consenti l'accesso al microfono",
+    "hintPhone": "Apri l'app sul telefono: i computer di solito non hanno questi sensori",
+    "hintWiresPins": "Controlla fili e pin",
+    "gpsSearching": "Ricerca dei satelliti",
+    "gpsSearchingSats": "Ricerca dei satelliti ({n} in vista)",
+    "gpsHint": "All'aperto, cielo libero: da 30 s a qualche minuto",
+    "gpsFix": "Posizione trovata",
+    "gpsFixSats": "Posizione trovata · {n} satelliti",
+    "noReply": "Non risponde",
+    "hintDs18b20": "Controlla la resistenza da 4,7 kΩ tra DATA e 5V",
+    "hintI2c": "Controlla SDA e SCL",
+    "hintWires": "Controlla i fili",
+    "noEcho": "Nessun eco",
+    "hintSonar": "Serve un bersaglio piatto tra 5 cm e 3 m",
+    "ntcFault": "Sonda staccata o in corto",
+    "hintDivider": "Controlla il partitore"
   },
   "cloud": {
     "synced": "Dati sincronizzati.",
@@ -239,5 +239,11 @@
     "name": "{a} + {b}",
     "done": "Combinate: «{name}»",
     "doneHint": "Le due misure su un solo asse dei tempi, con la correzione della deriva tra gli orologi dei due Arduino. La trovi nel Quaderno."
+  },
+  "diag": {
+    "rejected": "Rifiutato dalla configurazione di Arduino",
+    "accessories": "Accessori rifiutati dalla configurazione",
+    "noReply": "Arduino non risponde alla configurazione",
+    "notStarted": "La misura non è partita"
   }
 }

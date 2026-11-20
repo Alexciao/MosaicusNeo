@@ -20,6 +20,6 @@ export function nf(minDigits, maxDigits, locale = intlLocale) {
 }
 
 /** Numero con esattamente d decimali. */
-export const fixed = (v, d, locale) => nf(d, d, locale).format(v);
+export const fixed = (v, d, locale) => nf(d, d, locale).format(Math.abs(v) < 0.5 * 10 ** -d ? 0 : v);
 /** Numero con al più d decimali. */
 export const upTo = (v, d, locale) => nf(0, d, locale).format(v);

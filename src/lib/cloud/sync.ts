@@ -10,7 +10,7 @@
 //  • uscendo, i dati dell'account spariscono da questo dispositivo (restano nel cloud)
 
 import { create } from "zustand";
-import { toast } from "sonner";
+import { toast } from "@/lib/toast";
 import type { User } from "@supabase/supabase-js";
 import { cloudEnabled, supabase } from "./client";
 import { all, bindRepo, get, putQuiet, removeQuiet, type Store } from "./repo";

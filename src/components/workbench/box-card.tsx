@@ -5,7 +5,7 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useTheme } from "next-themes";
 import { useTranslations } from "next-intl";
-import { toast } from "sonner";
+import { toast } from "@/lib/toast";
 import { ArrowLeftRight, ChevronDown, Copy, Eye, EyeOff, Maximize2, MousePointer2, Ruler, Spline, TrendingUp, Trash, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -47,6 +47,7 @@ function niceStep(v: number) {
 }
 
 export function BoxCard({ box }: { box: Box }) {
+  const many = useWorkbench((s) => s.boxes.length > 1);
   const t = useTranslations("workbench");
   const updateBox = useWorkbench((s) => s.updateBox);
   const focusId = useWorkbench((s) => s.focusId);
@@ -301,7 +302,8 @@ export function BoxCard({ box }: { box: Box }) {
             onBlur={(e) => { const v = e.target.value.trim(); if (v && v !== box.title) updateBox(box.id, { title: v }); }}
             className="h-8 border-transparent bg-transparent px-1 text-base font-semibold shadow-none hover:border-input focus-visible:border-ring dark:bg-transparent" />
           <p className="truncate px-1 text-xs text-muted-foreground">
-            {box.expTitle}{box.sessionName ? ` · ${box.sessionName}` : ""} · {fmtNum(box.t1, 2)}–{fmtNum(box.t2, 2)} {box.tUnit || "s"} · {t("box.points", { n: box.rows.length })}
+            {box.sessionName ? (box.sessionName.startsWith(box.expTitle) ? box.sessionName : `${box.expTitle} · ${box.sessionName}`) : box.expTitle}
+            {!box.title.includes(fmtNum(box.t1, 2)) && ` · ${fmtNum(box.t1, 2)}–${fmtNum(box.t2, 2)} ${box.tUnit || "s"}`} · {t("box.points", { n: box.rows.length })}
           </p>
           {box.subtitle && <p className="truncate px-1 text-xs text-muted-foreground">{box.subtitle}</p>}
           {collapsed && !!box.analyses.length && (
@@ -312,10 +314,11 @@ export function BoxCard({ box }: { box: Box }) {
             </ul>
           )}
         </div>
-        <label className="mt-1.5 flex items-center gap-1.5 text-xs text-muted-foreground" title={t("box.exportTitle")}>
-          <Checkbox checked={box.checked} onCheckedChange={(v) => updateBox(box.id, { checked: !!v })} aria-label={t("box.exportAria")} />
-          <span className="hidden sm:inline">{t("box.export")}</span>
-        </label>
+        {many && (
+          <label className="mt-2 flex items-center px-1" title={t("box.exportTitle")}>
+            <Checkbox checked={box.checked} onCheckedChange={(v) => updateBox(box.id, { checked: !!v })} aria-label={t("box.exportAria")} />
+          </label>
+        )}
         <Button size="icon-sm" variant="ghost" aria-label={t("box.duplicate")} title={t("box.duplicateTitle")} className="text-muted-foreground"
           onClick={() => void useWorkbench.getState().duplicateBox(box.id)}>
           <Copy />

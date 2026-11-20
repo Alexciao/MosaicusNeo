@@ -20,12 +20,9 @@ import { useLab, selectLab, newRig, rigSummary, renameRigById, duplicateRig, del
 import type { Rig } from "@/lib/sensors/rig";
 import type { Tone } from "@/lib/sensors/types";
 import { confirm } from "@/lib/confirm";
-import { GithubMark } from "./github-mark";
-import { REPO_URL, ISSUES_URL } from "@/lib/links";
 import { prefs } from "@/lib/prefs";
 import { cn } from "@/lib/utils";
 import { toneBg } from "./tone";
-import { openPrivacy } from "./privacy-dialog";
 
 /** Dopo la scelta: sul telefono il cassetto si chiude. */
 function useClose() {
@@ -144,8 +141,7 @@ export function LabPicker() {
   const none = searching && !projects.length && !topics.length && !tools.length;
   return (
     <>
-      <SidebarHeader className="gap-2 pb-1">
-        <p className="px-2 pt-1 text-sm font-semibold">{t("heading")}</p>
+      <SidebarHeader className="gap-2 pt-3 pb-1">
         <div className="relative">
           <Search className="pointer-events-none absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2 text-muted-foreground" />
           <SidebarInput value={query} onChange={(e) => setQuery(e.target.value)} onKeyDown={(e) => { if (e.key === "Escape") setQuery(""); }}
@@ -189,17 +185,5 @@ export function LabPicker() {
         </nav>
       </SidebarContent>
     </>
-  );
-}
-
-/** Link in fondo alla barra. */
-export function LabLinks() {
-  const t = useTranslations("rig.picker");
-  return (
-    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 px-2 py-1 text-xs text-muted-foreground">
-      <a href={REPO_URL} target="_blank" rel="noopener" className="inline-flex items-center gap-1.5 hover:text-foreground"><GithubMark className="size-3.5" /> GitHub</a>
-      <a href={ISSUES_URL} target="_blank" rel="noopener" className="hover:text-foreground" title={t("reportTitle")}>{t("reports")}</a>
-      <button type="button" onClick={openPrivacy} className="hover:text-foreground">{t("privacy")}</button>
-    </div>
   );
 }

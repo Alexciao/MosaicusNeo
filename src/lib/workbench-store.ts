@@ -5,7 +5,7 @@
 // Lo stato vive qui (zustand) e si salva in IndexedDB poco dopo ogni modifica.
 
 import { create } from "zustand";
-import { toast } from "sonner";
+import { toast } from "@/lib/toast";
 import * as repo from "@/lib/cloud/repo";
 import { compile } from "@/lib/mosaicus/formula.js";
 import { toXLSX, download } from "@/lib/mosaicus/export.js";

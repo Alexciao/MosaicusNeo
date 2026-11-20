@@ -17,22 +17,8 @@
       "components": "Components",
       "componentsCount": "Components ({n})",
       "wiring": "Wiring",
-      "notebook": "Notebook",
       "serial": "Serial"
     },
-    "loading": "Loading…",
-    "empty": "No measurements. Press “Start” and then “Stop”: the measurement is saved here.",
-    "cloudDirty": "not yet saved to the cloud",
-    "cloudSaved": "saved to the cloud",
-    "readings": "{n, plural, one {# reading} other {# readings}}",
-    "open": "Open",
-    "openNamed": "Open {name}",
-    "delete": "Delete",
-    "deleteNamed": "Delete {name}",
-    "deleteTitle": "Delete “{name}”?",
-    "deleteDescription": "Ranges already sent to Analysis are kept.",
-    "openNotebook": "Open the Notebook",
-    "openNotebookCount": "Open the Notebook ({n})",
     "serialHint": "Lines received from Arduino, unconverted. Lines “D,slot,t,…” are readings.",
     "serialWaiting": "Waiting for data…"
   },
@@ -51,17 +37,13 @@
     "save": "Save",
     "projectKeyword": "project",
     "toolKeyword": "instrument tool",
-    "heading": "Labs",
     "search": "Search for a lab",
     "clearSearch": "Clear search",
     "nav": "Labs",
     "projects": "My projects",
     "newProject": "New project",
     "tools": "Tools",
-    "noResults": "No lab for “{query}”.",
-    "reportTitle": "Report a problem on GitHub",
-    "reports": "Issues",
-    "privacy": "Privacy"
+    "noResults": "No lab for “{query}”."
   },
   "schematic": {
     "hcsr04Aria": "HC-SR04: VCC to 5V, GND to GND, Trig to {trig}, Echo to {echo}",
@@ -134,13 +116,20 @@
     "parts": "What you need",
     "steps": "Step by step",
     "dialogTitle": "Wiring diagram",
-    "dialogDescription": "Red 5V, black GND. On a phone, scroll and pinch to zoom.",
+    "dialogDescription": "Red 5V, black GND. Hover a wire to see where it goes.",
     "tooBig": "This project needs more than 3 full-size breadboards. Remove a component, or split it into two projects.",
     "spsCable": "JST ZHR-5 to jumper cable (1.5 mm pitch)",
     "spsCableNote": "for the SPS30; often sold with the sensor",
     "breadboards": "{n} full-size breadboards (830 holes)",
     "breadboardsNote": "side by side, B1 next to Arduino; their rails are joined with jumpers",
-    "legendBoards": "B1, B2…: breadboards from the left; columns start again at 1 on each."
+    "legendBoards": "B1, B2…: breadboards from the left; columns start again at 1 on each.",
+    "zoom": {
+      "aria": "Wiring diagram: drag to move, pinch or Ctrl + wheel to zoom",
+      "hint": "Drag or scroll to move · pinch or Ctrl + wheel to zoom · 0 to fit",
+      "in": "Zoom in",
+      "out": "Zoom out",
+      "fit": "Fit to window"
+    }
   },
   "modules": {
     "ohms4k7": "4.7 kΩ",
@@ -162,7 +151,7 @@
     "ntcPosition": "The thermistor is on the {side, select, gnd {GND side} other {5V side}}: this must match the “Position” option in the Components tab.",
     "ldrPosition": "The photoresistor is on the {side, select, gnd {GND side} other {5V side}}: this must match the “Position” option in the Components tab.",
     "pullTo5v": "{ohms} to 5V",
-    "dhtNote": "The 10 kΩ resistor between DATA and 5V is essential with the bare sensor (4 pins: 1 VCC, 2 DATA, 3 unused, 4 GND). The 3-pin module already has one, but leaving it in does no harm and makes the signal more robust with long wires.",
+    "dhtNote": "Check the pin order printed on your module: the diagram follows VCC, DATA, GND (4-pin sensor: VCC, DATA, free, GND; pick the package in the options). The 10 kΩ resistor between DATA and 5V is essential with the bare sensor; the 3-pin module already has it, but leaving it in does no harm.",
     "sonarNote": "Point the sensor at a flat target, between 5 cm and 3 m away.",
     "rxOptional": "RX (opt.)",
     "divider": "divider",
@@ -275,7 +264,8 @@
     "railOn": "{rail} of B{board}",
     "joinTitle": "Breadboard B{board}",
     "joinPlace": "Put B{board} right of B{prev}, touching (they can snap together). Its rails aren’t connected to the others: join the top + rails with a red jumper and the top − rails with a black one.",
-    "joinTip": "Joins the {rail} of B{a} and B{b}"
+    "joinTip": "Joins the {rail} of B{a} and B{b}",
+    "tipSplitBridge": "Only if the rails are split in the middle (broken red and blue line): jumper joining the two halves of the rail"
   },
   "editor": {
     "buttonHint": "With the app connected (cable, HC-06 or Bluetooth LE) the button works like “Start” and “Stop”. With the SD card, without the app, it starts and stops the recording.",

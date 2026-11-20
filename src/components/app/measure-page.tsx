@@ -4,15 +4,13 @@ import { useTranslations } from "next-intl";
 import { LayoutGrid, SlidersHorizontal, TriangleExclamationPoint, Plug } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
-import { Sidebar, SidebarFooter, SidebarInset, SidebarProvider, SidebarRail, SidebarTrigger } from "@/components/ui/sidebar";
-import { useLab, labInfo, needsArduino, needsPhone, hasMap, openGuide, showWiring, setLabsSidebar } from "@/lib/lab-store";
+import { Sidebar, SidebarInset, SidebarProvider, SidebarRail, SidebarTrigger } from "@/components/ui/sidebar";
+import { useLab, labInfo, needsArduino, hasMap, openGuide, showWiring, setLabsSidebar } from "@/lib/lab-store";
 import { SENSORS, pinName } from "@/lib/sensors/catalog";
 import { sensorLabel } from "@/lib/sensors/rig";
 import { audioSupported } from "@/lib/mosaicus/audio.js";
 import { cn } from "@/lib/utils";
-import { LabPicker, LabLinks } from "./lab-picker";
-import { AccountCard } from "./account-menu";
+import { LabPicker } from "./lab-picker";
 import { ResponsivePanel } from "./responsive-panel";
 import { RunCard } from "./run-card";
 import { ChartCard } from "./chart-card";
@@ -21,6 +19,7 @@ import { SidePanel } from "./side-panel";
 import { RigEditor } from "./rig-editor";
 import { ConnectionControls, canReachArduino } from "./connection-controls";
 import { toneBg } from "./tone";
+import { EmptyState } from "./page-header";
 import { ScopePanel } from "@/components/instruments/scope-panel";
 import { SynthPanel } from "@/components/instruments/synth-panel";
 
@@ -64,14 +63,13 @@ export function LabHeading({ onPick, onSensors }: { onPick: () => void; onSensor
         <SidebarTrigger className="-ml-1 hidden text-muted-foreground lg:inline-flex" title={t("toggleLabs")} />
         <span className={cn("grid size-11 shrink-0 place-items-center rounded-xl text-tone-ink", toneBg[info.tone])}><Icon className="size-5" /></span>
         <div className="min-w-0 flex-1">
-          <p className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">{info.topic}</p>
           <h2 className="flex items-center gap-2 truncate text-xl font-bold tracking-tight">
             <span className="truncate">{info.title}</span>
             {modified && <span className="shrink-0 rounded-md bg-muted px-1.5 py-0.5 text-[0.65rem] font-semibold tracking-normal text-muted-foreground">{t("custom")}</span>}
           </h2>
           {info.kind !== "custom" && <p className="truncate text-sm text-muted-foreground">{info.subtitle}</p>}
         </div>
-        <Button variant="outline" size="sm" className="lg:hidden" onClick={onPick}><LayoutGrid /> <span className="hidden sm:inline">{t("changeLab")}</span></Button>
+        <Button variant="outline" size="sm" className="hidden md:inline-flex lg:hidden" onClick={onPick}><LayoutGrid /> <span className="hidden sm:inline">{t("changeLab")}</span></Button>
       </div>
       {!info.instrument && (
         <div className="flex flex-wrap items-center gap-1.5">
@@ -117,10 +115,6 @@ export function MeasurePage() {
       {/* barra fluttuante sotto l'intestazione (alta 3,5 rem); sotto lg diventa un cassetto dal basso */}
       <Sidebar variant="floating" style={{ top: "3.5rem", height: "calc(100svh - 3.5rem)" }}>
         <LabPicker />
-        <SidebarFooter className="gap-1.5">
-          <AccountCard />
-          <LabLinks />
-        </SidebarFooter>
         <SidebarRail />
       </Sidebar>
 
@@ -128,17 +122,13 @@ export function MeasurePage() {
         <div className="mx-auto grid w-full max-w-[1600px] gap-4 p-3 sm:p-4 2xl:grid-cols-[minmax(0,1fr)_24rem]">
           <section className="flex min-w-0 flex-col gap-4">
             <LabHeading onPick={() => setLabs(true)} onSensors={() => setRig(true)} />
-            {(ins ? ins.source === "arduino" : needsArduino(rig) || needsPhone(rig)) && <div className="lg:hidden"><ConnectionControls className="flex-wrap" /></div>}
+            <ConnectionControls className="flex-wrap empty:hidden lg:hidden" />
             <SupportBanner />
             {ins?.kind === "scope" ? <ScopePanel key={ins.id} exp={ins} />
               : ins?.kind === "synth" ? <SynthPanel key={ins.id} exp={ins} />
                 : !rig.sensors.length ? (
-                  <Card className="flex flex-col items-center gap-3 p-10 text-center">
-                    <span className="grid size-14 place-items-center rounded-2xl bg-tone-saffron text-tone-ink"><SlidersHorizontal className="size-7" /></span>
-                    <h3 className="text-lg font-semibold">{t("noComponents")}</h3>
-                    <p className="max-w-md text-sm text-muted-foreground">{t("noComponentsHint")}</p>
-                    <Button onClick={() => setRig(true)}>{t("addComponent")}</Button>
-                  </Card>
+                  <EmptyState icon={SlidersHorizontal} title={t("noComponents")} body={t("noComponentsHint")}
+                    action={<Button onClick={() => setRig(true)}>{t("addComponent")}</Button>} />
                 ) : (
                   <>
                     <RunCard />

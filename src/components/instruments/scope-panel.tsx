@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useReducer, useRef } from "react";
 import { useTheme } from "next-themes";
 import { useTranslations } from "next-intl";
-import { toast } from "sonner";
+import { toast } from "@/lib/toast";
 import { ChevronDown, Crosshair, Eye, EyeOff, Mic, Music, Pause, Play, Send, Snowflake, Square, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";

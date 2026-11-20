@@ -25,11 +25,10 @@ import { APP_VERSION } from "@/lib/version";
 export function NavTabs({ className }: { className?: string }) {
   const page = useLab((s) => s.page);
   const n = useWorkbench((s) => s.boxes.length);
-  const nSessions = useLab((s) => s.sessions?.length ?? 0);
   const t = useTranslations("app.nav");
   const items: [Page, string, typeof FlaskConical, number?][] = [
     ["misura", t("misura"), FlaskConical],
-    ["quaderno", t("quaderno"), BookOpen, nSessions],
+    ["quaderno", t("quaderno"), BookOpen],
     ["elab", t("elab"), ChartLine, n],
   ];
   return (
@@ -82,35 +81,32 @@ function AppearanceMenu() {
         <DropdownMenuItem render={<a href={REPO_URL} target="_blank" rel="noopener" />}><GithubMark /> {t("source")}</DropdownMenuItem>
         <DropdownMenuItem render={<a href={ISSUES_URL} target="_blank" rel="noopener" />}><Bug /> {t("report")}</DropdownMenuItem>
         <DropdownMenuItem onClick={openPrivacy}><ShieldCheck /> {t("privacy")}</DropdownMenuItem>
+        <DropdownMenuSeparator />
+        <p className="px-2 py-1 text-xs text-muted-foreground tabular">MosaicusNeo v{APP_VERSION}</p>
       </DropdownMenuContent>
     </DropdownMenu>
   );
 }
 
 export function AppHeader() {
-  // sul computer, in Misura con la barra dei lab aperta, l'account sta in fondo alla barra
-  const inSidebar = useLab((s) => s.page === "misura" && s.labsSidebar);
   const t = useTranslations("app.header");
   return (
-    <header className="sticky top-0 z-40 border-b bg-background">
+    <header className="sticky top-0 z-40 border-b bg-background/85 backdrop-blur-md supports-[backdrop-filter]:bg-background/70">
       <div className="mx-auto flex h-14 w-full max-w-[1600px] items-center gap-3 px-4">
         <Link href="/" aria-label={t("home")}
           onClick={(e) => { if (e.metaKey || e.ctrlKey || e.shiftKey || e.button !== 0) return; e.preventDefault(); goHome(); }}
           className="-mx-1.5 flex min-w-0 items-center gap-2.5 rounded-lg px-1.5 py-1 transition-opacity outline-none hover:opacity-80 focus-visible:ring-3 focus-visible:ring-ring/50">
           <img src="/icons/icon.svg" alt="" width={28} height={28} className="rounded-md" />
-          <div className="flex min-w-0 items-baseline gap-2">
-            <h1 className="text-[0.95rem] font-semibold tracking-tight">Mosaicus<span className="text-brand">Neo</span></h1>
-            <span className="hidden text-xs text-muted-foreground sm:inline">v{APP_VERSION}</span>
-          </div>
+          <h1 className="text-[0.95rem] font-semibold tracking-tight">Mosaicus<span className="text-brand">Neo</span></h1>
         </Link>
-        <div className="mx-1 hidden h-5 w-px bg-border md:block" />
+        <div className="mx-2 hidden h-5 w-px bg-border md:block" />
         <NavTabs className="hidden md:flex" />
         <div className="ml-auto flex items-center gap-1">
-          <div className="mr-1 hidden lg:flex"><ConnectionControls /></div>
+          <ConnectionControls className="mr-1.5 hidden lg:flex" />
           <GuideButton />
           <LanguageMenu />
           <AppearanceMenu />
-          <AccountMenu className={inSidebar ? "lg:hidden" : undefined} />
+          <AccountMenu />
         </div>
       </div>
     </header>

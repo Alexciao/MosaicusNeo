@@ -2,18 +2,17 @@
 // La scheda della misura: il prossimo gesto (collega → avvia → ferma) e le letture in evidenza.
 
 import { useTranslations } from "next-intl";
-import { LiveChips, DeviceMirror } from "./device-status";
-import { Cpu, Crosshair, LoaderCircle, Pencil, Play, Square, Plug } from "lucide-react";
+import { Diagnostics, DeviceMirror } from "./device-status";
+import { Crosshair, LoaderCircle, Pencil, Play, Square } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import {
-  useLab, start, stop, zeroPosition, showWiring, setSessionName, commitSessionName, readoutsOf, canStart, rigHas, guideStep, connect,
+  useLab, start, stop, zeroPosition, setSessionName, commitSessionName, readoutsOf, canStart, rigHas, guideStep,
 } from "@/lib/lab-store";
 import { sensorLabel } from "@/lib/sensors/rig";
 import { fmtVal } from "@/lib/prefs";
 import { cn } from "@/lib/utils";
 import { isPhoneRig } from "@/lib/sensors/rig";
-import { ConnectButton, PhoneButton } from "./connection-controls";
 
 function Readouts() {
   const rows = useLab((s) => s.rows);
@@ -71,9 +70,8 @@ export function RunCard() {
         <div className="flex shrink-0 flex-wrap items-center gap-2">
           {step === "link" ? (
             <>
-              {phone ? <PhoneButton size="lg" /> : <ConnectButton size="lg" />}
-              <Button size="lg" variant="outline" onClick={() => void connect("sim")}><Cpu /> {t("sim")}</Button>
-              {!phone && <Button size="lg" variant="ghost" className="text-muted-foreground" onClick={showWiring}><Plug /> {t("wiring")}</Button>}
+              <Button size="lg" className="min-w-32" disabled><Play className="fill-current" /> {t("start")}</Button>
+              <p className="max-w-56 text-xs text-muted-foreground">{phone ? t("needPhone") : t("needLink")}</p>
             </>
           ) : step === "wait" ? (
             <Button size="lg" variant="outline" disabled><LoaderCircle className="animate-spin" /> {t("connecting")}</Button>
@@ -83,12 +81,12 @@ export function RunCard() {
             <Button size="lg" className="min-w-32" disabled={!startable} onClick={() => void start()}><Play className="fill-current" /> {t("start")}</Button>
           )}
           {sonar && step !== "link" && step !== "wait" && (
-            <Button size="icon-lg" variant="outline" onClick={zeroPosition} title={t("zeroTitle")} aria-label={t("zeroLabel")}><Crosshair /></Button>
+            <Button size="lg" variant="outline" onClick={zeroPosition} title={t("zeroTitle")}><Crosshair /> {t("zeroShort")}</Button>
           )}
         </div>
         <div className={cn("min-w-0 flex-1 md:border-l md:pl-5", step === "link" && "opacity-50")}><Readouts /></div>
       </div>
-      <LiveChips />
+      <Diagnostics />
       <DeviceMirror />
     </Card>
   );

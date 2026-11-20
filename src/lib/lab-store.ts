@@ -8,7 +8,9 @@
 // variabili di modulo.
 
 import { create } from "zustand";
-import { toast } from "sonner";
+import { toast } from "@/lib/toast";
+import { diagReset, diagAdd, diagUpdate, diagEnd } from "./diagnostics";
+import { liveStatus } from "./live-status";
 import type { LucideIcon } from "lucide-react";
 import { Wrench } from "lucide-react";
 import { ChartGroup } from "@/lib/mosaicus/chart.js";
@@ -409,6 +411,7 @@ export function selectLab(id: string, { keepData = false } = {}) {
   if (!known) id = serialSupported() ? "motion" : "synth";
   prefs.set("mosaicus.lastLab", id);
   if (!keepData) { raw = []; clock = []; }
+  if (id !== get().labId) diagReset();
   set({
     labId: id, selection: null, sent: false, dragHint: false, labsOpen: false,
     ...(keepData ? {} : { session: null, sessionName: "", rows: [], nRaw: 0 }),
@@ -802,13 +805,20 @@ const CFG_ERR: Record<string, string> = {
 async function sendConfig(rig: Rig, res: Resolved, outputs: boolean) {
   for (const cmd of firmwareCommands(rig, res, { outputs })) {
     const reply = await request(cmd, (l) => l.startsWith("#ACK,CFG") || l.startsWith("#ACK,OUT") || l.startsWith("#ERR"));
-    if (!reply) { toast.error(t("lab.toast.cfgNoReply")); return false; }
+    if (!reply) { toast.error(t("lab.toast.cfgNoReply")); diagAdd({ id: "cfg:noreply", tone: "error", text: t("lab.diag.noReply"), hint: t("lab.toast.cfgNoReply"), setup: true }); return false; }
     if (reply.startsWith("#ERR")) {
       const parts = reply.split(",");
-      if (parts[1] === "OUT") { toast.error(t("lab.toast.accessoriesError", { why: OUT_ERR[parts[2]] ?? parts[2] })); return false; }
+      if (parts[1] === "OUT") {
+        const why = OUT_ERR[parts[2]] ?? parts[2];
+        toast.error(t("lab.toast.accessoriesError", { why }));
+        diagAdd({ id: "cfg:out", tone: "error", text: t("lab.diag.accessories"), hint: why.charAt(0).toUpperCase() + why.slice(1), setup: true });
+        return false;
+      }
       if (parts[1] !== "CFG") { toast.error(t("lab.toast.cfgFwOutdated", { v: FIRMWARE_VERSION }), { duration: 10000 }); return false; }
       const s = res.byCode.get(Number(parts[2]));
-      toast.error(t("lab.toast.componentError", { name: s ? sensorLabel(s) : t("lab.info.component"), why: CFG_ERR[parts[3]] ?? parts[3] }));
+      const why = CFG_ERR[parts[3]] ?? parts[3];
+      toast.error(t("lab.toast.componentError", { name: s ? sensorLabel(s) : t("lab.info.component"), why }));
+      diagAdd({ id: `cfg:${parts[2]}`, sensorId: s?.id, tone: "error", text: t("lab.diag.rejected"), hint: why.charAt(0).toUpperCase() + why.slice(1), setup: true });
       return false;
     }
   }
@@ -831,6 +841,7 @@ export async function start() {
   const issues = validateRig(rig);
   if (hasErrors(issues)) { toast.error(issues.find((i) => i.level === "error")!.text); set({ rigOpen: true }); return; }
   if (!canStart()) return;
+  diagReset();
   if (link) {
     const sim = link.kind === "simulatore";
     if (sim) link.scenario = simScenario();
@@ -853,14 +864,34 @@ export async function start() {
   recompute();
   if (link) {
     const ok = await request("START", (l) => l.startsWith("#ACK,START") || l.startsWith("#ERR,START"));
-    if (!ok || ok.startsWith("#ERR")) { set({ running: false }); toast.error(t("lab.toast.notStarted")); return; }
+    if (!ok || ok.startsWith("#ERR")) {
+      set({ running: false }); toast.error(t("lab.toast.notStarted"));
+      diagAdd({ id: "start", tone: "error", text: t("lab.diag.notStarted"), hint: t("lab.toast.notStarted"), setup: true });
+      return;
+    }
   }
+  startDiag();
   startKeepAlive();
   startOledFeed();
 }
 
+// controllo dei sensori ogni secondo: ciò che non va finisce nella diagnostica (e ci resta)
+let diagTimer: ReturnType<typeof setInterval> | null = null;
+function diagTick() {
+  const st = get();
+  if (!st.running) return;
+  const elapsed = (Date.now() - (st.session?.created ?? Date.now())) / 1000;
+  // gli istanti mostrati sono quelli della misura (col simulatore accelerato non coincidono con l'orologio)
+  const tData = st.rows.length ? st.rows[st.rows.length - 1].t : 0;
+  diagUpdate(liveStatus(st.rig, resolved(st.rig), st.rows, true, elapsed), Number.isFinite(tData) ? tData : elapsed);
+}
+function startDiag() { stopDiag(); diagTimer = setInterval(diagTick, 1000); }
+function stopDiag() { if (diagTimer) { clearInterval(diagTimer); diagTimer = null; } diagTick(); }
+
 export async function stop() {
   if (!get().running) return;
+  stopDiag();
+  diagEnd();
   set({ running: false });
   stopKeepAlive();
   stopOledFeed();
