@@ -567,3 +567,9 @@ html.lim *::after {
     border-color: color-mix(in oklab, var(--foreground) 45%, transparent) !important;
   }
 }
+
+/* barra laterale aperta/chiusa con ⌘/Ctrl+B: senza transizione (azione da tastiera) */
+html[data-sidebar-instant] [data-slot="sidebar-gap"],
+html[data-sidebar-instant] [data-slot="sidebar-container"] {
+  transition: none !important;
+}

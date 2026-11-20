@@ -113,7 +113,10 @@ function SidebarProvider({
         (event.metaKey || event.ctrlKey)
       ) {
         event.preventDefault()
+        // da tastiera si apre e chiude di colpo: niente animazione su un'azione ripetuta a mano
+        document.documentElement.dataset.sidebarInstant = ""
         toggleSidebar()
+        requestAnimationFrame(() => requestAnimationFrame(() => { delete document.documentElement.dataset.sidebarInstant }))
       }
     }
 
