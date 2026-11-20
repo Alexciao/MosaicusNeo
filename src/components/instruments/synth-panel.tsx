@@ -163,7 +163,7 @@ export function SynthPanel({ exp }: { exp: Instrument }) {
         </div>
         <Collapsible open={eqOpen} onOpenChange={setEqOpen} className="border-t">
           <CollapsibleTrigger className="flex h-10 w-full items-center gap-2 px-4 text-sm font-medium outline-none hover:bg-foreground/[0.02] focus-visible:bg-foreground/[0.04]">
-            <ChevronDown className={cn("size-4 text-muted-foreground transition-transform", !eqOpen && "-rotate-90")} /> {t("formula")}
+            <ChevronDown aria-hidden className={cn("size-4 text-muted-foreground transition-transform duration-200 ease-out", !eqOpen && "-rotate-90")} /> {t("formula")}
           </CollapsibleTrigger>
           <CollapsibleContent className="px-4 pb-4">
             <p className="rounded-md bg-muted px-3 py-2 font-mono text-[13px]">y = {eq || "0"}{(SY.tail as number[]).some(Boolean) ? t("higher") : ""}</p>

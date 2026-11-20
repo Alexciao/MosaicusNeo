@@ -197,7 +197,7 @@ export function ScopePanel({ exp }: { exp: Instrument }) {
       {ard && (
         <Collapsible open={advOpen} onOpenChange={setAdvOpen} className="border-t">
           <CollapsibleTrigger className="flex h-10 w-full items-center gap-2 px-4 text-sm font-medium outline-none hover:bg-foreground/[0.02] focus-visible:bg-foreground/[0.04]">
-            <ChevronDown className={cn("size-4 text-muted-foreground transition-transform", !advOpen && "-rotate-90")} /> {t("measured")}
+            <ChevronDown aria-hidden className={cn("size-4 text-muted-foreground transition-transform duration-200 ease-out", !advOpen && "-rotate-90")} /> {t("measured")}
           </CollapsibleTrigger>
           <CollapsibleContent className="grid gap-3 px-4 pb-4 sm:grid-cols-3">
             <div className="flex flex-col gap-1.5">

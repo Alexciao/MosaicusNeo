@@ -297,7 +297,7 @@ export function BoxCard({ box }: { box: Box }) {
       <header className={cn("flex items-start gap-2 p-3 sm:gap-3 sm:p-4", !collapsed && "border-b")}>
         <Button size="icon-sm" variant="ghost" className="mt-0.5 text-muted-foreground" aria-expanded={!collapsed} aria-label={collapsed ? t("box.expand") : t("box.collapse")}
           onClick={() => updateBox(box.id, { collapsed: !collapsed })}>
-          <ChevronDown className={cn("transition-transform duration-200", collapsed && "-rotate-90")} />
+          <ChevronDown aria-hidden className={cn("transition-transform duration-200 ease-out", collapsed && "-rotate-90")} />
         </Button>
         <div className="min-w-0 flex-1">
           <Input key={box.title} defaultValue={box.title} aria-label={t("box.name")}

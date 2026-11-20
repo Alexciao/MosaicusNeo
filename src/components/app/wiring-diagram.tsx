@@ -230,7 +230,7 @@ function StepsAccordion({ steps, nav }: { steps: StepData[]; nav: StepNav }) {
                 {s.wires.length > 0 && <Swatch color={s.color} className="h-3 w-[3px]" />}
                 <span className={cn("min-w-0 flex-1 truncate text-sm", cur ? "font-semibold" : "font-medium")}>{s.title}</span>
                 {!cur && summary && <span className="shrink-0 text-xs text-muted-foreground tabular">{summary}</span>}
-                <ChevronDown aria-hidden className={cn("size-4 shrink-0 text-muted-foreground transition-transform duration-200", !cur && "-rotate-90")} />
+                <ChevronDown aria-hidden className={cn("size-4 shrink-0 text-muted-foreground transition-transform duration-200 ease-out", !cur && "-rotate-90")} />
               </button>
               {cur && (
                 <div className="flex gap-3 pr-3 pb-3 pl-2.5">
@@ -264,7 +264,7 @@ function StepsCompact({ steps, nav }: { steps: StepData[]; nav: StepNav }) {
                 className="flex min-h-9 w-full items-center gap-2.5 rounded-lg px-2.5 text-left outline-none focus-visible:ring-2 focus-visible:ring-ring/50">
                 <StepNum n={i + 1} current={cur} />
                 <span className={cn("min-w-0 flex-1 truncate text-[13px]", cur ? "font-semibold" : "font-medium")}>{s.title}</span>
-                <ChevronDown aria-hidden className={cn("size-3.5 shrink-0 text-muted-foreground transition-transform duration-200", !cur && "-rotate-90")} />
+                <ChevronDown aria-hidden className={cn("size-3.5 shrink-0 text-muted-foreground transition-transform duration-200 ease-out", !cur && "-rotate-90")} />
               </button>
               {cur && !!s.wires.length && <ul className="mb-1 flex flex-col divide-y divide-border pr-2.5 pl-11">{s.wires.map((w, k) => <WireLine key={k} {...w} compact />)}</ul>}
             </li>

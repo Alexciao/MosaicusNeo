@@ -165,7 +165,7 @@ function Section({ id, title, forceOpen, children, defaultOpen = true }: { id: s
         <SidebarGroupLabel render={<CollapsibleTrigger />}
           className="group/label h-7 cursor-pointer gap-1 px-2 text-xs font-medium text-muted-foreground hover:text-foreground">
           <span className="flex-1 truncate text-left">{title}</span>
-          <ChevronDown className={cn("size-3.5! opacity-0 transition-[opacity,transform] duration-150 group-hover/label:opacity-100 group-focus-visible/label:opacity-100", !open && "-rotate-90 opacity-100")} />
+          <ChevronDown aria-hidden className={cn("size-3.5! opacity-0 transition-[opacity,rotate] duration-150 ease-out group-hover/label:opacity-100 group-focus-visible/label:opacity-100 pointer-coarse:opacity-100", !open && "-rotate-90 opacity-100")} />
         </SidebarGroupLabel>
         <CollapsibleContent>
           <SidebarGroupContent>{children}</SidebarGroupContent>

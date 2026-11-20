@@ -28,7 +28,7 @@ export function Why({ title, children }: { title: React.ReactNode; children: Rea
   return (
     <Collapsible open={open} onOpenChange={setOpen} className="rounded-md border bg-muted/30">
       <CollapsibleTrigger className="flex w-full items-center gap-1.5 px-2.5 py-1.5 text-left text-xs font-semibold">
-        <ChevronDown className={cn("size-3.5 shrink-0 transition-transform", !open && "-rotate-90")} />{title}
+        <ChevronDown aria-hidden className={cn("size-3.5 shrink-0 transition-transform duration-200 ease-out", !open && "-rotate-90")} />{title}
       </CollapsibleTrigger>
       <CollapsibleContent className="flex flex-col gap-2 px-2.5 pb-2.5 text-xs leading-relaxed text-muted-foreground">{children}</CollapsibleContent>
     </Collapsible>

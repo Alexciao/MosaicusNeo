@@ -118,7 +118,7 @@ function SensorCard({ s, defaultOpen }: { s: SensorInstance; defaultOpen: boolea
               {def.events && <span> · {t("events")}</span>}
             </span>
           </span>
-          <ChevronDown className={cn("size-4 shrink-0 text-muted-foreground transition-transform", !open && "-rotate-90")} aria-hidden />
+          <ChevronDown aria-hidden className={cn("size-4 shrink-0 text-muted-foreground transition-transform duration-200 ease-out", !open && "-rotate-90")} />
         </CollapsibleTrigger>
         <Button size="icon-sm" variant="ghost" aria-label={t("removeNamed", { name: sensorLabel(s) })} disabled={running} className="text-muted-foreground hover:text-destructive"
           onClick={async () => { if (await confirm({ title: t("removeTitle", { name: sensorLabel(s) }), action: t("remove"), destructive: true })) removeSensor(s.id); }}>
@@ -180,7 +180,7 @@ function SensorCard({ s, defaultOpen }: { s: SensorInstance; defaultOpen: boolea
         {!!advanced.length && (
           <Collapsible open={adv} onOpenChange={setAdv}>
             <CollapsibleTrigger className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground hover:text-foreground">
-              <ChevronDown className={cn("size-3.5 transition-transform", !adv && "-rotate-90")} /> {t("advanced")}
+              <ChevronDown aria-hidden className={cn("size-3.5 transition-transform duration-200 ease-out", !adv && "-rotate-90")} /> {t("advanced")}
             </CollapsibleTrigger>
             <CollapsibleContent className="grid gap-3 pt-3 sm:grid-cols-2">
               {advanced.map((p) => (
