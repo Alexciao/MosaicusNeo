@@ -93,7 +93,9 @@
     "pinsMoved": "{list}: moved to make room for {name}. Rewire them as shown in the Wiring tab.",
     "pinMove": "{sensor} {role} {from} → {to}",
     "cantAdd": "Can’t add {name}",
-    "addrMove": "{sensor} → address 0x{addr}"
+    "addrMove": "{sensor} → address 0x{addr}",
+    "btPlug": "Now connect the module’s TXD wire to D0. Arduino waits for the module to answer for about 30 seconds.",
+    "btUnplugFirst": "Arduino didn’t receive “Configure”. Unplug the TXD → D0 wire (on the Uno it drowns out the USB cable’s commands) and press “Configure” again: the app will tell you when to plug it back in."
   },
   "outErr": {
     "PIN": "invalid pin",
@@ -244,6 +246,9 @@
     "rejected": "Rejected by Arduino’s configuration",
     "accessories": "Accessories rejected by the configuration",
     "noReply": "Arduino isn’t responding to the configuration",
-    "notStarted": "The measurement didn’t start"
+    "notStarted": "The measurement didn’t start",
+    "d0Blocked": "Arduino isn’t receiving commands from the USB cable",
+    "d0BlockedHint": "The Bluetooth module on D0 drowns out the USB cable: unplug the TXD → D0 wire while you use the cable, or connect over Bluetooth.",
+    "d0Status": "Unplug the TXD → D0 wire"
   }
 }

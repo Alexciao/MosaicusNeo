@@ -120,7 +120,7 @@
 #include <SPI.h>
 #include <EEPROM.h>
 
-const char *FW_VERSION = "1.6";
+const char *FW_VERSION = "1.7";
 
 const uint8_t MAX_SLOTS = 6;
 const uint8_t ADC_SAMPLES = 16;                 // sovracampionamento per ridurre il rumore
@@ -1439,11 +1439,25 @@ void btListen(unsigned int ms) {
 }
 // già configurato a 115200? (in attesa, non associato, risponde «OK» ad «AT»)
 void btProbe() {
-  btSaw = false;
   Serial.flush();
   while (Serial.available()) Serial.read();
   Serial.print(F("AT")); btListen(500);
   Serial.print(F("AT\r\n")); btListen(500);
+}
+// Sull'Uno il TXD del modulo, collegato a D0, copre i comandi che arrivano dal cavo USB. Si manda
+// «Configura» con quel filo staccato; Arduino chiede di attaccarlo (#BT,PLUG) e prova finché il
+// modulo non risponde (circa 30 s), a 115200 (già configurato) e a 9600 (di fabbrica). Da lì non
+// serve più ascoltare il computer: le risposte gli arrivano comunque da D1.
+void btWait() {
+  Serial.println(F("#BT,PLUG"));
+  for (uint8_t i = 0; i < 18 && !btSaw; i++) {
+    btProbe();
+    if (btSaw) break;
+    Serial.end(); Serial.begin(9600); delay(50);
+    Serial.print(F("AT")); btListen(300);
+    Serial.print(F("AT\r\n")); btListen(300);
+    Serial.end(); Serial.begin(115200); delay(50);
+  }
 }
 void btDone(uint8_t kind) {
   Serial.flush();
@@ -1456,7 +1470,8 @@ void btDone(uint8_t kind) {
 
 void btSetupBle() {
   Serial.println(F("#BT,SETUP"));
-  btProbe();
+  btSaw = false;
+  btWait();
   Serial.end();
   Serial.begin(9600);
   delay(300);
@@ -1474,7 +1489,8 @@ void btSetupBle() {
 
 void btSetup() {
   Serial.println(F("#BT,SETUP"));
-  btProbe();
+  btSaw = false;
+  btWait();
   Serial.end();
   Serial.begin(9600);
   delay(300);
