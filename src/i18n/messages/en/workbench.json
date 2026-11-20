@@ -121,6 +121,8 @@
       "how": "Measured data have no formula: take the {n} points closest to P and compute the parabola that best approximates them. The tangent is the line that touches that parabola at P. The triangle shows the slope: how much {y} changes when {x} increases by {dx} {unit}."
     },
     "fit": {
+      "advanced": "Advanced",
+      "advancedTitle": "Other models",
       "suggested": "Suggested",
       "otherModels": "Other models",
       "models": "Models",

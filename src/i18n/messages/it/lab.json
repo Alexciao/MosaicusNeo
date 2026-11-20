@@ -36,6 +36,7 @@
     "description": "La modalità LIM ingrandisce i testi e alleggerisce i grafici."
   },
   "toast": {
+    "componentsAdded": "{n, plural, one {# componente aggiunto} other {# componenti aggiunti}}",
     "forkedShort": "Salvato come nuovo progetto: «{name}».",
     "forked": "Salvato come nuovo progetto: «{name}». L’esperimento originale resta com’era.",
     "stopBeforeLab": "Ferma la misura prima di cambiare esperimento.",

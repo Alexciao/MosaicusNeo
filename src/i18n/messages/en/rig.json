@@ -39,7 +39,7 @@
     "search": "Search for a lab",
     "clearSearch": "Clear search",
     "nav": "Labs",
-    "projects": "My projects",
+    "projects": "My labs",
     "newProject": "New project",
     "tools": "Tools",
     "noResults": "No lab for “{query}”.",
@@ -190,9 +190,7 @@
       "fit": "Fit to window"
     },
     "stepsCount": "{n, plural, one {# step} other {# steps}}",
-    "stepOf": "Step {n} of {total}",
-    "prevStep": "Previous",
-    "nextStep": "Next"
+    "stepsHint": "Click a step to see its wires."
   },
   "modules": {
     "ohms4k7": "4.7 kΩ",
@@ -347,6 +345,13 @@
     "notWithPhone": "not together with the phone’s sensors",
     "oneBt": "there’s already a Bluetooth module: only one module at a time",
     "maxSensors": "Arduino reads at most {n} sensors",
+    "pickerSelectOne": "Select {name}",
+    "pickerSelected": "{n, plural, one {# selected} other {# selected}}",
+    "pickerClear": "Clear",
+    "pickerAddN": "{n, plural, one {Add # component} other {Add # components}}",
+    "pickerSelectKey": "select",
+    "pickerSelectAdd": "Add to selection",
+    "pickerUnselect": "Remove from selection",
     "pickerTitle": "Add a component",
     "pickerAdd": "Add",
     "pickerAdded": "Added",
@@ -355,7 +360,7 @@
     "pickerMove": "to move",
     "close": "Close",
     "pickerDescription": "Sensors, controls, displays and LEDs, storage and Bluetooth: everything is a component. You choose the pins after adding it.",
-    "searchPlaceholder": "Search: temperature, button, SD card, Bluetooth…",
+    "searchPlaceholder": "Search",
     "searchAria": "Search for a component",
     "clearSearch": "Clear search",
     "groupAria": "Group",

@@ -8,6 +8,7 @@ import { ArrowLeft, ArrowRight, ChevronDown, Minus, Plus, Save } from "lucide-re
 import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuGroup, DropdownMenuLabel, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Chart, ChartGroup } from "@/lib/mosaicus/chart.js";
 import { MODELS, MODEL_ORDER, runsTest } from "@/lib/mosaicus/fits.js";
 import { formatMeasure, fmt } from "@/lib/mosaicus/analysis.js";
@@ -149,14 +150,9 @@ export function FitPanel({ suggested, model, fit, phys, cx, cy, onModel, onSave,
   compare: ModelRow[] | null; onCompare: () => void;
 }) {
   const t = useTranslations("workbench.tools");
-  const others = MODEL_ORDER.filter((id: string) => !suggested.includes(id));
-  const [more, setMore] = useState(!suggested.length);
-  const btn = (id: string, sug = false) => (
-    <Button key={id} size="xs" variant={model === id ? "default" : "outline"} title={(MODELS as any)[id].formula}
-      className={cn(sug && model !== id && "border-primary/40")} onClick={() => onModel(id)}>
-      {(MODELS as any)[id].label}
-    </Button>
-  );
+  // gli altri modelli, in «Avanzate»: prima quelli consigliati per questa grandezza
+  const advanced = [...MODEL_ORDER.filter((id: string) => id !== "lin" && suggested.includes(id)), ...MODEL_ORDER.filter((id: string) => id !== "lin" && !suggested.includes(id))];
+  const isAdv = !!model && model !== "lin";
   const rowsOf = (list: any[]) => list.map((p, i) => (
     <tr key={i} className="border-b last:border-0">
       <th className="py-1 pr-2 text-left text-xs font-medium text-muted-foreground"><Sym>{p.label ?? p.sym}</Sym></th>
@@ -166,11 +162,32 @@ export function FitPanel({ suggested, model, fit, phys, cx, cy, onModel, onSave,
   const isLine = model === "lin";
   return (
     <div className="flex flex-col gap-3">
-      {!!suggested.length && <div className="flex flex-wrap items-center gap-1.5"><span className="text-xs text-muted-foreground">{t("fit.suggested")}</span>{suggested.map((id) => btn(id, true))}</div>}
-      <Collapsible open={more} onOpenChange={setMore}>
-        <CollapsibleTrigger className="flex items-center gap-1.5 text-xs font-semibold"><ChevronDown className={cn("size-3.5 transition-transform", !more && "-rotate-90")} /> {suggested.length ? t("fit.otherModels") : t("fit.models")}</CollapsibleTrigger>
-        <CollapsibleContent className="flex flex-wrap gap-1.5 pt-2">{others.map((id: string) => btn(id))}</CollapsibleContent>
-      </Collapsible>
+      <div className="flex flex-wrap items-center gap-1.5">
+        <Button size="sm" variant={model === "lin" ? "default" : "outline"} title={(MODELS as any).lin.formula} onClick={() => onModel("lin")}>
+          {(MODELS as any).lin.label}
+        </Button>
+        <DropdownMenu>
+          <DropdownMenuTrigger render={<Button size="sm" variant={isAdv ? "default" : "outline"} />}>
+            {isAdv ? (MODELS as any)[model!].label : t("fit.advanced")} <ChevronDown className="opacity-60" />
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="start" className="w-64">
+            <DropdownMenuGroup>
+              <DropdownMenuLabel>{t("fit.advancedTitle")}</DropdownMenuLabel>
+              <DropdownMenuRadioGroup value={isAdv ? model! : ""} onValueChange={(v) => onModel(String(v))}>
+                {advanced.map((id: string) => (
+                  <DropdownMenuRadioItem key={id} value={id} closeOnClick>
+                    <span className="flex min-w-0 flex-1 flex-col">
+                      <span>{(MODELS as any)[id].label}</span>
+                      <span className="font-mono text-[11px] text-muted-foreground">{(MODELS as any)[id].formula}</span>
+                    </span>
+                    {suggested.includes(id) && <span className="text-xs text-muted-foreground">{t("fit.suggested")}</span>}
+                  </DropdownMenuRadioItem>
+                ))}
+              </DropdownMenuRadioGroup>
+            </DropdownMenuGroup>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
       <Button size="xs" variant="ghost" className="self-start" onClick={onCompare}>{compare ? t("fit.hideCompare") : t("fit.compareAll")}</Button>
       {compare && <CompareModels rows={compare} current={model} unit={cy.unit} onPick={onModel} />}
       {fit?.error && <p className="text-sm text-destructive">{fit.error}</p>}

@@ -18,7 +18,7 @@ import { validateRig, usedPins, sensorLabel, inputsOf, indicatorsOf, type Sensor
 import { QUANTITIES } from "@/lib/sensors/quantities";
 import type { Param } from "@/lib/sensors/types";
 import {
-  useLab, labInfo, updateSensor, addSensor, checkAdd, removeSensor, pressSimButton, newRig, testOutputs,
+  useLab, labInfo, updateSensor, addSensor, addSensors, checkAdd, removeSensor, pressSimButton, newRig, testOutputs,
 } from "@/lib/lab-store";
 import { confirm } from "@/lib/confirm";
 import { cn } from "@/lib/utils";
@@ -209,16 +209,25 @@ function measuredOf(type: SensorType) {
 }
 
 /** Una riga dell'elenco: immagine, nome, che cosa misura; a destra «aggiunto» o il motivo per cui non si può. */
-function PickerRow({ type, count, disabled, active, onPick, onFocus, id }: {
-  type: SensorType; count: number; disabled: boolean; active: boolean; onPick: () => void; onFocus: () => void; id: string;
+function PickerRow({ type, count, disabled, active, selected, selecting, onPick, onToggle, onFocus, id }: {
+  type: SensorType; count: number; disabled: boolean; active: boolean; selected: boolean; selecting: boolean;
+  onPick: () => void; onToggle: () => void; onFocus: () => void; id: string;
 }) {
   const t = useTranslations("rig.editor");
   const def = SENSORS[type];
   return (
-    <li role="option" id={id} aria-selected={active} aria-disabled={disabled}
-      onMouseMove={onFocus} onClick={() => { if (!disabled) onPick(); }}
-      className={cn("flex cursor-pointer items-center gap-3 rounded-md px-2 py-1.5 select-none",
+    <li role="option" id={id} aria-selected={active} aria-checked={selected} aria-disabled={disabled}
+      onMouseMove={onFocus} onClick={() => { if (disabled) return; if (selecting) onToggle(); else onPick(); }}
+      className={cn("group/row flex cursor-pointer items-center gap-3 rounded-md px-2 py-1.5 select-none",
         active && "bg-foreground/[0.06]", disabled && "cursor-default opacity-50")}>
+      {/* casella per scegliere più componenti: compare passando sopra, sempre visibile mentre se ne scelgono */}
+      <span role="checkbox" aria-checked={selected} aria-label={t("pickerSelectOne", { name: def.title })} tabIndex={-1}
+        onClick={(e) => { e.stopPropagation(); if (!disabled) onToggle(); }}
+        className={cn("grid size-4 shrink-0 place-items-center rounded-[4px] border transition-opacity",
+          selected ? "border-foreground bg-foreground text-background" : "border-foreground/30 bg-background",
+          !selected && !selecting && "opacity-0 group-hover/row:opacity-100 pointer-coarse:opacity-100")}>
+        {selected && <Check className="size-3" strokeWidth={3} />}
+      </span>
       <span className="grid size-9 shrink-0 place-items-center rounded-md bg-muted/70 p-1" aria-hidden>
         <ComponentThumb type={type} className="size-full" />
       </span>
@@ -236,7 +245,7 @@ function PickerRow({ type, count, disabled, active, onPick, onFocus, id }: {
 }
 
 /** Anteprima del componente scelto con la tastiera o il mouse: immagine grande, descrizione, grandezze, pin. */
-function PickerDetail({ type, disabled, why, onPick }: { type: SensorType; disabled: boolean; why?: string; onPick: () => void }) {
+function PickerDetail({ type, disabled, why, onPick, selecting, selected }: { type: SensorType; disabled: boolean; why?: string; onPick: () => void; selecting?: boolean; selected?: boolean }) {
   const t = useTranslations("rig.editor");
   const def = SENSORS[type];
   const measured = measuredOf(type);
@@ -280,7 +289,9 @@ function PickerDetail({ type, disabled, why, onPick }: { type: SensorType; disab
       </div>
       <div className="flex flex-col gap-2 border-t p-4">
         {disabled && why && <p className="text-xs text-muted-foreground">{why}</p>}
-        <Button variant="brand" disabled={disabled} onClick={onPick}><Plus /> {t("pickerAdd")}</Button>
+        {selecting
+          ? <Button variant="outline" disabled={disabled && !selected} onClick={onPick}>{selected ? t("pickerUnselect") : <><Plus /> {t("pickerSelectAdd")}</>}</Button>
+          : <Button variant="brand" disabled={disabled} onClick={onPick}><Plus /> {t("pickerAdd")}</Button>}
       </div>
     </div>
   );
@@ -298,21 +309,33 @@ export function ComponentPicker({ open, onOpenChange }: { open: boolean; onOpenC
   const [group, setGroup] = useState<ComponentGroup | "all">("all");
   const [tag, setTag] = useState<ComponentTag | "all">("all");
   const [activeType, setActiveType] = useState<SensorType | null>(null);
+  const [sel, setSel] = useState<SensorType[]>([]);
   const listRef = useRef<HTMLUListElement>(null);
-  const nArduino = inputsOf(rig).length;
+  const selecting = sel.length > 0;
+  // il progetto come sarebbe con i componenti scelti: così si vede subito che cosa non ci sta più
+  let planned = rig.sensors;
+  for (const type of sel) { const plan = checkAdd(planned, type); if (plan.ok) planned = plan.sensors; }
+  const nArduino = planned.filter((x) => isSlot(x.type) && !SENSORS[x.type].phone).length;
   const count = (type: SensorType) => rig.sensors.filter((s) => s.type === type).length;
   const state = (type: SensorType): [boolean, string?] => {
+    if (sel.includes(type)) return [false];
     const def = SENSORS[type];
-    if (count(type) >= def.max) return [true, def.max === 1 ? t("maxOne") : t("maxN", { n: def.max })];
-    if (def.phone && rig.sensors.some((s) => !SENSORS[s.type].phone)) return [true, t("notWithArduino")];
-    if (!def.phone && rig.sensors.some((s) => SENSORS[s.type].phone)) return [true, t("notWithPhone")];
-    if (def.link && rig.sensors.some((s) => SENSORS[s.type].link)) return [true, t("oneBt")];
-    if (isSlot(type) && nArduino >= MAX_ARDUINO) return [true, t("maxSensors", { n: MAX_ARDUINO })];
+    const n = planned.filter((s) => s.type === type).length;
+    if (n >= def.max) return [true, def.max === 1 ? t("maxOne") : t("maxN", { n: def.max })];
+    if (def.phone && planned.some((s) => !SENSORS[s.type].phone)) return [true, t("notWithArduino")];
+    if (!def.phone && planned.some((s) => SENSORS[s.type].phone)) return [true, t("notWithPhone")];
+    if (def.link && planned.some((s) => SENSORS[s.type].link)) return [true, t("oneBt")];
+    if (isSlot(type) && !def.phone && nArduino >= MAX_ARDUINO) return [true, t("maxSensors", { n: MAX_ARDUINO })];
     // pin, bus I2C e posto sulla breadboard: se non c'è modo di montarlo davvero, non si aggiunge
-    const plan = checkAdd(rig.sensors, type);
+    const plan = checkAdd(planned, type);
     if (!plan.ok) return [true, plan.error];
     return [false];
   };
+  const toggle = (type: SensorType) => setSel((cur) => (cur.includes(type) ? cur.filter((x) => x !== type) : state(type)[0] ? cur : [...cur, type]));
+  // telefono e Arduino non si mescolano: con componenti di Arduino il gruppo Telefono non c'è, e viceversa
+  const hasPhone = planned.some((x) => SENSORS[x.type].phone), hasArduino = planned.some((x) => !SENSORS[x.type].phone);
+  const groupShown = (g: ComponentGroup) => (g === "phone" ? !hasArduino : !hasPhone);
+  const groups = GROUPS.filter(([g]) => groupShown(g));
   const q = fold(query.trim());
   const groupLabel = (g: ComponentGroup) => GROUPS.find(([id]) => id === g)?.[1] ?? "";
   const matches = (type: SensorType) => {
@@ -324,18 +347,20 @@ export function ComponentPicker({ open, onOpenChange }: { open: boolean; onOpenC
   const searched = COMPONENTS.filter(matches);
   const list = searched.filter((type) => {
     const g = groupOf(type);
+    if (!groupShown(g)) return false;
     if (group !== "all" && g !== group) return false;
     // «Tutti» senza ricerca: i componenti di Arduino; il telefono ha il suo gruppo
-    if (group === "all" && !q && g === "phone") return false;
+    if (group === "all" && !q && g === "phone" && !hasPhone) return false;
     if (group === "sensor" && tag !== "all" && !COMPONENT_TAGS[type].includes(tag)) return false;
     return true;
   });
-  const sections = GROUPS.map(([g, label]) => ({ g, label, items: list.filter((type) => groupOf(type) === g) })).filter((s) => s.items.length);
+  const sections = groups.map(([g, label]) => ({ g, label, items: list.filter((type) => groupOf(type) === g) })).filter((s) => s.items.length);
   const flat = sections.flatMap((s) => s.items);
   const active = activeType && flat.includes(activeType) ? activeType : flat[0] ?? null;
   const pick = (type: SensorType) => { if (state(type)[0]) return; addSensor(type); change(false); };
-  const change = (o: boolean) => { onOpenChange(o); if (!o) { setQuery(""); setGroup("all"); setTag("all"); setActiveType(null); } };
-  const groupCount = (g: ComponentGroup | "all") => searched.filter((type) => (g === "all" ? q || groupOf(type) !== "phone" : groupOf(type) === g)).length;
+  const addSelected = () => { if (!sel.length) return; addSensors(sel); change(false); };
+  const change = (o: boolean) => { onOpenChange(o); if (!o) { setQuery(""); setGroup("all"); setTag("all"); setActiveType(null); setSel([]); } };
+  const groupCount = (g: ComponentGroup | "all") => searched.filter((type) => groupShown(groupOf(type)) && (g === "all" ? q || hasPhone || groupOf(type) !== "phone" : groupOf(type) === g)).length;
   const optId = (type: SensorType) => `pick-${type}`;
   const move = (d: number) => {
     if (!flat.length) return;
@@ -347,6 +372,8 @@ export function ComponentPicker({ open, onOpenChange }: { open: boolean; onOpenC
   const onKey = (e: React.KeyboardEvent) => {
     if (e.key === "ArrowDown") { e.preventDefault(); move(1); }
     else if (e.key === "ArrowUp") { e.preventDefault(); move(-1); }
+    else if (e.key === "Enter" && e.shiftKey && active) { e.preventDefault(); toggle(active); }
+    else if (e.key === "Enter" && selecting) { e.preventDefault(); addSelected(); }
     else if (e.key === "Enter" && active) { e.preventDefault(); pick(active); }
   };
   const railItem = (id: ComponentGroup | "all", label: string) => (
@@ -387,13 +414,13 @@ export function ComponentPicker({ open, onOpenChange }: { open: boolean; onOpenC
         {/* gruppi: una riga di filtri sul telefono */}
         <div className="flex gap-1.5 overflow-x-auto border-b px-4 py-2 [scrollbar-width:none] md:hidden" role="group" aria-label={t("groupAria")}>
           {chip("all", t("all"), group === "all", () => { setGroup("all"); setTag("all"); })}
-          {GROUPS.map(([id, label]) => chip(id, label, group === id, () => { setGroup(id); setTag("all"); }))}
+          {groups.map(([id, label]) => chip(id, label, group === id, () => { setGroup(id); setTag("all"); }))}
         </div>
         <div className="grid min-h-0 flex-1 md:grid-cols-[13rem_minmax(0,1fr)_17rem]">
           {/* gruppi e argomenti */}
           <nav className="hidden min-h-0 flex-col gap-0.5 overflow-y-auto border-r p-2 md:flex" aria-label={t("groupAria")}>
             {railItem("all", t("all"))}
-            {GROUPS.map(([id, label]) => (
+            {groups.map(([id, label]) => (
               <Fragment key={id}>
                 {railItem(id, label)}
                 {id === "sensor" && group === "sensor" && (
@@ -420,7 +447,7 @@ export function ComponentPicker({ open, onOpenChange }: { open: boolean; onOpenC
                       <li role="presentation" className={cn("px-2 pb-1 text-xs font-medium text-muted-foreground", si > 0 ? "pt-4" : "pt-1")}>{s.label}</li>
                     )}
                     {s.items.map((type) => (
-                      <PickerRow key={type} id={optId(type)} type={type} count={count(type)} disabled={state(type)[0]}
+                      <PickerRow key={type} id={optId(type)} type={type} count={count(type)} disabled={state(type)[0]} selected={sel.includes(type)} selecting={selecting} onToggle={() => toggle(type)}
                         active={type === active} onFocus={() => setActiveType(type)} onPick={() => pick(type)} />
                     ))}
                   </Fragment>
@@ -432,15 +459,26 @@ export function ComponentPicker({ open, onOpenChange }: { open: boolean; onOpenC
           </div>
           {/* anteprima */}
           <aside className="hidden min-h-0 border-l md:block" aria-live="polite">
-            {active && <PickerDetail type={active} disabled={!!activeDisabled} why={activeWhy} onPick={() => pick(active)} />}
+            {active && <PickerDetail type={active} disabled={!!activeDisabled} why={activeWhy} selecting={selecting} selected={sel.includes(active)} onPick={() => (selecting ? toggle(active) : pick(active))} />}
           </aside>
         </div>
         <div className="flex items-center gap-4 border-t px-4 py-2 text-xs text-muted-foreground">
-          <span className="min-w-0 flex-1 truncate">{t("maxNote", { n: MAX_ARDUINO })}</span>
-          <span className="hidden shrink-0 items-center gap-3 md:flex">
-            <span><kbd className="font-sans">↑</kbd> <kbd className="font-sans">↓</kbd> {t("pickerMove")}</span>
-            <span><kbd className="font-sans">↵</kbd> {t("pickerAdd")}</span>
-          </span>
+          {selecting ? (
+            <>
+              <span className="min-w-0 flex-1 truncate font-medium text-foreground">{t("pickerSelected", { n: sel.length })}</span>
+              <Button size="sm" variant="ghost" onClick={() => setSel([])}>{t("pickerClear")}</Button>
+              <Button size="sm" variant="brand" onClick={addSelected}><Plus /> {t("pickerAddN", { n: sel.length })}</Button>
+            </>
+          ) : (
+            <>
+              <span className="min-w-0 flex-1 truncate">{t("maxNote", { n: MAX_ARDUINO })}</span>
+              <span className="hidden shrink-0 items-center gap-3 md:flex">
+                <span><kbd className="font-sans">↑</kbd> <kbd className="font-sans">↓</kbd> {t("pickerMove")}</span>
+                <span><kbd className="font-sans">⇧↵</kbd> {t("pickerSelectKey")}</span>
+                <span><kbd className="font-sans">↵</kbd> {t("pickerAdd")}</span>
+              </span>
+            </>
+          )}
         </div>
       </DialogContent>
     </Dialog>

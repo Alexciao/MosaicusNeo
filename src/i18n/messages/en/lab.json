@@ -36,6 +36,7 @@
     "description": "Whiteboard mode enlarges text and makes the charts lighter."
   },
   "toast": {
+    "componentsAdded": "{n, plural, one {# component added} other {# components added}}",
     "forkedShort": "Saved as a new project: “{name}”.",
     "forked": "Saved as a new project: “{name}”. The original lab stays as it was.",
     "stopBeforeLab": "Stop the measurement before changing experiment.",

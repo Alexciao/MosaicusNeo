@@ -515,6 +515,28 @@ export function addSensor(type: SensorType) {
     if (first && !get().visible.includes(first.id)) { const visible = [...get().visible, first.id]; set({ visible }); prefs.set(`mosaicus.visible.${rig.id}`, visible); }
   }
 }
+/** Più componenti insieme (dal catalogo): uno dopo l'altro, poi una notifica sola. */
+export function addSensors(types: SensorType[]) {
+  if (get().running) { toast(t("lab.toast.stopBeforeComponents")); return; }
+  const added: SensorInstance[] = [], moved: string[] = [];
+  for (const type of types) {
+    const rig = get().rig;                 // dopo il primo, può essere il progetto «Modifica di …»
+    const r = applyAdd(rig, rig.sensors, type);
+    if (!r) continue;
+    added.push(r.sensor);
+    if (r.moved) moved.push(r.moved);
+  }
+  // le prime grandezze compaiono subito tra i grafici
+  const views = viewsOf();
+  const extra = added.map((s) => views.find((v) => v.sensorId === s.id && !v.raw)?.id).filter((v): v is string => !!v && !get().visible.includes(v));
+  if (extra.length) { const visible = [...get().visible, ...extra]; set({ visible }); prefs.set(`mosaicus.visible.${get().rig.id}`, visible); }
+  const fork = takeFork();
+  if (!added.length) return;
+  toast.success(t("lab.toast.componentsAdded", { n: added.length }), {
+    description: [fork ? t("lab.toast.forkedShort", { name: fork }) : null, ...moved].filter(Boolean).join(" ") || undefined,
+    action: { label: t("lab.action.wiring"), onClick: () => showWiring() },
+  });
+}
 export function removeSensor(id: string) {
   const rig = get().rig;
   commitRig({ ...rig, sensors: rig.sensors.filter((s) => s.id !== id) });

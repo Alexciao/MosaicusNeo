@@ -6,7 +6,7 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useTheme } from "next-themes";
 import { useTranslations } from "next-intl";
 import { toast } from "@/lib/toast";
-import { ArrowLeftRight, ChevronDown, Copy, Eye, EyeOff, Maximize2, MousePointer2, Ruler, Spline, TrendingUp, Trash, X } from "lucide-react";
+import { ArrowLeftRight, ChartSpline, ChevronDown, Copy, Eye, EyeOff, Maximize2, MousePointer2, Ruler, Spline, TrendingUp, Trash, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -78,7 +78,8 @@ export function BoxCard({ box }: { box: Box }) {
   // --- strumenti: a ogni cambio di strumento o di assi si riparte da capo
   const initTool = (tl: Tool) => {
     setTangentPick(null); setShowResid(false);
-    if (tl !== "fit") setFitModel(null);
+    // la retta di best fit è il punto di partenza; gli altri modelli sono in «Avanzate»
+    setFitModel(tl === "fit" ? "lin" : null);
     if (tl === "line") {
       const ys = y.filter(Number.isFinite);
       const x0 = Math.min(...finiteX), x1 = Math.max(...finiteX);
@@ -352,7 +353,7 @@ export function BoxCard({ box }: { box: Box }) {
             ["select", <><MousePointer2 /><span className="hidden sm:inline">{t("intro.select.short")}</span></>, INTRO.select[1]],
             ["line", <><TrendingUp /><span className="hidden sm:inline">{t("intro.line.short")}</span></>, INTRO.line[1]],
             ["tangent", <><Spline /><span className="hidden sm:inline">{t("intro.tangent.short")}</span></>, INTRO.tangent[1]],
-            ["fit", <><span className="font-serif text-base leading-none">∿</span><span className="hidden sm:inline">{t("intro.fit.short")}</span></>, INTRO.fit[1]],
+            ["fit", <><ChartSpline /><span className="hidden sm:inline">{t("intro.fit.short")}</span></>, INTRO.fit[1]],
             ["ruler", <><Ruler /><span className="hidden sm:inline">{t("intro.ruler.short")}</span></>, INTRO.ruler[1]],
           ]} />
         <Button size="icon-sm" variant="outline" aria-label={t("box.fitAll")} title={t("box.fitAll")} onClick={() => groupRef.current?.fitAll()}><Maximize2 /></Button>

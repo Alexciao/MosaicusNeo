@@ -39,7 +39,7 @@
     "search": "Cerca un lab",
     "clearSearch": "Cancella la ricerca",
     "nav": "Lab",
-    "projects": "I miei progetti",
+    "projects": "I miei lab",
     "newProject": "Nuovo progetto",
     "tools": "Strumenti",
     "noResults": "Nessun lab per «{query}».",
@@ -190,9 +190,7 @@
       "fit": "Adatta alla finestra"
     },
     "stepsCount": "{n, plural, one {# passo} other {# passi}}",
-    "stepOf": "Passo {n} di {total}",
-    "prevStep": "Indietro",
-    "nextStep": "Avanti"
+    "stepsHint": "Fai clic su un passo per vedere i suoi fili."
   },
   "modules": {
     "ohms4k7": "4,7 kΩ",
@@ -347,6 +345,13 @@
     "notWithPhone": "non insieme ai sensori del telefono",
     "oneBt": "c'è già un modulo Bluetooth: un solo modulo alla volta",
     "maxSensors": "Arduino legge al massimo {n} sensori",
+    "pickerSelectOne": "Seleziona {name}",
+    "pickerSelected": "{n, plural, one {# selezionato} other {# selezionati}}",
+    "pickerClear": "Annulla",
+    "pickerAddN": "{n, plural, one {Aggiungi # componente} other {Aggiungi # componenti}}",
+    "pickerSelectKey": "seleziona",
+    "pickerSelectAdd": "Aggiungi alla selezione",
+    "pickerUnselect": "Togli dalla selezione",
     "pickerTitle": "Aggiungi un componente",
     "pickerAdd": "Aggiungi",
     "pickerAdded": "Aggiunto",
@@ -355,7 +360,7 @@
     "pickerMove": "per spostarti",
     "close": "Chiudi",
     "pickerDescription": "Sensori, comandi, display e LED, memoria e Bluetooth: tutto è un componente. I pin si scelgono dopo l'aggiunta.",
-    "searchPlaceholder": "Cerca: temperatura, pulsante, scheda SD, Bluetooth…",
+    "searchPlaceholder": "Cerca",
     "searchAria": "Cerca un componente",
     "clearSearch": "Cancella la ricerca",
     "groupAria": "Gruppo",

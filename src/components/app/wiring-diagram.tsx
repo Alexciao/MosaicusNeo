@@ -9,7 +9,7 @@
 // Ogni blocco è una sezione richiudibile (WiringSection), come i consigli degli strumenti.
 
 import { useState } from "react";
-import { ArrowRight, Bluetooth, BluetoothSearching, Check, ChevronDown, ChevronLeft, ChevronRight, ListChecks, Maximize2, MemoryStick, Unplug, X } from "lucide-react";
+import { ArrowRight, Bluetooth, BluetoothSearching, Check, ChevronDown, ListChecks, Maximize2, MemoryStick, Unplug, X } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogClose, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
@@ -173,14 +173,14 @@ function useSteps(sensors: SensorInstance[], bt: BtModule, style: Style): StepDa
   ];
 }
 
-/** Il passo sullo schermo (per questa sessione, condiviso tra la scheda e lo schermo intero):
- *  niente da spuntare, si va avanti e indietro. Cambiando circuito si riparte dal primo. */
+/** Il passo aperto (uno solo alla volta, nessuno all'inizio), condiviso tra la scheda e lo schermo
+ *  intero. Cambiando circuito si richiudono tutti. */
 function useStepNav(steps: StepData[], style: Style) {
   const sig = hashKey(style + steps.map((s) => s.title + s.wires.map((w) => w.from + w.to).join(",")).join("|"));
-  const [nav, setNav] = useState({ sig, i: 0 });
-  const current = nav.sig === sig ? Math.min(nav.i, Math.max(0, steps.length - 1)) : 0;
-  const go = (i: number) => setNav({ sig, i: Math.max(0, Math.min(steps.length - 1, i)) });
-  return { current, go };
+  const [nav, setNav] = useState<{ sig: string; i: number | null }>({ sig, i: null });
+  const open = nav.sig === sig && nav.i != null && nav.i < steps.length ? nav.i : null;
+  const toggle = (i: number) => setNav({ sig, i: open === i ? null : i });
+  return { open, toggle };
 }
 type StepNav = ReturnType<typeof useStepNav>;
 
@@ -202,7 +202,7 @@ function StepBody({ s }: { s: StepData }) {
   );
 }
 
-/** Il numero del passo: in inchiostro quello sullo schermo. */
+/** Il numero del passo: in inchiostro quello aperto. */
 function StepNum({ n, current }: { n: number; current: boolean }) {
   return (
     <span aria-hidden className={cn("grid size-6 shrink-0 place-items-center rounded-full text-xs font-medium tabular transition-colors duration-150",
@@ -210,72 +210,67 @@ function StepNum({ n, current }: { n: number; current: boolean }) {
   );
 }
 
-/** I passi uno alla volta: si apre il passo corrente, con Precedente / Avanti; un clic su un titolo
- *  porta a quel passo. */
-function StepsWalkthrough({ steps, nav }: { steps: StepData[]; nav: StepNav }) {
+/** I passi come fisarmonica: ogni titolo si apre con un clic (freccia e passaggio del mouse lo
+ *  dicono), uno solo aperto alla volta. */
+function StepsAccordion({ steps, nav }: { steps: StepData[]; nav: StepNav }) {
   const t = useTranslations("rig.guide");
-  const { current, go } = nav;
-  const total = steps.length;
+  const { open, toggle } = nav;
   return (
-    <ol className="flex flex-col gap-0.5">
-      {steps.map((s, i) => {
-        const cur = i === current;
-        const summary = s.wires.length ? t("stepWires", { n: s.wires.length }) : undefined;
-        return (
-          <li key={i} className={cn("rounded-lg transition-colors duration-200", cur && "bg-foreground/[0.03]")}>
-            <button type="button" onClick={() => go(i)} aria-current={cur ? "step" : undefined}
-              className="flex min-h-11 w-full items-center gap-3 rounded-lg px-2.5 text-left outline-none focus-visible:ring-2 focus-visible:ring-ring/50">
-              <StepNum n={i + 1} current={cur} />
-              {s.wires.length > 0 && <Swatch color={s.color} className="h-3 w-[3px]" />}
-              <span className={cn("min-w-0 flex-1 truncate text-sm", cur ? "font-semibold" : "font-medium text-muted-foreground")}>{s.title}</span>
-              {!cur && summary && <span className="shrink-0 text-xs text-muted-foreground tabular">{summary}</span>}
-            </button>
-            {cur && (
-              <div className="flex gap-3 pr-3 pb-3 pl-2.5">
-                {s.thumb && <span className="mt-1 hidden size-10 shrink-0 place-items-center rounded-md bg-muted/60 p-1 sm:grid" aria-hidden><ComponentThumb type={s.thumb} className="size-full" /></span>}
-                <div className={cn("flex min-w-0 flex-1 flex-col gap-3", !s.thumb && "sm:pl-9")}>
-                  <StepBody s={s} />
-                  <div className="flex items-center gap-2 border-t pt-3">
-                    <Button size="sm" variant="ghost" className="-ml-2" disabled={i === 0} onClick={() => go(i - 1)}><ChevronLeft /> {t("prevStep")}</Button>
-                    <span className="flex-1 text-center text-xs text-muted-foreground tabular">{t("stepOf", { n: i + 1, total })}</span>
-                    <Button size="sm" variant="outline" disabled={i === total - 1} onClick={() => go(i + 1)}>{t("nextStep")} <ChevronRight /></Button>
+    <div className="flex flex-col gap-1.5">
+      {open == null && <p className="text-xs text-muted-foreground">{t("stepsHint")}</p>}
+      <ol className="flex flex-col gap-0.5">
+        {steps.map((s, i) => {
+          const cur = i === open;
+          const summary = s.wires.length ? t("stepWires", { n: s.wires.length }) : undefined;
+          return (
+            <li key={i} className={cn("rounded-lg transition-colors duration-200", cur ? "bg-foreground/[0.04]" : "hover:bg-foreground/[0.03]")}>
+              <button type="button" onClick={() => toggle(i)} aria-expanded={cur}
+                className="flex min-h-11 w-full items-center gap-3 rounded-lg px-2.5 text-left outline-none focus-visible:ring-2 focus-visible:ring-ring/50">
+                <StepNum n={i + 1} current={cur} />
+                {s.wires.length > 0 && <Swatch color={s.color} className="h-3 w-[3px]" />}
+                <span className={cn("min-w-0 flex-1 truncate text-sm", cur ? "font-semibold" : "font-medium")}>{s.title}</span>
+                {!cur && summary && <span className="shrink-0 text-xs text-muted-foreground tabular">{summary}</span>}
+                <ChevronDown aria-hidden className={cn("size-4 shrink-0 text-muted-foreground transition-transform duration-200", !cur && "-rotate-90")} />
+              </button>
+              {cur && (
+                <div className="flex gap-3 pr-3 pb-3 pl-2.5">
+                  {s.thumb && <span className="mt-1 hidden size-10 shrink-0 place-items-center rounded-md bg-muted/60 p-1 sm:grid" aria-hidden><ComponentThumb type={s.thumb} className="size-full" /></span>}
+                  <div className={cn("flex min-w-0 flex-1 flex-col gap-3", !s.thumb && "sm:pl-9")}>
+                    <StepBody s={s} />
                   </div>
                 </div>
-              </div>
-            )}
-          </li>
-        );
-      })}
-    </ol>
+              )}
+            </li>
+          );
+        })}
+      </ol>
+    </div>
   );
 }
 
-/** I passi in breve, accanto allo schema a tutto schermo: i fili solo per il passo sullo schermo. */
+/** I passi in breve, accanto allo schema a tutto schermo: stessa fisarmonica, i fili del passo aperto. */
 function StepsCompact({ steps, nav }: { steps: StepData[]; nav: StepNav }) {
   const t = useTranslations("rig.guide");
-  const { current, go } = nav;
+  const { open, toggle } = nav;
   return (
-    <div className="flex flex-col gap-2">
+    <div className="flex flex-col gap-1.5">
+      {open == null && <p className="px-1 text-xs text-muted-foreground">{t("stepsHint")}</p>}
       <ol className="flex flex-col gap-0.5">
         {steps.map((s, i) => {
-          const cur = i === current;
+          const cur = i === open;
           return (
-            <li key={i} className={cn("rounded-lg", cur && "bg-foreground/[0.04]")}>
-              <button type="button" onClick={() => go(i)} aria-current={cur ? "step" : undefined}
+            <li key={i} className={cn("rounded-lg", cur ? "bg-foreground/[0.04]" : "hover:bg-foreground/[0.03]")}>
+              <button type="button" onClick={() => toggle(i)} aria-expanded={cur}
                 className="flex min-h-9 w-full items-center gap-2.5 rounded-lg px-2.5 text-left outline-none focus-visible:ring-2 focus-visible:ring-ring/50">
                 <StepNum n={i + 1} current={cur} />
-                <span className={cn("min-w-0 flex-1 truncate text-[13px]", cur ? "font-semibold" : "font-medium text-muted-foreground")}>{s.title}</span>
+                <span className={cn("min-w-0 flex-1 truncate text-[13px]", cur ? "font-semibold" : "font-medium")}>{s.title}</span>
+                <ChevronDown aria-hidden className={cn("size-3.5 shrink-0 text-muted-foreground transition-transform duration-200", !cur && "-rotate-90")} />
               </button>
               {cur && !!s.wires.length && <ul className="mb-1 flex flex-col divide-y divide-border pr-2.5 pl-11">{s.wires.map((w, k) => <WireLine key={k} {...w} compact />)}</ul>}
             </li>
           );
         })}
       </ol>
-      <div className="flex items-center gap-2 px-1">
-        <Button size="icon-sm" variant="ghost" aria-label={t("prevStep")} disabled={current === 0} onClick={() => go(current - 1)}><ChevronLeft /></Button>
-        <span className="flex-1 text-center text-xs text-muted-foreground tabular">{t("stepOf", { n: current + 1, total: steps.length })}</span>
-        <Button size="icon-sm" variant="ghost" aria-label={t("nextStep")} disabled={current === steps.length - 1} onClick={() => go(current + 1)}><ChevronRight /></Button>
-      </div>
     </div>
   );
 }
@@ -380,7 +375,7 @@ export function WiringGuide({ sensors: all, editable = false }: { sensors: Senso
       </WiringSection>
 
       <WiringSection id="steps" title={t("steps")} meta={stepsMeta}>
-        <StepsWalkthrough steps={steps} nav={nav} />
+        <StepsAccordion steps={steps} nav={nav} />
       </WiringSection>
 
       <Dialog open={big} onOpenChange={setBig}>

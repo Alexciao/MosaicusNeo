@@ -121,6 +121,8 @@
       "how": "I dati misurati non hanno una formula: si prendono i {n} punti più vicini a P e si calcola la parabola che li approssima meglio. La tangente è la retta che tocca quella parabola in P. Il triangolo mostra la pendenza: di quanto varia {y} quando {x} aumenta di {dx} {unit}."
     },
     "fit": {
+      "advanced": "Avanzate",
+      "advancedTitle": "Altri modelli",
       "suggested": "Consigliati",
       "otherModels": "Altri modelli",
       "models": "Modelli",

@@ -40,7 +40,7 @@ const SIZE: Record<string, [number, number]> = {
 };
 const ON_BOARD = new Set(["ntc", "ldr"]);
 /** Componenti «nudi» (senza schedina): i piedini sono reofori d'acciaio infilati direttamente. */
-const BARE = new Set(["rgb", "buzzer"]);
+const BARE = new Set(["rgb", "buzzer", "button"]);
 /** Larghezza vera dei moduli (mm) lungo la fila dei piedini: infilati nella breadboard stanno in
  *  piedi, uno accanto all'altro nella riga e, e due vicini non devono toccarsi. */
 const WIDTH_MM: Record<string, number> = {
@@ -304,18 +304,40 @@ export function ModuleArt({ kind, options, x, y, w, h, uid }: { kind: string; op
         </g>
       );
     case "button": {
-      // pulsante a 4 piedini (12 mm) con il cappuccio colorato
-      const s = Math.min(w - 8, h - LZ - 4), cx = x + w / 2, cy = top + 2 + s / 2;
+      // pulsante tattile 12 mm, come in Tinkercad: corpo nero, coperchio di metallo con i quattro
+      // rivetti, pulsante tondo nero; le zampe di metallo escono dai lati
+      // il corpo sta subito sotto i nomi dei piedini (niente fascia scura: i piedini sono reofori)
+      const s0 = Math.min(w - 8, h - 12), cx = x + w / 2, cy = y + 9 + s0 / 2, r0 = s0 / 2;
+      const g = `${uid}btn`;
       return (
         <g>
-          <rect x={cx - s / 2 + 1} y={cy - s / 2 + 2} width={s} height={s} rx={2} fill="#000" opacity={0.25} />
-          <rect x={cx - s / 2} y={cy - s / 2} width={s} height={s} rx={2} fill="#3f3f46" stroke="#18181b" strokeWidth={0.8} />
-          <rect x={cx - s / 2 + 2} y={cy - s / 2 + 2} width={s - 4} height={s - 4} rx={1.5} fill="#a1a1aa" />
-          {[[-1, -1], [1, -1], [-1, 1], [1, 1]].map(([dx, dy], i) => <circle key={i} cx={cx + dx * (s / 2 - 3.2)} cy={cy + dy * (s / 2 - 3.2)} r={1.1} fill="#52525b" />)}
-          <circle cx={cx} cy={cy + 1} r={s * 0.3} fill="#000" opacity={0.3} />
-          <circle cx={cx} cy={cy} r={s * 0.3} fill="#dc2626" stroke="#7f1d1d" strokeWidth={0.8} />
-          <circle cx={cx - s * 0.09} cy={cy - s * 0.1} r={s * 0.1} fill="#fff" opacity={0.35} />
-          <rect x={x + 2} y={y} width={w - 4} height={LZ - 2} rx={2} fill="#27272a" />
+          <defs>
+            <linearGradient id={`${g}m`} x1="0" y1="0" x2="1" y2="1">
+              <stop offset="0" stopColor="#f4f4f5" /><stop offset="0.45" stopColor="#c9c9ce" /><stop offset="1" stopColor="#8b8b93" />
+            </linearGradient>
+            <radialGradient id={`${g}c`} cx="0.38" cy="0.32" r="0.75">
+              <stop offset="0" stopColor="#55555c" /><stop offset="0.55" stopColor="#1f1f23" /><stop offset="1" stopColor="#09090b" />
+            </radialGradient>
+          </defs>
+          {/* i due contatti scendono dalla fila della breadboard fino al pulsante */}
+          {[-1, 1].map((d) => <rect key={`l${d}`} x={cx + d * P - 0.85} y={y} width={1.7} height={cy - r0 - y + 1.5} fill="#a1a1aa" />)}
+          {/* zampe piegate, due per lato */}
+          {[-1, 1].map((d) => [-0.42, 0.42].map((k) => (
+            <rect key={`${d}${k}`} x={d < 0 ? cx - r0 - 2.6 : cx + r0 - 0.4} y={cy + k * s0 - 1.2} width={3} height={2.4} rx={0.6} fill="#c4c4cb" stroke="#71717a" strokeWidth={0.4} />
+          )))}
+          <rect x={cx - r0 + 1} y={cy - r0 + 2} width={s0} height={s0} rx={1.8} fill="#000" opacity={0.28} />
+          <rect x={cx - r0} y={cy - r0} width={s0} height={s0} rx={1.8} fill="#232327" stroke="#09090b" strokeWidth={0.7} />
+          <rect x={cx - r0 + 1.6} y={cy - r0 + 1.6} width={s0 - 3.2} height={s0 - 3.2} rx={1.2} fill={`url(#${g}m)`} stroke="#71717a" strokeWidth={0.4} />
+          {[[-1, -1], [1, -1], [-1, 1], [1, 1]].map(([dx, dy], i) => (
+            <g key={i}>
+              <circle cx={cx + dx * (r0 - 3.6)} cy={cy + dy * (r0 - 3.6)} r={1.15} fill="#52525b" />
+              <circle cx={cx + dx * (r0 - 3.6) - 0.35} cy={cy + dy * (r0 - 3.6) - 0.35} r={0.4} fill="#fff" opacity={0.5} />
+            </g>
+          ))}
+          <circle cx={cx} cy={cy} r={s0 * 0.34} fill="#3f3f46" stroke="#18181b" strokeWidth={0.6} />
+          <circle cx={cx} cy={cy + 0.6} r={s0 * 0.27} fill="#000" opacity={0.35} />
+          <circle cx={cx} cy={cy} r={s0 * 0.27} fill={`url(#${g}c)`} />
+          <ellipse cx={cx - s0 * 0.08} cy={cy - s0 * 0.1} rx={s0 * 0.09} ry={s0 * 0.055} fill="#fff" opacity={0.28} />
         </g>
       );
     }
