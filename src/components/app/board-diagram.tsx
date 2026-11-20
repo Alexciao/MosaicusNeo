@@ -802,8 +802,9 @@ export function BoardDiagram({ sensors, bt = null, className }: { sensors: Senso
     <>
     <FollowTip channelRef={channel} />
     <svg viewBox={`0 0 ${W} ${H}`} role="img" aria-label="Schema realistico dei collegamenti: Arduino, breadboard e sensori"
-      // con un filo o un componente in evidenza (mouse sopra, o toccato) gli altri scendono al 60 %
-      className={cn(className, "[&_[data-hl]]:transition-opacity [&_[data-hl]]:duration-150 [&:has([data-hl]:hover)_[data-hl]:not(:hover)]:opacity-60 [&[data-focus]_[data-hl]:not([data-on])]:opacity-60")}
+      // con un filo o un componente in evidenza (mouse sopra, o toccato) gli altri si scuriscono del
+      // 25 %: luminosità, non opacità, così restano pieni e i fori sotto non si vedono attraverso
+      className={cn(className, "[&_[data-hl]]:transition-[filter] [&_[data-hl]]:duration-150 [&:has([data-hl]:hover)_[data-hl]:not(:hover)]:brightness-75 [&[data-focus]_[data-hl]:not([data-on])]:brightness-75")}
       fontFamily="ui-sans-serif, system-ui, sans-serif"
       onPointerMove={(e) => { if (e.pointerType === "mouse") tipAt(e); }}
       onPointerLeave={(e) => { if (e.pointerType === "mouse") channel.current(null); }}
