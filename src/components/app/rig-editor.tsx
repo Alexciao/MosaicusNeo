@@ -521,12 +521,17 @@ export function RigEditor() {
           {rig.sensors.map((s) => <SensorCard key={s.id} s={s} defaultOpen={rig.sensors.length === 1 || custom} />)}
         </div>
       )}
-      <div className="flex flex-wrap gap-2">
-        <Button variant="outline" disabled={running} onClick={() => setPicker(true)} className="flex-1"><Plus /> {t("add")}</Button>
-        {!!outs.length && (
-          <Button variant="ghost" disabled={running || !linked} onClick={() => void testOutputs()} title={linked ? t("testTitle") : t("connectFirst")}>{t("test")}</Button>
-        )}
-      </div>
+      {/* il display di stato (display, LED, cicalino) si prova da qui, con Arduino collegato */}
+      {!!outs.length && (
+        <div className="flex items-center gap-3 border-b pb-3">
+          <div className="min-w-0 flex-1">
+            <p className="text-[13px] font-medium">{t("statusDisplay")}</p>
+            <p className="text-xs text-pretty text-muted-foreground">{linked ? t("testTitle") : t("connectFirst")}</p>
+          </div>
+          <Button size="sm" variant="outline" disabled={running || !linked} onClick={() => void testOutputs()}>{t("test")}</Button>
+        </div>
+      )}
+      <Button variant="outline" disabled={running} onClick={() => setPicker(true)} className="w-full"><Plus /> {t("add")}</Button>
       <ComponentPicker open={picker} onOpenChange={setPicker} />
       <details className="text-xs text-muted-foreground">
         <summary className="cursor-pointer font-medium hover:text-foreground">{t("quantities")}</summary>

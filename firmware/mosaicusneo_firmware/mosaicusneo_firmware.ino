@@ -120,7 +120,7 @@
 #include <SPI.h>
 #include <EEPROM.h>
 
-const char *FW_VERSION = "1.7";
+const char *FW_VERSION = "1.8";
 
 const uint8_t MAX_SLOTS = 6;
 const uint8_t ADC_SAMPLES = 16;                 // sovracampionamento per ridurre il rumore
@@ -534,8 +534,8 @@ const uint8_t FONT[] PROGMEM = {
   0x7C,0x14,0x14,0x14,0x08, 0x08,0x14,0x14,0x18,0x7C, 0x7C,0x08,0x04,0x04,0x08, 0x48,0x54,0x54,0x54,0x20,
   0x04,0x3F,0x44,0x40,0x20, 0x3C,0x40,0x40,0x20,0x7C, 0x1C,0x20,0x40,0x20,0x1C, 0x3C,0x40,0x30,0x40,0x3C,
   0x44,0x28,0x10,0x28,0x44, 0x0C,0x50,0x50,0x50,0x3C, 0x44,0x64,0x54,0x4C,0x44, 0x00,0x08,0x36,0x41,0x00,
-  0x00,0x00,0x7F,0x00,0x00, 0x00,0x41,0x36,0x08,0x00, 0x08,0x08,0x2A,0x1C,0x08, 0x00,0x06,0x09,0x09,0x06,
-};  // ASCII 32…126; il 127 è il simbolo del grado (°), il 126 (~) una freccia →
+  0x00,0x00,0x7F,0x00,0x00, 0x00,0x41,0x36,0x08,0x00, 0x1C,0x3E,0x3E,0x3E,0x1C, 0x00,0x06,0x09,0x09,0x06,
+};  // ASCII 32…126; il 127 è il simbolo del grado (°), il 126 (~) un pallino pieno ● (registrazione)
 
 const uint8_t OLED_INIT[] PROGMEM = {
   0xAE, 0xD5, 0x80, 0xA8, 0x1F, 0xD3, 0x00, 0x40, 0x8D, 0x14, 0x20, 0x02,
@@ -673,19 +673,19 @@ void screenTexts(char *bar, char *big, char *small) {
   big[0] = small[0] = 0;
   switch (state) {
     case ST_WAIT:
-      if (mode == RUN) { strcpy_P(bar, PSTR("APP LOST")); strcpy_P(big, linkBt ? PSTR("BT?") : PSTR("USB?")); strcpy_P(small, PSTR("reconnect")); }
+      if (mode == RUN) { strcpy_P(bar, PSTR("LINK LOST")); strcpy_P(big, linkBt ? PSTR("BT?") : PSTR("USB?")); strcpy_P(small, PSTR("reconnect")); }
       else {
-        // in attesa: come collegarsi (il cavo sempre, il Bluetooth se il modulo ha risposto a
-        // BT,SETUP) e la versione del firmware: «USB v1.3» oppure «USB/BT 1.3»
-        strcpy_P(bar, PSTR("WAITING")); strcpy_P(big, PSTR("APP"));
+        // in attesa dell'app: come collegarsi (il cavo sempre, il Bluetooth se il modulo ha risposto
+        // a BT,SETUP) e la versione del firmware: «USB v1.3» oppure «USB/BT 1.3»
+        strcpy_P(bar, PSTR("NO APP")); strcpy_P(big, PSTR("WAIT"));
         strcpy_P(small, btKind ? PSTR("USB/BT ") : PSTR("USB v"));
         strncat(small, FW_VERSION, 4);
       }
       break;
-    case ST_IDLE: strcpy_P(bar, PSTR("CONNECTED")); strcpy_P(big, PSTR("OK")); strcpy_P(small, linkBt ? PSTR("BT ~ Start") : PSTR("~ Start")); break;
+    case ST_IDLE: strcpy_P(bar, linkBt ? PSTR("LINK BT") : PSTR("LINK USB")); strcpy_P(big, PSTR("READY")); strcpy_P(small, PSTR("tap Start")); break;
     case ST_CFG: {
       static const char WHY[] PROGMEM = "?         bad pin   pin A0-A5 pin twice 1 GPS onlytype?     command?  ";
-      strcpy_P(bar, PSTR("CONFIG"));
+      strcpy_P(bar, PSTR("BAD SETUP"));
       if (cfgBad) { if (cfgBadType) typeName(cfgBadType, big); else strcpy_P(big, PSTR("?")); }
       else strcpy_P(big, PSTR("OUT"));
       uint8_t w = stIssue > 6 ? 0 : stIssue;
@@ -694,11 +694,11 @@ void screenTexts(char *bar, char *big, char *small) {
       for (int8_t k = 9; k >= 0 && small[k] == ' '; k--) small[k] = 0;
       break;
     }
-    case ST_SCOPE: strcpy_P(bar, PSTR("OSCILLOSC.")); strcpy_P(big, PSTR("SCOPE")); strcpy_P(small, PSTR("signal A0")); break;
-    case ST_READY: strcpy_P(bar, PSTR("SD READY")); strcpy_P(big, PSTR("PRESS")); strcpy_P(small, PSTR("button")); break;
+    case ST_SCOPE: strcpy_P(bar, PSTR("LIVE A0")); strcpy_P(big, PSTR("SCOPE")); strcpy_P(small, linkBt ? PSTR("via BT") : PSTR("via USB")); break;
+    case ST_READY: strcpy_P(bar, PSTR("SD CARD")); strcpy_P(big, PSTR("PRESS")); strcpy_P(small, PSTR("to record")); break;
     case ST_SEARCH:
     case ST_ERR: {
-      if (stSlot < 0) { strcpy_P(bar, PSTR("PROBLEM")); strcpy_P(big, PSTR("SD")); strcpy_P(small, PSTR("SD card?")); break; }
+      if (stSlot < 0) { strcpy_P(bar, PSTR("ERROR")); strcpy_P(big, PSTR("SD")); strcpy_P(small, PSTR("card?")); break; }
       // il testo segue il sensore mostrato in questo turno (lo stato segue il più grave)
       const Slot &s = slots[stSlot];
       uint8_t ord, same = sameType(stSlot, ord);
@@ -715,7 +715,7 @@ void screenTexts(char *bar, char *big, char *small) {
         typeName(s.type, big);
         strcpy_P(q, s.type == S_SONAR ? (same > 1 ? PSTR("echo?") : PSTR("target?")) : PSTR("waiting"));
       } else {
-        if (stN > 1) barCount(bar, PSTR("ERROR")); else strcpy_P(bar, PSTR("PROBLEM"));
+        if (stN > 1) barCount(bar, PSTR("ERROR")); else strcpy_P(bar, PSTR("ERROR"));
         typeName(s.type, big);
         // con il numero davanti c'è spazio solo per un suggerimento corto
         switch (s.type) {
@@ -731,12 +731,11 @@ void screenTexts(char *bar, char *big, char *small) {
     }
     case ST_TRACK:
     case ST_LOG: {
+      // registrazione: il pallino ● lampeggia all'inizio della barra (inconfondibile);
+      // «●REC 12:34» col valore dell'app sotto, altrimenti il tempo grande
       unsigned long s = (millis() - runStartMs) / 1000;
       unsigned int m = s / 60;
-      // "REC 12:34" oppure "SD 12:34" (oltre 99 minuti si vedono le ore)
-      bool sd = state == ST_LOG;
-      strcpy_P(bar, sd ? PSTR("SD ") : PSTR("REC "));
-      char *q = bar + strlen(bar);
+      char tm[6], *q = tm;
       if (m > 99) { m /= 60; *q++ = '0' + m / 10 % 10; *q++ = '0' + m % 10; *q++ = 'h'; }
       else {
         if (m >= 10) *q++ = '0' + m / 10;
@@ -744,23 +743,27 @@ void screenTexts(char *bar, char *big, char *small) {
         *q++ = '0' + (s % 60) / 10; *q++ = '0' + s % 10;
       }
       *q = 0;
-      if (sd) {
-        // il file in cui sta scrivendo: "LOG00012"
-        strcpy_P(big, PSTR("REC"));
-        strcpy_P(small, PSTR("LOG"));
-        uint32_t n = fNum;
-        for (int8_t k = 7; k >= 3; k--) { small[k] = '0' + n % 10; n /= 10; }
-        small[8] = 0;
-      } else if (appBig[0]) { strcpy(big, appBig); strcpy(small, appSmall); }
-      else { strcpy_P(big, PSTR("REC")); strcpy_P(small, PSTR("measuring")); }
-      sp = (millis() / 500) % 2 ? '*' : ' ';
-      break;
+      bool sd = state == ST_LOG, val = !sd && appBig[0];
+      bar[0] = (millis() / 500) % 2 ? '~' : ' ';
+      strcpy_P(bar + 1, sd ? PSTR("SD REC") : val ? PSTR("REC ") : linkBt ? PSTR("REC BT") : PSTR("REC USB"));
+      if (val) { strcat(bar, tm); strcpy(big, appBig); strcpy(small, appSmall); }
+      else {
+        strcpy(big, tm);
+        if (sd) {
+          // il file in cui sta scrivendo: "LOG00012"
+          strcpy_P(small, PSTR("LOG"));
+          uint32_t n = fNum;
+          for (int8_t k = 7; k >= 3; k--) { small[k] = '0' + n % 10; n /= 10; }
+          small[8] = 0;
+        } else strcpy_P(small, PSTR("measuring"));
+      }
+      return;                     // la barra è già completa (niente indicatore nell'angolo)
     }
   }
   // indicatore di vita nell'angolo della barra
   uint8_t n = strlen(bar);
   while (n < 9) bar[n++] = ' ';
-  bar[9] = (state == ST_WAIT || state == ST_SEARCH || state == ST_TRACK || state == ST_LOG) ? sp : ' ';
+  bar[9] = (state == ST_WAIT || state == ST_SEARCH) ? sp : ' ';
   bar[10] = 0;
 }
 

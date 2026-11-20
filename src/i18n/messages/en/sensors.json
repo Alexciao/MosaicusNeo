@@ -250,8 +250,8 @@
       "hint": "to start and stop from Arduino"
     },
     "output": {
-      "name": "Displays, LEDs and sounds",
-      "hint": "they show Arduino's status"
+      "name": "Status display",
+      "hint": "shows what Arduino is doing"
     },
     "storage": {
       "name": "Storage",
