@@ -109,6 +109,40 @@ function moduleRows(s: SensorInstance, color: string): Omit<Mod, "kind"> {
         rows: [{ label: "VCC", conn: "5V" }, { label: "GND", conn: "GND" }, { label: "SCL", conn: p("b") }, { label: "SDA", conn: p("a") }],
         notes: ["Un display OLED può stare sugli stessi pin SDA e SCL.", "Fissa bene il modulo all'oggetto: se si muove, misura le sue vibrazioni."],
       };
+    case "hc06":
+    case "ble":
+      { const m = btModule(s.type as "hc06" | "ble"); return { ...m, title: title(m.title), color }; }
+    case "button":
+      return {
+        title: title("Pulsante Avvia/Ferma"), color,
+        rows: [{ label: "1", conn: p("a") }, { label: "2", conn: "GND" }],
+        notes: [
+          "Un pulsante a 4 piedini va messo a cavallo del solco centrale: i due piedini dello stesso lato sono sempre collegati tra loro.",
+          "Niente resistenza: Arduino usa la sua resistenza di pull-up interna.",
+          "Con l'app collegata fa come «Avvia» e «Ferma»; con la scheda SD avvia e ferma la registrazione.",
+        ],
+      };
+    case "sd":
+      return {
+        title: title("Scheda microSD"), color,
+        rows: [{ label: "GND", conn: "GND" }, { label: "VCC", conn: "5V" }, { label: "MISO", conn: 12 }, { label: "MOSI", conn: 11 }, { label: "SCK", conn: 13 }, { label: "CS", conn: p("a") }],
+        notes: [
+          "Usa un modulo con regolatore e traslatore di livello (quasi tutti: «Micro SD Card Adapter»): va a 5V. Controlla l'ordine dei piedini stampato sul modulo.",
+          "MISO, MOSI e SCK sono sempre D12, D11 e D13: nessun altro componente può usarli.",
+          "Scheda formattata FAT32 (fino a 32 GB). Le schede da 64 GB in su escono in exFAT: riformattale in FAT32.",
+        ],
+      };
+    case "mlx":
+      return {
+        title: title("MLX90614 (GY-906)"), color,
+        rows: [{ label: "VIN", conn: "5V" }, { label: "GND", conn: "GND" }, { label: "SCL", conn: p("b") }, { label: "SDA", conn: p("a") }],
+        notes: [
+          "Usa il modulo GY-906: ha già il regolatore e le resistenze di pull-up, e regge i 5 V. Il sensore senza schedina (barattolino a 4 piedini) va a 3,3 V e non si collega così.",
+          "Può stare sugli stessi pin SDA e SCL del display e dell'MPU-6050.",
+          "Vede un cono di circa 90°: più è lontano, più grande è la zona che misura. Per una superficie piccola stai a 1–2 cm.",
+          "Le superfici metalliche lucide riflettono l'infrarosso dell'ambiente: coprile con nastro adesivo opaco o vernice nera e usa ε = 0,95.",
+        ],
+      };
     case "oled":
       return {
         title: title("Display OLED 0,49\""), color,
@@ -157,9 +191,11 @@ export function resistorsOf(mods: Mod[]) {
   return out;
 }
 
-export function buildModules(sensors: SensorInstance[], bt: BtModule) {
-  const mods = sensors.map((s, i) => moduleOf(s, COLORS[i % COLORS.length]));
-  if (bt) mods.push(btModule(bt));
+/** I moduli da disegnare. Il Bluetooth è un componente come gli altri; `bt` serve solo a chi non lo ha nel progetto. */
+export function buildModules(sensors: SensorInstance[], bt: BtModule = null) {
+  let k = 0;
+  const mods = sensors.map((s) => moduleOf(s, s.type === "hc06" || s.type === "ble" ? "#64748b" : COLORS[k++ % COLORS.length]));
+  if (bt && !sensors.some((s) => s.type === "hc06" || s.type === "ble")) mods.push(btModule(bt));
   return mods;
 }
 

@@ -83,6 +83,8 @@ function AppearanceMenu() {
 }
 
 export function AppHeader() {
+  // sul computer, in Misura con la barra dei lab aperta, l'account sta in fondo alla barra
+  const inSidebar = useLab((s) => s.page === "misura" && s.labsSidebar);
   return (
     <header className="sticky top-0 z-40 border-b bg-background">
       <div className="mx-auto flex h-14 w-full max-w-[1600px] items-center gap-3 px-4">
@@ -101,7 +103,7 @@ export function AppHeader() {
           <div className="mr-1 hidden lg:flex"><ConnectionControls /></div>
           <GuideButton />
           <AppearanceMenu />
-          <AccountMenu />
+          <AccountMenu className={inSidebar ? "lg:hidden" : undefined} />
         </div>
       </div>
     </header>

@@ -7,7 +7,7 @@ import { useEffect, useState } from "react";
 import { create } from "zustand";
 import type { LucideIcon } from "lucide-react";
 import {
-  BookOpen, Bluetooth, ChartLine, Check, Cloud, Copy, Cpu, Download, FlaskConical, LifeBuoy, Minus, Monitor, Plug, Presentation, Rocket, Share2,
+  BookOpen, Bluetooth, ChartLine, Check, Cloud, Copy, Cpu, Download, FlaskConical, LifeBuoy, MemoryStick, Minus, Monitor, Plug, Presentation, Rocket, Share2,
   Siren, SlidersHorizontal, Smartphone, TriangleAlert, Wrench, X,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -184,7 +184,7 @@ function DevicePath() {
   if (dev === "android") return (
     <Steps items={[
       ["Da un computer: carica il firmware", <>Il telefono non programma Arduino. Una volta sola: <ChapterLink id="firmware">Caricare il firmware</ChapterLink>.</>],
-      ["Aggiungi un modulo Bluetooth", <>HC-06 o BLE (HM-10, AT-09, HC-08). In «Collegamenti» attiva <B>Bluetooth</B>: lo schema lo include.</>],
+      ["Aggiungi un modulo Bluetooth", <>HC-06 o BLE (HM-10, AT-09, HC-08): è un componente come gli altri, in «Aggiungi un componente» → <B>Bluetooth</B> (o dal menu ▾ di «Collega»). Lo schema lo include.</>],
       ["Dal computer: configura il modulo", <>Una volta sola, con Arduino via USB: <ChapterLink id="field">Sul campo e Bluetooth</ChapterLink>.</>],
       ["Sul telefono, in Chrome: collega", "HC-06: associa «MosaicusNeo» nelle impostazioni Bluetooth (PIN 1234), poi «Collega via Bluetooth». BLE: menu ▾ → «Bluetooth LE»."],
       ["Alimenta Arduino con un power bank e misura", "Lo schermo resta acceso durante la misura. Il Quaderno si salva ogni 30 s."],
@@ -195,7 +195,7 @@ function DevicePath() {
       <Note kind="warn">Su iPhone e iPad servono un modulo <B>Bluetooth LE</B> (HM-10, AT-09/BT05, HC-08) e il browser gratuito <B>Bluefy</B>. Cavo e HC-06 non funzionano: è un limite di iOS.</Note>
       <Steps items={[
         ["Da un computer: carica il firmware", <>Una volta sola: <ChapterLink id="firmware">Caricare il firmware</ChapterLink>.</>],
-        ["Collega il modulo BLE", <>In «Collegamenti» attiva <B>Bluetooth</B> e scegli <B>BLE</B>: lo schema lo include.</>],
+        ["Collega il modulo BLE", <>Aggiungi il componente <B>Bluetooth LE</B> (in «Aggiungi un componente» → <B>Bluetooth</B>): lo schema lo include.</>],
         ["Dal computer: configura il modulo", <>Una volta sola, con Arduino via USB: <ChapterLink id="field">Sul campo e Bluetooth</ChapterLink>.</>],
         ["Installa Bluefy e apri MosaicusNeo", "Dall'App Store. Scrivi l'indirizzo dell'app nella barra di Bluefy."],
         ["Collega e misura", "Arduino sul power bank, poi «Collega via Bluetooth LE» → «MosaicusNeo»."],
@@ -360,7 +360,7 @@ function Wiring() {
   const sensors = mode === "rig" && mine ? rig.sensors : (() => { const taken = new Set<number>(); return picked.map((t) => makeSensor(t, taken)); })();
   return (
     <>
-      <P>Schema, materiale e passi dipendono dai componenti e dai pin scelti. La stessa guida è nella scheda «Collegamenti». Per il modulo Bluetooth attiva <B>Bluetooth</B> sopra lo schema.</P>
+      <P>Schema, materiale e passi dipendono dai componenti e dai pin scelti. La stessa guida è nella scheda «Collegamenti». Bluetooth, scheda SD e pulsante sono componenti come gli altri: aggiungili al progetto (o sceglili qui sotto) e schema e passi si aggiornano.</P>
       {mine && <Segmented label="Quali componenti" value={mode} onChange={setMode} items={[["rig", "Progetto aperto"], ["pick", "Scegli i componenti"]]} />}
       {(mode === "pick" || !mine) && (
         <div className="grid gap-1.5 sm:grid-cols-2">
@@ -464,13 +464,38 @@ function Analysis() {
   );
 }
 
+function SdChapter() {
+  return (
+    <>
+      <P>Con una <B>scheda microSD</B> Arduino misura da solo, alimentato da un power bank o da una pila: niente computer, niente telefono, anche per ore. Con un <B>pulsante</B> decidi tu quando iniziare e fermare. Sono componenti come gli altri: li aggiungi da «Aggiungi un componente» (gruppi <B>Memoria</B> e <B>Comandi</B>) o dal menu ▾ di «Collega» → <B>Registra sulla scheda SD</B>.</P>
+      <H>Che cosa serve</H>
+      <ul className="list-disc space-y-1 pl-5 text-sm text-muted-foreground">
+        <li>Un modulo microSD con regolatore («Micro SD Card Adapter»): va a 5V. Usa sempre D10 (CS), D11 (MOSI), D12 (MISO) e D13 (SCK): sposta su altri pin i componenti che li usavano.</li>
+        <li>Una scheda microSD formattata <B>FAT32</B>, fino a 32 GB (quelle più grandi escono in exFAT: riformattale in FAT32).</li>
+        <li>Facoltativo: un pulsante tra un pin digitale e GND (nessuna resistenza).</li>
+        <li>Il firmware v{FIRMWARE_VERSION}.</li>
+      </ul>
+      <H>Registrare</H>
+      <Steps items={[
+        ["Prepara Arduino (una volta per progetto)", <>Arduino collegato con il cavo USB: nella scheda del componente <B>Scheda SD</B> premi <B>Prepara Arduino</B>. Arduino riceve sensori, pin e ritmi, li salva (restano anche da spento) e prova la scheda.</>],
+        ["Alimentalo senza computer", "Stacca il cavo e collega un power bank alla presa USB, o una pila da 9 V al jack."],
+        ["Avvia e ferma", <>Con il pulsante: premi per iniziare, premi di nuovo per fermare; ogni registrazione è un file nuovo (LOG00001.CSV, LOG00002.CSV…). Senza pulsante: registra da quando lo accendi a quando lo spegni. Arduino salva ogni 2 s: staccando la corrente perdi al massimo gli ultimi istanti.</>],
+        ["Importa nel Quaderno", <>Metti la scheda nel computer e premi <B>Importa dalla scheda SD</B> (nel Quaderno o nella scheda del componente): ogni file diventa una misura, con le grandezze, i grafici e l&apos;Elaborazione di sempre.</>],
+      ]} />
+      <Note>Il display, il LED e il cicalino dicono che cosa succede: «SD PRONTA · PREMI» aspetta il pulsante, «SD 1:23 · REC» sta registrando, «PROBLEMA · SD» se la scheda manca o non è FAT32.</Note>
+      <H>Il pulsante con l&apos;app</H>
+      <P>Con l&apos;app collegata, via cavo o Bluetooth, il pulsante fa come «Avvia» e «Ferma»: comodo quando le mani servono all&apos;esperimento. Se colleghi l&apos;app mentre Arduino registra sulla scheda, la registrazione si chiude e si misura come sempre.</P>
+    </>
+  );
+}
+
 function Field() {
   const dev = useDev();
   return (
     <>
       <OtherDeviceNote />
       {dev === "ios" && <Note kind="warn">Su iPhone e iPad: solo moduli <B>BLE</B> e solo nel browser <B>Bluefy</B>.</Note>}
-      <P>Con un modulo Bluetooth e un power bank misuri all&apos;aperto, con il telefono. I due tipi di modulo si collegano agli stessi pin: in «Collegamenti» attiva <B>Bluetooth</B> e scegli <B>HC-06</B> o <B>BLE</B> (vedi <ChapterLink id="wiring">Collegare i componenti</ChapterLink>).</P>
+      <P>Con un modulo Bluetooth e un power bank misuri all&apos;aperto, con il telefono. Il modulo è un componente: aggiungi <B>Bluetooth HC-06</B> o <B>Bluetooth LE</B> al progetto (oppure sceglilo dal menu ▾ di «Collega»: entra da solo nei componenti), e schema e passi lo includono. I due tipi si collegano agli stessi pin, D0 e D1 (vedi <ChapterLink id="wiring">Collegare i componenti</ChapterLink>).</P>
       <div className="overflow-x-auto rounded-lg border">
         <table className="w-full text-sm">
           <thead className="bg-muted/50 text-left"><tr><th className="p-2" /><th className="p-2">HC-06 (classico)</th><th className="p-2">BLE (HM-10, AT-09, HC-08)</th></tr></thead>
@@ -505,7 +530,7 @@ function Field() {
 
 function Outputs() {
   const rows: [string, string, string, string, string][] = [
-    ["Acceso, l'app non è collegata", "ATTESA · APP · USB v1.3 (con un modulo Bluetooth: USB/BT 1.3)", "#3b82f6", "blu, lampeggia", "1 bip ogni 3 s"],
+    ["Acceso, l'app non è collegata", "ATTESA · APP · USB v1.5 (con un modulo Bluetooth: USB/BT 1.5)", "#3b82f6", "blu, lampeggia", "1 bip ogni 3 s"],
     ["Collegato, fermo", "COLLEGATO · OK (via Bluetooth: «BT»)", "#3b82f6", "blu fisso", "1 bip ogni 3 s"],
     ["Un componente è stato rifiutato", "CONFIG · DHT · pin doppio", "#ef4444", "rosso, lampeggia veloce", "3 bip ogni 3 s"],
     ["Misura avviata, GPS in ricerca", "CERCO GPS · 3 sat", "#eab308", "giallo, lampeggia", "2 bip ogni 3 s"],
@@ -539,7 +564,7 @@ function Outputs() {
         <li>Se più sensori hanno un problema, il display li mostra a turno ogni 2,5 secondi, prima gli errori e poi quelli in ricerca: «PROBL 1/2», «PROBL 2/2». LED e cicalino seguono sempre il più grave.</li>
         <li>Con due sensori dello stesso tipo, il display indica quale con il numero: «#2» è il secondo DHT nell&apos;elenco dei componenti.</li>
         <li>Se Arduino rifiuta un componente (pin doppio, pin non analogico, secondo GPS), il display mostra «CONFIG» con il motivo finché non correggi i pin e riavvii la misura.</li>
-        <li>In attesa dell&apos;app il display mostra come collegarsi e la versione del firmware: «USB v1.3». Il Bluetooth è facoltativo: dopo «Configura» nel passo Bluetooth, se il modulo risponde, Arduino lo ricorda e il display mostra «USB/BT 1.3».</li>
+        <li>In attesa dell&apos;app il display mostra come collegarsi e la versione del firmware: «USB v1.5». Il Bluetooth è facoltativo: dopo «Configura» nel passo Bluetooth, se il modulo risponde, Arduino lo ricorda e il display mostra «USB/BT 1.5».</li>
       </ul>
       <Note>Queste funzioni richiedono il firmware v{FIRMWARE_VERSION}.</Note>
       <H>Dettagli</H>
@@ -549,7 +574,7 @@ function Outputs() {
         <li>«Prova display, LED e cicalino» (scheda «Componenti», con Arduino collegato) cambia colore al LED, fa suonare il cicalino e scrive «CIAO» sul display.</li>
         <li>La scheda della misura riporta in piccolo che cosa mostrano in quel momento display, LED e cicalino.</li>
         <li>Per silenziare il cicalino: opzione «Bip finché non è tutto pronto» → no.</li>
-        <li>Display e accelerometro MPU-6050 possono condividere i due pin I2C (di solito A4 e A5).</li>
+        <li>Display, accelerometro MPU-6050 e termometro a infrarossi MLX90614 possono condividere i due pin I2C (di solito A4 e A5).</li>
       </ul>
     </>
   );
@@ -623,6 +648,7 @@ const CHAPTERS: { id: string; title: string; icon: LucideIcon; body: () => React
   { id: "rigs", title: "Progetti e componenti", icon: SlidersHorizontal, body: Rigs },
   { id: "analysis", title: "Elaborazione", icon: ChartLine, body: Analysis },
   { id: "field", title: "Sul campo e Bluetooth", icon: Bluetooth, body: Field },
+  { id: "sd", title: "Scheda SD e pulsante", icon: MemoryStick, body: SdChapter },
   { id: "outputs", title: "Display, LED e cicalino", icon: Siren, body: Outputs },
   { id: "data", title: "Dati e account", icon: Cloud, body: Data },
   { id: "problems", title: "Problemi comuni", icon: LifeBuoy, body: Problems },
@@ -633,7 +659,7 @@ function ChapterLink({ id, children }: { id: string; children: React.ReactNode }
 }
 
 export function GuideButton({ className }: { className?: string }) {
-  return <Button variant="ghost" size="sm" className={className} aria-label="Guida" onClick={() => openGuide("start")}><BookOpen /> <span className="hidden sm:inline">Guida</span></Button>;
+  return <Button variant="outline" size="sm" className={className} aria-label="Guida" onClick={() => openGuide("start")}><BookOpen /> <span className="hidden sm:inline">Guida</span></Button>;
 }
 
 /** La finestra della guida (una sola per l'app; si apre con openGuide). */

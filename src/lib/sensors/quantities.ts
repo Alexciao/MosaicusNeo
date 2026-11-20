@@ -106,6 +106,10 @@ export const QUANTITIES: Record<string, Quantity> = {
   ...Object.fromEntries(["b0", "b1", "b2", "b3"].map((k) => [k, raw(k, `byte ${k[1]} del sensore`)])),
   err: raw("err", "errore del sensore"),
   ds: raw("DS", "lettura grezza (1/16 °C)"),
+  // --- termometro a infrarossi (MLX90614): T è la superficie inquadrata, Ts il sensore stesso
+  Ts: { sym: "Tₛ", name: "temperatura del sensore (ambiente)", unit: "°C", models: ["mean", "lin", "expC"],
+    physics: { mean: mean("temperatura media del sensore", "°C"), lin: [{ label: "rapidità di variazione dTₛ/dt", unit: "°C/s", calc: (f) => P(f, "m") }], expC: decayFrom("temperatura di equilibrio del sensore", "°C") } },
+  Traw: raw("T(ε=1)", "temperatura senza correzione di emissività", "°C"),
   // --- fotocellula
   gate: { sym: "stato", name: "raggio (1 = interrotto)", unit: "", models: [] },
   n: { sym: "N", name: "passaggi contati", unit: "", models: ["lin"], slope: "passaggi al secondo",

@@ -28,7 +28,7 @@ function RigWiring() {
   }
   return (
     <div className="flex flex-col gap-4">
-      <WiringGuide sensors={rig.sensors.filter((s) => !SENSORS[s.type].phone)} />
+      <WiringGuide editable sensors={rig.sensors.filter((s) => !SENSORS[s.type].phone)} />
       {!!info.preset?.tips?.length && <WiringBlocks blocks={info.preset.tips} />}
     </div>
   );

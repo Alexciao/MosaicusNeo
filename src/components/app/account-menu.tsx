@@ -3,7 +3,7 @@
 
 import { useState } from "react";
 import { toast } from "sonner";
-import { CloudCheck, CloudExclamationPoint, CloudOff, CloudSync, LoaderCircle, LogIn, LogOut, RefreshCw, ShieldCheck, Trash, UserRound } from "lucide-react";
+import { ChevronsUpDown, CloudCheck, CloudExclamationPoint, CloudOff, CloudSync, LoaderCircle, LogIn, LogOut, RefreshCw, ShieldCheck, Trash, UserRound } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -166,7 +166,23 @@ function statusText(status: string, lastSync: number | null, pending: number, er
   return lastSync ? `Sincronizzato alle ${new Date(lastSync).toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" })}` : "Pronto";
 }
 
-export function AccountMenu() {
+/** Uscita dall'account: con modifiche non ancora nel cloud chiede conferma. */
+async function logout() {
+  let res = await signOut();
+  if (!res.ok) {
+    const go = await confirm({
+      title: "Uscire con modifiche non sincronizzate?",
+      description: `${res.pending} modifiche non sono ancora nel cloud. Restano su questo dispositivo e vengono caricate al prossimo accesso con questo account.`,
+      action: "Esci comunque", destructive: true,
+    });
+    if (!go) return;
+    res = await signOut({ force: true });
+  }
+  toast.success("Disconnesso. I dati restano nel cloud.");
+}
+
+/** Stato del cloud per l'account: icona e testo della sincronizzazione. */
+function useAccount() {
   const enabled = useCloud((s) => s.enabled);
   const ready = useCloud((s) => s.ready);
   const user = useCloud((s) => s.user);
@@ -174,6 +190,31 @@ export function AccountMenu() {
   const lastSync = useCloud((s) => s.lastSync);
   const pending = useCloud((s) => s.pending);
   const error = useCloud((s) => s.error);
+  const Icon = status === "syncing" ? LoaderCircle : status === "offline" ? CloudOff : status === "error" ? CloudExclamationPoint : pending ? CloudSync : CloudCheck;
+  const iconClass = cn(status === "syncing" && "animate-spin", status === "error" && "text-destructive");
+  return { enabled, ready, user, status, text: statusText(status, lastSync, pending, error), Icon, iconClass };
+}
+
+/** Le voci del menu dell'account (intestazione e barra laterale). */
+function AccountItems({ onDelete }: { onDelete: () => void }) {
+  return (
+    <>
+      <DropdownMenuItem onClick={() => void syncNow({ quiet: false })}><RefreshCw /> Sincronizza ora</DropdownMenuItem>
+      <DropdownMenuItem render={<a href="/privacy" target="_blank" rel="noopener" />}><ShieldCheck /> Privacy</DropdownMenuItem>
+      <DropdownMenuItem onClick={() => void logout()}><LogOut /> Esci</DropdownMenuItem>
+      <DropdownMenuSeparator />
+      <DropdownMenuItem variant="destructive" onClick={onDelete}><Trash /> Elimina account</DropdownMenuItem>
+    </>
+  );
+}
+
+const Avatar = ({ email, className }: { email?: string; className?: string }) => (
+  <span className={cn("grid size-6 shrink-0 place-items-center rounded-full bg-brand/10 text-xs font-semibold text-brand uppercase", className)}>{email?.[0] ?? <UserRound className="size-3.5" />}</span>
+);
+
+/** Nell'intestazione (dove la barra laterale non c'è: altre pagine, telefono). */
+export function AccountMenu({ className }: { className?: string }) {
+  const { enabled, ready, user, text, Icon, iconClass } = useAccount();
   const [open, setOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
   if (!enabled) return null;
@@ -181,7 +222,7 @@ export function AccountMenu() {
   if (!user) {
     return (
       <>
-        <Button variant="ghost" size="sm" disabled={!ready} onClick={() => setOpen(true)} aria-label="Accedi">
+        <Button variant="ghost" size="sm" disabled={!ready} onClick={() => setOpen(true)} aria-label="Accedi" className={className}>
           <LogIn /> <span className="hidden sm:inline">Accedi</span>
         </Button>
         <AuthDialog open={open} onOpenChange={setOpen} />
@@ -189,45 +230,73 @@ export function AccountMenu() {
       </>
     );
   }
-
-  const Icon = status === "syncing" ? LoaderCircle : status === "offline" ? CloudOff : status === "error" ? CloudExclamationPoint : pending ? CloudSync : CloudCheck;
-  const logout = async () => {
-    let res = await signOut();
-    if (!res.ok) {
-      const go = await confirm({
-        title: "Uscire con modifiche non sincronizzate?",
-        description: `${res.pending} modifiche non sono ancora nel cloud. Restano su questo dispositivo e vengono caricate al prossimo accesso con questo account.`,
-        action: "Esci comunque", destructive: true,
-      });
-      if (!go) return;
-      res = await signOut({ force: true });
-    }
-    toast.success("Disconnesso. I dati restano nel cloud.");
-  };
   return (
     <>
       <DropdownMenu>
-        <DropdownMenuTrigger render={<Button variant="ghost" size="sm" aria-label="Account" className="gap-1.5" />}>
-          <span className="grid size-6 place-items-center rounded-full bg-brand/10 text-xs font-semibold text-brand uppercase">{user.email?.[0] ?? <UserRound className="size-3.5" />}</span>
-          <Icon className={cn("size-4 text-muted-foreground", status === "syncing" && "animate-spin", status === "error" && "text-destructive")} />
+        <DropdownMenuTrigger render={<Button variant="ghost" size="sm" aria-label="Account" className={cn("gap-1.5", className)} />}>
+          <Avatar email={user.email} />
+          <Icon className={cn("size-4 text-muted-foreground", iconClass)} />
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="w-72">
           <DropdownMenuGroup>
             <DropdownMenuLabel className="flex flex-col gap-0.5">
               <span className="truncate text-sm font-medium text-foreground">{user.email}</span>
-              <span className="text-xs font-normal text-muted-foreground">{statusText(status, lastSync, pending, error)}</span>
+              <span className="text-xs font-normal text-muted-foreground">{text}</span>
             </DropdownMenuLabel>
           </DropdownMenuGroup>
           <DropdownMenuSeparator />
-          <DropdownMenuItem onClick={() => void syncNow({ quiet: false })}><RefreshCw /> Sincronizza ora</DropdownMenuItem>
-          <DropdownMenuItem render={<a href="/privacy" target="_blank" rel="noopener" />}><ShieldCheck /> Privacy</DropdownMenuItem>
-          <DropdownMenuItem onClick={() => void logout()}><LogOut /> Esci</DropdownMenuItem>
-          <DropdownMenuSeparator />
-          <DropdownMenuItem variant="destructive" onClick={() => setDeleting(true)}><Trash /> Elimina account</DropdownMenuItem>
+          <AccountItems onDelete={() => setDeleting(true)} />
         </DropdownMenuContent>
       </DropdownMenu>
       <DeleteAccountDialog open={deleting} onOpenChange={setDeleting} email={user.email ?? ""} />
       <RecoveryDialog />
+    </>
+  );
+}
+
+/** In fondo alla barra laterale dei lab: l'account come scheda. */
+export function AccountCard() {
+  const { enabled, ready, user, status, text, Icon, iconClass } = useAccount();
+  const [open, setOpen] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  if (!enabled) return null;
+
+  if (!user) {
+    return (
+      <>
+        {/* l'account è facoltativo: senza accesso basta un pulsante discreto */}
+        <Button variant="ghost" size="sm" disabled={!ready} onClick={() => setOpen(true)} className="w-full justify-start text-muted-foreground">
+          <LogIn /> Accedi
+        </Button>
+        <AuthDialog open={open} onOpenChange={setOpen} />
+      </>
+    );
+  }
+  return (
+    <>
+      <DropdownMenu>
+        <DropdownMenuTrigger render={
+          <button type="button" aria-label="Account"
+            className="flex w-full items-center gap-2.5 rounded-lg border bg-background/60 p-2.5 text-left outline-none transition-colors hover:bg-sidebar-accent focus-visible:ring-2 focus-visible:ring-sidebar-ring aria-expanded:bg-sidebar-accent" />
+        }>
+          <Avatar email={user.email} className="size-8 text-sm" />
+          <span className="flex min-w-0 flex-1 flex-col">
+            <span className="truncate text-sm font-medium">{user.email}</span>
+            <span className="flex min-w-0 items-center gap-1 text-xs text-muted-foreground">
+              <Icon className={cn("size-3.5 shrink-0", iconClass)} />
+              <span className="truncate">{text}</span>
+            </span>
+          </span>
+          <ChevronsUpDown className="size-4 shrink-0 text-muted-foreground" />
+        </DropdownMenuTrigger>
+        <DropdownMenuContent side="right" align="end" sideOffset={8} className="w-64">
+          <DropdownMenuGroup>
+            <DropdownMenuLabel className="text-xs font-normal text-muted-foreground">{status === "off" ? "Account" : text}</DropdownMenuLabel>
+          </DropdownMenuGroup>
+          <AccountItems onDelete={() => setDeleting(true)} />
+        </DropdownMenuContent>
+      </DropdownMenu>
+      <DeleteAccountDialog open={deleting} onOpenChange={setDeleting} email={user.email ?? ""} />
     </>
   );
 }

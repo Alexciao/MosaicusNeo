@@ -8,7 +8,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { CircleAlert, CircleCheck, LoaderCircle, Volume2, VolumeX } from "lucide-react";
 import { useLab, resolved, type DeviceStatus } from "@/lib/lab-store";
 import { liveStatus, type LiveIssue } from "@/lib/live-status";
-import { outputsOf } from "@/lib/sensors/rig";
+import { indicatorsOf } from "@/lib/sensors/rig";
 import { SENSORS } from "@/lib/sensors/catalog";
 import { glyph } from "@/lib/mosaicus/oled-font";
 import { cn } from "@/lib/utils";
@@ -56,9 +56,9 @@ function Chip({ i }: { i: LiveIssue }) {
 // ---------------------------------------------------------------------------
 // Specchio degli indicatori
 // ---------------------------------------------------------------------------
-const FW_NAME: Record<string, string> = { ntc: "NTC", analog: "ANA", ldr: "ANA", dht: "DHT", sonar: "SONAR", gps: "GPS", ds18b20: "DS18", gate: "GATE", hx711: "HX711", imu: "IMU" };
-const SMALL_ERR: Record<string, string> = { gps: "fili GPS?", ntc: "sonda?", ds18b20: "fili 4,7k?", imu: "fili SDA?", hx711: "fili DT?" };
-const SMALL_ERR_SHORT: Record<string, string> = { ds18b20: "4,7k?", imu: "SDA?", hx711: "DT?" };
+const FW_NAME: Record<string, string> = { ntc: "NTC", analog: "ANA", ldr: "ANA", dht: "DHT", sonar: "SONAR", gps: "GPS", ds18b20: "DS18", gate: "GATE", hx711: "HX711", imu: "IMU", mlx: "MLX" };
+const SMALL_ERR: Record<string, string> = { gps: "fili GPS?", ntc: "sonda?", ds18b20: "fili 4,7k?", imu: "fili SDA?", mlx: "fili SDA?", hx711: "fili DT?" };
+const SMALL_ERR_SHORT: Record<string, string> = { ds18b20: "4,7k?", imu: "SDA?", mlx: "SDA?", hx711: "DT?" };
 
 const CFG_WHY = ["?", "pin errato", "pin A0-A5", "pin doppio", "1 solo GPS", "tipo?", "comando?"];
 interface MirrorCtx { running: boolean; fw: string; slotType?: string; cfgType?: string; same: number; ord: number; sats: string; elapsed: number; lines: [string, string]; tick: number }
@@ -77,9 +77,18 @@ function screenTexts(d: DeviceStatus, o: MirrorCtx) {
     case "I": bar = "COLLEGATO"; big = "OK"; small = d.link === "B" ? "BT ~ Avvia" : "~ Avvia"; break;
     case "O": bar = "OSCILLOSC."; big = "SCOPE"; small = "segnale A0"; break;
     case "C": bar = "CONFIG"; big = d.slot < 0 ? "OUT" : FW_NAME[o.cfgType ?? ""] ?? "?"; small = CFG_WHY[d.issue] ?? "?"; break;
+    case "R": bar = "SD PRONTA"; big = "PREMI"; small = "pulsante"; break;
+    case "L": {
+      const s = Math.floor(o.elapsed), m = Math.floor(s / 60);
+      bar = m > 99 ? `SD ${Math.floor(m / 60)}h` : `SD ${m}:${String(s % 60).padStart(2, "0")}`;
+      big = "REC"; small = "LOG…";
+      sp = Math.floor(o.tick / 4) % 2 ? "*" : " ";
+      break;
+    }
     case "S":
     case "E": {
       const t = o.slotType ?? "";
+      if (d.slot === -2) { bar = "PROBLEMA"; big = "SD"; small = "scheda SD?"; break; }
       if (d.issue === 1 && t === "gps") { bar = d.n > 1 ? count("CERCO") : "CERCO GPS"; big = `${o.sats.slice(0, 2) || "0"} sat`; small = "all'aperto"; }
       else if (d.issue === 1) {
         bar = d.n > 1 ? count("CERCO") : t === "sonar" ? "NO ECO" : "ATTENDO"; big = FW_NAME[t] ?? "?";
@@ -98,7 +107,7 @@ function screenTexts(d: DeviceStatus, o: MirrorCtx) {
       break;
     }
   }
-  bar = bar.padEnd(9, " ").slice(0, 9) + (d.st === "W" || d.st === "S" || d.st === "T" ? sp : " ");
+  bar = bar.padEnd(9, " ").slice(0, 9) + (d.st === "W" || d.st === "S" || d.st === "T" || d.st === "L" ? sp : " ");
   return { bar, big: big.slice(0, 5), small: small.slice(0, 10) };
 }
 
@@ -138,8 +147,10 @@ const LED: Record<DeviceStatus["st"], { color: string; blink: number; text: stri
   C: { color: "#ef4444", blink: 125, text: "rosso lampeggiante: configurazione rifiutata" },
   T: { color: "#22c55e", blink: 0, text: "verde: sta misurando" },
   O: { color: "#06b6d4", blink: 0, text: "azzurro: oscilloscopio" },
+  R: { color: "#3b82f6", blink: 0, text: "blu: scheda SD pronta, premi il pulsante" },
+  L: { color: "#22c55e", blink: 0, text: "verde: registra sulla scheda SD" },
 };
-const BEEPS: Record<DeviceStatus["st"], number> = { W: 1, I: 1, S: 2, E: 3, T: 0, O: 0, C: 3 };
+const BEEPS: Record<DeviceStatus["st"], number> = { W: 1, I: 1, S: 2, E: 3, T: 0, O: 0, C: 3, R: 1, L: 0 };
 
 /** Ciò che mostrano in questo momento il display, il LED e il cicalino di Arduino. */
 export function DeviceMirror() {
@@ -150,7 +161,7 @@ export function DeviceMirror() {
   const fw = useLab((s) => s.fw);
   const created = useLab((s) => s.session?.created ?? 0);
   const lim = useLab((s) => s.lim);
-  const outs = outputsOf(rig);
+  const outs = indicatorsOf(rig);
   const tick = useTick(lim ? 500 : 125, !!device && outs.length > 0);
   if (!device || !outs.length) return null;
   const has = (t: string) => outs.some((s) => s.type === t);

@@ -4,13 +4,15 @@ import { LayoutGrid, SlidersHorizontal, TriangleExclamationPoint, Plug } from "l
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
-import { useLab, labInfo, needsArduino, needsPhone, hasMap, openGuide, showWiring } from "@/lib/lab-store";
+import { Sidebar, SidebarFooter, SidebarInset, SidebarProvider, SidebarRail, SidebarTrigger } from "@/components/ui/sidebar";
+import { useLab, labInfo, needsArduino, needsPhone, hasMap, openGuide, showWiring, setLabsSidebar } from "@/lib/lab-store";
 import { SENSORS, pinName } from "@/lib/sensors/catalog";
 import { sensorLabel } from "@/lib/sensors/rig";
 import { audioSupported } from "@/lib/mosaicus/audio.js";
 import { cn } from "@/lib/utils";
-import { LabPicker } from "./lab-picker";
+import { LabPicker, LabLinks } from "./lab-picker";
+import { AccountCard } from "./account-menu";
+import { ResponsivePanel } from "./responsive-panel";
 import { RunCard } from "./run-card";
 import { ChartCard } from "./chart-card";
 import { MapCard } from "./map-card";
@@ -56,6 +58,7 @@ export function LabHeading({ onPick, onSensors }: { onPick: () => void; onSensor
   return (
     <div className="flex flex-col gap-2.5">
       <div className="flex items-center gap-3">
+        <SidebarTrigger className="-ml-1 hidden text-muted-foreground lg:inline-flex" title="Mostra o nascondi i lab (Ctrl+B)" />
         <span className={cn("grid size-11 shrink-0 place-items-center rounded-xl text-tone-ink", toneBg[info.tone])}><Icon className="size-5" /></span>
         <div className="min-w-0 flex-1">
           <p className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">{info.topic}</p>
@@ -103,52 +106,53 @@ export function MeasurePage() {
   const ins = info.instrument;
   const setLabs = (open: boolean) => useLab.setState({ labsOpen: open });
   const setRig = (open: boolean) => useLab.setState({ rigOpen: open });
+  // sul computer la barra dei lab resta aperta o chiusa come l'hai lasciata
+  const side = useLab((s) => s.labsSidebar);
   return (
-    <div className="mx-auto grid w-full max-w-[1600px] gap-4 p-3 sm:p-4 lg:grid-cols-[17rem_minmax(0,1fr)] 2xl:grid-cols-[17rem_minmax(0,1fr)_24rem]">
-      <aside className="hidden lg:block">
-        <Card className="sticky top-[4.5rem] max-h-[calc(100svh-5.5rem)] overflow-y-auto p-3">
-          <LabPicker />
-        </Card>
-      </aside>
+    <SidebarProvider open={side} onOpenChange={setLabsSidebar} openMobile={labsOpen} onOpenMobileChange={setLabs} className="min-h-0">
+      {/* barra fluttuante sotto l'intestazione (alta 3,5 rem); sotto lg diventa un cassetto dal basso */}
+      <Sidebar variant="floating" style={{ top: "3.5rem", height: "calc(100svh - 3.5rem)" }}>
+        <LabPicker />
+        <SidebarFooter className="gap-1.5">
+          <AccountCard />
+          <LabLinks />
+        </SidebarFooter>
+        <SidebarRail />
+      </Sidebar>
 
-      <section className="flex min-w-0 flex-col gap-4">
-        <LabHeading onPick={() => setLabs(true)} onSensors={() => setRig(true)} />
-        {(ins ? ins.source === "arduino" : needsArduino(rig) || needsPhone(rig)) && <div className="lg:hidden"><ConnectionControls className="flex-wrap" /></div>}
-        <SupportBanner />
-        {ins?.kind === "scope" ? <ScopePanel key={ins.id} exp={ins} />
-          : ins?.kind === "synth" ? <SynthPanel key={ins.id} exp={ins} />
-            : !rig.sensors.length ? (
-              <Card className="flex flex-col items-center gap-3 p-10 text-center">
-                <span className="grid size-14 place-items-center rounded-2xl bg-tone-saffron text-tone-ink"><SlidersHorizontal className="size-7" /></span>
-                <h3 className="text-lg font-semibold">Nessun componente</h3>
-                <p className="max-w-md text-sm text-muted-foreground">Aggiungi i sensori che colleghi ad Arduino. Puoi usarne più di uno: le letture finiscono sugli stessi grafici.</p>
-                <Button onClick={() => setRig(true)}>Aggiungi un componente</Button>
-              </Card>
-            ) : (
-              <>
-                <RunCard />
-                {hasMap(rig) && <MapCard />}
-                <ChartCard />
-              </>
-            )}
-      </section>
+      <SidebarInset className="bg-transparent">
+        <div className="mx-auto grid w-full max-w-[1600px] gap-4 p-3 sm:p-4 2xl:grid-cols-[minmax(0,1fr)_24rem]">
+          <section className="flex min-w-0 flex-col gap-4">
+            <LabHeading onPick={() => setLabs(true)} onSensors={() => setRig(true)} />
+            {(ins ? ins.source === "arduino" : needsArduino(rig) || needsPhone(rig)) && <div className="lg:hidden"><ConnectionControls className="flex-wrap" /></div>}
+            <SupportBanner />
+            {ins?.kind === "scope" ? <ScopePanel key={ins.id} exp={ins} />
+              : ins?.kind === "synth" ? <SynthPanel key={ins.id} exp={ins} />
+                : !rig.sensors.length ? (
+                  <Card className="flex flex-col items-center gap-3 p-10 text-center">
+                    <span className="grid size-14 place-items-center rounded-2xl bg-tone-saffron text-tone-ink"><SlidersHorizontal className="size-7" /></span>
+                    <h3 className="text-lg font-semibold">Nessun componente</h3>
+                    <p className="max-w-md text-sm text-muted-foreground">Aggiungi i sensori che colleghi ad Arduino. Puoi usarne più di uno: le letture finiscono sugli stessi grafici.</p>
+                    <Button onClick={() => setRig(true)}>Aggiungi un componente</Button>
+                  </Card>
+                ) : (
+                  <>
+                    <RunCard />
+                    {hasMap(rig) && <MapCard />}
+                    <ChartCard />
+                  </>
+                )}
+          </section>
 
-      <aside className="min-w-0 lg:col-start-2 2xl:col-start-3 2xl:row-start-1">
-        <div className="2xl:sticky 2xl:top-[4.5rem]"><SidePanel /></div>
-      </aside>
+          <aside className="min-w-0 2xl:col-start-2 2xl:row-start-1">
+            <div className="2xl:sticky 2xl:top-[4.5rem]"><SidePanel /></div>
+          </aside>
+        </div>
+      </SidebarInset>
 
-      <Sheet open={labsOpen} onOpenChange={setLabs}>
-        <SheetContent side="left" className="w-[85vw] max-w-sm overflow-y-auto">
-          <SheetHeader><SheetTitle>Scegli un lab</SheetTitle></SheetHeader>
-          <div className="px-3 pb-6"><LabPicker onPicked={() => setLabs(false)} /></div>
-        </SheetContent>
-      </Sheet>
-      <Sheet open={rigOpen} onOpenChange={setRig}>
-        <SheetContent side="right" className="w-full overflow-x-hidden overflow-y-auto sm:max-w-md">
-          <SheetHeader><SheetTitle>Componenti</SheetTitle></SheetHeader>
-          <div className="px-4 pb-8"><RigEditor /></div>
-        </SheetContent>
-      </Sheet>
-    </div>
+      <ResponsivePanel open={rigOpen} onOpenChange={setRig} title="Componenti">
+        <RigEditor />
+      </ResponsivePanel>
+    </SidebarProvider>
   );
 }

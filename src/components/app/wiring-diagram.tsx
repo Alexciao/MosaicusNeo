@@ -1,33 +1,26 @@
 "use client";
 // La guida ai collegamenti, unica per la scheda «Collegamenti» e per il capitolo della Guida:
 // • lo schema, «realistico» (Arduino, breadboard e moduli come sono davvero) o «schema» (compatto);
-// • il Bluetooth facoltativo (spento di serie), che entra nello schema e nei passi;
+// • Bluetooth, scheda SD e pulsante sono componenti come gli altri: entrano nello schema e nei passi;
 // • l'occorrente, contato dallo schema stesso (moduli, resistenze, ponticelli, breadboard);
 // • i passi, uno per componente: dove infilarlo, i fili da foro a pin, le note pratiche.
 
 import { useState } from "react";
-import { create } from "zustand";
-import { Bluetooth, Check, Maximize2, Unplug } from "lucide-react";
+import { Bluetooth, BluetoothSearching, Check, Maximize2, MemoryStick, Plus, Unplug } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Switch } from "@/components/ui/switch";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import type { SensorInstance } from "@/lib/sensors/rig";
+import { btOf, type SensorInstance } from "@/lib/sensors/rig";
 import { SENSORS, type SensorType } from "@/lib/sensors/catalog";
-import { useLab, bluetoothSetup } from "@/lib/lab-store";
+import { useLab, bluetoothSetup, addSensor } from "@/lib/lab-store";
 import { prefs, isPhoneWidth } from "@/lib/prefs";
 import { cn } from "@/lib/utils";
 import { GlideNav } from "./glide-nav";
 import { BoardDiagram, ComponentThumb, boardPlan, ardName, type StepGroup } from "./board-diagram";
 import { RigDiagram, buildModules, resistorsOf, OHMS, BAND_NAMES, type BtModule, type Mod, type ModRow } from "./rig-diagram";
+import { SdHowTo } from "./sd-controls";
 
 type Style = "real" | "schema";
 type BtKind = "hc06" | "ble";
-
-/** Bluetooth nello schema: condiviso tra la scheda Collegamenti e la Guida, e ricordato. */
-const useBt = create<{ on: boolean; kind: BtKind }>(() => ({ on: prefs.get("mosaicus.btOn", false), kind: prefs.get<BtKind>("mosaicus.btModule", "hc06") }));
-const setBtOn = (on: boolean) => { useBt.setState({ on }); prefs.set("mosaicus.btOn", on); };
-const setBtKind = (kind: BtKind) => { useBt.setState({ kind }); prefs.set("mosaicus.btModule", kind); };
-export const useBtModule = (): BtModule => useBt((s) => (s.on ? s.kind : null));
 
 const RED = "#dc2626", BLK = "#27272a";
 const connName = (c: "5V" | "GND" | number) => (typeof c === "number" ? ardName(c) : c);
@@ -41,7 +34,7 @@ const viaPart = (r: ModRow) =>
 // ---------------------------------------------------------------------------
 // Occorrente
 // ---------------------------------------------------------------------------
-function Parts({ mods, count, nCols, bt }: { mods: Mod[]; count: { red: number; black: number; signal: number } | null; nCols: number; bt: BtModule }) {
+function Parts({ mods, count, nCols, bt, sd }: { mods: Mod[]; count: { red: number; black: number; signal: number } | null; nCols: number; bt: BtModule; sd: boolean }) {
   const items: { qty: number; name: string; note?: string; thumb?: SensorType | "hc06" | "ble" }[] = [];
   items.push({ qty: 1, name: "Arduino Uno", note: "con il cavo USB" });
   items.push({ qty: 1, name: nCols > 30 ? "Breadboard da 830 fori" : "Breadboard da 400 fori", note: nCols > 30 ? "servono più di 30 colonne" : undefined });
@@ -56,7 +49,8 @@ function Parts({ mods, count, nCols, bt }: { mods: Mod[]; count: { red: number; 
   for (const v of ["10k", "4k7", "2k", "1k", "220", "100"] as const)
     if (res[v]) items.push({ qty: res[v], name: `Resistenz${res[v] > 1 ? "e" : "a"} da ${OHMS[v]}`, note: BAND_NAMES[v] });
   if (count) items.push({ qty: count.red + count.black + count.signal, name: "Ponticelli", note: `${count.red} rossi, ${count.black} neri, ${count.signal} colorati` });
-  if (bt) items.push({ qty: 1, name: "Power bank", note: "per alimentare Arduino senza computer" });
+  if (sd) items.push({ qty: 1, name: "Scheda microSD", note: "FAT32, fino a 32 GB" });
+  if (bt || sd) items.push({ qty: 1, name: "Power bank", note: "per alimentare Arduino senza computer (o una pila da 9 V nel jack)" });
   return (
     <ul className="grid gap-x-4 gap-y-1.5 text-sm sm:grid-cols-2">
       {items.map((it, i) => (
@@ -112,7 +106,7 @@ function Notes({ items }: { items: string[] }) {
 }
 
 /** Il blocco in più del Bluetooth: quale modulo, configurarlo, collegarsi. */
-function BluetoothHowTo({ kind }: { kind: BtKind }) {
+export function BluetoothHowTo({ kind }: { kind: BtKind }) {
   const canSetup = useLab((s) => s.linkKind === "arduino" && s.ready && s.transport === "serial");
   const running = useLab((s) => s.running);
   return (
@@ -162,6 +156,7 @@ function Steps({ sensors, bt, style }: { sensors: SensorInstance[]; bt: BtModule
             <ul className="flex flex-col gap-1">{wiresOf(g).map((w, k) => <WireLine key={k} {...w} />)}</ul>
             <Notes items={m.notes} />
             {isBt && <BluetoothHowTo kind={m.kind as BtKind} />}
+            {m.kind === "sd" && <SdHowTo />}
           </StepCard>
         );
       })}
@@ -183,14 +178,16 @@ function Steps({ sensors, bt, style }: { sensors: SensorInstance[]; bt: BtModule
 // ---------------------------------------------------------------------------
 // La guida completa
 // ---------------------------------------------------------------------------
-export function WiringGuide({ sensors: all }: { sensors: SensorInstance[] }) {
+/** sensors: i componenti da collegare; editable: è il progetto aperto (si possono aggiungere Bluetooth e scheda SD da qui) */
+export function WiringGuide({ sensors: all, editable = false }: { sensors: SensorInstance[]; editable?: boolean }) {
   const sensors = all.filter((s) => !SENSORS[s.type].phone);     // il telefono non si collega
   const [style, setStyleState] = useState<Style>(() => prefs.get<Style>("mosaicus.diagram", isPhoneWidth() ? "schema" : "real"));
   const setStyle = (s: Style) => { setStyleState(s); prefs.set("mosaicus.diagram", s); };
-  const btOn = useBt((s) => s.on), btKind = useBt((s) => s.kind);
-  const bt: BtModule = btOn ? btKind : null;
+  const bt: BtModule = btOf(sensors);
+  const sd = sensors.some((s) => s.type === "sd");
+  const running = useLab((s) => s.running);
   const [big, setBig] = useState(false);
-  if (!sensors.length && !bt) {
+  if (!sensors.length) {
     return (
       <div className="flex flex-col items-center gap-2 rounded-lg border border-dashed p-6 text-center text-sm text-muted-foreground">
         <Unplug className="size-5" />
@@ -209,25 +206,25 @@ export function WiringGuide({ sensors: all }: { sensors: SensorInstance[] }) {
         <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
           <GlideNav label="Tipo di schema" value={style} size="sm"
             items={[{ id: "real", content: "Realistico", onSelect: () => setStyle("real") }, { id: "schema", content: "Schema", onSelect: () => setStyle("schema") }]} />
-          <label className="flex items-center gap-2 text-xs font-medium">
-            <Switch size="sm" checked={btOn} onCheckedChange={setBtOn} />
-            <Bluetooth className="size-3.5 text-muted-foreground" /> Bluetooth
-          </label>
-          {btOn && (
-            <GlideNav label="Modulo Bluetooth" value={btKind} size="sm"
-              items={[{ id: "hc06", content: "HC-06", onSelect: () => setBtKind("hc06") }, { id: "ble", content: "BLE", onSelect: () => setBtKind("ble") }]} />
-          )}
           <Button size="icon-sm" variant="ghost" className="ml-auto" aria-label="Schema a tutto schermo" onClick={() => setBig(true)}><Maximize2 /></Button>
         </div>
         <button type="button" onClick={() => setBig(true)} className="block w-full cursor-zoom-in overflow-hidden rounded-lg border bg-background p-2 text-left" aria-label="Schema a tutto schermo">
           <div key={`${style}${bt}`} className="mz-enter">{draw("h-auto w-full")}</div>
         </button>
         <p className="text-xs text-muted-foreground">Rosso 5V · nero GND · un colore per componente · tratteggio = facoltativo.{style === "real" ? " Colonne 1, 2, 3… e righe a–j come sulla breadboard." : ""}</p>
+        {editable && !bt && !sd && (
+          <div className="flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
+            <span className="mr-1">Senza cavo:</span>
+            <Button size="xs" variant="outline" disabled={running} onClick={() => addSensor("hc06")}><Plus /><Bluetooth /> HC-06</Button>
+            <Button size="xs" variant="outline" disabled={running} onClick={() => addSensor("ble")}><Plus /><BluetoothSearching /> Bluetooth LE</Button>
+            <Button size="xs" variant="outline" disabled={running} onClick={() => addSensor("sd")}><Plus /><MemoryStick /> Scheda SD</Button>
+          </div>
+        )}
       </section>
 
       <section className="flex flex-col gap-2">
         <h4 className="text-sm font-semibold">Occorrente</h4>
-        <Parts mods={mods} count={style === "real" && plan ? plan.count : null} nCols={plan?.nCols ?? 30} bt={bt} />
+        <Parts mods={mods} count={style === "real" && plan ? plan.count : null} nCols={plan?.nCols ?? 30} bt={bt} sd={sd} />
       </section>
 
       <section className="flex flex-col gap-2">
