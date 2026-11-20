@@ -22,6 +22,10 @@ export const prefs = {
     }
     listeners.forEach((fn) => fn(key));
   },
+  remove(key: string) {
+    try { localStorage.removeItem(key); } catch { /* storage non disponibile */ }
+    listeners.forEach((fn) => fn(key));
+  },
 };
 
 export const fmtVal = (v: number, digits: number) => (Number.isFinite(v) ? fixed(v, digits) : "—");

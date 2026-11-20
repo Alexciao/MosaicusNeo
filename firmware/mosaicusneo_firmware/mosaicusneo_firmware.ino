@@ -16,7 +16,9 @@
   Pin: D0 e D1 sono della porta seriale (cavo USB e, in parallelo, Bluetooth): non vanno
   usati per i sensori. I sensori analogici vanno su A0…A5 (numeri 14…19); quelli digitali su
   D2…D13 o anche su A0…A5. Il LED su D13 si accende durante la misura, a meno che D13 non sia
-  usato. I dispositivi I2C (display OLED, MPU-6050) possono condividere gli stessi due pin.
+  usato. I dispositivi I2C (display OLED, MPU-6050, MLX90614) possono condividere gli stessi due pin.
+  Con il modulo microSD, D10…D13 sono suoi (SPI: D11 MOSI, D12 MISO, D13 SCK; D10 deve restare
+  un'uscita perché l'SPI funzioni; CS su D10 o su un altro pin).
 
   Protocollo (115200 baud, righe terminate da '\n'):
     App -> Arduino                              Arduino -> App
@@ -38,6 +40,8 @@
               HX711  pinA = DT, pinB = SCK (cella di carico)                     → <conteggi>,<err>
               IMU    pinA = SDA, pinB = SCL (MPU-6050), opz bit0-1 = fondo scala, bit2 = indirizzo 0x69
                                                                                  → <ax>,<ay>,<az>,<gx>,<gy>,<gz>,<err>
+              MLX    pinA = SDA, pinB = SCL (termometro a infrarossi MLX90614 / GY-906, 0x5A)
+                                                                                 → <oggetto>,<ambiente>,<err>   (in 0,02 K)
         motivi  SLOT, TIPO, PIN, ANALOGICO, DOPPIO (pin già usato), GPS (ce n'è già uno)
     START                                       #ACK,START
                                                 D,<slot>,<t_ms>,<valori…>   una riga per lettura
@@ -52,12 +56,23 @@
         OLED  p1 = SDA, p2 = SCL (SSD1306 64×32 0,49", I2C 0x3C)
         RGB   p1 = R, p2 = G, p3 = B; opz bit0 = anodo comune
         BUZ   p1; opz bit0 = cicalino passivo, bit1 = bip finché non è tutto pronto, bit2 = bip di conferma
+        BTN   p1 = pulsante tra il pin e GND (pull-up interno, antirimbalzo 30 ms)
+        SD    p1 = CS del modulo microSD (MOSI D11, MISO D12, SCK D13 fissi; D10 riservato);
+              opz bit0 = registra appena acceso (vale solo senza pulsante)
     OUT,SAVE                                    #ACK,OUT,SAVE   (gli indicatori restano anche dopo lo spegnimento)
+    CFG,SAVE,<id>                               #ACK,CFG,SAVE   oppure   #ERR,CFG,-1,VUOTO
+        salva in EEPROM i sensori configurati e il codice del progetto (fino a 12 caratteri):
+        servono per registrare sulla scheda SD senza l'app
+    SD,TEST                                     #SD,OK,<MB della partizione>   oppure   #SD,ERR,<NOOUT|CARD|FAT32|FILE>
+        prova la scheda (FAT32, al massimo 32 GB formattati così) senza creare file
+                                                #KEY   pulsante premuto con l'app collegata: l'app avvia o ferma la misura
     OUT,L,<1|2>,<testo>                         (righe del display durante la misura: valore grande e riga piccola)
     OUT,TEST                                    #ACK,OUT,TEST   (prova: colori, bip, scritta)
                                                 #ST,<stato>,<slot>,<problema>,<k>,<n>,<bt>,<link>   a ogni cambio
         stato  W attesa dell'app · I pronto · S in ricerca (GPS, eco) · E errore di un sensore ·
                T misura in corso e tutto a posto · O oscilloscopio ·
+               R scheda SD pronta, si aspetta il pulsante · L registrazione sulla scheda SD ·
+               E con slot -2 = problema della scheda SD ·
                C configurazione rifiutata (slot -1 = display, LED o cicalino; problema = motivo:
                  1 pin, 2 non analogico, 3 pin doppio, 4 secondo GPS, 5 tipo, 6 comando)
         problema 0 nessuno · 1 in ricerca · 2 errore
@@ -77,18 +92,38 @@
     termistore NTC: partitore con 10 kΩ, uscita su A0 · DHT11: DATA su D2 · HC-SR04: TRIG D12,
     ECHO D11 · GPS: TX del GPS su D4 · HC-06: TXD → D0, RXD ← D1 con partitore 1 kΩ / 2 kΩ ·
     display OLED: SDA A4, SCL A5. Mentre carichi lo sketch, stacca il filo TXD del modulo Bluetooth da D0.
+    modulo microSD: GND, VCC a 5V, MISO D12, MOSI D11, SCK D13, CS D10 · pulsante: tra un pin e GND.
+
+  Registrazione sulla scheda SD (senza app): l'app manda la configurazione (CFG…, OUT…, OUT,SAVE,
+  CFG,SAVE,<id>). All'accensione, se c'è il modulo SD e una configurazione salvata, Arduino aspetta
+  4 s un comando dall'app; se non arriva: senza pulsante registra subito (opz bit0 del modulo SD),
+  con il pulsante aspetta (stato R): una pressione avvia, la successiva ferma, poi un file nuovo.
+  Un comando dall'app durante la registrazione la chiude. Ogni 2 s il file viene aggiornato sulla
+  scheda: togliendo l'alimentazione si perdono al massimo gli ultimi 2 s.
+  File LOG00001.CSV, LOG00002.CSV… nella cartella principale (FAT32):
+    #MOSAICUS,<versione>,SD
+    #PROJ,<id>
+    #CFG,<slot>,<tipo>,<ms>,<pinA>,<pinB>,<opz>   (una riga per sensore, ms = intervallo effettivo)
+    #START
+    D,<slot>,<t_ms>,<valori…>                      (come sulla seriale)
+    #STOP,<t_ms>                                   (solo se fermata con il pulsante)
+
+  EEPROM: 0 'M', 1 versione degli indicatori (2) · 20 'B', 21 modulo Bluetooth · 32…56 indicatori
+  (5 × tipo, p1, p2, p3, opz) · 64 'C' (configurazione salvata) · 65…76 codice del progetto ·
+  80…127 sensori (6 × tipo, pinA, pinB, opz, intervallo in ms su 4 byte).
 */
 
 #include <SoftwareSerial.h>
+#include <SPI.h>
 #include <EEPROM.h>
 
-const char *FW_VERSION = "1.3";
+const char *FW_VERSION = "1.5";
 
 const uint8_t MAX_SLOTS = 6;
 const uint8_t ADC_SAMPLES = 16;                 // sovracampionamento per ridurre il rumore
 const unsigned long ECHO_TIMEOUT_US = 30000UL;  // ~5 m andata e ritorno
 
-enum SensorType : uint8_t { S_NONE, S_NTC, S_ANA, S_DHT, S_SONAR, S_GPS, S_DS18, S_GATE, S_HX711, S_IMU };
+enum SensorType : uint8_t { S_NONE, S_NTC, S_ANA, S_DHT, S_SONAR, S_GPS, S_DS18, S_GATE, S_HX711, S_IMU, S_MLX };
 
 struct Slot {
   uint8_t type;
@@ -102,10 +137,14 @@ struct Slot {
 Slot slots[MAX_SLOTS];
 
 // ---------- indicatori di stato ----------
-enum OutType : uint8_t { O_NONE, O_OLED, O_RGB, O_BUZ };
+enum OutType : uint8_t { O_NONE, O_OLED, O_RGB, O_BUZ, O_BTN, O_SD };
 struct Out { uint8_t type; uint8_t p[3]; uint8_t opt; };
-const uint8_t MAX_OUTS = 3;
+const uint8_t MAX_OUTS = 5;
 Out outs[MAX_OUTS];
+Out *outFind(uint8_t t) { for (uint8_t i = 0; i < MAX_OUTS; i++) if (outs[i].type == t) return &outs[i]; return nullptr; }
+uint8_t outPin(uint8_t t) { Out *o = outFind(t); return o ? o->p[0] : 0; }
+// indirizzi in EEPROM (vedi in cima)
+const int E_OUTS = 32, E_CFG = 64, E_ID = 65, E_SLOTS = 80;
 char appBig[6] = "", appSmall[11] = "";
 
 // Bluetooth: il modulo non si vede da Arduino (sta in parallelo al cavo su D0/D1). Lo si scopre
@@ -140,17 +179,24 @@ uint64_t nowUs() {
 }
 uint64_t t0Us = 0;
 
+// Le righe dei dati (D,…) passano da qui: vanno alla seriale (l'app) e/o alla scheda SD.
+bool dSer = true, sdOn = false, sdErr = false, bootWait = false;
+void sdPut(uint8_t c);
+struct DataOut : public Print {
+  size_t write(uint8_t c) { if (dSer) Serial.write(c); if (sdOn) sdPut(c); return 1; }
+} dout;
+
 void printTime(uint64_t us) {
   uint64_t rel = us - t0Us;
   uint32_t ms = (uint32_t)(rel / 1000);
   uint16_t frac = (uint16_t)(rel % 1000);
-  Serial.print(ms);
-  Serial.print('.');
-  if (frac < 100) Serial.print('0');
-  if (frac < 10) Serial.print('0');
-  Serial.print(frac);
+  dout.print(ms);
+  dout.print('.');
+  if (frac < 100) dout.print('0');
+  if (frac < 10) dout.print('0');
+  dout.print(frac);
 }
-void dataHead(uint8_t i, uint64_t stamp) { Serial.print(F("D,")); Serial.print(i); Serial.print(','); printTime(stamp); }
+void dataHead(uint8_t i, uint64_t stamp) { dout.print(F("D,")); dout.print(i); dout.print(','); printTime(stamp); }
 
 // ---------- oscilloscopio ----------
 const int SCOPE_MAX = 400;
@@ -170,17 +216,20 @@ int8_t gpsSlot = -1;
 // I campioni dell'oscilloscopio e i testi del GPS non servono mai insieme: condividono la RAM
 // (l'Arduino Uno ne ha solo 2 KB). All'avvio di una misura i campi del GPS si azzerano.
 struct GpsText { char nmea[84]; char lat[13], lon[14], alt[9], sats[4], hdop[6], spd[9], utc[11], date[7]; };
-union Shared { uint16_t scope[SCOPE_MAX]; GpsText g; } shared;
+// Anche il settore da 512 byte della scheda SD sta qui, accanto ai testi del GPS (che servono
+// insieme a lui durante la registrazione): la registrazione e l'oscilloscopio non vanno mai insieme.
+union Shared { uint16_t scope[SCOPE_MAX]; struct { GpsText g; uint8_t sd[512]; } r; } shared;
 #define scopeBuf shared.scope
-#define nmea shared.g.nmea
-#define gLat shared.g.lat
-#define gLon shared.g.lon
-#define gAlt shared.g.alt
-#define gSats shared.g.sats
-#define gHdop shared.g.hdop
-#define gSpd shared.g.spd
-#define gUtc shared.g.utc
-#define gDate shared.g.date
+#define sdBuf shared.r.sd
+#define nmea shared.r.g.nmea
+#define gLat shared.r.g.lat
+#define gLon shared.r.g.lon
+#define gAlt shared.r.g.alt
+#define gSats shared.r.g.sats
+#define gHdop shared.r.g.hdop
+#define gSpd shared.r.g.spd
+#define gUtc shared.r.g.utc
+#define gDate shared.r.g.date
 uint8_t nmeaLen = 0;
 unsigned long nmeaLastByte = 0;
 char gFix = '0';
@@ -319,6 +368,31 @@ long hxRead(uint8_t dt, uint8_t sck) {
   return v;
 }
 
+// ---------- MLX90614 (termometro a infrarossi, SMBus) ----------
+// Lettura di una parola (RAM 0x07 = oggetto, 0x06 = ambiente) in unità di 0,02 K. L'SMBus aggiunge
+// un byte di controllo (PEC, CRC-8 con polinomio 0x07) su tutto lo scambio: se non torna, la lettura
+// si scarta. Il bit 15 a 1 è il flag di errore del sensore.
+const uint8_t MLX_ADDR = 0x5A;
+uint8_t crcSmbus(uint8_t c, uint8_t b) {
+  c ^= b;
+  for (uint8_t k = 0; k < 8; k++) c = (c & 0x80) ? (uint8_t)((c << 1) ^ 0x07) : (uint8_t)(c << 1);
+  return c;
+}
+bool mlxRead(const Slot &s, uint8_t reg, uint16_t &v) {
+  i2cBus(s.pinA, s.pinB);
+  i2cStart();
+  if (!i2cWrite(MLX_ADDR << 1) || !i2cWrite(reg)) { i2cStop(); return false; }
+  i2cStart();
+  if (!i2cWrite((MLX_ADDR << 1) | 1)) { i2cStop(); return false; }
+  uint8_t lo = i2cRead(true), hi = i2cRead(true), pec = i2cRead(false);
+  i2cStop();
+  uint8_t c = crcSmbus(0, MLX_ADDR << 1);
+  c = crcSmbus(c, reg); c = crcSmbus(c, (MLX_ADDR << 1) | 1); c = crcSmbus(c, lo); c = crcSmbus(c, hi);
+  if (c != pec || (hi & 0x80)) return false;
+  v = ((uint16_t)hi << 8) | lo;
+  return true;
+}
+
 // ---------- MPU-6050 (accelerometro e giroscopio) ----------
 uint8_t imuAddr(const Slot &s) { return (s.opt & 4) ? 0x69 : 0x68; }
 bool imuInit(const Slot &s) {
@@ -386,7 +460,7 @@ void gateFlush() {
     GateEv e; e.t = gateQ[gateTail].t; e.slot = gateQ[gateTail].slot; e.level = gateQ[gateTail].level;
     gateTail = (gateTail + 1) % GATE_Q;
     SREG = s;
-    dataHead(e.slot, e.t); Serial.print(','); Serial.println(e.level);
+    dataHead(e.slot, e.t); dout.print(','); dout.println(e.level);
   }
 }
 
@@ -491,8 +565,8 @@ uint16_t hashStr(const char *s, uint16_t h) { while (*s) h = h * 31 + (uint8_t)*
 // =====================================================================================
 // Stato: lo decide Arduino da solo, così gli indicatori funzionano anche lontano dal telefono
 // =====================================================================================
-enum St : uint8_t { ST_WAIT, ST_IDLE, ST_SEARCH, ST_ERR, ST_TRACK, ST_SCOPE, ST_CFG };
-const char ST_CODE[] PROGMEM = "WISETOC";
+enum St : uint8_t { ST_WAIT, ST_IDLE, ST_SEARCH, ST_ERR, ST_TRACK, ST_SCOPE, ST_CFG, ST_READY, ST_LOG };
+const char ST_CODE[] PROGMEM = "WISETOCRL";
 St state = ST_WAIT, shownState = (St)255;
 int8_t stSlot = -1, shownSlot = -2;
 uint8_t stIssue = 0, stK = 0, stN = 0, shownK = 255;
@@ -502,13 +576,21 @@ unsigned long buzzOffAt = 0;
 bool buzzOn = false;
 
 bool linkOk() { return pinged ? (millis() - lastCmdMs < 6000) : (lastCmdMs != 0); }
+// c'è tutto per registrare sulla scheda SD senza l'app?
+bool sdArmed() { return outPin(O_SD) && EEPROM.read(E_CFG) == 'C'; }
+uint32_t fNum = 0;              // numero del file LOGnnnnn.CSV aperto (o dell'ultimo)
 
 // Lo stato segue il problema più grave (LED e cicalino); se i sensori in difficoltà sono più
 // d'uno, il display li mostra a turno, prima gli errori e poi quelli in ricerca.
 void computeState() {
   stSlot = -1; stIssue = 0; stK = 0; stN = 0;
   if (mode == SCOPE) { state = ST_SCOPE; return; }
-  if (!linkOk()) { state = ST_WAIT; return; }
+  if (sdOn) { state = ST_LOG; return; }
+  if (!linkOk()) {
+    if (sdErr) { state = ST_ERR; stSlot = -2; stIssue = 2; return; }      // problema della scheda SD
+    state = sdArmed() && outPin(O_BTN) ? ST_READY : ST_WAIT;
+    return;
+  }
   if (cfgBad || outBad) { state = ST_CFG; stSlot = cfgBad ? cfgBadSlot : -1; stIssue = cfgBad ? cfgBadWhy : outBad; return; }
   if (mode == IDLE) { state = ST_IDLE; return; }
   uint8_t list[MAX_SLOTS];
@@ -534,9 +616,9 @@ void barCount(char *bar, const char *pre) {
   bar[n++] = ' '; bar[n++] = '0' + stK; bar[n++] = '/'; bar[n++] = '0' + stN; bar[n] = 0;
 }
 
-const char TYPE_NAMES[] PROGMEM = "?    NTC  ANA  DHT  SONARGPS  DS18 GATE HX711IMU  ";
+const char TYPE_NAMES[] PROGMEM = "?    NTC  ANA  DHT  SONARGPS  DS18 GATE HX711IMU  MLX  ";
 void typeName(uint8_t t, char *dst) {
-  if (t > S_IMU) t = 0;
+  if (t > S_MLX) t = 0;
   for (uint8_t k = 0; k < 5; k++) dst[k] = pgm_read_byte(&TYPE_NAMES[t * 5 + k]);
   dst[5] = 0;
   for (int8_t k = 4; k >= 0 && dst[k] == ' '; k--) dst[k] = 0;
@@ -571,8 +653,10 @@ void screenTexts(char *bar, char *big, char *small) {
       break;
     }
     case ST_SCOPE: strcpy_P(bar, PSTR("OSCILLOSC.")); strcpy_P(big, PSTR("SCOPE")); strcpy_P(small, PSTR("segnale A0")); break;
+    case ST_READY: strcpy_P(bar, PSTR("SD PRONTA")); strcpy_P(big, PSTR("PREMI")); strcpy_P(small, PSTR("pulsante")); break;
     case ST_SEARCH:
     case ST_ERR: {
+      if (stSlot < 0) { strcpy_P(bar, PSTR("PROBLEMA")); strcpy_P(big, PSTR("SD")); strcpy_P(small, PSTR("scheda SD?")); break; }
       // il testo segue il sensore mostrato in questo turno (lo stato segue il più grave)
       const Slot &s = slots[stSlot];
       uint8_t ord, same = sameType(stSlot, ord);
@@ -596,19 +680,21 @@ void screenTexts(char *bar, char *big, char *small) {
           case S_GPS: strcpy_P(q, PSTR("fili GPS?")); break;
           case S_NTC: strcpy_P(q, PSTR("sonda?")); break;
           case S_DS18: strcpy_P(q, same > 1 ? PSTR("4,7k?") : PSTR("fili 4,7k?")); break;
-          case S_IMU: strcpy_P(q, same > 1 ? PSTR("SDA?") : PSTR("fili SDA?")); break;
+          case S_IMU: case S_MLX: strcpy_P(q, same > 1 ? PSTR("SDA?") : PSTR("fili SDA?")); break;
           case S_HX711: strcpy_P(q, same > 1 ? PSTR("DT?") : PSTR("fili DT?")); break;
           default: strcpy_P(q, PSTR("fili?"));
         }
       }
       break;
     }
-    case ST_TRACK: {
+    case ST_TRACK:
+    case ST_LOG: {
       unsigned long s = (millis() - runStartMs) / 1000;
       unsigned int m = s / 60;
-      // "REC 12:34" (oltre 99 minuti si vedono le ore)
-      strcpy_P(bar, PSTR("REC "));
-      char *q = bar + 4;
+      // "REC 12:34" oppure "SD 12:34" (oltre 99 minuti si vedono le ore)
+      bool sd = state == ST_LOG;
+      strcpy_P(bar, sd ? PSTR("SD ") : PSTR("REC "));
+      char *q = bar + strlen(bar);
       if (m > 99) { m /= 60; *q++ = '0' + m / 10 % 10; *q++ = '0' + m % 10; *q++ = 'h'; }
       else {
         if (m >= 10) *q++ = '0' + m / 10;
@@ -616,7 +702,14 @@ void screenTexts(char *bar, char *big, char *small) {
         *q++ = '0' + (s % 60) / 10; *q++ = '0' + s % 10;
       }
       *q = 0;
-      if (appBig[0]) { strcpy(big, appBig); strcpy(small, appSmall); }
+      if (sd) {
+        // il file in cui sta scrivendo: "LOG00012"
+        strcpy_P(big, PSTR("REC"));
+        strcpy_P(small, PSTR("LOG"));
+        uint32_t n = fNum;
+        for (int8_t k = 7; k >= 3; k--) { small[k] = '0' + n % 10; n /= 10; }
+        small[8] = 0;
+      } else if (appBig[0]) { strcpy(big, appBig); strcpy(small, appSmall); }
       else { strcpy_P(big, PSTR("REC")); strcpy_P(small, PSTR("misuro...")); }
       sp = (millis() / 500) % 2 ? '*' : ' ';
       break;
@@ -625,7 +718,7 @@ void screenTexts(char *bar, char *big, char *small) {
   // indicatore di vita nell'angolo della barra
   uint8_t n = strlen(bar);
   while (n < 9) bar[n++] = ' ';
-  bar[9] = (state == ST_WAIT || state == ST_SEARCH || state == ST_TRACK) ? sp : ' ';
+  bar[9] = (state == ST_WAIT || state == ST_SEARCH || state == ST_TRACK || state == ST_LOG) ? sp : ' ';
   bar[10] = 0;
 }
 
@@ -672,18 +765,18 @@ void statusTick() {
     Serial.print(stK); Serial.print(','); Serial.print(stN); Serial.print(',');
     Serial.print(btKind); Serial.print(','); Serial.println(linkBt ? 'B' : 'U');
     if (state != shownState) {
-      if (state == ST_TRACK && before != ST_TRACK && shownState != (St)255) chirp(2, 60);
+      if ((state == ST_TRACK || state == ST_LOG) && before != state && shownState != (St)255) chirp(2, 60);
       stCycle = now;                            // il nuovo stato si sente subito
     }
     shownState = state; shownSlot = stSlot; shownK = stK;
   }
   // giro di 3 s: 1 bip = attesa / pronto ma fermo, 2 = in ricerca, 3 = problema
-  uint8_t beeps = state == ST_WAIT || state == ST_IDLE ? 1 : state == ST_SEARCH ? 2 : state == ST_ERR || state == ST_CFG ? 3 : 0;
+  uint8_t beeps = state == ST_WAIT || state == ST_IDLE || state == ST_READY ? 1 : state == ST_SEARCH ? 2 : state == ST_ERR || state == ST_CFG ? 3 : 0;
   unsigned long ph = (now - stCycle) % 3000;
   bool beepNow = ph < beeps * 200UL && (ph % 200) < 90;
   bool blink = (now / 500) % 2, fast = (now / 125) % 2;
-  uint8_t col = state == ST_WAIT ? (blink ? 4 : 0) : state == ST_IDLE ? 4 : state == ST_SEARCH ? (fast ? 3 : 0)
-              : state == ST_ERR || state == ST_CFG ? (fast ? 1 : 0) : state == ST_TRACK ? 2 : 6;
+  uint8_t col = state == ST_WAIT ? (blink ? 4 : 0) : state == ST_IDLE || state == ST_READY ? 4 : state == ST_SEARCH ? (fast ? 3 : 0)
+              : state == ST_ERR || state == ST_CFG ? (fast ? 1 : 0) : state == ST_TRACK || state == ST_LOG ? 2 : 6;
   for (uint8_t i = 0; i < MAX_OUTS; i++) {
     const Out &o = outs[i];
     if (o.type == O_RGB) rgbSet(o, col);
@@ -709,6 +802,8 @@ void outApply(uint8_t i) {
   if (o.type == O_RGB) { for (uint8_t k = 0; k < 3; k++) pinMode(o.p[k], OUTPUT); rgbSet(o, 0); }
   if (o.type == O_BUZ) { pinMode(o.p[0], OUTPUT); digitalWrite(o.p[0], LOW); }
   if (o.type == O_OLED) { oledIdx = i; oledBegin(o); }
+  if (o.type == O_BTN) pinMode(o.p[0], INPUT_PULLUP);
+  if (o.type == O_SD) { pinMode(o.p[0], OUTPUT); digitalWrite(o.p[0], HIGH); }
 }
 void outsClear() {
   outBad = 0;
@@ -722,7 +817,8 @@ void outAdd(char *args) {
   f[n++] = args;
   for (char *p = args; *p && n < 5; p++) if (*p == ',') { *p = '\0'; f[n++] = p + 1; }
   if (n < 5) { outBad = 6; Serial.println(F("#ERR,OUT,ARGOMENTI")); return; }
-  uint8_t t = strcmp(f[0], "OLED") == 0 ? O_OLED : strcmp(f[0], "RGB") == 0 ? O_RGB : strcmp(f[0], "BUZ") == 0 ? O_BUZ : O_NONE;
+  uint8_t t = strcmp_P(f[0], PSTR("OLED")) == 0 ? O_OLED : strcmp_P(f[0], PSTR("RGB")) == 0 ? O_RGB : strcmp_P(f[0], PSTR("BUZ")) == 0 ? O_BUZ
+            : strcmp_P(f[0], PSTR("BTN")) == 0 ? O_BTN : strcmp_P(f[0], PSTR("SD")) == 0 ? O_SD : O_NONE;
   if (t == O_NONE) { outBad = 5; Serial.println(F("#ERR,OUT,TIPO")); return; }
   uint8_t np = t == O_RGB ? 3 : t == O_OLED ? 2 : 1;
   uint8_t pins[3];
@@ -731,6 +827,8 @@ void outAdd(char *args) {
     if (pins[k] < 2 || pins[k] > 19) { outBad = 1; Serial.println(F("#ERR,OUT,PIN")); return; }
     if (!outPinFree(pins[k], t == O_OLED)) { outBad = 3; Serial.println(F("#ERR,OUT,DOPPIO")); return; }
   }
+  // il modulo SD prende anche D10…D13 (SPI)
+  if (t == O_SD) for (uint8_t q = 10; q <= 13; q++) if (q != pins[0] && !outPinFree(q, false)) { outBad = 3; Serial.println(F("#ERR,OUT,DOPPIO")); return; }
   int8_t slot = -1;
   for (uint8_t i = 0; i < MAX_OUTS; i++) if (outs[i].type == t || (slot < 0 && outs[i].type == O_NONE)) slot = i;
   if (slot < 0) { outBad = 6; Serial.println(F("#ERR,OUT,PIENO")); return; }
@@ -741,9 +839,9 @@ void outAdd(char *args) {
   Serial.print(F("#ACK,OUT,ADD,")); Serial.println(f[0]);
 }
 void outsSave() {
-  EEPROM.update(0, 'M'); EEPROM.update(1, 1);
+  EEPROM.update(0, 'M'); EEPROM.update(1, 2);
   for (uint8_t i = 0; i < MAX_OUTS; i++) {
-    uint8_t b = 2 + i * 5;
+    int b = E_OUTS + i * 5;
     EEPROM.update(b, outs[i].type); EEPROM.update(b + 1, outs[i].p[0]); EEPROM.update(b + 2, outs[i].p[1]);
     EEPROM.update(b + 3, outs[i].p[2]); EEPROM.update(b + 4, outs[i].opt);
   }
@@ -751,12 +849,13 @@ void outsSave() {
 }
 void outsLoad() {
   for (uint8_t i = 0; i < MAX_OUTS; i++) outs[i].type = O_NONE;
-  if (EEPROM.read(0) != 'M' || EEPROM.read(1) != 1) return;
+  // versione 1 (firmware fino alla 1.4, indicatori ai byte 2…16): si ignora, l'app li rimanda
+  if (EEPROM.read(0) != 'M' || EEPROM.read(1) != 2) return;
   for (uint8_t i = 0; i < MAX_OUTS; i++) {
-    uint8_t b = 2 + i * 5;
+    int b = E_OUTS + i * 5;
     Out &o = outs[i];
     o.type = EEPROM.read(b);
-    if (o.type > O_BUZ) { o.type = O_NONE; continue; }
+    if (o.type > O_SD) { o.type = O_NONE; continue; }
     o.p[0] = EEPROM.read(b + 1); o.p[1] = EEPROM.read(b + 2); o.p[2] = EEPROM.read(b + 3); o.opt = EEPROM.read(b + 4);
     if (o.type != O_NONE) outApply(i);
   }
@@ -867,7 +966,7 @@ void parseNmea(char *line) {
   for (char *p = line; *p && n < 16; p++) if (*p == ',') { *p = '\0'; f[n++] = p + 1; }
   if (strlen(f[0]) < 6) return;
   const char *type = f[0] + 3;
-  if (strcmp(type, "RMC") == 0 && n >= 10) {
+  if (strcmp_P(type, PSTR("RMC")) == 0 && n >= 10) {
     copyField(gUtc, sizeof(gUtc), f[1]);
     copyField(gDate, sizeof(gDate), f[9]);
     if (f[2][0] == 'A') {
@@ -877,7 +976,7 @@ void parseNmea(char *line) {
     } else {
       gFix = '0';
     }
-  } else if (strcmp(type, "GGA") == 0 && n >= 10) {
+  } else if (strcmp_P(type, PSTR("GGA")) == 0 && n >= 10) {
     copyField(gUtc, sizeof(gUtc), f[1]);
     gFix = f[6][0] ? f[6][0] : '0';
     copyField(gSats, sizeof(gSats), f[7]);
@@ -904,8 +1003,8 @@ void pollGps() {
   }
 }
 void printField(const char *s) {
-  Serial.print(',');
-  if (*s) Serial.print(s); else Serial.print(F("nan"));
+  dout.print(',');
+  if (*s) dout.print(s); else dout.print(F("nan"));
 }
 void gpsStop() {
   if (gpsSerial) { gpsSerial->end(); delete gpsSerial; gpsSerial = nullptr; }
@@ -917,29 +1016,37 @@ void gpsStop() {
 // =====================================================================================
 bool isAnalog(uint8_t p) { return p >= 14 && p <= 19; }
 bool pinOk(uint8_t p) { return p >= 2 && p <= 19; }
-bool twoPins(uint8_t t) { return t == S_SONAR || t == S_GPS || t == S_HX711 || t == S_IMU; }
+bool isI2c(uint8_t t) { return t == S_IMU || t == S_MLX; }
+bool twoPins(uint8_t t) { return t == S_SONAR || t == S_GPS || t == S_HX711 || isI2c(t); }
 
 // pin già usato da un altro slot? (i2c: i pin I2C si possono condividere con altri I2C)
 bool pinTaken(uint8_t pin, uint8_t except, bool i2c) {
   for (uint8_t i = 0; i < MAX_SLOTS; i++) {
     if (i == except || slots[i].type == S_NONE) continue;
     const Slot &s = slots[i];
-    if (i2c && s.type == S_IMU) continue;
+    if (i2c && isI2c(s.type)) continue;
     if (s.pinA == pin) return true;
     if (twoPins(s.type) && s.pinB == pin) return true;
   }
   return false;
 }
 bool pinTakenBySlot(uint8_t pin) { return pinTaken(pin, 255); }
-bool outPinFree(uint8_t p, bool i2c) {
+// pin usati da un indicatore o accessorio (il modulo SD prende anche D10…D13)
+bool outUses(const Out &o, uint8_t p) {
+  if (o.type == O_SD) return p == o.p[0] || (p >= 10 && p <= 13);
+  uint8_t np = o.type == O_RGB ? 3 : o.type == O_OLED ? 2 : 1;
+  for (uint8_t k = 0; k < np; k++) if (o.p[k] == p) return true;
+  return false;
+}
+bool outClash(uint8_t p, bool i2c) {
   for (uint8_t i = 0; i < MAX_OUTS; i++) {
     const Out &o = outs[i];
     if (o.type == O_NONE || (i2c && o.type == O_OLED)) continue;
-    uint8_t np = o.type == O_RGB ? 3 : o.type == O_OLED ? 2 : 1;
-    for (uint8_t k = 0; k < np; k++) if (o.p[k] == p) return false;
+    if (outUses(o, p)) return true;
   }
-  return !pinTaken(p, 255, i2c);
+  return false;
 }
+bool outPinFree(uint8_t p, bool i2c) { return !outClash(p, i2c) && !pinTaken(p, 255, i2c); }
 
 void cfgError(int slot, const __FlashStringHelper *why, uint8_t code) {
   cfgBad = true; cfgBadSlot = slot; cfgBadWhy = code; cfgBadType = cfgPendingType;
@@ -953,7 +1060,7 @@ void gateDetach() {
   for (uint8_t k = 0; k < 2; k++) if (gateIntSlot[k] >= 0) { detachInterrupt(k); gateIntSlot[k] = -1; }
 }
 
-void cfgClear() {
+void cfgReset() {
   mode = IDLE;
   gpsStop();
   gateDetach();
@@ -961,52 +1068,20 @@ void cfgClear() {
   cfgBad = false;
   ledFree = outPinFree(13, false);
   led(false);
-  Serial.println(F("#ACK,CFG,CLEAR"));
 }
+void cfgClear() { cfgReset(); Serial.println(F("#ACK,CFG,CLEAR")); }
 
-void cfgAdd(char *args) {
-  // args: "<slot>,<tipo>,<ms>,<pinA>,<pinB>,<opz>"
-  char *f[6];
-  uint8_t n = 0;
-  cfgPendingType = S_NONE;
-  f[n++] = args;
-  for (char *p = args; *p && n < 6; p++) if (*p == ',') { *p = '\0'; f[n++] = p + 1; }
-  if (n < 6) { cfgError(-1, F("ARGOMENTI"), 6); return; }
-  int slot = atoi(f[0]);
-  if (slot < 0 || slot >= MAX_SLOTS) { cfgError(slot, F("SLOT"), 6); return; }
-  uint8_t type = S_NONE;
-  if (strcmp(f[1], "NTC") == 0) type = S_NTC;
-  else if (strcmp(f[1], "ANA") == 0) type = S_ANA;
-  else if (strcmp(f[1], "DHT") == 0) type = S_DHT;
-  else if (strcmp(f[1], "SONAR") == 0) type = S_SONAR;
-  else if (strcmp(f[1], "GPS") == 0) type = S_GPS;
-  else if (strcmp(f[1], "DS18") == 0) type = S_DS18;
-  else if (strcmp(f[1], "GATE") == 0) type = S_GATE;
-  else if (strcmp(f[1], "HX711") == 0) type = S_HX711;
-  else if (strcmp(f[1], "IMU") == 0) type = S_IMU;
-  if (type == S_NONE) { cfgError(slot, F("TIPO"), 5); return; }
-  cfgPendingType = type;
-  long ms = atol(f[2]);
-  uint8_t a = (uint8_t)atoi(f[3]), b = (uint8_t)atoi(f[4]), opt = (uint8_t)atoi(f[5]);
-  bool two = twoPins(type), i2c = type == S_IMU;
-  if (!pinOk(a) || (two && (!pinOk(b) || a == b))) { cfgError(slot, F("PIN"), 1); return; }
-  if ((type == S_NTC || type == S_ANA) && !isAnalog(a)) { cfgError(slot, F("ANALOGICO"), 2); return; }
-  if (pinTaken(a, slot, i2c) || (two && pinTaken(b, slot, i2c))) { cfgError(slot, F("DOPPIO"), 3); return; }
-  if (!outPinFree(a, i2c) || (two && !outPinFree(b, i2c))) {
-    // un indicatore usa già quel pin (escluso lo slot stesso: outPinFree controlla anche gli slot)
-    bool clash = false;
-    for (uint8_t i = 0; i < MAX_OUTS; i++) {
-      const Out &o = outs[i];
-      if (o.type == O_NONE || (i2c && o.type == O_OLED)) continue;
-      uint8_t np = o.type == O_RGB ? 3 : o.type == O_OLED ? 2 : 1;
-      for (uint8_t k = 0; k < np; k++) if (o.p[k] == a || (two && o.p[k] == b)) clash = true;
-    }
-    if (clash) { cfgError(slot, F("DOPPIO"), 3); return; }
-  }
-  if (type == S_GPS && gpsSlot >= 0 && gpsSlot != slot) { cfgError(slot, F("GPS"), 4); return; }
+// 0 a posto, altrimenti il motivo: 1 pin, 2 non analogico, 3 pin doppio, 4 secondo GPS
+uint8_t cfgApply(uint8_t slot, uint8_t type, long ms, uint8_t a, uint8_t b, uint8_t opt) {
+  bool two = twoPins(type), i2c = isI2c(type);
+  if (!pinOk(a) || (two && (!pinOk(b) || a == b))) return 1;
+  if ((type == S_NTC || type == S_ANA) && !isAnalog(a)) return 2;
+  if (pinTaken(a, slot, i2c) || (two && pinTaken(b, slot, i2c))) return 3;
+  if (outClash(a, i2c) || (two && outClash(b, i2c))) return 3;     // un indicatore usa già quel pin
+  if (type == S_GPS && gpsSlot >= 0 && gpsSlot != slot) return 4;
   // intervalli minimi: oltre, il sensore non ce la fa
   long minMs = type == S_DHT ? (opt == 22 ? 2000 : 1000) : type == S_GPS ? 1000 : type == S_SONAR ? 30
-             : type == S_DS18 ? 1000 : type == S_HX711 ? 100 : type == S_IMU ? 10 : 5;
+             : type == S_DS18 ? 1000 : type == S_HX711 || type == S_MLX ? 100 : type == S_IMU ? 10 : 5;
   if (ms < minMs) ms = minMs;
   if (ms > 600000L) ms = 600000L;
   Slot &s = slots[slot];
@@ -1020,8 +1095,63 @@ void cfgAdd(char *args) {
   if (type == S_HX711) { pinMode(a, INPUT); pinMode(b, OUTPUT); digitalWrite(b, LOW); }
   if (type == S_GATE) pinMode(a, (opt & 2) ? INPUT_PULLUP : INPUT);
   ledFree = outPinFree(13, false);
+  return 0;
+}
+
+void cfgAdd(char *args) {
+  // args: "<slot>,<tipo>,<ms>,<pinA>,<pinB>,<opz>"
+  char *f[6];
+  uint8_t n = 0;
+  cfgPendingType = S_NONE;
+  f[n++] = args;
+  for (char *p = args; *p && n < 6; p++) if (*p == ',') { *p = '\0'; f[n++] = p + 1; }
+  if (n < 6) { cfgError(-1, F("ARGOMENTI"), 6); return; }
+  int slot = atoi(f[0]);
+  if (slot < 0 || slot >= MAX_SLOTS) { cfgError(slot, F("SLOT"), 6); return; }
+  uint8_t type = S_NONE;
+  char nm[6];
+  for (uint8_t t = S_NTC; t <= S_MLX; t++) { typeName(t, nm); if (strcmp(nm, f[1]) == 0) type = t; }
+  if (type == S_NONE) { cfgError(slot, F("TIPO"), 5); return; }
+  cfgPendingType = type;
+  uint8_t e = cfgApply(slot, type, atol(f[2]), (uint8_t)atoi(f[3]), (uint8_t)atoi(f[4]), (uint8_t)atoi(f[5]));
+  if (e) { cfgError(slot, e == 1 ? F("PIN") : e == 2 ? F("ANALOGICO") : e == 3 ? F("DOPPIO") : F("GPS"), e); return; }
   Serial.print(F("#ACK,CFG,ADD,"));
   Serial.println(slot);
+}
+
+// ---------- configurazione salvata (per registrare sulla scheda SD senza l'app) ----------
+void cfgSave(const char *id) {
+  bool any = false;
+  for (uint8_t i = 0; i < MAX_SLOTS; i++) if (slots[i].type != S_NONE) any = true;
+  if (!any) { Serial.println(F("#ERR,CFG,-1,VUOTO")); return; }
+  EEPROM.update(E_CFG, 'C');
+  bool end = false;
+  for (uint8_t k = 0; k < 12; k++) {
+    char c = end ? 0 : id[k];
+    if (!(isalnum(c) || c == '_' || c == '-')) { end = true; c = 0; }
+    EEPROM.update(E_ID + k, c);
+  }
+  for (uint8_t i = 0; i < MAX_SLOTS; i++) {
+    const Slot &s = slots[i];
+    int b = E_SLOTS + i * 8;
+    EEPROM.update(b, s.type); EEPROM.update(b + 1, s.pinA); EEPROM.update(b + 2, s.pinB); EEPROM.update(b + 3, s.opt);
+    for (uint8_t k = 0; k < 4; k++) EEPROM.update(b + 4 + k, (uint8_t)(s.intervalMs >> (8 * k)));
+  }
+  Serial.println(F("#ACK,CFG,SAVE"));
+}
+bool cfgLoad() {
+  if (EEPROM.read(E_CFG) != 'C') return false;
+  cfgReset();
+  bool any = false;
+  for (uint8_t i = 0; i < MAX_SLOTS; i++) {
+    int b = E_SLOTS + i * 8;
+    uint8_t t = EEPROM.read(b);
+    if (t == S_NONE || t > S_MLX) continue;
+    uint32_t ms = 0;
+    for (int8_t k = 3; k >= 0; k--) ms = (ms << 8) | EEPROM.read(b + 4 + k);
+    if (!cfgApply(i, t, ms, EEPROM.read(b + 1), EEPROM.read(b + 2), EEPROM.read(b + 3))) any = true;
+  }
+  return any;
 }
 
 void startRun() {
@@ -1052,7 +1182,7 @@ void startRun() {
       }
     }
   }
-  memset(&shared.g, 0, sizeof(shared.g));     // dopo l'oscilloscopio qui c'erano dei campioni
+  memset(&shared.r.g, 0, sizeof(shared.r.g));     // dopo l'oscilloscopio qui c'erano dei campioni
   gFix = '0';
   if (gpsSerial) { gpsSerial->begin(9600); nmeaLen = 0; nmeaLastByte = 0; }
   mode = RUN;
@@ -1085,7 +1215,7 @@ bool readSlot(uint8_t i) {
     case S_NTC:
     case S_ANA: {
       float adc = readAdc(s.pinA);
-      dataHead(i, stamp); Serial.print(','); Serial.println(adc, 2);
+      dataHead(i, stamp); dout.print(','); dout.println(adc, 2);
       if (s.type == S_NTC) markBad(s, adc < 2 || adc > 1021, 3, 2);   // sonda staccata o in corto
       return true;
     }
@@ -1099,23 +1229,23 @@ bool readSlot(uint8_t i) {
       uint8_t err = dhtRead(s.pinA, s.opt == 22 ? 22 : 11);
       if (gpsSerial) gpsSerial->begin(9600);
       dataHead(i, stamp);
-      for (uint8_t k = 0; k < 4; k++) { Serial.print(','); Serial.print(dhtData[k]); }
-      Serial.print(','); Serial.println(err);
+      for (uint8_t k = 0; k < 4; k++) { dout.print(','); dout.print(dhtData[k]); }
+      dout.print(','); dout.println(err);
       markBad(s, err != 0, 3, 2);
       return true;
     }
     case S_SONAR: {
       unsigned long echo = sonarRead(s.pinA, s.pinB, stamp);
-      dataHead(i, stamp); Serial.print(','); Serial.println(echo);
+      dataHead(i, stamp); dout.print(','); dout.println(echo);
       markBad(s, echo == 0, 20, 1);            // nessun eco per un po': bersaglio fuori portata
       return true;
     }
     case S_GPS: {
       dataHead(i, stamp);
-      Serial.print(','); Serial.print(gFix);
+      dout.print(','); dout.print(gFix);
       printField(gLat); printField(gLon); printField(gAlt); printField(gSats);
       printField(gHdop); printField(gSpd); printField(gUtc); printField(gDate);
-      Serial.println();
+      dout.println();
       // senza fix il GPS sta solo cercando i satelliti; senza nessun byte c'è un problema di fili
       unsigned long silent = millis() - (nmeaLastByte ? nmeaLastByte : runStartMs);
       s.issue = silent > 3000 ? 2 : gFix == '0' ? 1 : 0;
@@ -1124,9 +1254,9 @@ bool readSlot(uint8_t i) {
     case S_DS18: {
       int16_t raw = 0;
       uint8_t err = s.st ? ds18Read(s.pinA, raw) : 1;
-      dataHead(i, stamp); Serial.print(',');
-      if (err) Serial.print(F("nan")); else Serial.print(raw);
-      Serial.print(','); Serial.println(err);
+      dataHead(i, stamp); dout.print(',');
+      if (err) dout.print(F("nan")); else dout.print(raw);
+      dout.print(','); dout.println(err);
       markBad(s, err != 0, 2, 2);
       s.st = ds18Convert(s.pinA);               // la prossima è pronta tra 750 ms
       return true;
@@ -1134,12 +1264,12 @@ bool readSlot(uint8_t i) {
     case S_HX711: {
       if (digitalRead(s.pinA) == HIGH) {        // dato non ancora pronto (l'HX711 va a 10 Hz)
         if ((long)(millis() - s.nextMs) < 400) return false;
-        dataHead(i, stamp); Serial.println(F(",nan,1"));
+        dataHead(i, stamp); dout.println(F(",nan,1"));
         markBad(s, true, 2, 2);
         return true;
       }
       long v = hxRead(s.pinA, s.pinB);
-      dataHead(i, stamp); Serial.print(','); Serial.print(v); Serial.println(F(",0"));
+      dataHead(i, stamp); dout.print(','); dout.print(v); dout.println(F(",0"));
       markBad(s, false, 1, 2);
       return true;
     }
@@ -1149,9 +1279,18 @@ bool readSlot(uint8_t i) {
       dataHead(i, stamp);
       if (ok) {
         // v: ax, ay, az, temperatura, gx, gy, gz
-        for (uint8_t k = 0; k < 7; k++) if (k != 3) { Serial.print(','); Serial.print(v[k]); }
-        Serial.println(F(",0"));
-      } else { Serial.println(F(",nan,nan,nan,nan,nan,nan,1")); s.st = 0; }
+        for (uint8_t k = 0; k < 7; k++) if (k != 3) { dout.print(','); dout.print(v[k]); }
+        dout.println(F(",0"));
+      } else { dout.println(F(",nan,nan,nan,nan,nan,nan,1")); s.st = 0; }
+      markBad(s, !ok, 2, 2);
+      return true;
+    }
+    case S_MLX: {
+      uint16_t obj = 0, amb = 0;
+      bool ok = mlxRead(s, 0x07, obj) && mlxRead(s, 0x06, amb);
+      dataHead(i, stamp);
+      if (ok) { dout.print(','); dout.print(obj); dout.print(','); dout.print(amb); dout.println(F(",0")); }
+      else dout.println(F(",nan,nan,1"));
       markBad(s, !ok, 2, 2);
       return true;
     }
@@ -1290,6 +1429,295 @@ void btSetup() {
   Serial.println(F("#ACK,BT,SETUP"));
 }
 
+// =====================================================================================
+// Scheda microSD: SPI hardware e un FAT32 minimo, senza la libreria SD (vorrebbe ~600 byte di
+// RAM in più). Un solo settore in RAM (sdBuf): ora contiene i dati in arrivo, ora un settore della
+// FAT o della cartella (sdCached dice quale; 0xFFFFFFFF = dati).
+// =====================================================================================
+uint8_t sdCs = 10, sdSpc = 1, sdNFats = 2;
+bool sdHc = false, sdIoErr = false;
+uint32_t sdFat, sdData, sdRoot, sdFatSz, sdClusN, sdHint, sdCached = 0xFFFFFFFF;
+uint16_t sdMB;
+// il file aperto: cluster e settore in scrittura, posizione nel settore, dimensione, voce della cartella
+uint32_t fClus, fSize, fDirLba;
+uint8_t fSec;
+uint16_t fPos, fDirOff;
+unsigned long sdSyncMs = 0;
+
+uint16_t rd16(const uint8_t *p) { return p[0] | (p[1] << 8); }
+uint32_t rd32(const uint8_t *p) { return rd16(p) | ((uint32_t)rd16(p + 2) << 16); }
+void wr32(uint8_t *p, uint32_t v) { for (uint8_t i = 0; i < 4; i++) { p[i] = (uint8_t)v; v >>= 8; } }
+
+uint8_t spiX(uint8_t b) { return SPI.transfer(b); }
+bool sdWaitFF(unsigned int ms) {
+  unsigned long t = millis();
+  while (spiX(0xFF) != 0xFF) if (millis() - t > ms) return false;
+  return true;
+}
+void sdEnd() { digitalWrite(sdCs, HIGH); spiX(0xFF); }
+uint8_t sdCmd(uint8_t cmd, uint32_t arg) {
+  digitalWrite(sdCs, LOW);
+  if (cmd) sdWaitFF(500);
+  spiX(0x40 | cmd);
+  for (int8_t s = 24; s >= 0; s -= 8) spiX((uint8_t)(arg >> s));
+  spiX(cmd == 0 ? 0x95 : cmd == 8 ? 0x87 : 0x01);
+  uint8_t r = 0xFF;
+  for (uint8_t i = 0; i < 10 && (r & 0x80); i++) r = spiX(0xFF);
+  return r;
+}
+bool sdInit() {
+  sdCs = outPin(O_SD);
+  pinMode(sdCs, OUTPUT); digitalWrite(sdCs, HIGH);
+  SPI.begin();
+  SPI.beginTransaction(SPISettings(250000, MSBFIRST, SPI_MODE0));
+  for (uint8_t i = 0; i < 10; i++) spiX(0xFF);               // 80 colpi di clock con CS alto
+  uint8_t k = 0;
+  while (sdCmd(0, 0) != 1) { sdEnd(); if (++k > 20) return false; }
+  bool v2 = sdCmd(8, 0x1AA) == 1;
+  uint8_t r = 0;
+  if (v2) { for (uint8_t i = 0; i < 4; i++) r = spiX(0xFF); if (r != 0xAA) { sdEnd(); return false; } }
+  unsigned long t = millis();
+  do {
+    sdCmd(55, 0);
+    if (millis() - t > 2000) { sdEnd(); return false; }
+  } while (sdCmd(41, v2 ? 0x40000000UL : 0) != 0);
+  sdHc = false;
+  if (v2 && sdCmd(58, 0) == 0) { sdHc = spiX(0xFF) & 0x40; for (uint8_t i = 0; i < 3; i++) spiX(0xFF); }
+  if (!sdHc) sdCmd(16, 512);
+  sdEnd();
+  SPI.beginTransaction(SPISettings(4000000, MSBFIRST, SPI_MODE0));
+  sdCached = 0xFFFFFFFF;
+  return true;
+}
+uint32_t sdAddr(uint32_t lba) { return sdHc ? lba : lba << 9; }
+bool sdRead(uint32_t lba) {
+  bool ok = false;
+  sdCached = 0xFFFFFFFF;
+  if (sdCmd(17, sdAddr(lba)) == 0) {
+    unsigned long t = millis();
+    uint8_t r;
+    while ((r = spiX(0xFF)) == 0xFF && millis() - t < 300) {}
+    if (r == 0xFE) { for (uint16_t i = 0; i < 512; i++) sdBuf[i] = spiX(0xFF); spiX(0xFF); spiX(0xFF); ok = true; }
+  }
+  sdEnd();
+  if (!ok) sdIoErr = true;
+  return ok;
+}
+bool sdWrite(uint32_t lba) {
+  bool ok = false;
+  if (sdCmd(24, sdAddr(lba)) == 0) {
+    spiX(0xFF); spiX(0xFE);
+    for (uint16_t i = 0; i < 512; i++) spiX(sdBuf[i]);
+    spiX(0xFF); spiX(0xFF);
+    ok = (spiX(0xFF) & 0x1F) == 0x05 && sdWaitFF(800);
+  }
+  sdEnd();
+  if (!ok) sdIoErr = true;
+  return ok;
+}
+// settore della FAT o della cartella in sdBuf (riletto solo se serve)
+bool sdLoad(uint32_t lba) {
+  if (sdCached == lba) return true;
+  if (!sdRead(lba)) return false;
+  sdCached = lba;
+  return true;
+}
+
+// 0 a posto, 1 scheda assente o che non risponde, 2 non FAT32
+uint8_t sdMount() {
+  sdIoErr = false;
+  if (!sdInit() || !sdLoad(0)) return 1;
+  uint32_t part = 0;
+  if (memcmp_P(sdBuf + 82, PSTR("FAT32"), 5) != 0) {         // non è un settore di avvio: MBR, prima partizione
+    uint8_t t = sdBuf[450];
+    if (rd16(sdBuf + 510) != 0xAA55 || (t != 0x0B && t != 0x0C)) return 2;
+    part = rd32(sdBuf + 454);
+    if (!sdLoad(part)) return 1;
+  }
+  // FAT32: settori da 512 byte, niente cartella principale fissa né FAT a 16 bit
+  if (rd16(sdBuf + 11) != 512 || rd16(sdBuf + 17) != 0 || rd16(sdBuf + 22) != 0) return 2;
+  sdSpc = sdBuf[13];
+  sdNFats = sdBuf[16];
+  sdFatSz = rd32(sdBuf + 36);
+  sdFat = part + rd16(sdBuf + 14);
+  sdData = sdFat + sdNFats * sdFatSz;
+  sdRoot = rd32(sdBuf + 44);
+  uint32_t tot = rd32(sdBuf + 32);
+  if (!sdSpc || !sdFatSz || !sdNFats || tot <= sdData - part) return 2;
+  sdClusN = (tot - (sdData - part)) / sdSpc + 2;
+  sdMB = tot >> 11;
+  // FSInfo: da dove cercare i cluster liberi; il conteggio dei liberi diventa «da ricalcolare»
+  uint32_t fsi = part + rd16(sdBuf + 48);
+  sdHint = 2;
+  if (sdLoad(fsi) && rd32(sdBuf) == 0x41615252UL) {
+    uint32_t h = rd32(sdBuf + 492);
+    if (h >= 2 && h < sdClusN) sdHint = h;
+    if (rd32(sdBuf + 488) != 0xFFFFFFFFUL) { wr32(sdBuf + 488, 0xFFFFFFFFUL); sdWrite(fsi); }
+  }
+  return sdIoErr ? 1 : 0;
+}
+uint32_t clusLba(uint32_t c) { return sdData + (c - 2) * sdSpc; }
+uint32_t fatGet(uint32_t c) {
+  if (!sdLoad(sdFat + (c >> 7))) return 0x0FFFFFFFUL;
+  return rd32(sdBuf + ((c & 127) << 2)) & 0x0FFFFFFFUL;
+}
+bool fatSet(uint32_t c, uint32_t v) {
+  uint32_t lba = sdFat + (c >> 7);
+  if (!sdLoad(lba)) return false;
+  uint8_t *p = sdBuf + ((c & 127) << 2);
+  wr32(p, (rd32(p) & 0xF0000000UL) | v);
+  for (uint8_t i = 0; i < sdNFats; i++) if (!sdWrite(lba + i * sdFatSz)) return false;   // tutte le copie
+  return true;
+}
+// nuovo cluster in fondo alla catena (prev = 0: primo cluster del file); 0 = scheda piena o errore
+uint32_t fatAlloc(uint32_t prev) {
+  uint32_t c = sdHint;
+  for (uint32_t n = 2; n < sdClusN; n++, c++) {
+    if (c >= sdClusN) c = 2;
+    if (fatGet(c) == 0) {
+      if (!fatSet(c, 0x0FFFFFFFUL) || (prev && !fatSet(prev, c))) return 0;
+      sdHint = c + 1;
+      return c;
+    }
+    if (sdIoErr) return 0;
+  }
+  return 0;
+}
+// cartella principale: il LOGnnnnn.CSV più alto (fNum) e il primo posto libero (fDirLba, fDirOff)
+bool dirScan() {
+  uint32_t c = sdRoot;
+  fNum = 0; fDirLba = 0;
+  while (c >= 2 && c < 0x0FFFFFF8UL) {
+    for (uint8_t s = 0; s < sdSpc; s++) {
+      uint32_t lba = clusLba(c) + s;
+      if (!sdLoad(lba)) return false;
+      for (uint16_t o = 0; o < 512; o += 32) {
+        uint8_t *e = sdBuf + o;
+        if (e[0] == 0 || e[0] == 0xE5) {
+          if (!fDirLba) { fDirLba = lba; fDirOff = o; }
+          if (e[0] == 0) return true;                        // fine della cartella
+          continue;
+        }
+        if (e[11] == 0x0F || memcmp_P(e, PSTR("LOG"), 3) || memcmp_P(e + 8, PSTR("CSV"), 3)) continue;
+        uint32_t n = 0;
+        uint8_t k = 3;
+        for (; k < 8 && e[k] >= '0' && e[k] <= '9'; k++) n = n * 10 + e[k] - '0';
+        if (k == 8 && n > fNum) fNum = n;
+      }
+    }
+    c = fatGet(c);
+  }
+  return !sdIoErr;
+}
+// dimensione del file nella sua voce della cartella
+bool dirUpdate() {
+  if (!sdLoad(fDirLba)) return false;
+  wr32(sdBuf + fDirOff + 28, fSize);
+  return sdWrite(fDirLba);
+}
+// 0 a posto, 1 scheda, 3 niente posto per il file
+uint8_t fileCreate() {
+  if (!dirScan()) return 1;
+  if (!fDirLba || fNum >= 99999) return 3;
+  fClus = fatAlloc(0);
+  if (!fClus) return sdIoErr ? 1 : 3;
+  fNum++;
+  if (!sdLoad(fDirLba)) return 1;
+  uint8_t *e = sdBuf + fDirOff;
+  memset(e, 0, 32);
+  memcpy_P(e, PSTR("LOG00000CSV"), 11);
+  uint32_t n = fNum;
+  for (int8_t k = 7; k >= 3; k--) { e[k] = '0' + n % 10; n /= 10; }
+  e[11] = 0x20;                                              // archivio
+  e[20] = fClus >> 16; e[21] = fClus >> 24; e[26] = fClus; e[27] = fClus >> 8;   // primo cluster
+  // data: 1 gennaio 2026 (Arduino non ha un orologio)
+  e[16] = e[18] = e[24] = 0x21; e[17] = e[19] = e[25] = 0x5C;
+  fSec = 0; fPos = 0; fSize = 0;
+  return dirUpdate() ? 0 : 1;
+}
+void sdFail() { sdOn = false; sdErr = true; }
+bool sdFlushSector() { return sdWrite(clusLba(fClus) + fSec); }
+// un byte nel file: a settore pieno lo scrive, a cluster pieno ne prende un altro
+void sdPut(uint8_t c) {
+  sdCached = 0xFFFFFFFF;                                     // sdBuf ora contiene dati
+  sdBuf[fPos++] = c;
+  fSize++;
+  if (fPos < 512) return;
+  fPos = 0;
+  if (!sdFlushSector()) { sdFail(); return; }
+  if (++fSec >= sdSpc) {
+    uint32_t n = fatAlloc(fClus);
+    if (!n) { sdFail(); return; }
+    fClus = n; fSec = 0;
+  }
+}
+// ogni 2 s e alla fine: il settore a metà e la dimensione del file vanno sulla scheda
+void sdSync() {
+  sdSyncMs = millis();
+  if (!sdOn) return;
+  if ((fPos && !sdFlushSector()) || !dirUpdate()) { sdFail(); return; }
+  if (fPos && !sdRead(clusLba(fClus) + fSec)) sdFail();     // si riprende a scrivere nello stesso settore
+}
+
+void logStart() {
+  bootWait = false;
+  uint8_t e = cfgLoad() ? sdMount() : 1;
+  if (!e) e = fileCreate();
+  if (e) { sdErr = true; return; }
+  sdErr = false;
+  dSer = false; sdOn = true;
+  dout.print(F("#MOSAICUS,")); dout.print(FW_VERSION); dout.println(F(",SD"));
+  dout.print(F("#PROJ,"));
+  for (uint8_t k = 0; k < 12; k++) { char c = EEPROM.read(E_ID + k); if (!c) break; dout.write(c); }
+  dout.println();
+  char nm[6];
+  for (uint8_t i = 0; i < MAX_SLOTS; i++) {
+    const Slot &s = slots[i];
+    if (s.type == S_NONE) continue;
+    typeName(s.type, nm);
+    dout.print(F("#CFG,")); dout.print(i); dout.print(','); dout.print(nm); dout.print(',');
+    dout.print(s.intervalMs); dout.print(','); dout.print(s.pinA); dout.print(','); dout.print(s.pinB);
+    dout.print(','); dout.println(s.opt);
+  }
+  dout.println(F("#START"));
+  startRun();
+  sdSync();
+}
+void logStop(bool byButton) {
+  if (byButton) { dout.print(F("#STOP,")); printTime(nowUs()); dout.println(); }
+  stopAll();
+  sdSync();
+  sdOn = false; dSer = true;
+}
+void sdTest() {
+  if (!outPin(O_SD)) { Serial.println(F("#SD,ERR,NOOUT")); return; }
+  if (mode != IDLE) stopAll();
+  uint8_t e = sdMount();
+  if (!e && !dirScan()) e = 1;
+  if (!e && (!fDirLba || fNum >= 99999)) e = 3;
+  sdErr = e != 0;
+  if (e) { Serial.print(F("#SD,ERR,")); Serial.println(e == 1 ? F("CARD") : e == 2 ? F("FAT32") : F("FILE")); }
+  else { Serial.print(F("#SD,OK,")); Serial.println(sdMB); }
+}
+
+// ---------- pulsante ----------
+// Con l'app collegata manda #KEY (l'app avvia o ferma la misura); senza app avvia e ferma la
+// registrazione sulla scheda SD.
+uint8_t btnRaw = HIGH, btnState = HIGH;
+unsigned long btnT = 0;
+void btnPoll() {
+  uint8_t p = outPin(O_BTN);
+  if (!p) return;
+  uint8_t v = digitalRead(p);
+  if (v != btnRaw) { btnRaw = v; btnT = millis(); return; }
+  if (v == btnState || millis() - btnT < 30) return;
+  btnState = v;
+  if (v != LOW) return;
+  if (sdOn) logStop(true);
+  else if (linkOk()) Serial.println(F("#KEY"));
+  else if (sdArmed()) logStart();
+}
+
 // ---------- comandi ----------
 void setAppLine(char *args) {
   // "<1|2>,<testo>": 1 = valore grande (5 caratteri), 2 = riga piccola (10)
@@ -1302,23 +1730,28 @@ void setAppLine(char *args) {
 }
 
 void handleCommand(char *cmd) {
+  if (!cmd[0]) return;                  // righe vuote (disturbi sulla linea): non sono l'app
+  bootWait = false;                     // c'è l'app: niente registrazione automatica
+  if (sdOn) logStop(false);             // e quella in corso si chiude
   lastCmdMs = millis();
   if (lastCmdMs == 0) lastCmdMs = 1;
-  if (strcmp(cmd, "PING") == 0) { pinged = true; return; }
-  if (strncmp(cmd, "LINK,", 5) == 0) { linkBt = cmd[5] == 'B'; return; }
-  if (strcmp(cmd, "ID?") == 0) sendHello();
-  else if (strcmp(cmd, "STOP") == 0) stopAll();
-  else if (strcmp(cmd, "START") == 0) startRun();
-  else if (strcmp(cmd, "CFG,CLEAR") == 0) cfgClear();
-  else if (strncmp(cmd, "CFG,ADD,", 8) == 0) { if (mode == RUN) stopAll(); cfgAdd(cmd + 8); }
-  else if (strncmp(cmd, "START,SCOPE,", 12) == 0) startScope(cmd + 12);
-  else if (strncmp(cmd, "OUT,L,", 6) == 0) setAppLine(cmd + 6);
-  else if (strcmp(cmd, "OUT,CLEAR") == 0) { outsClear(); Serial.println(F("#ACK,OUT,CLEAR")); }
-  else if (strncmp(cmd, "OUT,ADD,", 8) == 0) outAdd(cmd + 8);
-  else if (strcmp(cmd, "OUT,SAVE") == 0) outsSave();
-  else if (strcmp(cmd, "OUT,TEST") == 0) { if (mode == RUN) stopAll(); outsTest(); }
-  else if (strcmp(cmd, "BT,SETUP") == 0) { if (mode != IDLE) stopAll(); btSetup(); }
-  else if (strcmp(cmd, "BT,SETUP,BLE") == 0) { if (mode != IDLE) stopAll(); btSetupBle(); }
+  if (strcmp_P(cmd, PSTR("PING")) == 0) { pinged = true; return; }
+  if (strncmp_P(cmd, PSTR("LINK,"), 5) == 0) { linkBt = cmd[5] == 'B'; return; }
+  if (strcmp_P(cmd, PSTR("ID?")) == 0) sendHello();
+  else if (strcmp_P(cmd, PSTR("STOP")) == 0) stopAll();
+  else if (strcmp_P(cmd, PSTR("START")) == 0) startRun();
+  else if (strcmp_P(cmd, PSTR("CFG,CLEAR")) == 0) cfgClear();
+  else if (strncmp_P(cmd, PSTR("CFG,ADD,"), 8) == 0) { if (mode == RUN) stopAll(); cfgAdd(cmd + 8); }
+  else if (strncmp_P(cmd, PSTR("START,SCOPE,"), 12) == 0) startScope(cmd + 12);
+  else if (strncmp_P(cmd, PSTR("OUT,L,"), 6) == 0) setAppLine(cmd + 6);
+  else if (strcmp_P(cmd, PSTR("OUT,CLEAR")) == 0) { outsClear(); Serial.println(F("#ACK,OUT,CLEAR")); }
+  else if (strncmp_P(cmd, PSTR("OUT,ADD,"), 8) == 0) outAdd(cmd + 8);
+  else if (strcmp_P(cmd, PSTR("OUT,SAVE")) == 0) outsSave();
+  else if (strncmp_P(cmd, PSTR("CFG,SAVE,"), 9) == 0) cfgSave(cmd + 9);
+  else if (strcmp_P(cmd, PSTR("SD,TEST")) == 0) sdTest();
+  else if (strcmp_P(cmd, PSTR("OUT,TEST")) == 0) { if (mode == RUN) stopAll(); outsTest(); }
+  else if (strcmp_P(cmd, PSTR("BT,SETUP")) == 0) { if (mode != IDLE) stopAll(); btSetup(); }
+  else if (strcmp_P(cmd, PSTR("BT,SETUP,BLE")) == 0) { if (mode != IDLE) stopAll(); btSetupBle(); }
   else if (cmdLen > 0) { Serial.print(F("#ERR,")); Serial.println(cmd); }
 }
 
@@ -1344,6 +1777,8 @@ void setup() {
   outsLoad();                    // gli indicatori salvati segnalano subito «in attesa dell'app»
   if (EEPROM.read(20) == 'B') { btKind = EEPROM.read(21); if (btKind > 2) btKind = 0; }
   ledFree = outPinFree(13, false);
+  // modulo SD e configurazione salvata: se l'app non si fa viva entro 4 s, si registra
+  if (sdArmed()) { cfgLoad(); bootWait = true; }
   delay(50);
   sendHello();
 }
@@ -1352,6 +1787,14 @@ void setup() {
 void loop() {
   nowUs();                       // tiene aggiornato il contatore dei giri di micros()
   pollSerial();
+  btnPoll();
+  if (bootWait && millis() > 4000) {
+    bootWait = false;
+    Out *o = outFind(O_SD);
+    if (o && (o->opt & 1) && !outPin(O_BTN)) logStart();
+  }
+  if (sdOn && millis() - sdSyncMs > 2000) sdSync();
+  if (sdErr && !dSer) { dSer = true; stopAll(); }          // la scheda si è guastata durante la registrazione
   statusTick();
   if (mode == SCOPE) {
     bool fired;

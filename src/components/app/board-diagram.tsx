@@ -32,7 +32,8 @@ const BOT_PINS: (number | string | null)[] = [null, null, null, null, "5V", "GND
 // disegno dei moduli: larghezza, altezza (piedini sul lato in alto); ntc e ldr sono componenti sciolti
 const SIZE: Record<string, [number, number]> = {
   dht: [54, 86], sonar: [124, 76], gps: [80, 98], analog: [52, 66], ds18b20: [64, 92], gate: [66, 78], hx711: [62, 74],
-  imu: [56, 70], oled: [58, 66], rgb: [54, 64], buzzer: [48, 64], hc06: [60, 96], ble: [60, 96],
+  imu: [56, 70], mlx: [54, 66], oled: [58, 66], rgb: [54, 64], buzzer: [48, 64], hc06: [60, 96], ble: [60, 96],
+  button: [40, 48], sd: [82, 94],
 };
 const ON_BOARD = new Set(["ntc", "ldr"]);
 
@@ -252,6 +253,57 @@ export function ModuleArt({ kind, options, x, y, w, h, uid }: { kind: string; op
           {label("GY-521", y + h - 5, "#dbeafe", 5.8)}
         </g>
       );
+    case "button": {
+      // pulsante a 4 piedini (12 mm) con il cappuccio colorato
+      const s = Math.min(w - 8, h - LZ - 4), cx = x + w / 2, cy = top + 2 + s / 2;
+      return (
+        <g>
+          <rect x={cx - s / 2 + 1} y={cy - s / 2 + 2} width={s} height={s} rx={2} fill="#000" opacity={0.25} />
+          <rect x={cx - s / 2} y={cy - s / 2} width={s} height={s} rx={2} fill="#3f3f46" stroke="#18181b" strokeWidth={0.8} />
+          <rect x={cx - s / 2 + 2} y={cy - s / 2 + 2} width={s - 4} height={s - 4} rx={1.5} fill="#a1a1aa" />
+          {[[-1, -1], [1, -1], [-1, 1], [1, 1]].map(([dx, dy], i) => <circle key={i} cx={cx + dx * (s / 2 - 3.2)} cy={cy + dy * (s / 2 - 3.2)} r={1.1} fill="#52525b" />)}
+          <circle cx={cx} cy={cy + 1} r={s * 0.3} fill="#000" opacity={0.3} />
+          <circle cx={cx} cy={cy} r={s * 0.3} fill="#dc2626" stroke="#7f1d1d" strokeWidth={0.8} />
+          <circle cx={cx - s * 0.09} cy={cy - s * 0.1} r={s * 0.1} fill="#fff" opacity={0.35} />
+          <rect x={x + 2} y={y} width={w - 4} height={LZ - 2} rx={2} fill="#27272a" />
+        </g>
+      );
+    }
+    case "sd": {
+      // modulo «Micro SD Card Adapter»: regolatore, traslatore di livello e lo zoccolo metallico
+      const sx = x + 10, sy = top + 6, sw = w - 20, sh = h - LZ - 26;
+      return (
+        <g>
+          {pcb("#1d4ed8")}
+          <rect x={sx + 1} y={sy + 2} width={sw} height={sh} rx={2} fill="#000" opacity={0.25} />
+          <rect x={sx} y={sy} width={sw} height={sh} rx={2} fill="#d4d4d8" stroke="#71717a" strokeWidth={0.8} />
+          <rect x={sx + 3} y={sy + 3} width={sw - 6} height={2} rx={1} fill="#fff" opacity={0.5} />
+          <path d={`M${sx + 8} ${sy + sh - 4} h${sw - 22} l6 -6 v-${sh - 18} h-${sw - 16} z`} fill="#18181b" />
+          <text x={sx + sw / 2 - 2} y={sy + sh / 2 + 2} textAnchor="middle" fontSize={5} fontWeight={700} fill="#e4e4e7">microSD</text>
+          {chip(x + 18, y + h - 14, 9)}
+          {chip(x + w - 18, y + h - 14, 9)}
+          {label("MICRO SD", y + h - 4, "#dbeafe", 5.4)}
+        </g>
+      );
+    }
+    case "mlx": {
+      // GY-906: schedina blu con il sensore nel barattolino metallico (TO-39) e la finestrella ottica
+      const cx = x + w / 2, cy = top + 17;
+      return (
+        <g>
+          {pcb("#1d4ed8")}
+          <circle cx={cx + 0.8} cy={cy + 1.8} r={14} fill="#000" opacity={0.28} />
+          <circle cx={cx} cy={cy} r={14} fill="#d4d4d8" stroke="#71717a" strokeWidth={1.1} />
+          <circle cx={cx} cy={cy} r={11} fill="#a1a1aa" stroke="#e4e4e7" strokeWidth={0.8} />
+          <rect x={cx - 1.6} y={cy + 9.5} width={3.2} height={4} fill="#a1a1aa" />
+          <circle cx={cx} cy={cy} r={5} fill="#0f172a" />
+          <circle cx={cx} cy={cy} r={5} fill="none" stroke="#7c3aed" strokeOpacity={0.55} strokeWidth={1.2} />
+          <circle cx={cx - 1.8} cy={cy - 1.8} r={1.4} fill="#fff" opacity={0.35} />
+          <circle cx={cx - 5} cy={cy - 6} r={3} fill="#fff" opacity={0.18} />
+          {label("GY-906", y + h - 5, "#dbeafe", 5.8)}
+        </g>
+      );
+    }
     case "oled":
       return (
         <g>
@@ -363,7 +415,7 @@ export function ComponentThumb({ type, options, className }: { type: SensorType 
     );
   }
   const [w, h] = SIZE[type] ?? [56, 56];
-  const mod = type === "hc06" || type === "ble" ? buildModules([], type)[0] : buildModules([{ ...makeSensor(type), ...(options ? { options } : {}) }], null)[0];
+  const mod = buildModules([{ ...makeSensor(type), ...(options ? { options } : {}) }])[0];
   const n = mod?.rows.length ?? 0;
   const pad = 5, side = Math.max(w, h - 4) + pad * 2;
   const x0 = (side - w) / 2;

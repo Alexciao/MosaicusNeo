@@ -9,7 +9,8 @@
 //   prodotta (_s), le altre restano vuote. alignRows/nearest servono quando bisogna metterle
 //   insieme (mappa, Elaborazione).
 
-import { SENSORS, MAX_ARDUINO, pinName, pinsFor, defaultOptions, type Rec, type SensorType } from "./catalog";
+import { cmpVersion } from "@/lib/version";
+import { SENSORS, MAX_ARDUINO, pinName, pinsFor, defaultOptions, isSlot, type Rec, type SensorType } from "./catalog";
 import { QUANTITIES, symOf } from "./quantities";
 import type { Options, Row } from "./types";
 
@@ -52,7 +53,7 @@ export function makeSensor(type: SensorType, taken: Set<number> = new Set(), ext
   const pins: Record<string, number> = {};
   for (const spec of def.pins) {
     // i pin I2C si condividono: il display e l'accelerometro stanno tutti e due su A4/A5
-    const free = spec.bus ? spec.def : [spec.def, ...pinsFor(spec.kind)].find((p) => !taken.has(p) && !Object.values(pins).includes(p));
+    const free = spec.bus || spec.fixed ? spec.def : [spec.def, ...pinsFor(spec.kind)].find((p) => !taken.has(p) && !Object.values(pins).includes(p));
     pins[spec.key] = free ?? spec.def;
     taken.add(pins[spec.key]);
   }
@@ -68,8 +69,16 @@ export function usedPins(rig: Rig, except?: string) {
   return m;
 }
 /** Sensori veri (esclusi gli indicatori di stato). */
-export const inputsOf = (rig: Rig) => rig.sensors.filter((s) => !SENSORS[s.type].output);
+export const inputsOf = (rig: Rig) => rig.sensors.filter((s) => isSlot(s.type));
 export const outputsOf = (rig: Rig) => rig.sensors.filter((s) => SENSORS[s.type].output);
+/** Indicatori di stato veri e propri: display, LED RGB, cicalino. */
+export const indicatorsOf = (rig: Rig) => rig.sensors.filter((s) => s.type === "oled" || s.type === "rgb" || s.type === "buzzer");
+/** Modulo Bluetooth del progetto (componente HC-06 o BLE), se c'è. */
+export const btOf = (rig: Rig | SensorInstance[]): "hc06" | "ble" | null => {
+  const list = Array.isArray(rig) ? rig : rig.sensors;
+  return (list.find((s) => s.type === "hc06" || s.type === "ble")?.type as "hc06" | "ble" | undefined) ?? null;
+};
+export const hasSd = (rig: Rig) => rig.sensors.some((s) => s.type === "sd");
 /** Sensori del telefono e componenti di Arduino (questi ultimi comprendono display, LED e cicalino). */
 export const phoneOf = (rig: Rig) => rig.sensors.filter((s) => SENSORS[s.type].phone);
 export const arduinoOf = (rig: Rig) => rig.sensors.filter((s) => !SENSORS[s.type].phone);
@@ -77,7 +86,10 @@ export const arduinoOf = (rig: Rig) => rig.sensors.filter((s) => !SENSORS[s.type
 export const isPhoneRig = (rig: Rig) => rig.sensors.length > 0 && rig.sensors.every((s) => SENSORS[s.type].phone);
 /** Versione minima del firmware per questo montaggio. */
 export function firmwareNeeded(rig: Rig) {
-  return rig.sensors.some((s) => SENSORS[s.type].since) ? "1.2" : "1.1";
+  return rig.sensors.reduce((need, s) => {
+    const since = SENSORS[s.type].since;
+    return since && cmpVersion(since, need) > 0 ? since : need;
+  }, "1.1");
 }
 
 export function resolveRig(rig: Rig): Resolved {
@@ -88,7 +100,7 @@ export function resolveRig(rig: Rig): Resolved {
   const arduino: SensorInstance[] = [];
   for (const s of rig.sensors) {
     const def = SENSORS[s.type];
-    if (def.output) continue;
+    if (!isSlot(s.type)) continue;
     code.set(s.id, arduino.length); byCode.set(arduino.length, s); arduino.push(s);
     const map = new Map<string, string>();
     for (const q of def.quantities(s.options)) {
@@ -117,24 +129,28 @@ export function validateRig(rig: Rig): Issue[] {
   const out: Issue[] = [];
   const inputs = inputsOf(rig), arduino = inputs.filter((s) => !SENSORS[s.type].phone);
   if (phoneOf(rig).length && arduinoOf(rig).length) out.push({ level: "error", text: "I sensori del telefono non si usano insieme ai componenti di Arduino: tienili in un progetto a parte." });
-  if (!inputs.length) out.push({ level: "error", text: rig.sensors.length ? "Ci sono solo display, LED o cicalino: aggiungi almeno un sensore." : "Il progetto è vuoto: aggiungi almeno un sensore." });
+  if (!inputs.length) out.push({ level: "error", text: rig.sensors.length ? "Ci sono solo accessori (display, LED, pulsante, scheda SD, Bluetooth): aggiungi almeno un sensore." : "Il progetto è vuoto: aggiungi almeno un sensore." });
+  if (rig.sensors.filter((s) => SENSORS[s.type].link).length > 1) out.push({ level: "error", text: "Un solo modulo Bluetooth alla volta: stanno tutti su D0 e D1. Togli quello in più." });
   if (arduino.length > MAX_ARDUINO) out.push({ level: "error", text: `Troppi sensori: Arduino ne legge al massimo ${MAX_ARDUINO}. Rimuovine qualcuno.` });
   const count = new Map<SensorType, number>();
   for (const s of rig.sensors) count.set(s.type, (count.get(s.type) ?? 0) + 1);
   for (const [type, n] of count) if (n > SENSORS[type].max) out.push({ level: "error", text: SENSORS[type].max === 1 ? `Puoi usare un solo «${SENSORS[type].title}»: rimuovi quello in più.` : `Puoi usare al massimo ${SENSORS[type].max} «${SENSORS[type].title}»: rimuovi quelli in più.` });
-  const seen = new Map<number, { who: string; bus?: string }>();
+  const seen = new Map<number, { who: string; bus?: string; fixed?: boolean; link?: boolean }>();
   for (const s of rig.sensors) {
     const def = SENSORS[s.type];
     for (const spec of def.pins) {
-      const p = s.pins[spec.key];
-      if (p === 0 || p === 1) out.push({ sensorId: s.id, level: "error", text: `${sensorLabel(s)}: D0 e D1 sono riservati alla seriale (USB e Bluetooth). Scegli un altro pin.` });
+      const p = spec.fixed ? spec.def : s.pins[spec.key];
+      if (spec.fixed) { /* pin obbligato (SPI, seriale): conta solo per i doppioni */ }
+      else if (p === 0 || p === 1) out.push({ sensorId: s.id, level: "error", text: `${sensorLabel(s)}: D0 e D1 sono riservati alla seriale (USB e Bluetooth). Scegli un altro pin.` });
       else if (!pinsFor(spec.kind).includes(p)) out.push({ sensorId: s.id, level: "error", text: `${sensorLabel(s)}: sposta ${spec.role} su un pin analogico (A0…A5).` });
       const prev = seen.get(p);
       // due dispositivi I2C sullo stesso filo vanno bene (SDA con SDA, SCL con SCL)
-      if (prev && !(spec.bus && prev.bus === spec.bus)) out.push({ sensorId: s.id, level: "error", text: `${pinName(p)} è usato due volte (${prev.who} e ${sensorLabel(s)} · ${spec.role}). Cambia uno dei due pin.` });
-      seen.set(p, { who: `${sensorLabel(s)} · ${spec.role}`, bus: spec.bus });
+      if (prev && !(spec.bus && prev.bus === spec.bus) && !(SENSORS[s.type].link && prev.link)) out.push({ sensorId: s.id, level: "error", text: spec.fixed
+        ? `${pinName(p)} serve a ${sensorLabel(s)} (${spec.role}) e non si può cambiare: sposta ${prev.who} su un altro pin.`
+        : `${pinName(p)} è usato due volte (${prev.who} e ${sensorLabel(s)} · ${spec.role}). Cambia uno dei due pin.` });
+      if (!prev || !prev.fixed) seen.set(p, { who: `${sensorLabel(s)} · ${spec.role}`, bus: spec.bus, fixed: spec.fixed, link: def.link });
     }
-    if (def.output || def.events) continue;
+    if (def.output || def.link || def.events) continue;
     const min = def.minInterval?.(s.options) ?? def.interval.min;
     if (s.interval < min) out.push({ sensorId: s.id, level: "warn", text: `${sensorLabel(s)}: l'intervallo minimo è ${min} ms, verrà usato quello.` });
   }
@@ -160,7 +176,9 @@ export function firmwareCommands(rig: Rig, res: Resolved, { outputs = false } = 
     cmds.push("OUT,CLEAR");
     for (const s of outputsOf(rig)) {
       const def = SENSORS[s.type];
-      cmds.push(`OUT,ADD,${def.fw},${s.pins.a ?? 0},${s.pins.b ?? 0},${s.pins.c ?? 0},${def.fwOpt?.(s.options) ?? 0}`);
+      // MOSI, MISO e SCK (fissi) li conosce già il firmware; il CS (pin a) si manda sempre
+      const pin = (k: "a" | "b" | "c") => (k !== "a" && def.pins.find((p) => p.key === k)?.fixed ? 0 : s.pins[k] ?? 0);
+      cmds.push(`OUT,ADD,${def.fw},${pin("a")},${pin("b")},${pin("c")},${def.fwOpt?.(s.options) ?? 0}`);
     }
     cmds.push("OUT,SAVE");
   }

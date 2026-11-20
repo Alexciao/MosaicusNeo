@@ -34,10 +34,10 @@ export function liveStatus(rig: Rig, res: Resolved, rows: Row[], running: boolea
         else out.push({ sensorId: s.id, tone: "ok", text: `${name}: posizione trovata${Number.isFinite(sats) ? ` · ${sats} satelliti` : ""}` });
         break;
       }
-      case "dht": case "ds18b20": case "hx711": case "imu": {
+      case "dht": case "ds18b20": case "hx711": case "imu": case "mlx": {
         const okKey = k?.get("ok");
         const bad = okKey ? mine.slice(0, 3).every((r) => r[okKey] === false) : mine.slice(0, 3).every((r) => !Number.isFinite(num(r[k?.get(def.quantities(s.options)[0].key) ?? ""])));
-        if (bad && mine.length >= 3) out.push({ sensorId: s.id, tone: "error", text: `${name}: non risponde`, hint: s.type === "ds18b20" ? "controlla la resistenza da 4,7 kΩ tra DATA e 5V" : s.type === "imu" ? "controlla SDA e SCL" : "controlla i fili" });
+        if (bad && mine.length >= 3) out.push({ sensorId: s.id, tone: "error", text: `${name}: non risponde`, hint: s.type === "ds18b20" ? "controlla la resistenza da 4,7 kΩ tra DATA e 5V" : s.type === "imu" || s.type === "mlx" ? "controlla SDA e SCL" : "controlla i fili" });
         break;
       }
       case "sonar": {

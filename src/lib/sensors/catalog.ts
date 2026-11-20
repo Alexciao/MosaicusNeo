@@ -7,16 +7,19 @@
 // Aggiungere un sensore = aggiungere una voce qui (e, se è di Arduino, un tipo nel firmware).
 
 import type { LucideIcon } from "lucide-react";
-import { Activity, AudioLines, BellRing, Droplets, Lightbulb, Monitor, Move3d, MoveHorizontal, Satellite, ScanLine, Smartphone, Sun, Thermometer, ThermometerSnowflake, Weight } from "lucide-react";
+import { Activity, AudioLines, BellRing, Bluetooth, BluetoothSearching, CircleDot, MemoryStick, Droplets, Lightbulb, Monitor, Move3d, MoveHorizontal, Radar, Satellite, ScanLine, Smartphone, Sun, Thermometer, ThermometerSnowflake, Weight } from "lucide-react";
 import { localPolyDerivs } from "@/lib/mosaicus/analysis.js";
 import { nmeaToDeg, haversine, nmeaTime } from "@/lib/mosaicus/geo";
 import type { Options, Param, Tone, WiringBlock } from "./types";
 
-export type SensorType = "ntc" | "dht" | "sonar" | "gps" | "analog" | "ldr" | "ds18b20" | "gate" | "hx711" | "imu" | "oled" | "rgb" | "buzzer" | "pmotion" | "psound";
+export type SensorType = "ntc" | "dht" | "sonar" | "gps" | "analog" | "ldr" | "ds18b20" | "gate" | "hx711" | "imu" | "mlx" | "oled" | "rgb" | "buzzer" | "button" | "sd" | "hc06" | "ble" | "pmotion" | "psound";
 export type Rec = Record<string, number | boolean> & { t: number };
 
-/** bus: i pin I2C si possono condividere tra più dispositivi I2C (display, MPU-6050) */
-export interface PinSpec { key: "a" | "b" | "c"; role: string; kind: "analog" | "digital"; def: number; note?: string; bus?: "sda" | "scl" }
+/** bus: i pin I2C si possono condividere tra più dispositivi I2C (display, MPU-6050, MLX90614);
+ *  fixed: pin che non si sceglie (SPI della scheda SD su D11–D13, seriale del Bluetooth su D0/D1) */
+export interface PinSpec { key: "a" | "b" | "c" | "d"; role: string; kind: "analog" | "digital"; def: number; note?: string; bus?: "sda" | "scl"; fixed?: boolean }
+/** Gruppi del catalogo: che cosa fa il componente. */
+export type ComponentGroup = "sensor" | "control" | "output" | "storage" | "comm" | "phone";
 /** primary: tra le letture in evidenza; raw: dato tecnico; hidden: solo in tabella ed export */
 export interface QView { key: string; digits: number; line?: boolean; raw?: boolean; hidden?: boolean; primary?: boolean; sym?: string; name?: string; unit?: string }
 
@@ -29,11 +32,16 @@ export interface SensorDef {
   icon: LucideIcon;
   tone: Tone;
   /** tipo nel firmware (CFG,ADD,…,<tipo>,… oppure OUT,ADD,<tipo>,… per gli indicatori) */
-  fw: "NTC" | "ANA" | "DHT" | "SONAR" | "GPS" | "DS18" | "GATE" | "HX711" | "IMU" | "OLED" | "RGB" | "BUZ" | "PMOT" | "PSND";
+  fw: "NTC" | "ANA" | "DHT" | "SONAR" | "GPS" | "DS18" | "GATE" | "HX711" | "IMU" | "MLX" | "OLED" | "RGB" | "BUZ" | "BTN" | "SD" | "BT" | "PMOT" | "PSND";
+  /** gruppo nel catalogo (se manca: sensore, o uscita per gli indicatori, o telefono) */
+  group?: ComponentGroup;
   /** sensore del telefono o del computer: niente Arduino, non si mescola con i componenti di Arduino */
   phone?: boolean;
-  /** indicatore di stato (display, LED, cicalino): non misura nulla e non occupa uno dei 6 posti */
+  /** accessorio comandato da Arduino (display, LED, cicalino, pulsante, scheda SD): si configura con
+   *  OUT,ADD, non misura nulla e non occupa uno dei 6 posti */
   output?: boolean;
+  /** modulo di collegamento (Bluetooth): solo fili, nessun comando al firmware e nessun posto */
+  link?: boolean;
   /** scrive solo quando cambia qualcosa (fotocellula): nessun ritmo di lettura */
   events?: boolean;
   /** versione minima del firmware */
@@ -409,6 +417,46 @@ const imu: SensorDef = {
   wiring: (p) => [{ title: "MPU-6050 (GY-521)", pins: { sda: p.a, scl: p.b }, text: `VCC a 5V, GND a GND, SDA su ${p.a}, SCL su ${p.b}.` }],
 };
 
+/**
+ * MLX90614: il sensore calcola la temperatura dell'oggetto supponendo emissività 1 (impostazione di
+ * fabbrica). Per una superficie con emissività ε la correzione viene dalla legge di Stefan-Boltzmann,
+ * con la temperatura ambiente come temperatura della radiazione riflessa:
+ *   T_vera⁴ = (T_misurata⁴ − (1 − ε)·T_amb⁴) / ε   (temperature in kelvin)
+ */
+export function mlxCorrect(Tobj: number, Tamb: number, eps: number) {
+  if (!(eps > 0 && eps < 1) || !Number.isFinite(Tobj) || !Number.isFinite(Tamb)) return Tobj;
+  const K = 273.15, t4 = ((Tobj + K) ** 4 - (1 - eps) * (Tamb + K) ** 4) / eps;
+  return t4 > 0 ? t4 ** 0.25 - K : NaN;
+}
+const mlx: SensorDef = {
+  rawFields: ["obj_raw_0.02K", "amb_raw_0.02K", "error"],
+  type: "mlx", title: "Termometro a infrarossi MLX90614", short: "MLX90614", measures: "temperatura senza contatto (e del sensore)",
+  description: "Temperatura di una superficie senza toccarla, da −70 a 380 °C, più la temperatura del sensore; usa il bus I2C insieme al display.",
+  icon: Radar, tone: "rose", fw: "MLX", since: "1.4",
+  pins: [
+    { key: "a", role: "SDA", kind: "digital", def: 18, bus: "sda", note: "Di solito A4, condiviso con il display e l'MPU-6050." },
+    { key: "b", role: "SCL", kind: "digital", def: 19, bus: "scl", note: "Di solito A5." },
+  ],
+  // tutti i MLX90614 rispondono all'indirizzo 0x5A: due sullo stesso bus si disturberebbero
+  interval: { def: 250, min: 100 }, max: 1,
+  options: [
+    { key: "eps", label: "Emissività della superficie (pelle 0,98, acqua 0,96, legno e plastica 0,90–0,95)", value: 0.95, min: 0.1, step: 0.01 },
+    { key: "offset", label: "Correzione di taratura, sommata a T", unit: "°C", value: 0, step: 0.1, advanced: true },
+  ],
+  quantities: () => [
+    { key: "T", digits: 2, line: true, primary: true },
+    { key: "Ts", digits: 2, line: true },
+    { key: "Traw", digits: 2, raw: true, hidden: true },
+  ],
+  parse([obj, amb, err], o) {
+    const ok = err === 0 && Number.isFinite(obj) && Number.isFinite(amb);
+    if (!ok) return { t: 0, ok, T: NaN, Ts: NaN, Traw: NaN };
+    const Traw = obj * 0.02 - 273.15, Ts = amb * 0.02 - 273.15;
+    return { t: 0, ok, Traw, Ts, T: mlxCorrect(Traw, Ts, num(o.eps)) + num(o.offset) };
+  },
+  wiring: (p) => [{ title: "MLX90614 (GY-906)", pins: { sda: p.a, scl: p.b }, text: `VIN (o VCC) a 5V, GND a GND, SDA su ${p.a}, SCL su ${p.b}. Il sensore vede un cono di circa 90°: avvicinalo alla superficie, a pochi centimetri.` }],
+};
+
 // ---------------------------------------------------------------------------
 // Indicatori di stato: mostrano da soli se Arduino è pronto e sta misurando
 // ---------------------------------------------------------------------------
@@ -458,6 +506,65 @@ const buzzer: SensorDef = {
 };
 
 // ---------------------------------------------------------------------------
+// Comandi e memoria: pulsante per avviare e fermare, scheda SD per misurare senza computer
+// ---------------------------------------------------------------------------
+const button: SensorDef = {
+  ...outputBase, group: "control", since: "1.5",
+  type: "button", title: "Pulsante Avvia/Ferma", short: "Pulsante", measures: "avvia e ferma la misura da Arduino",
+  description: "Un pulsante su Arduino che fa come «Avvia» e «Ferma»: con l'app collegata (cavo o Bluetooth) e con la scheda SD, dove avvia e ferma la registrazione senza computer.",
+  icon: CircleDot, tone: "lime", fw: "BTN",
+  pins: [{ key: "a", role: "pulsante", kind: "digital", def: 3, note: "L'altro piedino va a GND: la resistenza di pull-up è dentro Arduino." }],
+  options: [],
+  wiring: (p) => [{ title: "Pulsante", pins: { s: p.a }, text: `Un piedino del pulsante su ${p.a}, l'altro a GND.` }],
+};
+
+const sd: SensorDef = {
+  ...outputBase, group: "storage", since: "1.5",
+  type: "sd", title: "Scheda microSD (registra senza computer)", short: "Scheda SD", measures: "registra le misure sulla scheda",
+  description: "Arduino registra le misure su una scheda microSD, alimentato da un power bank o da una pila: niente cavo né telefono. Con il pulsante avvii e fermi; senza, registra da quando lo accendi. Poi importi i file nel Quaderno.",
+  icon: MemoryStick, tone: "saffron", fw: "SD",
+  pins: [
+    // CS su D10: con la scheda SD D10 resta comunque riservato (su Arduino Uno l'SPI smette di
+    // funzionare se D10 è un ingresso tirato a 0), quindi il CS sta lì
+    { key: "a", role: "CS", kind: "digital", def: 10, fixed: true },
+    { key: "b", role: "MOSI", kind: "digital", def: 11, fixed: true },
+    { key: "c", role: "MISO", kind: "digital", def: 12, fixed: true },
+    { key: "d", role: "SCK", kind: "digital", def: 13, fixed: true },
+  ],
+  options: [],
+  // bit0: senza pulsante, registra appena Arduino si accende
+  fwOpt: () => 1,
+  wiring: (p) => [{ title: "Scheda microSD", pins: { cs: p.a }, text: `Modulo microSD (con regolatore, va a 5V): GND, VCC a 5V, MISO su D12, MOSI su D11, SCK su D13, CS su D10. Scheda formattata FAT32, fino a 32 GB.` }],
+};
+
+// ---------------------------------------------------------------------------
+// Bluetooth: un modulo sulla seriale (D0/D1), in parallelo al cavo USB. Arduino non lo comanda:
+// è un componente per avere lo schema, i fili e la guida giusti, e per collegarsi senza cavo.
+// ---------------------------------------------------------------------------
+const btBase = {
+  rawFields: [] as string[], interval: { def: 0, min: 0 }, max: 1, link: true, group: "comm" as const, fw: "BT" as const,
+  quantities: () => [] as QView[], parse: () => null, options: [] as Param[],
+  pins: [
+    { key: "a" as const, role: "TXD → D0 (RX)", kind: "digital" as const, def: 0, fixed: true },
+    { key: "b" as const, role: "RXD ← D1 (TX)", kind: "digital" as const, def: 1, fixed: true, note: "Con il partitore 1 kΩ + 2 kΩ: l'RXD del modulo regge 3,3 V." },
+  ],
+};
+const hc06: SensorDef = {
+  ...btBase,
+  type: "hc06", title: "Bluetooth HC-06 (classico)", short: "HC-06", measures: "misura senza cavo, da Android",
+  description: "Modulo Bluetooth classico: misuri senza cavo con Chrome su Android (non su iPhone). Arduino va alimentato da un power bank.",
+  icon: Bluetooth, tone: "sky",
+  wiring: () => [{ title: "Bluetooth HC-06", text: "VCC a 5V, GND a GND, TXD su D0, RXD su D1 attraverso il partitore 1 kΩ + 2 kΩ." }],
+};
+const ble: SensorDef = {
+  ...btBase,
+  type: "ble", title: "Bluetooth LE (HM-10, AT-09, HC-08)", short: "Bluetooth LE", measures: "misura senza cavo, anche da iPhone",
+  description: "Modulo Bluetooth Low Energy: misuri senza cavo con Chrome su computer e Android, e da iPhone con il browser Bluefy. Arduino va alimentato da un power bank.",
+  icon: BluetoothSearching, tone: "sky",
+  wiring: () => [{ title: "Bluetooth LE", text: "VCC a 5V, GND a GND, TXD su D0, RXD su D1 attraverso il partitore 1 kΩ + 2 kΩ." }],
+};
+
+// ---------------------------------------------------------------------------
 // Sensori del telefono (senza Arduino): stesso protocollo, li legge PhoneLink
 // ---------------------------------------------------------------------------
 const PHONE_AXES = "Telefono in verticale davanti a te: x verso destra, y verso l'alto lungo lo schermo, z uscente dallo schermo. A telefono fermo sul tavolo a_z ≈ +9,8 m/s²: l'accelerometro misura la reazione del tavolo, opposta alla gravità.";
@@ -498,23 +605,36 @@ const psound: SensorDef = {
   wiring: () => [{ title: "Niente da collegare", text: "Usa il microfono del dispositivo: premi «Attiva i sensori» e consenti l'accesso al microfono." }],
 };
 
-export const SENSORS: Record<SensorType, SensorDef> = { ntc, dht, sonar, gps, analog, ldr, ds18b20, gate, hx711, imu, oled, rgb, buzzer, pmotion, psound };
+export const SENSORS: Record<SensorType, SensorDef> = { ntc, dht, sonar, gps, analog, ldr, ds18b20, gate, hx711, imu, mlx, oled, rgb, buzzer, button, sd, hc06, ble, pmotion, psound };
 export const isPhoneType = (t: SensorType) => !!SENSORS[t].phone;
 /** Tutti i componenti, nell'ordine del catalogo «Aggiungi un componente». */
-export const COMPONENTS: SensorType[] = ["dht", "ntc", "ds18b20", "sonar", "imu", "gate", "gps", "ldr", "hx711", "analog", "oled", "rgb", "buzzer", "pmotion", "psound"];
+export const COMPONENTS: SensorType[] = ["dht", "ntc", "ds18b20", "mlx", "sonar", "imu", "gate", "gps", "ldr", "hx711", "analog", "button", "oled", "rgb", "buzzer", "sd", "hc06", "ble", "pmotion", "psound"];
 export const OUTPUTS: SensorType[] = COMPONENTS.filter((t) => SENSORS[t].output);
+/** Gruppo di un componente nel catalogo. */
+export const groupOf = (t: SensorType): ComponentGroup => SENSORS[t].group ?? (SENSORS[t].phone ? "phone" : SENSORS[t].output ? "output" : "sensor");
+/** Occupa uno dei 6 posti di Arduino (è un sensore vero)? */
+export const isSlot = (t: SensorType) => !SENSORS[t].output && !SENSORS[t].link;
+export const GROUPS: [ComponentGroup, string, string][] = [
+  ["sensor", "Sensori", "misurano: gli ingressi di Arduino"],
+  ["control", "Comandi", "per avviare e fermare da Arduino"],
+  ["output", "Display, LED e suoni", "mostrano lo stato di Arduino"],
+  ["storage", "Memoria", "registrano senza computer"],
+  ["comm", "Bluetooth", "per collegarsi senza cavo"],
+  ["phone", "Telefono", "i sensori del telefono, senza Arduino"],
+];
 
 /** Categorie per filtrare il catalogo (un componente può stare in più categorie). */
-export type ComponentTag = "temp" | "motion" | "light" | "force" | "place" | "volt" | "status" | "phone";
+/** Argomenti per filtrare i sensori (dentro il gruppo «Sensori»; un sensore può stare in più argomenti). */
+export type ComponentTag = "temp" | "motion" | "light" | "force" | "place" | "volt";
 export const TAGS: [ComponentTag, string][] = [
   ["temp", "Temperatura e clima"], ["motion", "Movimento e tempo"], ["light", "Luce"], ["force", "Forza e massa"],
-  ["place", "Posizione"], ["volt", "Tensione"], ["status", "Display, LED e cicalino"], ["phone", "Telefono, senza Arduino"],
+  ["place", "Posizione"], ["volt", "Tensione"],
 ];
 export const COMPONENT_TAGS: Record<SensorType, ComponentTag[]> = {
-  dht: ["temp"], ntc: ["temp"], ds18b20: ["temp"], sonar: ["motion", "place"], imu: ["motion", "force"], gate: ["motion", "light"],
-  gps: ["place", "motion"], ldr: ["light"], hx711: ["force"], analog: ["volt"], oled: ["status"], rgb: ["status", "light"], buzzer: ["status"],
-  // solo nella loro categoria: l'elenco principale resta quello dei componenti di Arduino
-  pmotion: ["phone"], psound: ["phone"],
+  dht: ["temp"], ntc: ["temp"], ds18b20: ["temp"], mlx: ["temp"], sonar: ["motion", "place"], imu: ["motion", "force"], gate: ["motion", "light"],
+  gps: ["place", "motion"], ldr: ["light"], hx711: ["force"], analog: ["volt"],
+  oled: [], rgb: [], buzzer: [], button: [], sd: [], hc06: [], ble: [],
+  pmotion: ["motion"], psound: [],
 };
 /** Parole in più per la ricerca (nomi comuni, sinonimi, kit). */
 export const COMPONENT_KEYWORDS: Record<SensorType, string> = {
@@ -524,6 +644,7 @@ export const COMPONENT_KEYWORDS: Record<SensorType, string> = {
   ntc: "termistore termometro calore raffreddamento newton resistenza",
   ds18b20: "sonda impermeabile acqua liquido termometro onewire",
   sonar: "ultrasuoni distanza sonar carrello caduta moto velocità accelerazione hcsr04 hc-sr04",
+  mlx: "infrarossi termometro senza contatto pistola termocamera superficie pelle mlx90614 gy906 gy-906 melexis",
   imu: "accelerometro giroscopio inclinazione vibrazioni urti oscillazioni gy521 gy-521 mpu6050",
   gate: "fotocellula fotoporta pendolo periodo cronometro forcella infrarossi pulsante interruttore",
   gps: "satelliti mappa percorso altitudine passeggiata neo6m neo-6m neo7m",
@@ -533,6 +654,10 @@ export const COMPONENT_KEYWORDS: Record<SensorType, string> = {
   oled: "schermo display ssd1306 stato scritte",
   rgb: "led colori luce stato semaforo",
   buzzer: "cicalino suono beep allarme avviso",
+  button: "pulsante tasto bottone avvia ferma start stop interruttore",
+  sd: "scheda sd microsd memoria registrazione datalogger senza computer power bank pila batteria file",
+  hc06: "bluetooth classico hc06 hc-06 hc05 hc-05 android senza cavo wireless",
+  ble: "bluetooth le low energy hm10 hm-10 at09 at-09 hc08 hc-08 bt05 iphone bluefy senza cavo wireless",
 };
 export const isOutput = (t: SensorType) => !!SENSORS[t].output;
 export const MAX_ARDUINO = 6;

@@ -3,7 +3,7 @@
 
 import { useDeferredValue, useMemo, useState } from "react";
 import {
-  ArrowRight, BookOpen, ChartLine, CloudCheck, CloudUpload, Cpu, Ellipsis, FileSpreadsheet, FileText, FlaskConical, FolderOpen, Pencil, Search, Trash, X,
+  ArrowRight, BookOpen, ChartLine, CloudCheck, CloudUpload, Cpu, Ellipsis, FileSpreadsheet, FileText, FlaskConical, FolderOpen, MemoryStick, Pencil, Search, Trash, X,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -20,11 +20,12 @@ import { confirm } from "@/lib/confirm";
 import { fmtVal } from "@/lib/prefs";
 import { cn } from "@/lib/utils";
 import { toneBg } from "@/components/app/tone";
+import { SdImportButton } from "@/components/app/sd-controls";
 
 type Sort = "new" | "old" | "name" | "size";
 const SORTS: Record<Sort, string> = { new: "Più recenti", old: "Più vecchie", name: "Nome (A–Z)", size: "Più letture" };
-type Src = "all" | "arduino" | "sim";
-const SOURCES: Record<Src, string> = { all: "Arduino e simulatore", arduino: "Solo Arduino", sim: "Solo simulatore" };
+type Src = "all" | "arduino" | "sd" | "sim";
+const SOURCES: Record<Src, string> = { all: "Tutte le sorgenti", arduino: "Arduino dal vivo", sd: "Scheda SD", sim: "Simulatore" };
 
 const dayFmt = new Intl.DateTimeFormat("it-IT", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
 const timeFmt = new Intl.DateTimeFormat("it-IT", { hour: "2-digit", minute: "2-digit" });
@@ -63,7 +64,7 @@ export function NotebookPage() {
   const list = useMemo(() => {
     const out = (sessions ?? []).filter((s) =>
       (lab === "all" || s.labId === lab) &&
-      (src === "all" || (src === "sim") === (s.source === "simulatore")) &&
+      (src === "all" || src === (s.source === "simulatore" ? "sim" : s.source === "scheda SD" ? "sd" : "arduino")) &&
       (!query || `${s.name} ${s.labTitle} ${s.sensors.join(" ")}`.toLowerCase().includes(query)));
     const cmp: Record<Sort, (a: SessionSummary, b: SessionSummary) => number> = {
       new: (a, b) => b.created - a.created, old: (a, b) => a.created - b.created,
@@ -90,11 +91,14 @@ export function NotebookPage() {
   return (
     <div className="mx-auto flex w-full max-w-[1100px] flex-col gap-4 p-3 sm:p-4">
       <Card className="flex flex-col gap-4 p-4">
-        <div>
-          <h2 className="text-xl font-bold tracking-tight">Quaderno</h2>
-          <p className="text-sm text-muted-foreground">
-            Le misure si salvano qui quando premi «Ferma».
-          </p>
+        <div className="flex flex-wrap items-start gap-x-4 gap-y-2">
+          <div className="mr-auto">
+            <h2 className="text-xl font-bold tracking-tight">Quaderno</h2>
+            <p className="text-sm text-muted-foreground">
+              Le misure si salvano qui quando premi «Ferma». Le registrazioni della scheda SD si importano da qui.
+            </p>
+          </div>
+          <SdImportButton />
         </div>
         <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
           <div className="relative min-w-0 flex-1 sm:min-w-56">
@@ -179,6 +183,8 @@ function SessionRow({ s, showDate }: { s: SessionSummary; showDate: boolean }) {
           <div className="mt-1.5 flex flex-wrap items-center gap-1">
             {s.source === "simulatore"
               ? <span className="rounded bg-muted px-1.5 py-0.5 text-[0.65rem] font-medium text-muted-foreground">simulatore</span>
+              : s.source === "scheda SD"
+              ? <span className="inline-flex items-center gap-1 rounded bg-muted px-1.5 py-0.5 text-[0.65rem] font-medium text-muted-foreground"><MemoryStick className="size-3" /> scheda SD</span>
               : <span className="inline-flex items-center gap-1 rounded bg-muted px-1.5 py-0.5 text-[0.65rem] font-medium text-muted-foreground"><Cpu className="size-3" /> Arduino</span>}
             {s.sensors.map((x, i) => <span key={i} className="rounded border px-1.5 py-0.5 text-[0.65rem] font-medium text-muted-foreground">{x}</span>)}
             {boxes > 0 && (

@@ -27,6 +27,7 @@ import {
   resolveRig, validateRig, hasErrors, firmwareCommands, buildRows, alignRows, seriesOf, interpAt, tolerance,
   makeSensor, usedPins, newId, sensorLabel, LEGACY, inputsOf, outputsOf, isPhoneRig, firmwareNeeded, type Rig, type SensorInstance, type Resolved, type ResolvedQuantity,
 } from "@/lib/sensors/rig";
+import { parseSdLog, cfgMatches, sensorsFromCfg } from "@/lib/sensors/sd-log";
 import { PRESETS, INSTRUMENTS, presetById, instrumentById, presetSensors, type Preset, type Instrument } from "@/lib/sensors/presets";
 import type { Row, Tone } from "@/lib/sensors/types";
 
@@ -57,11 +58,12 @@ export interface SessionSummary {
 export type StatusTone = "off" | "wait" | "on" | "err";
 export type Page = "misura" | "quaderno" | "elab";
 export type GuideStep = "link" | "wait" | "start" | "stop" | "pick" | "send" | "go" | null;
-/** Stato riferito da Arduino (firmware 1.2): W attesa app · I pronto · S in ricerca · E problema · T misura ok · O oscilloscopio */
 /** Stato riferito da Arduino (#ST). k/n: con più sensori in difficoltà il display li mostra a turno;
  *  bt: modulo Bluetooth configurato (0, 1 HC-06, 2 BLE); link: collegamento attuale (U USB, B Bluetooth).
- *  st "C": configurazione rifiutata (slot -1 = display, LED o cicalino; issue = motivo). */
-export interface DeviceStatus { st: "W" | "I" | "S" | "E" | "T" | "O" | "C"; slot: number; issue: number; k: number; n: number; bt: number; link: "U" | "B"; at: number }
+ *  st: W attesa dell'app · I pronto · S in ricerca · E problema (slot -2 = scheda SD) · T misura ok · O oscilloscopio ·
+ *  C configurazione rifiutata (slot -1 = accessorio; issue = motivo) · R scheda SD pronta, aspetta il pulsante ·
+ *  L registrazione sulla scheda SD (firmware 1.5). */
+export interface DeviceStatus { st: "W" | "I" | "S" | "E" | "T" | "O" | "C" | "R" | "L"; slot: number; issue: number; k: number; n: number; bt: number; link: "U" | "B"; at: number }
 
 /** Pannello di uno strumento (oscilloscopio, synth): riceve le righe che lo riguardano. */
 export interface InstrumentPanel {
@@ -114,6 +116,8 @@ interface LabState {
   lim: boolean;
   dragHint: boolean;
   labsOpen: boolean;
+  /** barra laterale dei lab aperta (sul computer; ricordato) */
+  labsSidebar: boolean;
   rigOpen: boolean;
   /** capitolo della guida aperto (null = guida chiusa) */
   guide: string | null;
@@ -124,6 +128,8 @@ interface LabState {
   sideTab: string;
   /** ultimo tratto inviato a Elaborazione: per riconoscerlo e aprirlo */
   lastSent: { key: string; boxId: number } | null;
+  /** esito di «Prepara Arduino» per la scheda SD */
+  sdCheck: { state: "busy" | "ok" | "err"; text: string } | null;
 }
 
 const EMPTY_RIG: Rig = { id: "empty", name: "", sensors: [] };
@@ -153,9 +159,11 @@ export const useLab = create<LabState>(() => ({
   lim: prefs.get("mosaicus.lim", false),
   dragHint: false,
   labsOpen: false,
+  labsSidebar: prefs.get("mosaicus.labsSidebar", true),
   rigOpen: false,
   guide: null,
   lastSent: null,
+  sdCheck: null,
   device: null,
   oledLines: ["", ""],
   sideTab: prefs.get("mosaicus.sideTab", "sensors"),
@@ -300,6 +308,10 @@ export function goHome() {
   window.scrollTo({ top: 0, behavior: "smooth" });
 }
 /** Apre la guida a un capitolo (es. dal messaggio "firmware vecchio" o dalla sezione Bluetooth). */
+export function setLabsSidebar(open: boolean) { set({ labsSidebar: open }); prefs.set("mosaicus.labsSidebar", open); }
+/** Un esperimento pronto modificato (versione personale)? */
+export const presetModified = (id: string) => !!presetById(id) && prefs.get<unknown>(rigKey(id), null) != null;
+
 export function openGuide(chapter = "start") { set({ guide: chapter }); }
 export function closeGuide() { set({ guide: null }); }
 
@@ -570,7 +582,7 @@ export async function connect(kind: "arduino" | "ble" | "sim" | "phone") {
     const wasRunning = get().running;
     link = null;
     stopPing();
-    set({ linkKind: null, transport: null, ready: false, device: null });
+    set({ linkKind: null, transport: null, ready: false, device: null, sdCheck: null });
     setStatus("Nessun dispositivo", "off");
     instrument?.linkChanged?.();
     if (wasRunning) {
@@ -648,6 +660,7 @@ function handleLine(line: string) {
     setStatus(kind === "simulatore" ? simStatus() : kind === "telefono" ? "Sensori del telefono pronti" : `Arduino pronto${link?.transport === "ble" ? " (Bluetooth LE)" : ""} · firmware ${fw}`, "on");
     return;
   }
+  if (line === "#KEY") { onKey(); return; }
   if (line === "#BT,NOREPLY") { btNoReply = true; return; }
   if (line === "#BT,SETUP") { toast.info("Configurazione del modulo Bluetooth: nome «MosaicusNeo», 115200 baud…"); return; }
   if ((line === "#ACK,BT,SETUP,BLE" || line === "#ACK,BT,SETUP") && btNoReply) {
@@ -754,6 +767,23 @@ const CFG_ERR: Record<string, string> = {
   GPS: "c'è già un GPS", SLOT: "troppi componenti", TIPO: "tipo di sensore sconosciuto", ARGOMENTI: "comando incompleto",
 };
 
+/** Manda la configurazione (sensori e, se outputs, accessori) un comando alla volta. false: rifiutata. */
+async function sendConfig(rig: Rig, res: Resolved, outputs: boolean) {
+  for (const cmd of firmwareCommands(rig, res, { outputs })) {
+    const reply = await request(cmd, (l) => l.startsWith("#ACK,CFG") || l.startsWith("#ACK,OUT") || l.startsWith("#ERR"));
+    if (!reply) { toast.error("Arduino non risponde alla configurazione. Scollegalo e ricollegalo."); return false; }
+    if (reply.startsWith("#ERR")) {
+      const parts = reply.split(",");
+      if (parts[1] === "OUT") { toast.error(`Accessori (display, LED, cicalino, pulsante, scheda SD): ${OUT_ERR[parts[2]] ?? parts[2]}.`); return false; }
+      if (parts[1] !== "CFG") { toast.error(`Firmware non aggiornato: per configurare i componenti serve la v${FIRMWARE_VERSION}. Trovi i passaggi nella «Guida».`, { duration: 10000 }); return false; }
+      const s = res.byCode.get(Number(parts[2]));
+      toast.error(`${s ? sensorLabel(s) : "Componente"}: ${CFG_ERR[parts[3]] ?? parts[3]}.`);
+      return false;
+    }
+  }
+  return true;
+}
+
 /** Si può premere Avvia? (montaggio valido e, se servono, Arduino o simulatore pronti) */
 export function canStart(st = get()) {
   if (st.running || !inputsOf(st.rig).length) return false;
@@ -776,23 +806,12 @@ export async function start() {
     const need = firmwareNeeded(rig);
     const phone = link.kind === "telefono";
     if (!sim && !phone && st.fw && cmpVersion(st.fw, need) < 0) {
-      const what = rig.sensors.filter((s) => SENSORS[s.type].since).map(sensorLabel).join(", ");
+      const what = rig.sensors.filter((s) => { const v = SENSORS[s.type].since; return v && cmpVersion(st.fw!, v) < 0; }).map(sensorLabel).join(", ");
       toast.error(`${what}: serve il firmware v${need} (su Arduino c'è la v${st.fw}). Aggiornalo con l'IDE di Arduino.`, { duration: 12000, action: { label: "Come si fa", onClick: () => openGuide("firmware") } });
       return;
     }
     const outputs = !phone && (sim || (!!st.fw && cmpVersion(st.fw, "1.2") >= 0));
-    for (const cmd of firmwareCommands(rig, res, { outputs })) {
-      const reply = await request(cmd, (l) => l.startsWith("#ACK,CFG") || l.startsWith("#ACK,OUT") || l.startsWith("#ERR"));
-      if (!reply) { toast.error("Arduino non risponde alla configurazione. Scollegalo e ricollegalo."); return; }
-      if (reply.startsWith("#ERR")) {
-        const parts = reply.split(",");
-        if (parts[1] === "OUT") { toast.error(`Display, LED e cicalino: ${OUT_ERR[parts[2]] ?? parts[2]}.`); return; }
-        if (parts[1] !== "CFG") { toast.error(`Firmware non aggiornato: per configurare i componenti serve la v${FIRMWARE_VERSION}. Trovi i passaggi nella «Guida».`, { duration: 10000 }); return; }
-        const s = res.byCode.get(Number(parts[2]));
-        toast.error(`${s ? sensorLabel(s) : "Componente"}: ${CFG_ERR[parts[3]] ?? parts[3]}.`);
-        return;
-      }
-    }
+    if (!(await sendConfig(rig, res, outputs))) return;
   }
   const exp = labInfo();
   raw = [];
@@ -859,6 +878,166 @@ export async function bluetoothSetup(module: "hc06" | "ble" = "hc06") {
     toast.error(`Firmware non aggiornato: per configurare il modulo serve la v${FIRMWARE_VERSION}.`); return;
   }
   await link.write(module === "ble" ? "BT,SETUP,BLE" : "BT,SETUP");
+}
+
+// ---------------------------------------------------------------------------
+// Tutto è un componente: Bluetooth e scheda SD scelti dal menu «Collega» entrano nel progetto
+// ---------------------------------------------------------------------------
+/** Aggiunge il componente se manca (un solo modulo Bluetooth: sostituisce l'altro). true = aggiunto. */
+export function ensureComponent(type: SensorType): boolean {
+  const st = get();
+  const rig = st.rig;
+  if (instrumentById(st.labId) || isPhoneRig(rig) || rig.sensors.some((s) => s.type === type)) return false;
+  const sensors = SENSORS[type].link ? rig.sensors.filter((s) => !SENSORS[s.type].link) : rig.sensors;
+  const s = makeSensor(type, new Set(usedPins({ ...rig, sensors }).keys()));
+  if (!commitRig({ ...rig, sensors: [...sensors, s] })) return false;
+  toast.success(`«${SENSORS[type].title}» aggiunto ai componenti del progetto.`, {
+    description: "Nella scheda «Collegamenti» trovi lo schema aggiornato e come collegarlo.",
+    action: { label: "Collegamenti", onClick: () => showWiring() },
+  });
+  return true;
+}
+
+/** Collegamento scelto dal menu: il modulo Bluetooth corrispondente entra nel progetto. */
+export async function connectVia(kind: "usb" | "hc06" | "ble") {
+  if (kind !== "usb") ensureComponent(kind);
+  await connect(kind === "ble" ? "ble" : "arduino");
+}
+
+/** Simulatore: preme il pulsante «su Arduino» (solo se il simulatore sa del pulsante, cioè dopo una configurazione). */
+export function pressSimButton() {
+  const l = link as unknown as { pressKey?: () => void } | null;
+  if (link?.kind !== "simulatore" || !l?.pressKey) return;
+  // il simulatore conosce il pulsante dopo OUT,ADD: alla prima pressione glielo dico
+  void (async () => {
+    if (!get().running) await sendConfig(get().rig, resolved(), true);
+    l.pressKey!();
+  })();
+}
+
+/** Il pulsante su Arduino (#KEY, firmware 1.5): fa come «Avvia» e «Ferma», qualunque sia il collegamento. */
+function onKey() {
+  const st = get();
+  if (st.running) { void stop(); return; }
+  if (canStart(st)) { void start(); return; }
+  const issues = validateRig(st.rig);
+  toast(hasErrors(issues) ? `Pulsante premuto, ma la misura non può partire: ${issues.find((i) => i.level === "error")!.text}` : "Pulsante premuto: Arduino è collegato, ma la misura non può partire adesso.");
+}
+
+// ---------------------------------------------------------------------------
+// Scheda SD (firmware 1.5): «Prepara Arduino» manda e salva la configurazione; i file registrati
+// si importano nel Quaderno
+// ---------------------------------------------------------------------------
+const SD_ERR: Record<string, string> = {
+  CARD: "la scheda non risponde. È inserita fino in fondo? Controlla i fili MISO (D12), MOSI (D11), SCK (D13) e CS",
+  FAT32: "la scheda non è formattata FAT32. Formattala in FAT32 dal computer (le schede oltre 32 GB escono in exFAT)",
+  FILE: "non si riesce a creare il file: la cartella principale della scheda è piena. Sposta o cancella qualche file",
+  NOOUT: "Arduino non sa di avere la scheda SD: riprova «Prepara Arduino»",
+};
+const SD_KEEP = 30;
+export interface SdSnapshot { rig: Rig; labId: string; labTitle: string; at: number }
+
+/** Attende che Arduino risponda dopo il collegamento (al massimo ms). */
+async function waitReady(ms = 7000) {
+  const t0 = Date.now();
+  while (Date.now() - t0 < ms) { if (get().ready) return true; if (!link) return false; await new Promise((r) => setTimeout(r, 200)); }
+  return get().ready;
+}
+
+/** Manda ad Arduino la configurazione, la salva (resta anche da spento) e prova la scheda SD. */
+export async function prepareSd(): Promise<boolean> {
+  const st = get();
+  if (!link || !st.ready || link.kind === "telefono") { toast("Prima collega Arduino con il cavo USB."); return false; }
+  if (st.running) { toast("Ferma la misura prima di preparare la registrazione."); return false; }
+  if (link.kind !== "simulatore" && (!st.fw || cmpVersion(st.fw, "1.5") < 0)) {
+    toast.error(`La scheda SD e il pulsante richiedono il firmware v1.5 (su Arduino c'è la v${st.fw ?? "?"}). Aggiornalo con l'IDE di Arduino.`, { duration: 12000, action: { label: "Come si fa", onClick: () => openGuide("firmware") } });
+    return false;
+  }
+  const rig = st.rig;
+  const issues = validateRig(rig);
+  if (hasErrors(issues)) { toast.error(issues.find((i) => i.level === "error")!.text); set({ rigOpen: true }); return false; }
+  if (!rig.sensors.some((s) => s.type === "sd")) { toast("Aggiungi prima la scheda SD ai componenti."); return false; }
+  set({ sdCheck: { state: "busy", text: "Preparo Arduino…" } });
+  if (!(await sendConfig(rig, resolved(rig), true))) { set({ sdCheck: { state: "err", text: "Configurazione rifiutata." } }); return false; }
+  // istantanea del progetto: all'importazione i file sanno con quali opzioni interpretare i dati
+  const id = newId();
+  const ids = [id, ...prefs.get<string[]>("mosaicus.sd.ids", [])];
+  for (const old of ids.slice(SD_KEEP)) prefs.remove?.(`mosaicus.sd.${old}`);
+  prefs.set("mosaicus.sd.ids", ids.slice(0, SD_KEEP));
+  prefs.set(`mosaicus.sd.${id}`, { rig: { id: rig.id, name: rig.name, sensors: rig.sensors }, labId: st.labId, labTitle: labInfo().title, at: Date.now() } satisfies SdSnapshot);
+  const saved = await request(`CFG,SAVE,${id}`, (l) => l.startsWith("#ACK,CFG,SAVE") || l.startsWith("#ERR"));
+  if (!saved || saved.startsWith("#ERR")) {
+    set({ sdCheck: { state: "err", text: "Arduino non ha salvato la configurazione." } });
+    toast.error("Arduino non ha salvato la configurazione. Aggiorna il firmware alla v1.5 e riprova.");
+    return false;
+  }
+  const test = await request("SD,TEST", (l) => l.startsWith("#SD,"), 8000);
+  if (!test) { set({ sdCheck: { state: "err", text: "Arduino non ha risposto alla prova della scheda." } }); toast.error("Arduino non ha risposto alla prova della scheda SD."); return false; }
+  const [, ok, code] = test.split(",");
+  if (ok !== "OK") {
+    const why = SD_ERR[code] ?? code;
+    set({ sdCheck: { state: "err", text: `Scheda SD: ${why}.` } });
+    toast.error(`Scheda SD: ${why}.`, { duration: 14000 });
+    return false;
+  }
+  const mb = Number(code);
+  const button = rig.sensors.some((s) => s.type === "button");
+  const how = button ? "premi il pulsante per iniziare e di nuovo per fermare" : "registra da quando lo accendi a quando lo spegni";
+  const text = `Pronto${mb > 0 ? ` · scheda da ${mb >= 1024 ? `${(mb / 1024).toLocaleString("it-IT", { maximumFractionDigits: 1 })} GB` : `${mb} MB`}` : ""}. Stacca il cavo, alimenta Arduino con un power bank e ${how}.`;
+  set({ sdCheck: { state: "ok", text } });
+  toast.success("Arduino è pronto a registrare sulla scheda SD.", { description: text, duration: 15000 });
+  return true;
+}
+
+/** Dal menu «Collega»: aggiunge la scheda SD, collega Arduino col cavo e lo prepara. */
+export async function recordOnSd() {
+  ensureComponent("sd");
+  setSideTab("sensors");
+  if (!link) { await connect("arduino"); if (!(await waitReady())) return; }
+  if (link?.kind === "simulatore" || link?.kind === "arduino") await prepareSd();
+}
+
+/** Importa nel Quaderno i file LOGnnnnn.CSV della scheda SD. */
+export async function importSdFiles(files: File[]) {
+  const existing = new Set((await repo.all("sessions").catch(() => [])).map((s) => String((s as { sdFile?: string }).sdFile ?? "")));
+  let n = 0, lastId: number | null = null;
+  for (const f of files) {
+    const key = `${f.name}:${f.size}:${f.lastModified}`;
+    if (existing.has(key)) { toast(`«${f.name}» è già nel Quaderno.`); continue; }
+    const log = parseSdLog(await f.text());
+    if (!log) { toast.error(`«${f.name}» non è una registrazione di MosaicusNeo.`); continue; }
+    if (!log.raw.length) { toast.warning(`«${f.name}»: nessuna lettura (la registrazione è durata troppo poco?).`); continue; }
+    const snap = log.proj ? prefs.get<SdSnapshot | null>(`mosaicus.sd.${log.proj}`, null) : null;
+    const cur = get().rig;
+    let rig: Rig, labId: string, labTitle: string;
+    if (snap && cfgMatches(snap.rig, log.cfg)) ({ rig, labId, labTitle } = snap);
+    else if (cfgMatches(cur, log.cfg)) { rig = cur; labId = get().labId; labTitle = labInfo().title; }
+    else {
+      // progetto sconosciuto (preparato su un altro dispositivo): sensori ricostruiti, opzioni di serie
+      const sensors = sensorsFromCfg(log.cfg);
+      if (!sensors.length) { toast.error(`«${f.name}»: i sensori registrati non sono riconosciuti.`); continue; }
+      rig = { id: `sd-${log.proj ?? newId()}`, name: "Registrazione SD", sensors };
+      labId = "sd"; labTitle = "Registrazione SD";
+      toast.warning(`«${f.name}» viene da un progetto che questo dispositivo non conosce: sensori ricostruiti con le opzioni di serie (tarature comprese).`, { duration: 10000 });
+    }
+    const t1 = log.raw[log.raw.length - 1][1] / 1000;
+    const rec = {
+      format: 2, name: `${labTitle} · ${f.name.replace(/\.csv$/i, "")}`, experiment: labId, labTitle,
+      rig: { id: rig.id, name: rig.name, sensors: rig.sensors }, created: Date.now(), source: "scheda SD", fw: log.fw,
+      raw: log.raw, app: APP_VERSION, sdFile: key,
+    };
+    try {
+      lastId = (await repo.save("sessions", rec)).id ?? lastId;
+      n++;
+      if (log.bad > 1) toast.warning(`«${f.name}»: ${log.bad} righe incomplete scartate.`);
+      else if (!Number.isFinite(t1)) toast.warning(`«${f.name}»: tempi non validi.`);
+    } catch (err) { toast.error(`«${f.name}»: ${(err as Error).message}`); }
+  }
+  await refreshSessions();
+  if (n) {
+    const id = lastId;
+    toast.success(`${n === 1 ? "Registrazione importata" : `${n} registrazioni importate`} nel Quaderno.`, id != null ? { action: { label: "Apri", onClick: () => void openSession(id) } } : undefined);
+  }
 }
 
 function showDragHint() {
