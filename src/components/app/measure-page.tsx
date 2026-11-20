@@ -6,20 +6,20 @@ import { Cable, LayoutGrid, Pencil, Plus, Search, SlidersHorizontal, TriangleExc
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Sidebar, SidebarInset, SidebarProvider, SidebarRail, SidebarTrigger } from "@/components/ui/sidebar";
-import { useLab, labInfo, needsArduino, hasMap, openGuide, showWiring, setLabsSidebar, setSideTab, addSensor } from "@/lib/lab-store";
+import { useLab, labInfo, needsArduino, hasMap, openGuide, showWiring, setLabsSidebar, addSensor, showComponents } from "@/lib/lab-store";
 import { SENSORS, pinName, type SensorType } from "@/lib/sensors/catalog";
 import { sensorLabel, isPhoneRig, type SensorInstance } from "@/lib/sensors/rig";
 import { audioSupported } from "@/lib/mosaicus/audio.js";
 import { LabPicker, RigMenu } from "./lab-picker";
-import { ResponsivePanel } from "./responsive-panel";
 import { RunCard } from "./run-card";
 import { ChartCard } from "./chart-card";
 import { MapCard } from "./map-card";
 import { SidePanel } from "./side-panel";
-import { ComponentPicker, RigEditor } from "./rig-editor";
+import { ComponentPicker } from "./rig-editor";
 import { ComponentThumb } from "./board-diagram";
 import { canReachArduino } from "./connection-controls";
-import { useIsMobile } from "@/hooks/use-mobile";
+import { toneBg, toneFg } from "./tone";
+import { cn } from "@/lib/utils";
 import { ScopePanel } from "@/components/instruments/scope-panel";
 import { SynthPanel } from "@/components/instruments/synth-panel";
 
@@ -50,13 +50,13 @@ function SupportBanner() {
   );
 }
 
-/** I pin di un componente, in breve: «TRIG D12 · ECHO D11» (il nome del piedino solo se è una sigla). */
-function pinsText(s: SensorInstance) {
+/** I pin di un componente: [ruolo, pin] (il ruolo solo se è una sigla corta, come TRIG o SDA). */
+function pinsOf(s: SensorInstance): [string | null, string][] {
   return SENSORS[s.type].pins.map((p) => {
     const v = s.pins[p.key];
     const pin = typeof v === "number" ? pinName(v) : "—";
-    return /^[A-Z0-9]{2,5}$/.test(p.role) ? `${p.role} ${pin}` : pin;
-  }).join(" · ");
+    return [/^[A-Z0-9]{2,5}$/.test(p.role) ? p.role : null, pin];
+  });
 }
 
 export function LabHeading({ onPick, onSensors }: { onPick: () => void; onSensors: () => void }) {
@@ -67,6 +67,7 @@ export function LabHeading({ onPick, onSensors }: { onPick: () => void; onSensor
   const t = useTranslations("app.measure");
   const tp = useTranslations("rig.picker");
   const info = labInfo(labId);
+  const Icon = info.icon;
   // esperimenti pronti col solo telefono: niente da collegare né da cambiare, solo come si usano
   const phoneLab = info.kind === "preset" && isPhoneRig(rig);
   return (
@@ -74,6 +75,7 @@ export function LabHeading({ onPick, onSensors }: { onPick: () => void; onSensor
       <div className="flex min-h-9 items-center gap-2">
         <SidebarTrigger className="-ml-1.5 hidden text-muted-foreground lg:inline-flex" title={t("toggleLabs")} />
         <div className="group/title flex min-w-0 flex-1 items-center gap-1.5">
+          <span aria-hidden className={cn("mr-1 grid size-8 shrink-0 place-items-center rounded-lg [&_svg]:size-4", toneBg[info.tone], toneFg[info.tone])}><Icon /></span>
           <h2 className="flex min-w-0 items-baseline gap-2 text-xl leading-tight font-semibold tracking-[-0.015em]">
             <span className="truncate">{info.title}</span>
             {modified && <span className="shrink-0 text-[13px] font-normal tracking-normal text-muted-foreground">{t("custom")}</span>}
@@ -91,14 +93,23 @@ export function LabHeading({ onPick, onSensors }: { onPick: () => void; onSensor
       </div>
       {!info.instrument && (
         <div className="flex items-center gap-3">
-          <p className="flex min-w-0 flex-1 items-center gap-x-4 overflow-x-auto text-[13px] whitespace-nowrap text-muted-foreground [scrollbar-width:none]" aria-label={t("components")}>
-            {rig.sensors.map((s) => (
-              <span key={s.id} className="shrink-0">
-                <span className="text-foreground">{sensorLabel(s)}</span>
-                {SENSORS[s.type].pins.length > 0 && !SENSORS[s.type].phone && <span className="ml-1.5 font-mono text-xs">{pinsText(s)}</span>}
-              </span>
-            ))}
-          </p>
+          <ul className="-my-0.5 flex min-w-0 flex-1 items-center gap-1.5 overflow-x-auto py-0.5 [scrollbar-width:none] sm:flex-wrap" aria-label={t("components")}>
+            {rig.sensors.map((s) => {
+              const pins = SENSORS[s.type].phone ? [] : pinsOf(s);
+              return (
+                <li key={s.id} className="inline-flex h-7 shrink-0 items-center gap-1.5 rounded-md border bg-card pr-2 pl-1 text-xs whitespace-nowrap">
+                  <span className="grid size-5 place-items-center" aria-hidden><ComponentThumb type={s.type} className="size-full" /></span>
+                  <span className="font-medium">{sensorLabel(s)}</span>
+                  {pins.length > 0 && <span aria-hidden className="mx-0.5 h-3.5 w-px bg-border" />}
+                  {pins.map(([role, pin], k) => (
+                    <span key={k} className="font-mono text-[11px]">
+                      {role && <span className="text-muted-foreground">{role} </span>}{pin}
+                    </span>
+                  ))}
+                </li>
+              );
+            })}
+          </ul>
           <div className="flex shrink-0 items-center gap-1.5">
             {!phoneLab && (
               <Button variant="outline" size="sm" onClick={onSensors} className="2xl:hidden" aria-label={rig.sensors.length ? t("editComponents") : t("addComponents")}>
@@ -154,22 +165,13 @@ export function MeasurePage() {
   const labId = useLab((s) => s.labId);
   const rig = useLab((s) => s.rig);
   const labsOpen = useLab((s) => s.labsOpen);
-  const rigOpen = useLab((s) => s.rigOpen);
-  const t = useTranslations("app.measure");
   const info = labInfo(labId);
   const ins = info.instrument;
   const setLabs = (open: boolean) => useLab.setState({ labsOpen: open });
-  const setRig = (open: boolean) => useLab.setState({ rigOpen: open });
   const [picker, setPicker] = useState(false);
   // sul computer la barra dei lab resta aperta o chiusa come l'hai lasciata
   const side = useLab((s) => s.labsSidebar);
-  // sugli schermi larghi l'elenco dei componenti è già nella colonna a destra: si apre lì
-  const wide = !useIsMobile(1536);
-  const editComponents = () => {
-    if (!wide) { setRig(true); return; }
-    setSideTab("sensors");
-    requestAnimationFrame(() => document.getElementById("side-panel")?.scrollIntoView({ behavior: "smooth", block: "start" }));
-  };
+  const editComponents = showComponents;
   return (
     <SidebarProvider open={side} onOpenChange={setLabsSidebar} openMobile={labsOpen} onOpenMobileChange={setLabs} className="min-h-0">
       {/* barra a filo, sotto l'intestazione (alta 3,5 rem); sotto lg diventa un cassetto dal basso */}
@@ -200,9 +202,6 @@ export function MeasurePage() {
         </div>
       </SidebarInset>
 
-      <ResponsivePanel open={rigOpen} onOpenChange={setRig} title={t("components")}>
-        <RigEditor />
-      </ResponsivePanel>
       {/* «Sfoglia tutti i componenti» dal progetto vuoto: il catalogo direttamente, senza il pannello */}
       <ComponentPicker open={picker} onOpenChange={setPicker} />
     </SidebarProvider>

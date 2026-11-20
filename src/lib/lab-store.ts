@@ -125,7 +125,6 @@ interface LabState {
   labsOpen: boolean;
   /** barra laterale dei lab aperta (sul computer; ricordato) */
   labsSidebar: boolean;
-  rigOpen: boolean;
   /** capitolo della guida aperto (null = guida chiusa) */
   guide: string | null;
   /** stato riferito da Arduino e righe mandate al display */
@@ -168,7 +167,6 @@ export const useLab = create<LabState>(() => ({
   dragHint: false,
   labsOpen: false,
   labsSidebar: prefs.get("mosaicus.labsSidebar", true),
-  rigOpen: false,
   guide: null,
   lastSent: null,
   sdCheck: null,
@@ -302,11 +300,11 @@ export function showPage(page: Page, { restoreScroll = true } = {}) {
   if (restoreScroll) requestAnimationFrame(() => window.scrollTo({ top: scrollOf[page] ?? 0 }));
 }
 export function setSideTab(tab: string) { set({ sideTab: tab }); prefs.set("mosaicus.sideTab", tab); }
-/** Apre i collegamenti (schema e passi) e ci porta lì, con un lampo per farli trovare. */
-export function showWiring() {
+/** Apre una scheda del pannello accanto alla misura (componenti, collegamenti…) e ci porta lì,
+ *  con un lampo per farla trovare. */
+function showSideTab(tab: string) {
   showPage("misura", { restoreScroll: false });
-  set({ rigOpen: false });
-  setSideTab("wiring");
+  setSideTab(tab);
   requestAnimationFrame(() => {
     const el = document.getElementById("side-panel");
     if (!el) return;
@@ -314,6 +312,10 @@ export function showWiring() {
     el.animate?.([{ boxShadow: "0 0 0 0 transparent" }, { boxShadow: "0 0 0 4px color-mix(in oklab, var(--primary) 70%, transparent)" }, { boxShadow: "0 0 0 0 transparent" }], { duration: 1400, easing: "ease-out", delay: 250 });
   });
 }
+/** I collegamenti (schema e passi). */
+export const showWiring = () => showSideTab("wiring");
+/** I componenti del progetto, nella stessa colonna dei collegamenti. */
+export const showComponents = () => showSideTab("sensors");
 
 /** Logo: torna alla pagina iniziale (Misura, in cima). */
 export function goHome() {
@@ -428,6 +430,16 @@ export function selectLab(id: string, { keepData = false } = {}) {
   applyRig(rig, modified, { keepData });
 }
 
+/** Avviso del progetto «Modifica di …»: aspetta la fine dell'azione in corso. Se quell'azione mostra
+ *  già una notifica (componente aggiunto, pin spostati) lo prende lei (takeFork), così ne compare una
+ *  sola; altrimenti esce da solo. */
+let pendingFork: string | null = null;
+function noteFork(name: string) {
+  pendingFork = name;
+  queueMicrotask(() => { if (pendingFork) { toast(t("lab.toast.forked", { name: pendingFork })); pendingFork = null; } });
+}
+function takeFork() { const n = pendingFork; pendingFork = null; return n; }
+
 /** Un esperimento pronto modificato diventa un progetto «Modifica di …» (l'originale resta com'è):
  *  colore dell'argomento, grafici scelti copiati. Restituisce il progetto, già salvato nell'elenco. */
 function forkPreset(p: Preset, sensors: SensorInstance[]): Rig {
@@ -448,7 +460,7 @@ function commitRig(rig: Rig) {
   if (p) {
     const fork = forkPreset(p, rig.sensors);
     selectLab(fork.id, { keepData: true });
-    toast(t("lab.toast.forked", { name: fork.name }));
+    noteFork(fork.name);
     return true;
   }
   {
@@ -474,24 +486,29 @@ export function checkAdd(sensors: SensorInstance[], type: SensorType): AddPlan {
   const board = boardPlan(plan.sensors.filter((s) => !SENSORS[s.type].phone));
   return board && !board.fits ? { ok: false, error: t("rig.editor.noRoom") } : plan;
 }
-/** Aggiunge con il piano di checkAdd; avvisa se ha spostato dei pin. null = non aggiunto (già avvisato). */
-function applyAdd(rig: Rig, sensors: SensorInstance[], type: SensorType): SensorInstance | null {
+/** Aggiunge con il piano di checkAdd. moved: i pin spostati per fargli posto, a parole (o null).
+ *  null = non aggiunto (già avvisato). */
+function applyAdd(rig: Rig, sensors: SensorInstance[], type: SensorType): { sensor: SensorInstance; moved: string | null } | null {
   const plan = checkAdd(sensors, type);
   if (!plan.ok) { toast.error(t("lab.toast.cantAdd", { name: SENSORS[type].title }), { description: plan.error, duration: 10000 }); return null; }
   if (!commitRig({ ...rig, sensors: plan.sensors })) return null;
-  if (plan.moved.length || plan.readdressed.length) {
-    const list = [
-      ...plan.moved.map((m) => t("lab.toast.pinMove", { sensor: sensorLabel(m.sensor), role: m.role, from: pinName(m.from), to: pinName(m.to) })),
-      ...plan.readdressed.map((s) => t("lab.toast.addrMove", { sensor: sensorLabel(s), addr: String(s.options.addr) })),
-    ].join(", ");
-    toast.info(t("lab.toast.pinsMoved", { list, name: SENSORS[type].title }), { duration: 12000, action: { label: t("lab.action.wiring"), onClick: () => showWiring() } });
-  }
-  return plan.sensor;
+  const list = [
+    ...plan.moved.map((m) => t("lab.toast.pinMove", { sensor: sensorLabel(m.sensor), role: m.role, from: pinName(m.from), to: pinName(m.to) })),
+    ...plan.readdressed.map((x) => t("lab.toast.addrMove", { sensor: sensorLabel(x), addr: String(x.options.addr) })),
+  ].join(", ");
+  return { sensor: plan.sensor!, moved: list ? t("lab.toast.pinsMoved", { list, name: SENSORS[type].title }) : null };
 }
 export function addSensor(type: SensorType) {
   const rig = get().rig;
   if (get().running) { toast(t("lab.toast.stopBeforeComponents")); return; }
-  const s = applyAdd(rig, rig.sensors, type);
+  const added = applyAdd(rig, rig.sensors, type);
+  const s = added?.sensor;
+  if (added) {
+    // una notifica sola: pin spostati e/o nuovo progetto «Modifica di …»
+    const fork = takeFork();
+    if (added.moved) toast.info(added.moved, { duration: 12000, description: fork ? t("lab.toast.forkedShort", { name: fork }) : undefined, action: { label: t("lab.action.wiring"), onClick: () => showWiring() } });
+    else if (fork) toast(t("lab.toast.forked", { name: fork }));
+  }
   if (s) {
     // la sua prima grandezza compare subito tra i grafici
     const first = viewsOf().find((v) => v.sensorId === s.id && !v.raw);
@@ -535,7 +552,7 @@ export function newRig({ copy = false } = {}) {
   set({ customRigs: list });
   prefs.set("mosaicus.rigs", list);
   selectLab(rig.id);
-  set({ rigOpen: true });
+  showComponents();
   return rig;
 }
 
@@ -643,10 +660,8 @@ function setStatus(text: string, tone: StatusTone) { set({ status: { text, tone 
 /** Scala del tempo dello scenario (quella consigliata) e quella in uso. */
 export const simDefaultWarp = () => WARP[simScenario()] ?? 1;
 export const simWarpNow = () => get().simWarp ?? simDefaultWarp();
-const simStatus = () => {
-  const warp = simWarpNow();
-  return warp > 1 ? t("lab.status.simReadyWarp", { warp }) : t("lab.status.simReady");
-};
+// la scala del tempo si vede nel suo pulsante, accanto allo stato: qui non si ripete
+const simStatus = () => t("lab.status.simReady");
 /** Sceglie la scala del tempo del simulatore: vale dalla prossima misura (null = quella dello scenario). */
 export function setSimWarp(w: number | null) {
   if (get().running) { toast(t("lab.toast.stopFirst")); return; }
@@ -921,7 +936,7 @@ export async function start() {
   const st = get();
   const rig = st.rig, res = resolved(rig);
   const issues = validateRig(rig);
-  if (hasErrors(issues)) { toast.error(issues.find((i) => i.level === "error")!.text); set({ rigOpen: true }); return; }
+  if (hasErrors(issues)) { toast.error(issues.find((i) => i.level === "error")!.text); showComponents(); return; }
   if (!canStart()) return;
   diagReset();
   if (link) {
@@ -1041,9 +1056,11 @@ export function ensureComponent(type: SensorType): boolean {
   const rig = st.rig;
   if (instrumentById(st.labId) || isPhoneRig(rig) || rig.sensors.some((s) => s.type === type)) return false;
   const sensors = SENSORS[type].link ? rig.sensors.filter((s) => !SENSORS[s.type].link) : rig.sensors;
-  if (!applyAdd(rig, sensors, type)) return false;
+  const added = applyAdd(rig, sensors, type);
+  if (!added) return false;
+  const fork = takeFork();
   toast.success(t("lab.toast.componentAdded", { name: SENSORS[type].title }), {
-    description: t("lab.toast.componentAddedHint"),
+    description: [fork ? t("lab.toast.forkedShort", { name: fork }) : null, added.moved, t("lab.toast.componentAddedHint")].filter(Boolean).join(" "),
     action: { label: t("lab.action.wiring"), onClick: () => showWiring() },
   });
   return true;
@@ -1106,7 +1123,7 @@ export async function prepareSd(): Promise<boolean> {
   }
   const rig = st.rig;
   const issues = validateRig(rig);
-  if (hasErrors(issues)) { toast.error(issues.find((i) => i.level === "error")!.text); set({ rigOpen: true }); return false; }
+  if (hasErrors(issues)) { toast.error(issues.find((i) => i.level === "error")!.text); showComponents(); return false; }
   if (!rig.sensors.some((s) => s.type === "sd")) { toast(t("lab.sd.addFirst")); return false; }
   set({ sdCheck: { state: "busy", text: t("lab.sd.preparing") } });
   if (!(await sendConfig(rig, resolved(rig), true))) { set({ sdCheck: { state: "err", text: t("lab.sd.cfgRejected") } }); return false; }

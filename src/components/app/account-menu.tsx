@@ -249,9 +249,9 @@ export function AccountMenu({ className }: { className?: string }) {
   return (
     <>
       <DropdownMenu>
-        <DropdownMenuTrigger render={<Button variant="ghost" size="sm" aria-label={t("menu.label")} className={cn("gap-1.5", className)} />}>
+        <DropdownMenuTrigger render={<Button variant="ghost" aria-label={t("menu.label")} className={cn("h-8 gap-1.5 rounded-full pr-2.5 pl-1", className)} />}>
           <Avatar email={user.email} />
-          <Icon className={cn("size-4 text-muted-foreground", iconClass)} />
+          <Icon className={cn("size-3.5 text-muted-foreground", iconClass)} />
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="w-72">
           <DropdownMenuGroup>

@@ -10,7 +10,6 @@ import { WiringGuide } from "./wiring-diagram";
 import { SENSORS } from "@/lib/sensors/catalog";
 import { isPhoneRig } from "@/lib/sensors/rig";
 import { RigEditor } from "./rig-editor";
-import { useIsMobile } from "@/hooks/use-mobile";
 import { cn } from "@/lib/utils";
 
 /** Collegamenti del progetto: schema, occorrente e passi; i consigli dell'esperimento in fondo. */
@@ -53,11 +52,10 @@ export function SidePanel() {
   const rig = useLab((s) => s.rig);
   const info = labInfo(labId);
   const ins = info.instrument;
-  const wide = !useIsMobile(1536);
   const tabs = (ins
     ? [["wiring", t("wiring")], ins.source !== "audio" ? ["serial", t("serial")] : null]
     // i componenti si modificano qui solo sugli schermi larghi: altrove c'è «Modifica componenti» sopra la misura
-    : [wide ? ["sensors", <>{t("components")}{!!rig.sensors.length && <span className="ml-1 text-muted-foreground tabular">{rig.sensors.length}</span>}</>] : null, ["wiring", t("wiring")], needsArduino(rig) ? ["serial", t("serial")] : null]
+    : [["sensors", <>{t("components")}{!!rig.sensors.length && <span className="ml-1 text-muted-foreground tabular">{rig.sensors.length}</span>}</>], ["wiring", t("wiring")], needsArduino(rig) ? ["serial", t("serial")] : null]
   ).filter(Boolean) as [string, React.ReactNode][];
   const tab = useLab((s) => s.sideTab);
   const active = tabs.some(([id]) => id === tab) ? tab : tabs[0][0];

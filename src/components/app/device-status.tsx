@@ -8,7 +8,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import { ArrowRight, CircleAlert, CircleCheck, LoaderCircle, Plug, SlidersHorizontal, TriangleAlert, Volume2, VolumeX, Wrench, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { useLab, resolved, showWiring, type DeviceStatus } from "@/lib/lab-store";
+import { useLab, resolved, showWiring, type DeviceStatus, showComponents } from "@/lib/lab-store";
 import { useDiag, diagDismiss, type Diag } from "@/lib/diagnostics";
 import { indicatorsOf, sensorLabel, type SensorInstance } from "@/lib/sensors/rig";
 import { SENSORS, pinName } from "@/lib/sensors/catalog";
@@ -101,7 +101,7 @@ function DiagRow({ d, sensor, running }: { d: Diag; sensor?: SensorInstance; run
       {!resolvedNow && (sensor || d.setup) && (
         <div className="flex shrink-0 gap-1.5 pl-6.5 sm:pl-0">
           {sensor && !def?.phone && <Button size="xs" variant="outline" onClick={showWiring}><Plug /> {t("wiring")}</Button>}
-          <Button size="xs" variant="ghost" disabled={running} onClick={() => useLab.setState({ rigOpen: true })}><SlidersHorizontal /> {t("component")}</Button>
+          <Button size="xs" variant="ghost" disabled={running} onClick={showComponents}><SlidersHorizontal /> {t("component")}</Button>
         </div>
       )}
     </li>

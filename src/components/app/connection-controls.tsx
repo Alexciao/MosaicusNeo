@@ -249,7 +249,7 @@ export function ConnectionDrawer({ className }: { className?: string }) {
       <Drawer open={open} onOpenChange={setOpen} showSwipeHandle>
         <DrawerContent>
           <DrawerHeader className="pb-1 text-left">
-            <DrawerTitle>{t("connection")}</DrawerTitle>
+            <DrawerTitle className="text-left">{t("connection")}</DrawerTitle>
             <DrawerDescription className="flex items-center gap-2">
               <span className={cn("size-2 shrink-0 rounded-full", dot[status.tone])} aria-hidden />{status.text}
             </DrawerDescription>

@@ -4,11 +4,12 @@
 // progetti dell'utente.
 
 import { Fragment, useRef, useState } from "react";
-import { Check, ChevronDown, CopyPlus, Plus, Search, Trash, TriangleExclamationPoint, X } from "lucide-react";
+import { Check, ChevronDown, CopyPlus, Info, Plus, Search, Trash, TriangleExclamationPoint, X } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Dialog, DialogClose, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
@@ -24,8 +25,6 @@ import { cn } from "@/lib/utils";
 import { isPhoneWidth } from "@/lib/prefs";
 import { intlLocale } from "@/i18n";
 import { ComponentThumb } from "./board-diagram";
-import { BluetoothHowTo } from "./wiring-diagram";
-import { SdHowTo } from "./sd-controls";
 import { Sym } from "./sym";
 
 /** unit: l'unità dentro il campo, a destra (non nell'etichetta). */
@@ -59,10 +58,21 @@ function OptionField({ p, value, onChange, id, disabled, unit }: { p: Param; val
   );
 }
 
-function Field({ label, htmlFor, wide, children }: { label: string; htmlFor: string; wide?: boolean; children: React.ReactNode }) {
+/** hint: una nota sul campo, in un suggerimento (ⓘ accanto all'etichetta) invece che in un paragrafo. */
+function Field({ label, htmlFor, wide, hint, children }: { label: string; htmlFor: string; wide?: boolean; hint?: string; children: React.ReactNode }) {
   return (
     <div className={cn("flex min-w-0 flex-col gap-1.5", wide && "sm:col-span-2")}>
-      <Label htmlFor={htmlFor} className="text-xs leading-snug font-medium text-muted-foreground">{label}</Label>
+      <span className="flex min-w-0 items-start gap-1">
+        <Label htmlFor={htmlFor} className="text-xs leading-snug font-medium text-muted-foreground">{label.charAt(0).toUpperCase() + label.slice(1)}</Label>
+        {hint && (
+          <Tooltip>
+            <TooltipTrigger render={<span tabIndex={0} aria-label={hint} className="grid size-4 shrink-0 cursor-help place-items-center rounded-full text-muted-foreground/70 outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/50" />}>
+              <Info className="size-3.5" />
+            </TooltipTrigger>
+            <TooltipContent className="max-w-64 text-pretty">{hint}</TooltipContent>
+          </Tooltip>
+        )}
+      </span>
       {children}
     </div>
   );
@@ -70,17 +80,13 @@ function Field({ label, htmlFor, wide, children }: { label: string; htmlFor: str
 /** Le tendine con voci lunghe occupano tutta la riga (sennò il testo si taglia). */
 const wideSelect = (p: Param) => p.type === "select" && (p.options ?? []).some(([, l]) => l.length > 16);
 
-/** Il pulsante: che cosa fa nei vari collegamenti; col simulatore si può «premere» da qui. */
+/** Il pulsante col simulatore: si può «premere» da qui. */
 function ButtonHint() {
   const t = useTranslations("rig.editor");
   const sim = useLab((s) => s.linkKind === "simulatore" && s.ready);
   const running = useLab((s) => s.running);
-  return (
-    <div className="flex flex-col gap-1.5 border-l-2 border-border pl-3 text-xs">
-      <p>{t("buttonHint")}</p>
-      {sim && <Button size="xs" variant="outline" className="self-start" onClick={pressSimButton}>{t("pressSim", { running: running ? "yes" : "no" })}</Button>}
-    </div>
-  );
+  if (!sim) return null;
+  return <Button size="xs" variant="outline" className="self-start" onClick={pressSimButton}>{t("pressSim", { running: running ? "yes" : "no" })}</Button>;
 }
 
 function SensorCard({ s, defaultOpen }: { s: SensorInstance; defaultOpen: boolean }) {
@@ -121,7 +127,6 @@ function SensorCard({ s, defaultOpen }: { s: SensorInstance; defaultOpen: boolea
       </div>
       <CollapsibleContent className="flex flex-col gap-3 pt-2 pb-3 sm:pl-[3.25rem]">
         {issues.map((i, k) => <p key={k} className={cn("text-xs", i.level === "error" ? "text-destructive" : "text-warning")}>{i.text}</p>)}
-        <p className="text-xs text-muted-foreground">{def.description}</p>
         <div className="grid gap-3 sm:grid-cols-2">
           <Field label={t("name")} htmlFor={`${s.id}-label`}>
             <OptionField id={`${s.id}-label`} p={{ key: "label", label: t("name"), type: "text", value: "" }} value={s.label ?? def.short} disabled={running}
@@ -134,15 +139,14 @@ function SensorCard({ s, defaultOpen }: { s: SensorInstance; defaultOpen: boolea
             </Field>
           )}
           {def.pins.filter((spec) => spec.fixed).length > 0 && (
-            <Field label={t("fixedPins")} htmlFor={`${s.id}-pin-fixed`}>
+            <Field label={t("fixedPins")} htmlFor={`${s.id}-pin-fixed`} hint={def.pins.find((spec) => spec.fixed && spec.note)?.note}>
               <p id={`${s.id}-pin-fixed`} className="flex h-8 items-center font-mono text-xs font-medium">
                 {def.pins.filter((spec) => spec.fixed).map((spec) => spec.role.includes("D") ? spec.role : `${spec.role} ${pinName(spec.def)}`).join(" · ")}
               </p>
-              {def.pins.find((spec) => spec.fixed && spec.note)?.note && <span className="text-[0.7rem] text-muted-foreground">{def.pins.find((spec) => spec.fixed && spec.note)!.note}</span>}
             </Field>
           )}
           {def.pins.filter((spec) => !spec.fixed).map((spec) => (
-            <Field key={spec.key} label={spec.role} htmlFor={`${s.id}-pin-${spec.key}`}>
+            <Field key={spec.key} label={spec.role} htmlFor={`${s.id}-pin-${spec.key}`} hint={spec.note}>
               <Select value={s.pins[spec.key] != null ? String(s.pins[spec.key]) : null} disabled={running}
                 onValueChange={(v) => v != null && updateSensor(s.id, { pins: { ...s.pins, [spec.key]: Number(v) } })}
                 items={Object.fromEntries(pinsFor(spec.kind).map((p) => [String(p), pinName(p)]))}>
@@ -163,7 +167,6 @@ function SensorCard({ s, defaultOpen }: { s: SensorInstance; defaultOpen: boolea
                   })}
                 </SelectContent>
               </Select>
-              {spec.note && <span className="text-[0.7rem] text-muted-foreground">{spec.note}</span>}
             </Field>
           ))}
           {basic.map((p) => (
@@ -173,9 +176,7 @@ function SensorCard({ s, defaultOpen }: { s: SensorInstance; defaultOpen: boolea
             </Field>
           ))}
         </div>
-        {s.type === "sd" && <SdHowTo />}
         {s.type === "button" && <ButtonHint />}
-        {(s.type === "hc06" || s.type === "ble") && <BluetoothHowTo kind={s.type} />}
         {!!advanced.length && (
           <Collapsible open={adv} onOpenChange={setAdv}>
             <CollapsibleTrigger className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground hover:text-foreground">

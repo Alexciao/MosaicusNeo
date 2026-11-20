@@ -72,6 +72,20 @@ export function makeSensor(type: SensorType, taken: Set<number> = new Set(), ext
  */
 export function normalizeRig(rig: Rig): Rig {
   const ok = (p: unknown): p is number => typeof p === "number" && Number.isFinite(p);
+  // opzioni mancanti o fuori dall'elenco (versioni vecchie): il valore di serie
+  const badOpt = (s: SensorInstance) => SENSORS[s.type]?.options.some((o) => {
+    const v = s.options?.[o.key];
+    return v == null || (o.type === "select" && !(o.options ?? []).some(([k]) => k === String(v)));
+  });
+  const fixOpts = (s: SensorInstance): SensorInstance => !badOpt(s) ? s : {
+    ...s,
+    options: { ...s.options, ...Object.fromEntries(SENSORS[s.type].options.map((o) => {
+      const v = s.options?.[o.key];
+      const valid = v != null && (o.type !== "select" || (o.options ?? []).some(([k]) => k === String(v)));
+      return [o.key, valid ? v : o.value];
+    })) },
+  };
+  if (rig.sensors.some((s) => SENSORS[s.type] && badOpt(s))) rig = { ...rig, sensors: rig.sensors.map((s) => (SENSORS[s.type] ? fixOpts(s) : s)) };
   const broken = rig.sensors.some((s) => !SENSORS[s.type] || SENSORS[s.type].pins.some((spec) => !ok(s.pins?.[spec.key])));
   if (!broken) return rig;
   const taken = new Set<number>();
