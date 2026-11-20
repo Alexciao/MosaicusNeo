@@ -27,7 +27,7 @@ import { toGPX, toGeoJSON, type TrackPoint } from "@/lib/mosaicus/geo";
 import { SENSORS, pinName, type SensorType } from "@/lib/sensors/catalog";
 import {
   resolveRig, validateRig, hasErrors, firmwareCommands, buildRows, alignRows, seriesOf, interpAt, tolerance,
-  planAdd, type AddPlan, newId, sensorLabel, LEGACY, inputsOf, outputsOf, isPhoneRig, firmwareNeeded, type Rig, type SensorInstance, type Resolved, type ResolvedQuantity,
+  planAdd, type AddPlan, newId, sensorLabel, LEGACY, inputsOf, outputsOf, isPhoneRig, firmwareNeeded, btOf, type Rig, type SensorInstance, type Resolved, type ResolvedQuantity,
 } from "@/lib/sensors/rig";
 import { parseSdLog, cfgMatches, sensorsFromCfg } from "@/lib/sensors/sd-log";
 import { PRESETS, INSTRUMENTS, presetById, instrumentById, presetSensors, type Preset, type Instrument } from "@/lib/sensors/presets";
@@ -665,6 +665,18 @@ function logSerial(line: string) {
   if (!logTimer) logTimer = setTimeout(() => { logTimer = null; set({ serialLog: [...logBuf] }); }, 200);
 }
 
+/** Collegati col cavo USB con un modulo Bluetooth nel progetto: sull'Uno il suo TXD su D0 copre i
+ *  comandi che arrivano dal computer (Arduino parla, ma non sente). */
+function d0Suspect() {
+  const via = !!(link as unknown as { viaBluetooth?: boolean })?.viaBluetooth;
+  return link?.kind === "arduino" && link.transport === "serial" && !via && !!btOf(get().rig);
+}
+function reportD0Blocked() {
+  setStatus(t("lab.diag.d0Status"), "err");
+  toast.error(t("lab.diag.d0Blocked"), { description: t("lab.diag.d0BlockedHint"), duration: 15000, action: { label: t("lab.action.wiring"), onClick: () => showWiring() } });
+  diagAdd({ id: "d0", tone: "error", text: t("lab.diag.d0Blocked"), hint: t("lab.diag.d0BlockedHint"), setup: true });
+}
+
 let btNoReply = false;
 function handleLine(line: string) {
   logSerial(line);
@@ -683,11 +695,17 @@ function handleLine(line: string) {
       toast.warning(t("lab.toast.oldFirmware", { fw, need: FIRMWARE_VERSION }), { duration: 10000, action: { label: t("lab.action.howTo"), onClick: () => openGuide("firmware") } });
     }
     setStatus(kind === "simulatore" ? simStatus() : kind === "telefono" ? t("lab.status.phoneReady") : t(link?.transport === "ble" ? "lab.status.arduinoReadyBle" : "lab.status.arduinoReady", { fw: String(fw) }), "on");
+    // il saluto all'accensione arriva anche con D0 coperto: si controlla che Arduino senta davvero
+    if (d0Suspect()) {
+      const l = link;
+      void request("ID?", (x) => x.startsWith("#MOSAICUS"), 1500).then((r) => { if (!r && link === l) reportD0Blocked(); });
+    }
     return;
   }
   if (line === "#KEY") { onKey(); return; }
   if (line === "#BT,NOREPLY") { btNoReply = true; return; }
   if (line === "#BT,SETUP") { toast.info(t("lab.toast.btSetup")); return; }
+  if (line === "#BT,PLUG") { toast.info(t("lab.toast.btPlug"), { duration: 30000 }); return; }
   if ((line === "#ACK,BT,SETUP,BLE" || line === "#ACK,BT,SETUP") && btNoReply) {
     btNoReply = false;
     toast.warning(t("lab.toast.btNoReply"), { duration: 14000 });
@@ -805,7 +823,10 @@ const CFG_ERR: Record<string, string> = {
 async function sendConfig(rig: Rig, res: Resolved, outputs: boolean) {
   for (const cmd of firmwareCommands(rig, res, { outputs })) {
     const reply = await request(cmd, (l) => l.startsWith("#ACK,CFG") || l.startsWith("#ACK,OUT") || l.startsWith("#ERR"));
-    if (!reply) { toast.error(t("lab.toast.cfgNoReply")); diagAdd({ id: "cfg:noreply", tone: "error", text: t("lab.diag.noReply"), hint: t("lab.toast.cfgNoReply"), setup: true }); return false; }
+    if (!reply) {
+      if (d0Suspect()) { reportD0Blocked(); return false; }
+      toast.error(t("lab.toast.cfgNoReply")); diagAdd({ id: "cfg:noreply", tone: "error", text: t("lab.diag.noReply"), hint: t("lab.toast.cfgNoReply"), setup: true }); return false;
+    }
     if (reply.startsWith("#ERR")) {
       const parts = reply.split(",");
       if (parts[1] === "OUT") {
@@ -940,7 +961,11 @@ export async function bluetoothSetup(module: "hc06" | "ble" = "hc06") {
   if (get().fw && cmpVersion(get().fw!, module === "ble" ? "1.1" : "0.4") < 0) {
     toast.error(t("lab.toast.moduleFwOutdated", { v: FIRMWARE_VERSION })); return;
   }
-  await link.write(module === "ble" ? "BT,SETUP,BLE" : "BT,SETUP");
+  // il comando si manda col filo TXD → D0 staccato (sull'Uno lo coprirebbe): se Arduino non
+  // risponde subito, è quasi sempre attaccato
+  const r = await request(module === "ble" ? "BT,SETUP,BLE" : "BT,SETUP", (l) => l === "#BT,SETUP", 1500);
+  if (!r) { toast.error(t("lab.toast.btUnplugFirst"), { duration: 15000 }); return; }
+  toast.info(t("lab.toast.btSetup"));
 }
 
 // ---------------------------------------------------------------------------

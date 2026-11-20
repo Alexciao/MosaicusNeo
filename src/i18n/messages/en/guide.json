@@ -488,7 +488,7 @@
     "rows": {
       "waiting": {
         "situation": "Powered on, the app isn't connected",
-        "display": "WAITING · APP · USB v1.6 (with a Bluetooth module: USB/BT 1.6)",
+        "display": "WAITING · APP · USB v1.7 (with a Bluetooth module: USB/BT 1.7)",
         "led": "blue, blinking",
         "beep": "1 beep every 3 s"
       },
@@ -536,7 +536,7 @@
     "mu1": "If several sensors have a problem, the display shows them in turn every 2.5 seconds, errors first and then those still searching: “ERROR 1/2”, “ERROR 2/2”. LED and buzzer always follow the most serious.",
     "mu2": "With two sensors of the same type, the display tells which one by number: “#2” is the second DHT in the component list.",
     "mu3": "If Arduino rejects a component (duplicate pin, non-analog pin, second GPS), the display shows “CONFIG” with the reason until you fix the pins and restart the measurement.",
-    "mu4": "While waiting for the app, the display shows how to connect and the firmware version: “USB v1.6”. Bluetooth is optional: after “Configure” in the Bluetooth step, if the module responds, Arduino remembers it and the display shows “USB/BT 1.6”.",
+    "mu4": "While waiting for the app, the display shows how to connect and the firmware version: “USB v1.7”. Bluetooth is optional: after “Configure” in the Bluetooth step, if the module responds, Arduino remembers it and the display shows “USB/BT 1.7”.",
     "firmwareNote": "These features require firmware v{v}.",
     "details": "Details",
     "d1": "Arduino remembers the indicators: on later power-ups it immediately shows “waiting for the app”, even before you connect the phone.",

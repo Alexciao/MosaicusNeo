@@ -93,7 +93,9 @@
     "pinsMoved": "{list}: spostati per fare posto a {name}. Ricollegali come nella scheda Collegamenti.",
     "pinMove": "{sensor} {role} {from} → {to}",
     "cantAdd": "Impossibile aggiungere {name}",
-    "addrMove": "{sensor} → indirizzo 0x{addr}"
+    "addrMove": "{sensor} → indirizzo 0x{addr}",
+    "btPlug": "Ora collega il filo TXD del modulo a D0. Arduino aspetta la risposta del modulo per circa 30 secondi.",
+    "btUnplugFirst": "Arduino non ha ricevuto «Configura». Stacca il filo TXD → D0 (sull'Uno copre i comandi del cavo USB) e premi di nuovo «Configura»: l'app ti dirà quando riattaccarlo."
   },
   "outErr": {
     "PIN": "pin non valido",
@@ -244,6 +246,9 @@
     "rejected": "Rifiutato dalla configurazione di Arduino",
     "accessories": "Accessori rifiutati dalla configurazione",
     "noReply": "Arduino non risponde alla configurazione",
-    "notStarted": "La misura non è partita"
+    "notStarted": "La misura non è partita",
+    "d0Blocked": "Arduino non riceve i comandi dal cavo USB",
+    "d0BlockedHint": "Il modulo Bluetooth su D0 copre il cavo USB: stacca il filo TXD → D0 finché usi il cavo, oppure collegati via Bluetooth.",
+    "d0Status": "Stacca il filo TXD → D0"
   }
 }
