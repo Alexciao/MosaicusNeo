@@ -180,9 +180,9 @@ export function SynthPanel({ exp }: { exp: Instrument }) {
         <div className={cn("flex flex-col gap-4", mode !== "keys" && "hidden")}>
           <PianoKeys onKey={ctl.pressKey} activeF={mode === "keys" ? SY.f : null} />
           <div className="flex flex-wrap items-center gap-2">
-            <Button size="icon-sm" variant="outline" onClick={() => ctl.setF(SY.f - 1)} aria-label="−1 Hz"><Minus /></Button>
+            <Button size="icon-sm" variant="outline" onClick={() => ctl.setF(SY.f - 1)} aria-label={t("stepDown")}><Minus /></Button>
             <Slider className="min-w-40 flex-1 data-horizontal:w-auto" min={0} max={1000} step={1} value={toSlider(SY.f)} onValueChange={(v) => ctl.setF(fromSlider(v as number))} aria-label={t("freq")} />
-            <Button size="icon-sm" variant="outline" onClick={() => ctl.setF(SY.f + 1)} aria-label="+1 Hz"><Plus /></Button>
+            <Button size="icon-sm" variant="outline" onClick={() => ctl.setF(SY.f + 1)} aria-label={t("stepUp")}><Plus /></Button>
             <Input type="text" inputMode="decimal" className="h-8 w-24 tabular" aria-label={t("freqHz")}
               value={fText ?? String(SY.f)} onChange={(e) => setFText(e.target.value)} onFocus={() => setFText(String(SY.f))}
               onBlur={() => { const v = parseFloat(String(fText).replace(",", ".")); if (Number.isFinite(v)) ctl.setF(Math.min(FMAX, Math.max(FMIN, v))); setFText(null); }}
@@ -206,7 +206,7 @@ export function SynthPanel({ exp }: { exp: Instrument }) {
         </div>
 
         <div className={cn("flex flex-col gap-4", mode === "keys" && "hidden")}>
-          <div className="relative h-24 overflow-hidden rounded-md bg-screen touch-none">
+          <div className="relative h-24 overflow-hidden rounded-md bg-screen touch-none select-none">
             <canvas ref={ribRef} aria-label={t("ribbon")} className="absolute inset-0 size-full" />
           </div>
           <p className="text-sm text-muted-foreground">{hint[mode]}</p>

@@ -90,7 +90,7 @@ export function ScopePanel({ exp }: { exp: Instrument }) {
           <Segmented label={t("source")} value={(S.source ?? "") as "mic" | "ex" | ""} onChange={(v) => v && void engine.selectSource(v)}
             items={[["mic", <><Mic /> {t("micSource")}</>], ["ex", <><Music /> {t("examples")}</>]]} />
         )}
-        <dl className="flex flex-wrap items-baseline gap-x-6 gap-y-1 md:ml-auto" aria-live="polite">
+        <dl className="flex flex-wrap items-baseline gap-x-6 gap-y-1 md:ml-auto">
           {S.readouts.map(([l, v, u]) => (
             <div key={l} className="flex items-baseline gap-2">
               <dt className="text-xs text-muted-foreground"><ReadoutLabel text={l} /></dt>

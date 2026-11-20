@@ -374,7 +374,9 @@
     "hintSonar": "Collega Arduino o il simulatore, premi Suona e muovi la mano a {near}–{far} cm sopra il sensore: più è vicina, più la nota è alta.",
     "notes": "Note",
     "tonic": "Tonica",
-    "speakerHint": "I timbri si distinguono meglio tra 300 e 1000 Hz: l'altoparlante del telefono riproduce poco le note basse."
+    "speakerHint": "I timbri si distinguono meglio tra 300 e 1000 Hz: l'altoparlante del telefono riproduce poco le note basse.",
+    "stepDown": "Abbassa di 1 Hz",
+    "stepUp": "Alza di 1 Hz"
   },
   "diag": {
     "title": "Diagnostica",

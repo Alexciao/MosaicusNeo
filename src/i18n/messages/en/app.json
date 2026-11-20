@@ -374,7 +374,9 @@
     "hintSonar": "Connect Arduino or the simulator, press Play and move your hand {near}–{far} cm above the sensor: the closer it is, the higher the note.",
     "notes": "Notes",
     "tonic": "Tonic",
-    "speakerHint": "Timbres are easiest to tell apart between 300 and 1000 Hz: the phone's speaker reproduces low notes poorly."
+    "speakerHint": "Timbres are easiest to tell apart between 300 and 1000 Hz: the phone's speaker reproduces low notes poorly.",
+    "stepDown": "Lower by 1 Hz",
+    "stepUp": "Raise by 1 Hz"
   },
   "diag": {
     "title": "Diagnostics",
