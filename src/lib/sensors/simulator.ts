@@ -10,9 +10,9 @@
 //  • cooling: sonda infilata in una patata calda da 75 °C, stanza a 21 °C, tempo ×30
 //  • breath:  aula a 22,5 °C e 48 %; a 20 s e 120 s un soffio sul sensore, tempo ×5
 //  • walk:    passeggiata ad anello in un parco con ombra, asfalto e collinetta, tempo ×5
-//  • free:    montaggi liberi: aula con una mano che scalda il sensore a 20 s, carrello sul piano
-//             inclinato, luce dalle finestre con nuvole e qualcuno che passa, potenziometro girato
-//             a mano; GPS → passeggiata
+//  • free:    i lab personali: un'aula tranquilla, con temperatura e umidità che derivano piano, la
+//             luce delle lampade e delle finestre (con le nuvole), un carrello sul piano inclinato,
+//             una massa sulla bilancia e una tensione stabile; con il GPS → passeggiata
 // Ogni misura è diversa (rumore liscio con un seme nuovo a ogni «Avvia»), ogni sensore ha il suo
 // errore di taratura e il suo tempo di risposta (un DHT11 è lento, un termistore nudo veloce).
 // Rumore realistico, echi persi o spuri, qualche checksum sbagliato del DHT, l'errore del GPS che
@@ -57,8 +57,8 @@ export interface World {
   T: number; vap: number;
   /** posizione del bersaglio del sonar (m) e accelerazione del carrello lungo il piano (m/s²) */
   x: number; acc: number; moving: boolean;
-  /** illuminamento (lux) e posizione del potenziometro (0…1) */
-  lux: number; pot: number;
+  /** illuminamento (lux) e tensione generica (frazione di 5 V) */
+  lux: number; volt: number;
   lat: number; lon: number; alt: number; speed: number;
 }
 
@@ -103,17 +103,9 @@ function incline(t: number, k: number, seed: number) {
   return { x: L, acc: 0, moving: false };
 }
 
-/** Potenziometro girato a mano: resta su una posizione per qualche secondo, poi va su un'altra in ~1 s. */
-function potAt(t: number, k: number, seed: number) {
-  const s = seed + 60 + 7 * k, hold = 6, i = Math.floor(t / hold);
-  const at = (j: number) => 0.08 + 0.84 * hash(j, s);
-  const f = clamp((t - i * hold) / 1.1, 0, 1), u = f * f * (3 - 2 * f);
-  return clamp(at(i - 1) + (at(i) - at(i - 1)) * u + 0.002 * smooth(t, 0.3, s + 1), 0, 1);
-}
-
 /** Il mondo all'istante t (s) per lo scenario dato; k = numero del sensore dello stesso tipo. */
 export function world(t: number, scenario: string, k: number, seed: number): World {
-  const w: World = { T: 22, vap: 0.48 * esat(22), x: 0.25, acc: 0, moving: false, lux: 400, pot: 0.5, lat: NaN, lon: NaN, alt: NaN, speed: NaN };
+  const w: World = { T: 22, vap: 0.48 * esat(22), x: 0.25, acc: 0, moving: false, lux: 400, volt: 0.44, lat: NaN, lon: NaN, alt: NaN, speed: NaN };
   // posizione per il sonar
   if (scenario === "spring") {
     const A = 0.06 * (1 + 0.08 * bias(seed, 70)), om = (2 * Math.PI) / 0.9;
@@ -140,20 +132,15 @@ export function world(t: number, scenario: string, k: number, seed: number): Wor
     Object.assign(w, g);
     w.lux = 20000 * (1 - 0.8 * g.shade) * (1 + 0.3 * smooth(t, 30, seed + 83));
   } else {
-    // una mano vicino al sensore: scalda e porta un po' di vapore
-    const h = pulse(t, 20 + 15 * k, 6, 15, 60);
-    w.T = room(22, 0.4) + 9 * h;
-    w.vap = 0.48 * esat(22) * (1 + 0.35 * h);
+    // aula: la temperatura deriva di qualche decimo di grado, l'umidità di un paio di punti
+    w.T = room(22, 0.4);
+    w.vap = 0.48 * esat(22) * (1 + 0.04 * drift(t, seed + 84));
   }
 
-  // luce: lampade del soffitto + finestre con nuvole; ogni tanto qualcuno passa e fa ombra
-  if (scenario !== "walk") {
-    const day = 150 * (1 + 0.6 * smooth(t, 25, seed + 90));
-    const shadow = Math.max(0, smooth(t, 3, seed + 91 + k) - 0.55) * 2.2;
-    const hand = pulse(t, 40 + 10 * k, 0.4, 5, 0.6);           // a 40 s una mano copre il sensore
-    w.lux = (320 + day) * (1 - 0.6 * shadow) * (1 - 0.95 * hand);
-  }
-  w.pot = potAt(t, k, seed);
+  // luce: lampade del soffitto + finestre, con le nuvole che passano; ogni sensore in un punto un po' diverso
+  if (scenario !== "walk") w.lux = (320 + 150 * (1 + 0.6 * smooth(t, 25, seed + 90))) * (1 + 0.15 * bias(seed, 91 + k));
+  // tensione generica: una sorgente stabile (es. l'uscita di un sensore), con una piccola deriva
+  w.volt = clamp(0.44 + 0.12 * bias(seed, 60 + k) + 0.004 * drift(t, seed + 61 + k), 0, 1);
   return w;
 }
 
@@ -288,16 +275,15 @@ function slotValues(s: SimSlot, slot: number, t: number, scenario: string, k: nu
     return [Math.round((Tm + gauss(0.05) + K) / 0.02), Math.round((Ts + gauss(0.01) + K) / 0.02), 0];
   }
   if (s.type === "SPS") {
-    // aria di un'aula (≈ 8 µg/m³ di PM2,5) con picchi irregolari: una finestra sul traffico, un cancellino
+    // aria di un'aula (≈ 8 µg/m³ di PM2,5) che cambia piano, con qualche aumento irregolare
     const base = 5 + 1.5 * drift(t, seed + 130);
-    const peak = 30 * Math.max(0, smooth(t, 35, seed + 131)) ** 4 + 12 * Math.max(0, smooth(t, 9, seed + 132) - 0.6);
-    const pm1 = Math.max(0.3, base + peak + gauss(0.3));
+    const pm1 = Math.max(0.3, base + 6 * Math.max(0, smooth(t, 35, seed + 131)) ** 3 + gauss(0.3));
     const pm25 = pm1 * (1.4 + 0.05 * smooth(t, 60, seed + 133)), pm4 = pm25 * 1.12, pm10 = pm4 * 1.05, nc05 = pm1 * 6.1, nc1 = nc05 * 1.17, nc25 = nc1 * 1.01;
     return [pm1, pm25, pm4, pm10, nc05, nc1, nc25, nc25 * 1.001, nc25 * 1.002].map((v) => v.toFixed(2)).concat([(0.5 + 0.05 * smooth(t, 40, seed + 134) + gauss(0.01)).toFixed(3), "0"]);
   }
   if (s.type === "NTC") return [tempToAdc(lag.get(`${slot}`, t, w.T, TAU.NTC, T0) + 0.3 * bias(me, 9) + gauss(0.03)).toFixed(2)];
-  // fotoresistenza (bit0 dell'opzione) o tensione generica (un potenziometro girato a mano)
-  if (s.type === "ANA") return [(s.opt & 1 ? luxToAdc(w.lux, !!(s.opt & 2)) : clamp(w.pot * 1023 + gauss(0.5), 0, 1023)).toFixed(2)];
+  // fotoresistenza (bit0 dell'opzione) o tensione generica
+  if (s.type === "ANA") return [(s.opt & 1 ? luxToAdc(w.lux, !!(s.opt & 2)) : clamp(w.volt * 1023 + gauss(0.5), 0, 1023)).toFixed(2)];
   if (s.type === "DHT") {
     // lento, con un errore di taratura (DHT11: ±1 °C e ±4 %); l'umidità relativa dipende dalla sua temperatura
     const T = lag.get(`${slot}`, t, w.T, TAU.DHT, T0), vap = lag.get(`${slot}v`, t, w.vap, TAU.DHT * 0.6);
