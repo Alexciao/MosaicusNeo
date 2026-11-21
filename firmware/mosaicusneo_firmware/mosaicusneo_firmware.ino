@@ -936,7 +936,7 @@ void outAdd(char *args) {
   if (t == O_NONE) { outBad = 5; Serial.println(F("#ERR,OUT,TYPE")); return; }
   uint8_t np = t == O_RGB ? 3 : t == O_OLED ? 2 : 1;
   uint8_t pins[3];
-  for (uint8_t k = 0; k < 3; k++) pins[k] = (uint8_t)atoi(f[1 + k]);
+  for (uint8_t k = 0; k < 3; k++) pins[k] = (uint8_t)atol(f[1 + k]);
   for (uint8_t k = 0; k < np; k++) {
     if (pins[k] < 2 || pins[k] > 19) { outBad = 1; Serial.println(F("#ERR,OUT,PIN")); return; }
     if (!outPinFree(pins[k], t == O_OLED)) { outBad = 3; Serial.println(F("#ERR,OUT,DUPLICATE")); return; }
@@ -947,7 +947,7 @@ void outAdd(char *args) {
   for (uint8_t i = 0; i < MAX_OUTS; i++) if (outs[i].type == t || (slot < 0 && outs[i].type == O_NONE)) slot = i;
   if (slot < 0) { outBad = 6; Serial.println(F("#ERR,OUT,FULL")); return; }
   Out &o = outs[slot];
-  o.type = t; o.p[0] = pins[0]; o.p[1] = pins[1]; o.p[2] = pins[2]; o.opt = (uint8_t)atoi(f[4]);
+  o.type = t; o.p[0] = pins[0]; o.p[1] = pins[1]; o.p[2] = pins[2]; o.opt = (uint8_t)atol(f[4]);
   outApply(slot);
   ledFree = outPinFree(13, false) && !pinTakenBySlot(13);
   Serial.print(F("#ACK,OUT,ADD,")); Serial.println(f[0]);
@@ -1220,14 +1220,14 @@ void cfgAdd(char *args) {
   f[n++] = args;
   for (char *p = args; *p && n < 6; p++) if (*p == ',') { *p = '\0'; f[n++] = p + 1; }
   if (n < 6) { cfgError(-1, F("ARGS"), 6); return; }
-  int slot = atoi(f[0]);
+  int slot = (int)atol(f[0]);
   if (slot < 0 || slot >= MAX_SLOTS) { cfgError(slot, F("SLOT"), 6); return; }
   uint8_t type = S_NONE;
   char nm[6];
   for (uint8_t t = S_NTC; t <= S_LAST; t++) { typeName(t, nm); if (strcmp(nm, f[1]) == 0) type = t; }
   if (type == S_NONE) { cfgError(slot, F("TYPE"), 5); return; }
   cfgPendingType = type;
-  uint8_t e = cfgApply(slot, type, atol(f[2]), (uint8_t)atoi(f[3]), (uint8_t)atoi(f[4]), (uint8_t)atoi(f[5]));
+  uint8_t e = cfgApply(slot, type, atol(f[2]), (uint8_t)atol(f[3]), (uint8_t)atol(f[4]), (uint8_t)atol(f[5]));
   if (e) { cfgError(slot, e == 1 ? F("PIN") : e == 2 ? F("ANALOG") : e == 3 ? F("DUPLICATE") : F("GPS"), e); return; }
   Serial.print(F("#ACK,CFG,ADD,"));
   Serial.println(slot);
