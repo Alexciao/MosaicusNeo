@@ -275,7 +275,7 @@
     "save": "Salva",
     "combine": "Combina per tempo…",
     "combineTitle": "Combina «{name}» con…",
-    "combineIntro": "Per gli esperimenti con più di un Arduino: avvia un progetto per scheda nello stesso momento (per esempio in due schede del browser), poi combina qui le due misure. I dati si allineano sull'orologio del computer.",
+    "combineIntro": "Per gli esperimenti con più di un Arduino: avvia un lab per scheda nello stesso momento (per esempio in due schede del browser), poi combina qui le due misure. I dati si allineano sull'orologio del computer.",
     "combineNone": "Nessun'altra misura dal vivo si sovrappone a questa nel tempo.",
     "overlap": "si sovrappone per {s} s",
     "combinedTag": "Combinata"

@@ -508,9 +508,9 @@
     }
   },
   "rig": {
-    "phoneMix": "I sensori del telefono non si usano insieme ai componenti di Arduino: tienili in un progetto a parte.",
+    "phoneMix": "I sensori del telefono non si usano insieme ai componenti di Arduino: tienili in un lab a parte.",
     "onlyAccessories": "Ci sono solo accessori (display, LED, pulsante, scheda SD, Bluetooth): aggiungi almeno un sensore.",
-    "empty": "Il progetto è vuoto: aggiungi almeno un sensore.",
+    "empty": "Il lab è vuoto: aggiungi almeno un sensore.",
     "oneBluetooth": "Un solo modulo Bluetooth alla volta: stanno tutti su D0 e D1. Togli quello in più.",
     "tooMany": "Troppi sensori: Arduino ne legge al massimo {max}. Rimuovine qualcuno.",
     "maxType": "{max, plural, =1 {Puoi usare un solo «{title}»: rimuovi quello in più.} other {Puoi usare al massimo # «{title}»: rimuovi quelli in più.}}",

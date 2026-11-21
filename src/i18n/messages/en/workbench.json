@@ -275,7 +275,7 @@
     "save": "Save",
     "combine": "Combine by time…",
     "combineTitle": "Combine “{name}” with…",
-    "combineIntro": "For experiments with more than one Arduino: run one project per board at the same time (for example in two browser tabs), then combine the two measurements here. Their data is lined up on the computer’s clock.",
+    "combineIntro": "For experiments with more than one Arduino: run one lab per board at the same time (for example in two browser tabs), then combine the two measurements here. Their data is lined up on the computer’s clock.",
     "combineNone": "No other live measurement overlaps this one in time.",
     "overlap": "overlaps {s} s",
     "combinedTag": "Combined"

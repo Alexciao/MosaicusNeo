@@ -8,7 +8,7 @@ MosaicusNeo nasce da [Mosaicus](https://ermesfrosi.it) di Ermes Ferdinando Rosi 
 
 ## Sensori ed esperimenti
 
-Il cuore dell'app è il **progetto**: fino a 6 sensori su un Arduino Uno, anche dello stesso tipo, ognuno sui pin che preferisci e con il suo ritmo di lettura. L'app controlla i pin (doppi, analogici, D0/D1 riservati alla seriale), e genera la guida ai collegamenti. Tutto è un componente, e il catalogo li divide per che cosa fanno: **sensori** (gli ingressi), **comandi** (pulsante), **display, LED e suoni** (le uscite), **memoria** (scheda SD), **Bluetooth** e **telefono**, con ricerca, argomenti e disegni dei moduli. Ogni componente entra nello schema, nell'occorrente e nei passi.
+Il cuore dell'app è il **lab**: fino a 6 sensori su un Arduino Uno, anche dello stesso tipo, ognuno sui pin che preferisci e con il suo ritmo di lettura. L'app controlla i pin (doppi, analogici, D0/D1 riservati alla seriale), e genera la guida ai collegamenti. Tutto è un componente, e il catalogo li divide per che cosa fanno: **sensori** (gli ingressi), **comandi** (pulsante), **display, LED e suoni** (le uscite), **memoria** (scheda SD), **Bluetooth** e **telefono**, con ricerca, argomenti e disegni dei moduli. Ogni componente entra nello schema, nell'occorrente e nei passi.
 
 | Sensore | Pin | Grandezze |
 |---|---|---|
@@ -32,13 +32,13 @@ Il cuore dell'app è il **progetto**: fino a 6 sensori su un Arduino Uno, anche 
 |---|---|---|
 | Pulsante Avvia/Ferma | digitale + GND | con l'app collegata (cavo, HC-06, BLE) fa come «Avvia»/«Ferma»; con la scheda SD avvia e ferma la registrazione |
 | Scheda microSD | D10 (CS), D11, D12, D13 (SPI) | Arduino registra da solo, a batteria: si prepara una volta via USB («Prepara Arduino»), poi registra col pulsante o da quando si accende; i file LOGnnnnn.NEO si importano nel Quaderno |
-| Bluetooth HC-06 / Bluetooth LE (HM-10, AT-09, HC-08) | D0, D1 (con partitore) | misurare senza cavo; sceglierlo dal menu di «Collega» lo aggiunge da solo al progetto |
+| Bluetooth HC-06 / Bluetooth LE (HM-10, AT-09, HC-08) | D0, D1 (con partitore) | misurare senza cavo; sceglierlo dal menu di «Collega» lo aggiunge da solo al lab |
 
 La guida ai collegamenti si genera dai componenti e dai pin scelti: schema **realistico** (Arduino Uno e moduli infilati in una breadboard con colonne e righe numerate, con le resistenze che servono) o **schema** compatto, occorrente e passi foro per foro.
 
-Gli **esperimenti pronti** sono progetti già pensati per una lezione (Moto rettilineo, Moto armonico, Raffreddamento, Umidità e temperatura, Mappa della temperatura): si aprono e funzionano subito, e si possono modificare (le modifiche diventano una versione personale, ripristinabile). In **I miei progetti**, in cima alla barra, si compongono progetti propri. Gli **strumenti** (oscilloscopio audio, oscilloscopio elettrico su A0, synth) hanno un pannello proprio.
+Gli **esperimenti pronti** sono lab già pensati per una lezione (Moto rettilineo, Moto armonico, Raffreddamento, Umidità e temperatura, Mappa della temperatura): si aprono e funzionano subito, e si possono modificare (le modifiche diventano una versione personale, ripristinabile). In **I miei lab**, in cima alla barra, si compongono lab propri. Gli **strumenti** (oscilloscopio audio, oscilloscopio elettrico su A0, synth) hanno un pannello proprio.
 
-Con più sensori a ritmi diversi ogni lettura conserva il suo istante; quando servono insieme (mappa, invio a Elaborazione) le grandezze degli altri sensori vengono interpolate sui tempi del sensore scelto. Ogni progetto funziona anche con il **simulatore**, senza hardware.
+Con più sensori a ritmi diversi ogni lettura conserva il suo istante; quando servono insieme (mappa, invio a Elaborazione) le grandezze degli altri sensori vengono interpolate sui tempi del sensore scelto. Ogni lab funziona anche con il **simulatore**, senza hardware.
 
 ## Firmware
 
@@ -57,7 +57,7 @@ PING (ogni 2 s dall'app) · LINK,<U|B>              ← #ST,<W|I|S|E|T|O|C|R|L>,
                                                    ← #KEY quando si preme il pulsante con l'app collegata
 ```
 
-Sulla scheda SD il firmware scrive le stesse righe `D,…` della seriale, in `LOG00001.NEO`, `LOG00002.NEO`… (FAT32), dopo un'intestazione con la configurazione (`#MOSAICUSNEO,<fw>,SD`, `#PROJ,<id>`, `#CFG,…`, `#START`; `#STOP,<t_ms>` se fermata col pulsante). L'app li importa nel Quaderno con le opzioni del progetto preparato.
+Sulla scheda SD il firmware scrive le stesse righe `D,…` della seriale, in `LOG00001.NEO`, `LOG00002.NEO`… (FAT32), dopo un'intestazione con la configurazione (`#MOSAICUSNEO,<fw>,SD`, `#PROJ,<id>`, `#CFG,…`, `#START`; `#STOP,<t_ms>` se fermata col pulsante). L'app li importa nel Quaderno con le opzioni del lab preparato.
 
 Pin come numeri (A0 = 14 … A5 = 19); tempi con risoluzione di 1 µs e orologio a 64 bit (nessun azzeramento dopo 71 minuti).
 
@@ -82,7 +82,7 @@ Ogni misura finisce da sola nel **Quaderno** (pagina dedicata): ricerca, filtri 
 
 ## Account e cloud (facoltativi)
 
-Senza account tutto resta nel browser (IndexedDB) e l'app funziona offline. Con un account (email e password, via Supabase) misure, riquadri, progetti e preferenze dei lab si sincronizzano tra i dispositivi: archivio *local-first*, vince la modifica più recente, le cancellazioni arrivano agli altri dispositivi, Row Level Security. Lo schema è in [`supabase/migrations`](supabase/migrations); per attivare il cloud servono le variabili di [`.env.example`](.env.example). Dal menu dell'account, «Elimina account» cancella subito account e dati sincronizzati (funzione `delete_account`, migrazione `20261119130000_delete_account.sql`).
+Senza account tutto resta nel browser (IndexedDB) e l'app funziona offline. Con un account (email e password, via Supabase) misure, riquadri, lab personali e preferenze dei lab si sincronizzano tra i dispositivi: archivio *local-first*, vince la modifica più recente, le cancellazioni arrivano agli altri dispositivi, Row Level Security. Lo schema è in [`supabase/migrations`](supabase/migrations); per attivare il cloud servono le variabili di [`.env.example`](.env.example). Dal menu dell'account, «Elimina account» cancella subito account e dati sincronizzati (funzione `delete_account`, migrazione `20261119130000_delete_account.sql`).
 
 ## Sviluppo
 

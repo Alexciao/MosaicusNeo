@@ -12,7 +12,7 @@
     "firmware": "Caricare il firmware",
     "wiring": "Collegare i componenti",
     "measure": "Misurare",
-    "rigs": "Progetti e componenti",
+    "rigs": "I tuoi lab e i componenti",
     "analysis": "Elaborazione",
     "field": "Sul campo e Bluetooth",
     "sd": "Scheda SD e pulsante",
@@ -257,14 +257,14 @@
     "serialBusy": "La porta seriale si apre da un solo programma alla volta: con il Monitor seriale dell'IDE aperto, MosaicusNeo non si collega, e viceversa."
   },
   "wiring": {
-    "intro": "Ogni progetto ha il suo schema dei collegamenti, fatto dai suoi componenti e dai pin che hai scelto: apri il progetto e vai nella scheda «Collegamenti». Lì trovi lo schema sulla breadboard (o la mappa dei pin), l'occorrente e i passi, foro per foro.",
+    "intro": "Ogni lab ha il suo schema dei collegamenti, fatto dai suoi componenti e dai pin che hai scelto: apri il lab e vai nella scheda «Collegamenti». Lì trovi lo schema sulla breadboard (o la mappa dei pin), l'occorrente e i passi, foro per foro.",
     "breadboard": "La breadboard",
     "bb1": "I cinque fori di una colonna (a–e oppure f–j) sono collegati tra loro; il solco centrale li separa.",
     "bb2": "I binari laterali corrono per tutta la lunghezza: rosso (+) per il 5V, blu (−) per il GND.",
     "bb3": "D0 e D1 sono riservati al cavo USB e al Bluetooth: non collegarci componenti.",
-    "where": "Lo schema si aggiorna quando aggiungi o cambi i componenti. Bluetooth, scheda SD e pulsante sono componenti come gli altri: aggiungili al progetto e compaiono nello schema.",
+    "where": "Lo schema si aggiorna quando aggiungi o cambi i componenti. Bluetooth, scheda SD e pulsante sono componenti come gli altri: aggiungili al lab e compaiono nello schema.",
     "open": "Apri la scheda Collegamenti",
-    "empty": "Il progetto aperto non ha ancora componenti di Arduino: aggiungili prima nella scheda «Componenti»."
+    "empty": "Il lab aperto non ha ancora componenti di Arduino: aggiungili prima nella scheda «Componenti»."
   },
   "measure": {
     "s1": {
@@ -302,12 +302,12 @@
     "m5": "<b>Modalità LIM</b> (menu Aspetto): testi grandi e grafici più leggeri, per lavagne e PC lenti."
   },
   "rigs": {
-    "intro": "Ogni esperimento e ogni progetto ha un elenco di <b>componenti</b>: sensori, display, LED e cicalino, ciascuno con i suoi pin e il suo ritmo di lettura. Fino a 6 sensori insieme, anche dello stesso tipo (es. due termistori per confrontare due tazze).",
-    "projects": "Progetti",
-    "projectsIntro": "Un <b>progetto</b> è un insieme di componenti scelto da te. Lo trovi in <b>«I miei progetti»</b>, in cima alla barra laterale:",
-    "p1": "<b>Nuovo progetto</b>: parti da zero.",
-    "p2": "<b>Copia come progetto</b> (in un esperimento, scheda «Componenti»): parti dai suoi componenti.",
-    "p3": "Con un account, i progetti sono disponibili su tutti i tuoi dispositivi.",
+    "intro": "Ogni lab, pronto o tuo, ha un elenco di <b>componenti</b>: sensori, display, LED e cicalino, ciascuno con i suoi pin e il suo ritmo di lettura. Fino a 6 sensori insieme, anche dello stesso tipo (es. due termistori per confrontare due tazze).",
+    "projects": "I miei lab",
+    "projectsIntro": "Un <b>lab tuo</b> è un insieme di componenti scelto da te. Lo trovi in <b>«I miei lab»</b>, in cima alla barra laterale:",
+    "p1": "<b>Nuovo lab</b>: parti da zero.",
+    "p2": "<b>Copia nei miei lab</b> (in un esperimento, scheda «Componenti»): parti dai suoi componenti.",
+    "p3": "Con un account, i tuoi lab sono disponibili su tutti i tuoi dispositivi.",
     "personal": "Se modifichi un esperimento pronto ottieni una <b>versione personale</b>; «Ripristina» torna all'originale.",
     "edit": "Modificare i componenti",
     "s1": {
@@ -331,7 +331,7 @@
       "d": "Taratura, verso positivo, modello del DHT… Le meno usate sono in «Opzioni avanzate»."
     },
     "phone": "Sensori del telefono",
-    "phoneText": "Senza Arduino si possono usare l'accelerometro, il giroscopio e il microfono del telefono: esperimenti nella sezione «Strumenti» dell'elenco, oppure categoria «Telefono, senza Arduino» in «Aggiungi un componente». Apri l'app sul telefono (Chrome su Android, Safari su iPhone) e premi <b>Attiva i sensori</b>; su iPhone conferma il permesso. Non si mescolano con i componenti di Arduino nello stesso progetto.",
+    "phoneText": "Senza Arduino si possono usare l'accelerometro, il giroscopio e il microfono del telefono: esperimenti nella sezione «Strumenti» dell'elenco, oppure categoria «Telefono, senza Arduino» in «Aggiungi un componente». Apri l'app sul telefono (Chrome su Android, Safari su iPhone) e premi <b>Attiva i sensori</b>; su iPhone conferma il permesso. Non si mescolano con i componenti di Arduino nello stesso lab.",
     "errorNote": "Con un errore nei componenti (pin doppio, troppi sensori…) «Avvia» resta disattivato; il messaggio indica come correggerlo."
   },
   "analysis": {
@@ -377,7 +377,7 @@
     "n4": "Il firmware v{v}.",
     "record": "Registrare",
     "s1": {
-      "t": "Prepara Arduino (una volta per progetto)",
+      "t": "Prepara Arduino (una volta per lab)",
       "d": "Arduino collegato con il cavo USB: nella scheda del componente <b>Scheda SD</b> premi <b>Prepara Arduino</b>. Arduino riceve sensori, pin e ritmi, li salva (restano anche da spento) e prova la scheda."
     },
     "s2": {
@@ -398,7 +398,7 @@
   },
   "field": {
     "iosNote": "Su iPhone e iPad: solo moduli <b>BLE</b> e solo nel browser <b>Bluefy</b>.",
-    "intro": "Con un modulo Bluetooth e un power bank misuri all'aperto, con il telefono. Il modulo è un componente: aggiungi <b>Bluetooth HC-06</b> o <b>Bluetooth LE</b> al progetto (oppure sceglilo dal menu ▾ di «Collega»: entra da solo nei componenti), e schema e passi lo includono. I due tipi si collegano agli stessi pin, D0 e D1 (vedi <wiring>Collegare i componenti</wiring>).",
+    "intro": "Con un modulo Bluetooth e un power bank misuri all'aperto, con il telefono. Il modulo è un componente: aggiungi <b>Bluetooth HC-06</b> o <b>Bluetooth LE</b> al lab (oppure sceglilo dal menu ▾ di «Collega»: entra da solo nei componenti), e schema e passi lo includono. I due tipi si collegano agli stessi pin, D0 e D1 (vedi <wiring>Collegare i componenti</wiring>).",
     "table": {
       "classic": "HC-06 (classico)",
       "ble": "BLE (HM-10, AT-09, HC-08)",
@@ -527,7 +527,7 @@
     "whereTitle": "Dove sono salvati",
     "where": "Misure del Quaderno e riquadri di Elaborazione restano <b>nel browser di questo dispositivo</b>, anche senza rete. Cancellando i dati di navigazione si perdono: esporta ciò che vuoi conservare.",
     "accountTitle": "Account (facoltativo)",
-    "account": "Con «Accedi» crei un account con email e password. Misure, riquadri, progetti e preferenze vengono salvati nel cloud e sono disponibili su tutti i tuoi dispositivi; anche le misure fatte prima di accedere passano all'account. Quando esci, i dati spariscono dal dispositivo ma restano nel cloud: adatto ai computer della scuola.",
+    "account": "Con «Accedi» crei un account con email e password. Misure, riquadri, lab personali e preferenze vengono salvati nel cloud e sono disponibili su tutti i tuoi dispositivi; anche le misure fatte prima di accedere passano all'account. Quando esci, i dati spariscono dal dispositivo ma restano nel cloud: adatto ai computer della scuola.",
     "delete": "Per eliminare l'account: menu dell'account → <b>Elimina account</b>. Account e dati nel cloud vengono cancellati subito e per sempre; esporta prima quello che vuoi conservare.",
     "formatsTitle": "Formati di esportazione",
     "f1": "<b>Excel (.xlsx)</b>: i dati e un foglio con componenti, pin e opzioni usati.",
@@ -546,7 +546,7 @@
     },
     "oldFirmware": {
       "q": "«Il firmware su Arduino è vecchio»",
-      "a": "Le funzioni recenti (progetti, Bluetooth LE) richiedono la v{v}. Scarica di nuovo il firmware e ricaricalo."
+      "a": "Le funzioni recenti (lab personali, Bluetooth LE) richiedono la v{v}. Scarica di nuovo il firmware e ricaricalo."
     },
     "dht": {
       "q": "Il DHT11 dà valori vuoti o «—»",

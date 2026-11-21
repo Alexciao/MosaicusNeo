@@ -508,9 +508,9 @@
     }
   },
   "rig": {
-    "phoneMix": "Phone sensors can't be used together with Arduino components: keep them in a separate project.",
+    "phoneMix": "Phone sensors can't be used together with Arduino components: keep them in a separate lab.",
     "onlyAccessories": "There are only accessories (display, LED, button, SD card, Bluetooth): add at least one sensor.",
-    "empty": "The project is empty: add at least one sensor.",
+    "empty": "The lab is empty: add at least one sensor.",
     "oneBluetooth": "Only one Bluetooth module at a time: they all use D0 and D1. Remove the extra one.",
     "tooMany": "Too many sensors: Arduino reads at most {max}. Remove some.",
     "maxType": "{max, plural, =1 {You can use only one “{title}”: remove the extra one.} other {You can use at most # “{title}”: remove the extra ones.}}",

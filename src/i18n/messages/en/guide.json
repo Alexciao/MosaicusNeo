@@ -12,7 +12,7 @@
     "firmware": "Uploading the firmware",
     "wiring": "Wiring the components",
     "measure": "Measuring",
-    "rigs": "Projects and components",
+    "rigs": "Your labs and components",
     "analysis": "Analysis",
     "field": "In the field and Bluetooth",
     "sd": "SD card and button",
@@ -257,14 +257,14 @@
     "serialBusy": "The serial port can be opened by only one program at a time: with the IDE's Serial Monitor open, MosaicusNeo can't connect, and vice versa."
   },
   "wiring": {
-    "intro": "Every project has its own wiring diagram, made from its components and the pins you chose: open the project and go to the “Wiring” tab. There you'll find the breadboard diagram (or the pin map), the parts list and the steps, hole by hole.",
+    "intro": "Every lab has its own wiring diagram, made from its components and the pins you chose: open the lab and go to the “Wiring” tab. There you'll find the breadboard diagram (or the pin map), the parts list and the steps, hole by hole.",
     "breadboard": "The breadboard",
     "bb1": "The five holes of a column (a–e or f–j) are connected to each other; the central groove separates them.",
     "bb2": "The side rails run the whole length: red (+) for 5V, blue (−) for GND.",
     "bb3": "D0 and D1 are reserved for the USB cable and Bluetooth: don't connect components to them.",
-    "where": "The diagram updates as you add or change components. Bluetooth, SD card and button are components like any other: add them to the project and they appear in the diagram.",
+    "where": "The diagram updates as you add or change components. Bluetooth, SD card and button are components like any other: add them to the lab and they appear in the diagram.",
     "open": "Open the Wiring tab",
-    "empty": "The open project has no Arduino components yet: add some in the “Components” tab first."
+    "empty": "The open lab has no Arduino components yet: add some in the “Components” tab first."
   },
   "measure": {
     "s1": {
@@ -302,12 +302,12 @@
     "m5": "<b>Whiteboard mode</b> (Appearance menu): large text and lighter charts, for whiteboards and slow PCs."
   },
   "rigs": {
-    "intro": "Every experiment and every project has a list of <b>components</b>: sensors, displays, LEDs and buzzers, each with its own pins and reading rate. Up to 6 sensors at once, even of the same type (e.g. two thermistors to compare two cups).",
-    "projects": "Projects",
-    "projectsIntro": "A <b>project</b> is a set of components you choose. You'll find it in <b>“My projects”</b>, at the top of the sidebar:",
-    "p1": "<b>New project</b>: start from scratch.",
-    "p2": "<b>Copy as project</b> (in an experiment, “Components” tab): start from its components.",
-    "p3": "With an account, projects are available on all your devices.",
+    "intro": "Every lab, ready-made or your own, has a list of <b>components</b>: sensors, displays, LEDs and buzzers, each with its own pins and reading rate. Up to 6 sensors at once, even of the same type (e.g. two thermistors to compare two cups).",
+    "projects": "My labs",
+    "projectsIntro": "Your own <b>lab</b> is a set of components you choose. You'll find it in <b>“My labs”</b>, at the top of the sidebar:",
+    "p1": "<b>New lab</b>: start from scratch.",
+    "p2": "<b>Copy to My labs</b> (in an experiment, “Components” tab): start from its components.",
+    "p3": "With an account, your labs are available on all your devices.",
     "personal": "If you modify a ready-made experiment you get a <b>personal version</b>; “Restore” goes back to the original.",
     "edit": "Editing the components",
     "s1": {
@@ -331,7 +331,7 @@
       "d": "Calibration, positive direction, DHT model… The less used ones are in “Advanced options”."
     },
     "phone": "Phone sensors",
-    "phoneText": "Without Arduino you can use the phone's accelerometer, gyroscope and microphone: experiments in the “Tools” section of the list, or the “Phone, no Arduino” category in “Add a component”. Open the app on the phone (Chrome on Android, Safari on iPhone) and press <b>Enable sensors</b>; on iPhone, confirm the permission. They can't be mixed with Arduino components in the same project.",
+    "phoneText": "Without Arduino you can use the phone's accelerometer, gyroscope and microphone: experiments in the “Tools” section of the list, or the “Phone, no Arduino” category in “Add a component”. Open the app on the phone (Chrome on Android, Safari on iPhone) and press <b>Enable sensors</b>; on iPhone, confirm the permission. They can't be mixed with Arduino components in the same lab.",
     "errorNote": "With an error in the components (duplicate pin, too many sensors…) “Start” stays disabled; the message tells you how to fix it."
   },
   "analysis": {
@@ -377,7 +377,7 @@
     "n4": "Firmware v{v}.",
     "record": "Recording",
     "s1": {
-      "t": "Prepare Arduino (once per project)",
+      "t": "Prepare Arduino (once per lab)",
       "d": "With Arduino connected via the USB cable: in the <b>SD card</b> component's card press <b>Prepare Arduino</b>. Arduino receives sensors, pins and rates, saves them (they persist when powered off) and tests the card."
     },
     "s2": {
@@ -398,7 +398,7 @@
   },
   "field": {
     "iosNote": "On iPhone and iPad: <b>BLE</b> modules only, and only in the <b>Bluefy</b> browser.",
-    "intro": "With a Bluetooth module and a power bank you measure outdoors, with the phone. The module is a component: add <b>Bluetooth HC-06</b> or <b>Bluetooth LE</b> to the project (or pick it from the ▾ menu of “Connect”: it joins the components automatically), and the diagram and steps include it. Both types connect to the same pins, D0 and D1 (see <wiring>Wiring the components</wiring>).",
+    "intro": "With a Bluetooth module and a power bank you measure outdoors, with the phone. The module is a component: add <b>Bluetooth HC-06</b> or <b>Bluetooth LE</b> to the lab (or pick it from the ▾ menu of “Connect”: it joins the components automatically), and the diagram and steps include it. Both types connect to the same pins, D0 and D1 (see <wiring>Wiring the components</wiring>).",
     "table": {
       "classic": "HC-06 (classic)",
       "ble": "BLE (HM-10, AT-09, HC-08)",
@@ -527,7 +527,7 @@
     "whereTitle": "Where they are saved",
     "where": "Notebook measurements and Analysis panels stay <b>in this device's browser</b>, even offline. Clearing browsing data deletes them: export what you want to keep.",
     "accountTitle": "Account (optional)",
-    "account": "With “Sign in” you create an account with email and password. Measurements, panels, projects and preferences are saved to the cloud and are available on all your devices; measurements made before signing in also move to the account. When you sign out, the data disappear from the device but stay in the cloud: suitable for school computers.",
+    "account": "With “Sign in” you create an account with email and password. Measurements, panels, your labs and preferences are saved to the cloud and are available on all your devices; measurements made before signing in also move to the account. When you sign out, the data disappear from the device but stay in the cloud: suitable for school computers.",
     "delete": "To delete the account: account menu → <b>Delete account</b>. The account and the data in the cloud are deleted immediately and permanently; export what you want to keep first.",
     "formatsTitle": "Export formats",
     "f1": "<b>Excel (.xlsx)</b>: the data and a sheet with the components, pins and options used.",
@@ -546,7 +546,7 @@
     },
     "oldFirmware": {
       "q": "“The firmware on Arduino is old”",
-      "a": "Recent features (projects, Bluetooth LE) require v{v}. Download the firmware again and re-upload it."
+      "a": "Recent features (your own labs, Bluetooth LE) require v{v}. Download the firmware again and re-upload it."
     },
     "dht": {
       "q": "The DHT11 gives empty values or “—”",

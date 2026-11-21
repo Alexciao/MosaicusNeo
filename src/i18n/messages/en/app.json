@@ -45,10 +45,10 @@
     "cable": "USB cable",
     "unavailable": "not available in this browser",
     "hc06": "Classic Bluetooth (HC-06)",
-    "projectModule": "The module in this project.",
+    "projectModule": "The module in this lab.",
     "hc06Hint": "Android and computers. Pair it in the settings first.",
     "bleItem": "Bluetooth LE (HM-10, AT-09, HC-08)",
-    "bleProject": "The module in this project. Android, computers, and iPhone with Bluefy.",
+    "bleProject": "The module in this lab. Android, computers, and iPhone with Bluefy.",
     "bleHint": "Android, computers, and iPhone with the Bluefy app.",
     "noLink": "Without a connection",
     "sd": "Record to the SD card",
@@ -95,7 +95,7 @@
     "addComponents": "Add components",
     "howToWire": "Wiring",
     "howToUse": "How to use",
-    "noComponents": "This project has no components",
+    "noComponents": "This lab has no components",
     "quickPickHint": "Add at least one sensor to start measuring. The most common:",
     "allComponents": "Browse all components",
     "components": "Components"
@@ -206,7 +206,7 @@
       "title": "Delete the account?",
       "desc": "It happens immediately and can't be undone. This deletes:",
       "item1": "the account and the address <b>{email}</b>;",
-      "item2": "all measurements, panels, projects and preferences saved in the cloud;",
+      "item2": "all measurements, panels, your labs and preferences saved in the cloud;",
       "item3": "their copies on this device.",
       "keep": "If you want to keep something, export it to Excel or CSV first. On other devices the local copies remain until you sign out of the account.",
       "confirmLabel": "To confirm, type your email",
@@ -246,14 +246,14 @@
   "privacy": {
     "title": "Privacy notice",
     "updated": "Last updated: {date, date, long}",
-    "summary": "<b>In short.</b> Without an account your measurements stay in your device's browser and nobody receives them. With an account (optional), measurements, panels, projects and preferences are saved in the cloud so you can find them on other devices. No ads, no usage analytics, no profiling.",
+    "summary": "<b>In short.</b> Without an account your measurements stay in your device's browser and nobody receives them. With an account (optional), measurements, panels, your labs and preferences are saved in the cloud so you can find them on other devices. No ads, no usage analytics, no profiling.",
     "controller": {
       "title": "Data controller",
       "p1": "Write to this address with questions about privacy or to exercise your rights. The app's code is public on <gh>GitHub</gh>: you can check what it does with your data."
     },
     "local": {
       "title": "Data that stays on your device",
-      "p1": "Notebook measurements, Analysis panels, projects and preferences (theme, whiteboard mode, recent choices) are saved in the browser (IndexedDB and localStorage). They aren't sent to anyone unless you sign in with an account.",
+      "p1": "Notebook measurements, Analysis panels, your labs and preferences (theme, whiteboard mode, recent choices) are saved in the browser (IndexedDB and localStorage). They aren't sent to anyone unless you sign in with an account.",
       "p2": "You can erase them by deleting the site data in the browser settings. Export them first if you want to keep them."
     },
     "sensors": {
@@ -263,7 +263,7 @@
     },
     "account": {
       "title": "Account (optional)",
-      "p1": "Creating an account requires an email address and a password. With the account, the following are saved in the cloud: measurements, panels, projects and lab preferences. Each user can only read and change their own data.",
+      "p1": "Creating an account requires an email address and a password. With the account, the following are saved in the cloud: measurements, panels, your labs and lab preferences. Each user can only read and change their own data.",
       "p2": "We use the email only for signing in and for necessary messages (address confirmation, password recovery). The password is managed by the authentication service and is never visible in plain text.",
       "p3": "Legal basis: performance of the service you request by creating the account (Art. 6(1)(b) GDPR).",
       "p4": "If you are under 14, create an account only with the consent of a parent or guardian. The app also works without an account."
@@ -280,7 +280,7 @@
     "retention": {
       "title": "How long",
       "p1": "Account data is kept as long as the account exists. When you sign out, it disappears from that device but stays in the cloud.",
-      "p2": "<b>You can delete the account at any time from the app</b>: account menu → “Delete account”. The account, the email address and all synced data (measurements, panels, projects, preferences) are erased immediately and permanently from the server, together with their copies on the device you're using. On other devices the local copies remain until you sign out of the account or delete the site data. Any backup copies held by the provider are deleted through their normal rotation.",
+      "p2": "<b>You can delete the account at any time from the app</b>: account menu → “Delete account”. The account, the email address and all synced data (measurements, panels, your labs, preferences) are erased immediately and permanently from the server, together with their copies on the device you're using. On other devices the local copies remain until you sign out of the account or delete the site data. Any backup copies held by the provider are deleted through their normal rotation.",
       "p3": "If you can't sign in, request deletion at <mail>{contact}</mail>."
     },
     "rights": {
