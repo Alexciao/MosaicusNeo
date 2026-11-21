@@ -121,7 +121,7 @@
 #include <EEPROM.h>
 #include <new.h>                  // placement new (SoftwareSerial del GPS)
 
-const char *FW_VERSION = "1.8";
+#define FW_VERSION "1.8"          // stringa in flash, unita ai testi vicini (al massimo 4 caratteri: display)
 
 const uint8_t MAX_SLOTS = 6;
 const uint8_t ADC_SAMPLES = 16;                 // sovracampionamento per ridurre il rumore
@@ -283,9 +283,7 @@ unsigned long runStartMs = 0;
 
 
 void sendHello() {
-  Serial.print(F("#MOSAICUS,"));
-  Serial.print(FW_VERSION);
-  Serial.println(F(",READY"));
+  Serial.println(F("#MOSAICUS," FW_VERSION ",READY"));
 }
 
 void led(bool on) { if (ledFree) digitalWrite(LED_BUILTIN, on ? HIGH : LOW); }
@@ -716,8 +714,7 @@ void screenTexts(char *bar, char *big, char *small) {
         // in attesa dell'app: come collegarsi (il cavo sempre, il Bluetooth se il modulo ha risposto
         // a BT,SETUP) e la versione del firmware: «USB v1.3» oppure «USB/BT 1.3»
         strcpy_P(bar, PSTR("NO APP")); strcpy_P(big, PSTR("WAIT"));
-        strcpy_P(small, btKind ? PSTR("USB/BT ") : PSTR("USB v"));
-        strncat(small, FW_VERSION, 4);
+        strcpy_P(small, btKind ? PSTR("USB/BT " FW_VERSION) : PSTR("USB v" FW_VERSION));
       }
       break;
     case ST_IDLE: strcpy_P(bar, linkBt ? PSTR("LINK BT") : PSTR("LINK USB")); strcpy_P(big, PSTR("READY")); strcpy_P(small, PSTR("tap Start")); break;
@@ -1816,7 +1813,7 @@ void logStart() {
   if (e) { sdErr = true; return; }
   sdErr = false;
   dSer = false; sdOn = true;
-  dout.print(F("#MOSAICUS,")); dout.print(FW_VERSION); dout.println(F(",SD"));
+  dout.println(F("#MOSAICUS," FW_VERSION ",SD"));
   dout.print(F("#PROJ,"));
   for (uint8_t k = 0; k < 12; k++) { char c = EEPROM.read(E_ID + k); if (!c) break; dout.write(c); }
   dout.println();
