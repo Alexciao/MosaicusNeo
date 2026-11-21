@@ -8,14 +8,12 @@
   },
   "chapters": {
     "start": "Start here",
-    "device": "Your device",
     "firmware": "Uploading the firmware",
     "wiring": "Wiring the components",
     "measure": "Measuring",
     "rigs": "Your labs and components",
     "analysis": "Analysis",
-    "field": "In the field and Bluetooth",
-    "sd": "SD card and button",
+    "wireless": "Measuring wirelessly",
     "outputs": "Status display",
     "data": "Data and account",
     "problems": "Common problems"
@@ -24,8 +22,7 @@
     "label": "Instructions for",
     "aria": "Instructions for which device",
     "itemThis": "{label} (this one)",
-    "badgeThis": "· this one",
-    "this": "this one"
+    "badgeThis": "· this one"
   },
   "otherDevice": {
     "text": "You are reading the instructions for: <b>{reading}</b>. This device: {here}.",
@@ -72,9 +69,7 @@
   "port": {
     "windows": "In the top menu: <b>Arduino Uno</b> and the port <b>COM3, COM4…</b> that appears when you plug in the cable.",
     "mac": "In the top menu: <b>Arduino Uno</b> and the port <b>/dev/cu.usbmodem…</b> (clones: <b>/dev/cu.wchusbserial…</b>).",
-    "linux": "In the top menu: <b>Arduino Uno</b> and <b>/dev/ttyACM0</b> (or <b>/dev/ttyUSB0</b>). No permission: <code>sudo usermod -aG dialout $USER</code>, then log out and back in.",
-    "chromeos": "Use the <b>Arduino Cloud Editor</b> with its plugin: choose <b>Arduino Uno</b> and the port that appears.",
-    "other": "In the top menu: <b>Arduino Uno</b> and the port (Windows: COM3, COM4…; Mac: /dev/cu.usbmodem…; Linux: /dev/ttyACM0)."
+    "linux": "In the top menu: <b>Arduino Uno</b> and <b>/dev/ttyACM0</b> (or <b>/dev/ttyUSB0</b>). No permission: <code>sudo usermod -aG dialout $USER</code>, then log out and back in."
   },
   "connectHow": {
     "pc": "“Connect Arduino” and choose the USB port. With a BLE module: menu ▾ → “Bluetooth LE”.",
@@ -116,7 +111,7 @@
       },
       "s3": {
         "t": "From the computer: configure the module",
-        "d": "Just once, with Arduino on USB: <field>In the field and Bluetooth</field>."
+        "d": "Just once, with Arduino on USB: <field>Measuring wirelessly</field>."
       },
       "s4": {
         "t": "On the phone, in Chrome: connect",
@@ -139,7 +134,7 @@
       },
       "s3": {
         "t": "From the computer: configure the module",
-        "d": "Just once, with Arduino on USB: <field>In the field and Bluetooth</field>."
+        "d": "Just once, with Arduino on USB: <field>Measuring wirelessly</field>."
       },
       "s4": {
         "t": "Install Bluefy and open MosaicusNeo",
@@ -161,7 +156,7 @@
       },
       "s3": {
         "t": "With Bluetooth",
-        "d": "Firmware and module setup are done once from a computer: <field>In the field and Bluetooth</field>."
+        "d": "Firmware and module setup are done once from a computer: <field>Measuring wirelessly</field>."
       },
       "s4": {
         "t": "To discuss the data in class",
@@ -176,42 +171,12 @@
     "copied": "Link copied."
   },
   "startDevice": {
-    "path": "Your path: {device}",
-    "check": "Check your device",
-    "cannot": "This device can't connect to Arduino yet. What's missing and how to fix it: <device>Your device</device>."
-  },
-  "yourDevice": {
-    "using": "You are using: {device}",
-    "worksHere": "What works here",
-    "unknown": "I can't recognize this device.",
-    "which": "Which device you measure with",
-    "whichText": "The guide's instructions follow this choice (you can also change it from the menu at the top). If you read on the computer but measure with the phone, choose the phone.",
-    "compare": "Device comparison",
-    "colDevice": "Device",
-    "colUsb": "USB cable",
-    "colBt": "Bluetooth",
-    "rows": {
-      "pc": {
-        "name": "Computer (Chrome, Edge)",
-        "usb": "yes",
-        "bt": "BLE yes; HC-06 if already paired"
-      },
-      "android": {
-        "name": "Android (Chrome)",
-        "usb": "—",
-        "bt": "HC-06 and BLE"
-      },
-      "ios": {
-        "name": "iPhone, iPad",
-        "usb": "—",
-        "bt": "BLE only, in the Bluefy browser"
-      },
-      "board": {
-        "name": "Android whiteboard",
-        "usb": "—",
-        "bt": "like Android (Chrome)"
-      }
-    }
+    "path": "Your path",
+    "detected": "Detected: {device} · {os} · {browser}",
+    "details": "What works on this device",
+    "unknown": "I can't recognize this device: the steps below are for a computer.",
+    "cannot": "This device can't connect to Arduino yet. Open “What works on this device” below to see what's missing and how to fix it.",
+    "otherHint": "Reading here but measuring with another device? Choose it from “Instructions for”, at the top."
   },
   "start": {
     "intro": "MosaicusNeo reads the sensors connected to Arduino, shows real-time charts, saves the measurements and analyzes them. It runs in the browser, even offline.",
@@ -230,9 +195,36 @@
     "download": "Download firmware v{v}",
     "source": "Code on GitHub",
     "fileNote": "mosaicusneo_firmware.ino · no libraries to install",
-    "s1": {
+    "osLabel": "Your computer",
+    "os": {
+      "windows": "Windows",
+      "mac": "macOS",
+      "linux": "Linux",
+      "chromeos": "Chromebook"
+    },
+    "ide": {
       "t": "Install Arduino IDE 2",
-      "d": "From arduino.cc → Software. On a Chromebook or on a computer without install permissions, use the Arduino Cloud Editor."
+      "windows": "Download it from <ide>arduino.cc/en/software</ide>: choose <b>Windows</b> (the installer, or the Microsoft Store version) and install it. On a school PC without admin rights, ask the technician.",
+      "mac": "Download it from <ide>arduino.cc/en/software</ide>: choose <b>macOS</b> (Apple Silicon for Macs with an M chip, Intel for older ones), open the .dmg and drag Arduino IDE into Applications.",
+      "linux": "Download the <b>AppImage</b> from <ide>arduino.cc/en/software</ide>, make it executable (right-click → Properties → Allow executing, or <code>chmod +x</code>) and open it."
+    },
+    "cloud": {
+      "s1": {
+        "t": "Open the Arduino Cloud Editor",
+        "d": "Chromebooks can't install Arduino IDE: in Chrome, go to <cloud>app.arduino.cc</cloud> and sign in with a free Arduino account. If it asks to install a plugin or app, follow its instructions."
+      },
+      "s2": {
+        "t": "Create a sketch with the firmware",
+        "d": "Create a new sketch and replace all its code with the contents of <b>mosaicusneo_firmware.ino</b> (open the downloaded file, or copy it from “Code on GitHub”)."
+      },
+      "s4": {
+        "t": "Choose board and port",
+        "d": "From the menu at the top of the editor: <b>Arduino Uno</b>, on the port that appears when you plug in the cable."
+      },
+      "s5": {
+        "t": "Press “Upload” (→ arrow)",
+        "d": "The TX/RX LEDs blink; after a few seconds the editor says the upload is done."
+      }
     },
     "s2": {
       "t": "Open the downloaded file",
@@ -251,9 +243,13 @@
     },
     "s6": {
       "t": "Check in MosaicusNeo",
-      "d": "Close the IDE, press <b>Connect Arduino</b> and choose the port. The status becomes <b>Arduino ready · firmware {v}</b>."
+      "d": "Close the Arduino IDE or editor, press <b>Connect Arduino</b> and choose the port. The status becomes <b>Arduino ready · firmware {v}</b>."
     },
-    "ch340": "Clone with a CH340 chip and no port? Install the CH340 driver for your system and plug the cable back in.",
+    "ch340": {
+      "windows": "Clone with a CH340 chip and no COM port? Install the CH340 driver for Windows and plug the cable back in.",
+      "mac": "Clone with a CH340 chip and no port? Recent versions of macOS include the driver; on older ones, install the CH340 driver for macOS and plug the cable back in."
+    },
+    "noAdmin": "Can't install programs (e.g. on a school PC)? The <cloud>Arduino Cloud Editor</cloud> runs in the browser, but it needs a small helper program, the Arduino Cloud Agent: ask the technician to install one of the two.",
     "serialBusy": "The serial port can be opened by only one program at a time: with the IDE's Serial Monitor open, MosaicusNeo can't connect, and vice versa."
   },
   "wiring": {
@@ -368,8 +364,22 @@
     "r2": "A panel can be collapsed or <b>duplicated</b>, to try another analysis on the same data.",
     "r3": "Tick the panels and press <b>Export to Excel</b>: a summary sheet, one with all the results and one per panel."
   },
+  "wireless": {
+    "intro": "Two ways to measure without a cable to the computer. They are components like any other: add them from “Add a component”, or from the ▾ menu of “Connect”, and the diagram and the steps include them.",
+    "bt": {
+      "t": "Bluetooth",
+      "d": "Live charts on a phone or computer nearby, with Arduino on a power bank."
+    },
+    "sd": {
+      "t": "SD card",
+      "d": "Arduino records on its own, even for hours. You import the data afterwards."
+    },
+    "btTitle": "Bluetooth: live on the phone",
+    "sdTitle": "SD card: Arduino on its own",
+    "buttonText": "A button between a digital pin and GND (no resistor needed) starts and stops. With the SD card it starts and stops the recording. With the app connected, via cable or Bluetooth, it works like “Start” and “Stop”: handy when your hands are busy with the experiment. If you connect the app while Arduino is recording to the card, the recording is closed and you measure as usual."
+  },
   "sd": {
-    "intro": "With a <b>microSD card</b> Arduino measures on its own, powered by a power bank or a battery: no computer, no phone, even for hours. With a <b>button</b> you decide when to start and stop. They are components like any other: add them from “Add a component” (<b>Storage</b> and <b>Controls</b> groups) or from the ▾ menu of “Connect” → <b>Record to SD card</b>.",
+    "intro": "With a <b>microSD card</b> Arduino measures on its own, powered by a power bank or a battery: no computer, no phone, even for hours. Add the <b>SD card</b> component (<b>Storage</b> group), or pick <b>Record to SD card</b> from the ▾ menu of “Connect”.",
     "need": "What you need",
     "n1": "A microSD module with a regulator (“Micro SD Card Adapter”): it runs on 5V. It always uses D10 (CS), D11 (MOSI), D12 (MISO) and D13 (SCK): move components that used them to other pins.",
     "n2": "A microSD card formatted as <b>FAT32</b>, up to 32 GB (larger ones come as exFAT: reformat them to FAT32).",
@@ -393,12 +403,11 @@
       "d": "Put the card in the computer and press <b>Import from SD card</b> (in the Notebook or in the component's card): each file becomes a measurement, with the usual quantities, charts and Analysis."
     },
     "statusNote": "The display, LED and buzzer tell you what's happening: “SD CARD · PRESS” waits for the button, “● SD REC · 1:23” is recording, “ERROR · SD” if the card is missing or not FAT32.",
-    "buttonTitle": "The button with the app",
-    "buttonText": "With the app connected, via cable or Bluetooth, the button works like “Start” and “Stop”: handy when your hands are busy with the experiment. If you connect the app while Arduino is recording to the card, the recording is closed and you measure as usual."
+    "buttonTitle": "Start/Stop button"
   },
   "field": {
     "iosNote": "On iPhone and iPad: <b>BLE</b> modules only, and only in the <b>Bluefy</b> browser.",
-    "intro": "With a Bluetooth module and a power bank you measure outdoors, with the phone. The module is a component: add <b>Bluetooth HC-06</b> or <b>Bluetooth LE</b> to the lab (or pick it from the ▾ menu of “Connect”: it joins the components automatically), and the diagram and steps include it. Both types connect to the same pins, D0 and D1 (see <wiring>Wiring the components</wiring>).",
+    "intro": "With a Bluetooth module and a power bank you measure outdoors, with the phone. Add <b>Bluetooth HC-06</b> or <b>Bluetooth LE</b> to the lab (or pick it from the ▾ menu of “Connect”: it joins the components automatically). Both types connect to the same pins, D0 and D1 (see <wiring>Wiring the components</wiring>).",
     "table": {
       "classic": "HC-06 (classic)",
       "ble": "BLE (HM-10, AT-09, HC-08)",
@@ -568,7 +577,7 @@
       "q": "The Bluetooth module doesn't show up",
       "a1": "HC-06: it isn't paired or the device doesn't support it. Pair it in the phone's settings (PIN 1234 or 0000); it works only on Android.",
       "a2": "BLE: you search for it from the app, not from the settings. If “MosaicusNeo” isn't there, the module isn't configured: look for HMSoft, BT05 or HC-08. On iPhone use Bluefy, not Safari.",
-      "a3": "It connects but no data arrive: the module is still at 9600 baud. Repeat “Configure” with the USB cable (<field>In the field and Bluetooth</field>)."
+      "a3": "It connects but no data arrive: the module is still at 9600 baud. Repeat “Configure” with the USB cable (<field>Measuring wirelessly</field>)."
     },
     "slow": {
       "q": "The app is slow",

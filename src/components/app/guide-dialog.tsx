@@ -9,7 +9,7 @@ import { useTranslations } from "next-intl";
 import type { LucideIcon } from "lucide-react";
 import {
   Bluetooth, ChartLine, Check, ChevronLeft, ChevronRight, CircleHelp, Cloud, Copy, Cpu, Download, FlaskConical, LifeBuoy, MemoryStick, Minus, Monitor, Plug, Presentation, Rocket, Share2,
-  Siren, SlidersHorizontal, Smartphone, TriangleAlert, X,
+  Siren, SlidersHorizontal, Smartphone, TriangleAlert, Unplug, X,
 } from "lucide-react";
 import { toast } from "@/lib/toast";
 import { Button } from "@/components/ui/button";
@@ -64,10 +64,17 @@ const tags = {
   code: (c: React.ReactNode) => <code className="rounded bg-muted px-1">{c}</code>,
   firmware: (c: React.ReactNode) => <ChapterLink id="firmware">{c}</ChapterLink>,
   wiring: (c: React.ReactNode) => <ChapterLink id="wiring">{c}</ChapterLink>,
-  field: (c: React.ReactNode) => <ChapterLink id="field">{c}</ChapterLink>,
+  field: (c: React.ReactNode) => <ChapterLink id="wireless">{c}</ChapterLink>,
   measure: (c: React.ReactNode) => <ChapterLink id="measure">{c}</ChapterLink>,
-  device: (c: React.ReactNode) => <ChapterLink id="device">{c}</ChapterLink>,
 };
+/** Link esterni nei testi (pagina di download dell'IDE, Cloud Editor). */
+function ext(href: string) {
+  return function ExtLink(c: React.ReactNode) {
+    return <a className="font-medium text-foreground underline decoration-foreground/30 underline-offset-4 hover:decoration-foreground" href={href} target="_blank" rel="noopener">{c}</a>;
+  };
+}
+const IDE_URL = "https://www.arduino.cc/en/software";
+const CLOUD_URL = "https://app.arduino.cc";
 const fw = { ...tags, v: FIRMWARE_VERSION };
 
 /** Il nome del dispositivo dentro una frase: in italiano in minuscolo, in inglese com'è (nomi propri). */
@@ -154,7 +161,7 @@ function DeviceChecks({ d }: { d: DeviceInfo }) {
     : d.serial ? ["warn", t("hc06.pcWarn")] : ["no", t("hc06.pcNo")];
 
   return (
-    <ul className="divide-y rounded-md border px-3">
+    <ul className="divide-y">
       <CheckRow state={usb[0]} title={t("usbTitle")}>{usb[1]}</CheckRow>
       <CheckRow state={ble[0]} title={t("bleTitle")}>{ble[1]}</CheckRow>
       <CheckRow state={hc06[0]} title={t("hc06Title")}>{hc06[1]}</CheckRow>
@@ -166,13 +173,13 @@ function DeviceChecks({ d }: { d: DeviceInfo }) {
   );
 }
 
-function PortHint({ os }: { os: string | null }) {
+/** I sistemi da cui si carica il firmware (su Chromebook con l'Arduino Cloud Editor, altrove con Arduino IDE). */
+type FwOs = "windows" | "mac" | "linux" | "chromeos";
+const FW_OSES: FwOs[] = ["windows", "mac", "linux", "chromeos"];
+
+function PortHint({ os }: { os: Exclude<FwOs, "chromeos"> }) {
   const t = useTranslations("guide.port");
-  if (os === "windows") return <>{t.rich("windows", tags)}</>;
-  if (os === "mac") return <>{t.rich("mac", tags)}</>;
-  if (os === "linux") return <>{t.rich("linux", tags)}</>;
-  if (os === "chromeos") return <>{t.rich("chromeos", tags)}</>;
-  return <>{t.rich("other", tags)}</>;
+  return <>{t.rich(os, tags)}</>;
 }
 
 function ConnectHow() {
@@ -249,6 +256,8 @@ function ShareLink() {
   );
 }
 
+/** Il percorso per il dispositivo scelto in alto («Istruzioni per»), con i controlli di questo dispositivo
+ *  in sordina: una riga richiudibile, aperta solo se serve. */
 function StartDevice() {
   const t = useTranslations("guide.startDevice");
   const dev = useDev();
@@ -256,13 +265,26 @@ function StartDevice() {
   const okHere = !d || dev !== d.device || (d.device === "pc" ? d.serial : d.bluetooth);
   return (
     <>
-      <div className="flex flex-wrap items-baseline justify-between gap-2">
-        <H>{t("path", { device: inSentence(DEVICE_LABEL[dev]) })}</H>
-        <ChapterLink id="device">{t("check")}</ChapterLink>
+      <div className="flex flex-wrap items-baseline justify-between gap-x-3">
+        <H>{t("path")}</H>
+        <span className="text-xs text-muted-foreground">{DEVICE_LABEL[dev]}</span>
       </div>
-      {!okHere && <Note kind="warn">{t.rich("cannot", tags)}</Note>}
       <OtherDeviceNote />
+      {!okHere && <Note kind="warn">{t("cannot")}</Note>}
+      {!d && <P>{t("unknown")}</P>}
       <DevicePath />
+      {d && dev !== d.device && <ShareLink />}
+      {d && (
+        <details className="group rounded-md border px-3 py-2" open={!okHere || undefined}>
+          <summary className="flex cursor-pointer list-none items-center gap-2 text-xs text-muted-foreground [&::-webkit-details-marker]:hidden">
+            <ChevronRight className="size-3.5 shrink-0 transition-transform group-open:rotate-90" />
+            <span className="min-w-0 flex-1">{t("details")}</span>
+            <span className="hidden sm:inline">{t("detected", { device: DEVICE_LABEL[d.device], os: OS_LABEL[d.os], browser: `${BROWSER_LABEL[d.browser]}${d.version ? ` ${d.version}` : ""}` })}</span>
+          </summary>
+          <div className="mt-2"><DeviceChecks d={d} /></div>
+        </details>
+      )}
+      <p className="text-xs text-muted-foreground">{t("otherHint")}</p>
     </>
   );
 }
@@ -270,59 +292,6 @@ function StartDevice() {
 // ---------------------------------------------------------------------------
 // Capitoli
 // ---------------------------------------------------------------------------
-function YourDevice() {
-  const t = useTranslations("guide.yourDevice");
-  const tp = useTranslations("guide.startDevice");
-  const tk = useTranslations("guide.picker");
-  const dev = useDev();
-  const d = DETECTED;
-  const Icon = d ? DEVICE_ICON[d.device] : Monitor;
-  return (
-    <>
-      {d && (
-        <div className="flex items-center gap-3 rounded-md border p-3">
-          <Icon className="size-5 shrink-0 text-muted-foreground" />
-          <div className="min-w-0">
-            <p className="text-sm font-medium">{t("using", { device: inSentence(DEVICE_LABEL[d.device]) })}</p>
-            <p className="text-sm text-muted-foreground">{OS_LABEL[d.os]} · {BROWSER_LABEL[d.browser]}{d.version ? ` ${d.version}` : ""}</p>
-          </div>
-        </div>
-      )}
-      <H>{t("worksHere")}</H>
-      {d ? <DeviceChecks d={d} /> : <P>{t("unknown")}</P>}
-      <H>{t("which")}</H>
-      <P>{t("whichText")}</P>
-      <div className="grid gap-2 sm:grid-cols-2">
-        {DEVICES.map((x) => {
-          const XIcon = DEVICE_ICON[x];
-          return (
-            <button key={x} type="button" onClick={() => setGuideDevice(x)} aria-pressed={dev === x}
-              className={cn("flex items-center gap-3 rounded-md border p-3 text-left text-sm transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring/50", dev === x ? "border-foreground/40 bg-foreground/[0.04]" : "hover:bg-muted/60")}>
-              <XIcon className={cn("size-4 shrink-0", dev === x ? "text-foreground" : "text-muted-foreground")} />
-              <span className="min-w-0 flex-1 font-medium">{DEVICE_LABEL[x]}</span>
-              {x === d?.device && <span className="text-xs text-muted-foreground">{tk("this")}</span>}
-            </button>
-          );
-        })}
-      </div>
-      <H>{tp("path", { device: inSentence(DEVICE_LABEL[dev]) })}</H>
-      <DevicePath />
-      {d && dev !== d.device && <ShareLink />}
-      <H>{t("compare")}</H>
-      <div className="overflow-x-auto rounded-md border">
-        <table className="w-full text-sm">
-          <thead className="bg-muted/50 text-left text-xs font-medium text-muted-foreground"><tr><th className="p-2 font-medium">{t("colDevice")}</th><th className="p-2 font-medium">{t("colUsb")}</th><th className="p-2 font-medium">{t("colBt")}</th></tr></thead>
-          <tbody className="text-muted-foreground">
-            {(["pc", "android", "ios", "board"] as const).map((k) => (
-              <tr key={k} className={cn("border-t", k === dev && "bg-foreground/[0.03]")}><td className="p-2 text-foreground">{t(`rows.${k}.name`)}</td><td className="p-2">{t(`rows.${k}.usb`)}</td><td className="p-2">{t(`rows.${k}.bt`)}</td></tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    </>
-  );
-}
-
 function Start() {
   const t = useTranslations("guide.start");
   return (
@@ -341,10 +310,31 @@ function Start() {
   );
 }
 
+/** Il sistema del computer che carica il firmware: quello rilevato, se è un computer; altrimenti Windows. */
+const DETECTED_FW_OS: FwOs = DETECTED && (FW_OSES as string[]).includes(DETECTED.os) ? (DETECTED.os as FwOs) : "windows";
+
 function Firmware() {
   const t = useTranslations("guide.firmware");
   const dev = useDev();
-  const os = DETECTED?.device === "pc" ? DETECTED.os : null;
+  const [os, setOs] = useState<FwOs>(DETECTED_FW_OS);
+  const links = { ...tags, ide: ext(IDE_URL), cloud: ext(CLOUD_URL) };
+  const steps: (string | [string, React.ReactNode])[] = os === "chromeos"
+    ? [
+      [t("cloud.s1.t"), t.rich("cloud.s1.d", links)],
+      [t("cloud.s2.t"), t.rich("cloud.s2.d", links)],
+      [t("s3.t"), t("s3.d")],
+      [t("cloud.s4.t"), t.rich("cloud.s4.d", links)],
+      [t("cloud.s5.t"), t("cloud.s5.d")],
+      [t("s6.t"), t.rich("s6.d", fw)],
+    ]
+    : [
+      [t("ide.t"), t.rich(`ide.${os}`, links)],
+      [t("s2.t"), t.rich("s2.d", tags)],
+      [t("s3.t"), t("s3.d")],
+      [t("s4.t"), <PortHint key="port" os={os} />],
+      [t("s5.t"), t.rich("s5.d", tags)],
+      [t("s6.t"), t.rich("s6.d", fw)],
+    ];
   return (
     <>
       <P>{t("intro")}</P>
@@ -355,15 +345,21 @@ function Firmware() {
         <Button variant="outline" render={<a href={FIRMWARE_SOURCE_URL} target="_blank" rel="noopener" />}><GithubMark className="size-4" /> {t("source")}</Button>
         <span className="text-xs text-muted-foreground">{t("fileNote")}</span>
       </div>
-      <Steps items={[
-        [t("s1.t"), t("s1.d")],
-        [t("s2.t"), t.rich("s2.d", tags)],
-        [t("s3.t"), t("s3.d")],
-        [t("s4.t"), <PortHint key="port" os={os} />],
-        [t("s5.t"), t.rich("s5.d", tags)],
-        [t("s6.t"), t.rich("s6.d", fw)],
-      ]} />
-      <Note>{t("ch340")}</Note>
+      <div className="flex flex-wrap items-center gap-2 text-sm">
+        <span id="fw-os" className="text-muted-foreground">{t("osLabel")}</span>
+        <div role="radiogroup" aria-labelledby="fw-os" className="inline-flex flex-wrap rounded-lg bg-muted p-0.5">
+          {FW_OSES.map((o) => (
+            <button key={o} type="button" role="radio" aria-checked={os === o} onClick={() => setOs(o)}
+              className={cn("rounded-md px-2.5 py-1 text-xs font-medium transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring/50",
+                os === o ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground")}>
+              {t(`os.${o}`)}
+            </button>
+          ))}
+        </div>
+      </div>
+      <Steps items={steps} />
+      {(os === "windows" || os === "mac") && <Note>{t(`ch340.${os}`)}</Note>}
+      {os !== "chromeos" && <Note>{t.rich("noAdmin", links)}</Note>}
       <Note kind="warn">{t("serialBusy")}</Note>
     </>
   );
@@ -464,8 +460,36 @@ function Analysis() {
   );
 }
 
-function SdChapter() {
+/** Senza fili: Bluetooth (dal vivo sul telefono), scheda SD (Arduino da solo) e il pulsante che serve a entrambi. */
+function Wireless() {
+  const t = useTranslations("guide.wireless");
+  const ways = [
+    { k: "bt", icon: Bluetooth, href: "#guide-bt" },
+    { k: "sd", icon: MemoryStick, href: "#guide-sd" },
+  ] as const;
+  return (
+    <>
+      <P>{t("intro")}</P>
+      <div className="grid gap-2 sm:grid-cols-2">
+        {ways.map(({ k, icon: Icon, href }) => (
+          <a key={k} href={href} onClick={(e) => { e.preventDefault(); document.querySelector(href)?.scrollIntoView({ behavior: "smooth", block: "start" }); }}
+            className="flex gap-3 rounded-md border p-3 transition-colors hover:bg-muted/60">
+            <Icon className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
+            <span className="min-w-0"><span className="block text-sm font-medium">{t(`${k}.t`)}</span><span className="block text-sm text-muted-foreground">{t(`${k}.d`)}</span></span>
+          </a>
+        ))}
+      </div>
+      <h3 id="guide-bt" className="mt-4 scroll-mt-4 text-lg font-semibold">{t("btTitle")}</h3>
+      <Field />
+      <h3 id="guide-sd" className="mt-4 scroll-mt-4 text-lg font-semibold">{t("sdTitle")}</h3>
+      <SdCard />
+    </>
+  );
+}
+
+function SdCard() {
   const t = useTranslations("guide.sd");
+  const tw = useTranslations("guide.wireless");
   return (
     <>
       <P>{t.rich("intro", tags)}</P>
@@ -485,7 +509,7 @@ function SdChapter() {
       ]} />
       <Note>{t("statusNote")}</Note>
       <H>{t("buttonTitle")}</H>
-      <P>{t("buttonText")}</P>
+      <P>{tw("buttonText")}</P>
     </>
   );
 }
@@ -648,18 +672,18 @@ function Problems() {
 // ---------------------------------------------------------------------------
 const CHAPTERS = [
   { id: "start", icon: Rocket, body: Start },
-  { id: "device", icon: Smartphone, body: YourDevice },
   { id: "firmware", icon: Cpu, body: Firmware },
   { id: "wiring", icon: Plug, body: Wiring },
   { id: "measure", icon: FlaskConical, body: Measure },
   { id: "rigs", icon: SlidersHorizontal, body: Rigs },
   { id: "analysis", icon: ChartLine, body: Analysis },
-  { id: "field", icon: Bluetooth, body: Field },
-  { id: "sd", icon: MemoryStick, body: SdChapter },
+  { id: "wireless", icon: Unplug, body: Wireless },
   { id: "outputs", icon: Siren, body: Outputs },
   { id: "data", icon: Cloud, body: Data },
   { id: "problems", icon: LifeBuoy, body: Problems },
 ] as const satisfies readonly { id: string; icon: LucideIcon; body: () => React.ReactElement }[];
+
+const LEGACY_CHAPTERS: Record<string, string> = { device: "start", field: "wireless", sd: "wireless" };
 
 function ChapterLink({ id, children }: { id: string; children: React.ReactNode }) {
   return <button type="button" className="font-medium text-foreground underline decoration-foreground/30 underline-offset-4 hover:decoration-foreground" onClick={() => openGuide(id)}>{children}</button>;
@@ -674,7 +698,9 @@ export function GuideButton({ className }: { className?: string }) {
 export function GuideDialog() {
   const t = useTranslations("guide");
   const chapter = useLab((s) => s.guide);
-  const current = CHAPTERS.find((c) => c.id === chapter) ?? CHAPTERS[0];
+  // capitoli di prima, uniti ad altri: un vecchio rimando apre quello che li contiene
+  const id = chapter && (LEGACY_CHAPTERS[chapter] ?? chapter);
+  const current = CHAPTERS.find((c) => c.id === id) ?? CHAPTERS[0];
   const i = CHAPTERS.indexOf(current);
   const Body = current.body;
   const title = (c: (typeof CHAPTERS)[number]) => t(`chapters.${c.id}`);

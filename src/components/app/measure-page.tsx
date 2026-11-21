@@ -44,7 +44,7 @@ function SupportBanner() {
         {ios
           ? t("noArduinoIos")
           : t("noArduinoOther")}
-        <Button size="xs" variant="outline" className="mt-2" onClick={() => openGuide("field")}>{t("openGuide")}</Button>
+        <Button size="xs" variant="outline" className="mt-2" onClick={() => openGuide("wireless")}>{t("openGuide")}</Button>
       </AlertDescription>
     </Alert>
   );
