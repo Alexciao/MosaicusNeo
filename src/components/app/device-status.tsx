@@ -6,7 +6,7 @@
 
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
-import { ArrowRight, ChevronRight, CircleAlert, CircleCheck, LoaderCircle, Plug, SlidersHorizontal, TriangleAlert, Volume1, Volume2, VolumeX, Wrench, X } from "lucide-react";
+import { ArrowRight, ChevronRight, CircleAlert, CircleCheck, LoaderCircle, Plug, SlidersHorizontal, TriangleAlert, Wrench, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useLab, resolved, showWiring, type DeviceStatus, showComponents } from "@/lib/lab-store";
 import { useDiag, diagDismiss, type Diag } from "@/lib/diagnostics";
@@ -14,6 +14,7 @@ import { indicatorsOf, sensorLabel, type SensorInstance } from "@/lib/sensors/ri
 import { SENSORS, pinName } from "@/lib/sensors/catalog";
 import { glyph } from "@/lib/mosaicus/oled-font";
 import { cn } from "@/lib/utils";
+import { LedPart, BuzzerPart } from "./arduino-parts";
 
 function useTick(ms: number, on = true) {
   const [t, setT] = useState(0);
@@ -232,6 +233,7 @@ export function DeviceMirror() {
   const fw = useLab((s) => s.fw);
   const created = useLab((s) => s.session?.created ?? 0);
   const lim = useLab((s) => s.lim);
+  const linkKind = useLab((s) => s.linkKind);
   const t = useTranslations("app.device");
   const outs = indicatorsOf(rig);
   const tick = useTick(lim ? 500 : 125, !!device && outs.length > 0);
@@ -267,21 +269,16 @@ export function DeviceMirror() {
   const idle = device.st === "W" || device.st === "I" || device.st === "R";
   const tic = nag && btn && (device.st === "T" || device.st === "L");
   const beeps = nag && !(btn && idle) ? BEEPS[device.st] : 0;
+  const buzzer = outs.find((s) => s.type === "buzzer");
   return (
-    <div className="flex flex-wrap items-center gap-x-4 gap-y-2 rounded-lg border bg-muted/30 px-3 py-2 text-xs">
+    <div className="flex flex-wrap items-center gap-x-5 gap-y-2 rounded-lg border bg-muted/30 px-3 py-2 text-xs">
       <span className="font-semibold text-muted-foreground">{t("onArduino")}</span>
       {has("oled") && <Oled {...txt} />}
-      {has("rgb") && (
-        <span className="inline-flex items-center gap-2">
-          <span className="size-3.5 rounded-full ring-2 ring-background" style={{ background: ledOn ? led.color : "#334155", boxShadow: ledOn ? `0 0 10px ${led.color}` : "none" }} />
-          {t(`led.${device.st}`)}
-        </span>
-      )}
-      {has("buzzer") && (
-        <span className="inline-flex items-center gap-1.5">
-          {beeps ? <Volume2 className="size-4 text-warning" /> : tic ? <Volume1 className="size-4 text-success" /> : <VolumeX className="size-4 text-success" />}
-          {beeps ? t("beeps", { n: beeps }) : tic ? t("tic") : t("noBeeps")}
-        </span>
+      {/* LED e cicalino disegnati come i componenti veri; le descrizioni restano per chi usa uno screen reader */}
+      {has("rgb") && <LedPart color={led.color} on={ledOn} label={t(`led.${device.st}`)} />}
+      {buzzer && (
+        <BuzzerPart st={device.st} plan={{ beeps, tic }} passive={buzzer.options.kind === "passive"} simulated={linkKind === "simulatore"}
+          label={beeps ? t("beeps", { n: beeps }) : tic ? t("tic") : t("noBeeps")} />
       )}
       {!has("oled") && !has("rgb") && !has("buzzer") && <span>{SENSORS.oled.title}</span>}
     </div>

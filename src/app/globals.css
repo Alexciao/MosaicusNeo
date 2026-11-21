@@ -573,3 +573,8 @@ html[data-sidebar-instant] [data-slot="sidebar-gap"],
 html[data-sidebar-instant] [data-slot="sidebar-container"] {
   transition: none !important;
 }
+
+/* onde sonore del cicalino disegnato (specchio «Su Arduino») */
+@keyframes mz-wave { 0% { opacity: 0.2; transform: translateX(-1.5px); } 40% { opacity: 1; } 100% { opacity: 0.2; transform: translateX(2px); } }
+.mz-wave { animation: mz-wave 0.36s ease-out infinite; transform-box: fill-box; }
+@media (prefers-reduced-motion: reduce) { .mz-wave { animation: none; } }
