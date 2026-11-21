@@ -103,7 +103,7 @@
   con il pulsante aspetta (stato R): una pressione avvia, la successiva ferma, poi un file nuovo.
   Un comando dall'app durante la registrazione la chiude. Ogni 2 s il file viene aggiornato sulla
   scheda: togliendo l'alimentazione si perdono al massimo gli ultimi 2 s.
-  File LOG00001.CSV, LOG00002.CSV… nella cartella principale (FAT32):
+  File LOG00001.NEO, LOG00002.NEO… nella cartella principale (FAT32; testo, righe come sotto):
     #MOSAICUS,<versione>,SD
     #PROJ,<id>
     #CFG,<slot>,<tipo>,<ms>,<pinA>,<pinB>,<opz>   (una riga per sensore, ms = intervallo effettivo)
@@ -119,8 +119,11 @@
 #include <SoftwareSerial.h>
 #include <SPI.h>
 #include <EEPROM.h>
+#include <new.h>                  // placement new (SoftwareSerial del GPS)
+// __attribute__((noinline)) su alcune funzioni: misurato una per una, risparmia flash (senza, il
+// compilatore le ricopia in ogni punto in cui sono chiamate). Mai sulle funzioni a tempi stretti.
 
-const char *FW_VERSION = "1.8";
+#define FW_VERSION "1.8"          // stringa in flash, unita ai testi vicini (al massimo 4 caratteri: display)
 
 const uint8_t MAX_SLOTS = 6;
 const uint8_t ADC_SAMPLES = 16;                 // sovracampionamento per ridurre il rumore
@@ -129,6 +132,7 @@ const unsigned long ECHO_TIMEOUT_US = 30000UL;  // ~5 m andata e ritorno
 enum SensorType : uint8_t { S_NONE, S_NTC, S_ANA, S_DHT, S_SONAR, S_GPS, S_DS18, S_GATE, S_HX711, S_IMU, S_MLX, S_SPS };
 const uint8_t S_LAST = S_SPS;
 
+// i primi 8 byte vanno così come sono in EEPROM (cfgSave)
 struct Slot {
   uint8_t type;
   uint8_t pinA, pinB, opt;
@@ -142,10 +146,11 @@ Slot slots[MAX_SLOTS];
 
 // ---------- indicatori di stato ----------
 enum OutType : uint8_t { O_NONE, O_OLED, O_RGB, O_BUZ, O_BTN, O_SD };
-struct Out { uint8_t type; uint8_t p[3]; uint8_t opt; };
+struct Out { uint8_t type; uint8_t p[3]; uint8_t opt; };   // 5 byte, nello stesso ordine della EEPROM
 const uint8_t MAX_OUTS = 5;
 Out outs[MAX_OUTS];
-Out *outFind(uint8_t t) { for (uint8_t i = 0; i < MAX_OUTS; i++) if (outs[i].type == t) return &outs[i]; return nullptr; }
+static_assert(sizeof(Out) == 5 && offsetof(Slot, intervalMs) == 4, "disposizione in EEPROM");
+__attribute__((noinline)) Out *outFind(uint8_t t) { for (uint8_t i = 0; i < MAX_OUTS; i++) if (outs[i].type == t) return &outs[i]; return nullptr; }
 uint8_t outPin(uint8_t t) { Out *o = outFind(t); return o ? o->p[0] : 0; }
 // indirizzi in EEPROM (vedi in cima)
 const int E_OUTS = 32, E_CFG = 64, E_ID = 65, E_SLOTS = 80;
@@ -190,10 +195,22 @@ struct DataOut : public Print {
   size_t write(uint8_t c) { if (dSer) Serial.write(c); if (sdOn) sdPut(c); return 1; }
 } dout;
 
+// ',' seguita da un numero: stessi caratteri di print(',') + print(v) per ogni intero che qui
+// si stampa (tutti tra -2^31 e 2^31), ma una chiamata sola invece di due
+void commaNum(Print &p, long v) { p.print(','); p.print(v); }
+
 void printTime(uint64_t us) {
   uint64_t rel = us - t0Us;
-  uint32_t ms = (uint32_t)(rel / 1000);
-  uint16_t frac = (uint16_t)(rel % 1000);
+  // rel / 1000 e rel % 1000 senza la divisione a 64 bit (costa ~200 byte): divisione in colonna
+  // a pezzi di 16 bit; il resto (< 1000) seguito da 16 bit sta sempre in 32 bit
+  const uint16_t *w = (const uint16_t *)&rel;   // AVR: little endian, w[3] è il pezzo più alto
+  uint32_t r = 0, ms = 0;
+  for (int8_t k = 3; k >= 0; k--) {
+    uint32_t x = (r << 16) | w[k];
+    ms = (ms << 16) | (uint16_t)(x / 1000);    // contano solo i 32 bit bassi del quoziente
+    r = x % 1000;
+  }
+  uint16_t frac = (uint16_t)r;
   dout.print(ms);
   dout.print('.');
   if (frac < 100) dout.print('0');
@@ -201,6 +218,56 @@ void printTime(uint64_t us) {
   dout.print(frac);
 }
 void dataHead(uint8_t i, uint64_t stamp) { dout.print(F("D,")); dout.print(i); dout.print(','); printTime(stamp); }
+
+// '.' e le d cifre decimali (d = 2 o 3), con gli zeri davanti
+void printFrac(uint16_t D, uint8_t d) {
+  dout.print('.');
+  if (d == 3 && D < 100) dout.print('0');
+  if (D < 10) dout.print('0');
+  dout.print(D);
+}
+// Media di 16 letture ADC (somma / 16) con due decimali, solo con interi. Stessi caratteri di
+// Print::printFloat(somma / 16.0, 2), verificato su tutte le 16369 somme possibili: printFloat
+// arrotonda le metà (x,125 x,375 x,625 x,875) per eccesso o per difetto secondo la grandezza.
+void printAdcMean(uint16_t sum) {
+  uint16_t ip = sum >> 4;
+  uint8_t k = sum & 15, d = (k * 25 + 2) >> 2;
+  if ((k & 3) == 2 && ((ip >= 16 && ip < 32) || (ip >= 64 && ip < 128) || (k < 8 && ip < 2))) d--;
+  dout.print(ip);
+  printFrac(d, 2);
+}
+// Un float (bit IEEE 754) con d = 2 o 3 decimali, arrotondato correttamente (metà per eccesso), solo
+// con interi a 32 bit: niente libreria float. Stesso formato di Print::printFloat («nan», «inf»,
+// «ovf» oltre ±4294967040, «-» davanti ai negativi tranne -0.0); l'ultima cifra può differire da
+// printFloat solo dove printFloat sbagliava l'arrotondamento.
+void printFixed(uint32_t u, uint8_t d) {
+  uint32_t a = u & 0x7FFFFFFFUL;
+  if (a > 0x7F800000UL) { dout.print(F("nan")); return; }
+  if (a == 0x7F800000UL) { dout.print(F("inf")); return; }
+  if (a > 0x4F7FFFFFUL) { dout.print(F("ovf")); return; }
+  if (a != u && a) dout.print('-');
+  uint8_t e = a >> 23;
+  uint32_t m = a & 0x7FFFFFUL;
+  if (e) m |= 0x800000UL; else e = 1;           // valore = m · 2^(e − 150)
+  int16_t sh = 150 - e;                         // bit dopo la virgola
+  uint32_t I, D = 0;
+  if (sh <= 0) I = m << -sh;                    // intero (al massimo 8 posti: il valore sta in 32 bit)
+  else {
+    I = sh < 32 ? m >> sh : 0;
+    uint32_t f = m - (sh < 32 ? I << sh : 0);   // parte frazionaria: f / 2^sh
+    uint32_t T = f * (d == 3 ? 125 : 25);       // f · 10^d = f · 5^d · 2^d   (< 2^31)
+    int16_t k = sh - d;
+    bool up = false;
+    if (k <= 0) D = T << -k;
+    else {
+      if (k < 32) D = T >> k;
+      if (k <= 32) up = (T >> (k - 1)) & 1;     // il primo bit scartato: metà o più
+    }
+    if (up && ++D == (d == 3 ? 1000 : 100)) { D = 0; I++; }
+  }
+  dout.print(I);
+  printFrac(D, d);
+}
 
 // ---------- oscilloscopio ----------
 const int SCOPE_MAX = 400;
@@ -216,6 +283,8 @@ uint8_t dhtData[5];
 
 // ---------- GPS ----------
 SoftwareSerial *gpsSerial = nullptr;
+// l'oggetto vive qui (placement new): niente malloc/free, che costerebbero ~600 byte di flash
+alignas(SoftwareSerial) uint8_t gpsMem[sizeof(SoftwareSerial)];
 int8_t gpsSlot = -1;
 // I campioni dell'oscilloscopio e i testi del GPS non servono mai insieme: condividono la RAM
 // (l'Arduino Uno ne ha solo 2 KB). All'avvio di una misura i campi del GPS si azzerano.
@@ -246,9 +315,7 @@ unsigned long runStartMs = 0;
 
 
 void sendHello() {
-  Serial.print(F("#MOSAICUS,"));
-  Serial.print(FW_VERSION);
-  Serial.println(F(",READY"));
+  Serial.println(F("#MOSAICUS," FW_VERSION ",READY"));
 }
 
 void led(bool on) { if (ledFree) digitalWrite(LED_BUILTIN, on ? HIGH : LOW); }
@@ -256,10 +323,11 @@ void led(bool on) { if (ledFree) digitalWrite(LED_BUILTIN, on ? HIGH : LOW); }
 // ADC più veloce per l'oscilloscopio: prescaler 16 → una conversione in ~16 µs (invece di ~112).
 void adcFast(bool on) { ADCSRA = (ADCSRA & ~0x07) | (on ? 0x04 : 0x07); }
 
-float readAdc(uint8_t pin) {
-  unsigned long sum = 0;
+// somma di ADC_SAMPLES letture (al massimo 16 × 1023: sta in 16 bit); la media è somma / 16
+uint16_t readAdcSum(uint8_t pin) {
+  uint16_t sum = 0;
   for (uint8_t i = 0; i < ADC_SAMPLES; i++) sum += analogRead(pin);
-  return sum / (float)ADC_SAMPLES;
+  return sum;
 }
 
 // =====================================================================================
@@ -271,7 +339,7 @@ inline void lineLow(uint8_t p) { digitalWrite(p, LOW); pinMode(p, OUTPUT); }
 inline void lineRelease(uint8_t p) { pinMode(p, INPUT_PULLUP); }
 
 uint8_t i2cSda = 18, i2cScl = 19;
-void i2cBus(uint8_t sda, uint8_t scl) { i2cSda = sda; i2cScl = scl; }
+__attribute__((noinline)) void i2cBus(uint8_t sda, uint8_t scl) { i2cSda = sda; i2cScl = scl; }
 void i2cStart() { lineRelease(i2cSda); lineRelease(i2cScl); delayMicroseconds(3); lineLow(i2cSda); delayMicroseconds(3); lineLow(i2cScl); }
 void i2cStop() { lineLow(i2cSda); lineRelease(i2cScl); delayMicroseconds(3); lineRelease(i2cSda); delayMicroseconds(3); }
 bool i2cWrite(uint8_t b) {
@@ -502,7 +570,7 @@ void gateFlush() {
     GateEv e; e.t = gateQ[gateTail].t; e.slot = gateQ[gateTail].slot; e.level = gateQ[gateTail].level;
     gateTail = (gateTail + 1) % GATE_Q;
     SREG = s;
-    dataHead(e.slot, e.t); dout.print(','); dout.println(e.level);
+    dataHead(e.slot, e.t); commaNum(dout, e.level); dout.println();
   }
 }
 
@@ -559,7 +627,7 @@ bool oledBegin(const Out &o) {
   for (uint8_t p = 0; p < 4; p++) oledHash[p] = 0xFFFF;
   return ok;
 }
-inline uint8_t glyphCol(char c, uint8_t k) {
+__attribute__((noinline)) uint8_t glyphCol(char c, uint8_t k) {
   uint8_t ch = (uint8_t)c;
   if (ch < 32 || ch > 127) ch = '?';
   return pgm_read_byte(&FONT[(ch - 32) * 5 + k]);
@@ -602,7 +670,7 @@ void oledBig(uint8_t page, const char *s) {
     i2cStop();
   }
 }
-uint16_t hashStr(const char *s, uint16_t h) { while (*s) h = h * 31 + (uint8_t)*s++; return h; }
+__attribute__((noinline)) uint16_t hashStr(const char *s, uint16_t h) { while (*s) h = h * 31 + (uint8_t)*s++; return h; }
 
 // =====================================================================================
 // Stato: lo decide Arduino da solo, così gli indicatori funzionano anche lontano dal telefono
@@ -620,7 +688,7 @@ bool buzzOn = false;
 bool linkOk() { return pinged ? (millis() - lastCmdMs < 6000) : (lastCmdMs != 0); }
 // c'è tutto per registrare sulla scheda SD senza l'app?
 bool sdArmed() { return outPin(O_SD) && EEPROM.read(E_CFG) == 'C'; }
-uint32_t fNum = 0;              // numero del file LOGnnnnn.CSV aperto (o dell'ultimo)
+uint32_t fNum = 0;              // numero del file LOGnnnnn.NEO aperto (o dell'ultimo)
 
 // Lo stato segue il problema più grave (LED e cicalino); se i sensori in difficoltà sono più
 // d'uno, il display li mostra a turno, prima gli errori e poi quelli in ricerca.
@@ -678,8 +746,7 @@ void screenTexts(char *bar, char *big, char *small) {
         // in attesa dell'app: come collegarsi (il cavo sempre, il Bluetooth se il modulo ha risposto
         // a BT,SETUP) e la versione del firmware: «USB v1.3» oppure «USB/BT 1.3»
         strcpy_P(bar, PSTR("NO APP")); strcpy_P(big, PSTR("WAIT"));
-        strcpy_P(small, btKind ? PSTR("USB/BT ") : PSTR("USB v"));
-        strncat(small, FW_VERSION, 4);
+        strcpy_P(small, btKind ? PSTR("USB/BT " FW_VERSION) : PSTR("USB v" FW_VERSION));
       }
       break;
     case ST_IDLE: strcpy_P(bar, linkBt ? PSTR("LINK BT") : PSTR("LINK USB")); strcpy_P(big, PSTR("READY")); strcpy_P(small, PSTR("tap Start")); break;
@@ -784,8 +851,39 @@ void rgbSet(const Out &o, uint8_t rgb) {
     digitalWrite(o.p[k], (on ^ (o.opt & 1)) ? HIGH : LOW);
   }
 }
+// tone(pin, 2700) e noTone(pin) del core, ridotti a quello che fanno sull'Uno (un solo pin alla
+// volta, timer 2) con la frequenza fissa: 16 MHz / 2700 / 2 → prescaler 32, OCR2A = 91. Stessi
+// registri, nello stesso ordine; il pin si inverte a ogni confronto (durata infinita).
+uint8_t tonePin = 255;                  // come tone_pins[0] del core: 255 = libero
+volatile uint8_t *tonePort;
+uint8_t toneMask;
+void toneOn(uint8_t p) {
+  if (tonePin != p) {
+    if (tonePin != 255) return;         // il timer suona già su un altro pin: il core non fa niente
+    tonePin = p;
+    TCCR2A = 0; TCCR2B = 0;
+    TCCR2A |= _BV(WGM21); TCCR2B |= _BV(CS20);
+    tonePort = portOutputRegister(digitalPinToPort(p));
+    toneMask = digitalPinToBitMask(p);
+  }
+  pinMode(p, OUTPUT);
+  TCCR2B = (TCCR2B & 0b11111000) | 0b011;
+  OCR2A = 91;
+  TIMSK2 |= _BV(OCIE2A);
+}
+void toneOff(uint8_t p) {
+  if (tonePin == p) {
+    tonePin = 255;
+    TIMSK2 &= ~_BV(OCIE2A);
+    TCCR2A = _BV(WGM20);
+    TCCR2B = (TCCR2B & 0b11111000) | _BV(CS22);
+    OCR2A = 0;
+  }
+  digitalWrite(p, LOW);
+}
+ISR(TIMER2_COMPA_vect) { *tonePort ^= toneMask; }
 void buzz(const Out &o, bool on) {
-  if (o.opt & 1) { if (on) tone(o.p[0], 2700); else noTone(o.p[0]); }
+  if (o.opt & 1) { if (on) toneOn(o.p[0]); else toneOff(o.p[0]); }
   else digitalWrite(o.p[0], on ? HIGH : LOW);
   buzzOn = on;
 }
@@ -798,17 +896,16 @@ void chirp(uint8_t n, unsigned int ms) {
 }
 
 // ogni 100 ms: stato, LED, cicalino, display
-void statusTick() {
+__attribute__((noinline)) void statusTick() {
   unsigned long now = millis();
   if (now - stTick < 100) return;
   stTick = now;
   St before = state;
   computeState();
   if (state != shownState || stSlot != shownSlot || stK != shownK) {
-    Serial.print(F("#ST,")); Serial.print((char)pgm_read_byte(&ST_CODE[state])); Serial.print(',');
-    Serial.print(stSlot); Serial.print(','); Serial.print(stIssue); Serial.print(',');
-    Serial.print(stK); Serial.print(','); Serial.print(stN); Serial.print(',');
-    Serial.print(btKind); Serial.print(','); Serial.println(linkBt ? 'B' : 'U');
+    Serial.print(F("#ST,")); Serial.print((char)pgm_read_byte(&ST_CODE[state]));
+    commaNum(Serial, stSlot); commaNum(Serial, stIssue); commaNum(Serial, stK); commaNum(Serial, stN);
+    commaNum(Serial, btKind); Serial.print(','); Serial.println(linkBt ? 'B' : 'U');
     if (state != shownState) {
       if ((state == ST_TRACK || state == ST_LOG) && before != state && shownState != (St)255) chirp(2, 60);
       stCycle = now;                            // il nuovo stato si sente subito
@@ -857,28 +954,32 @@ void outsClear() {
   for (uint8_t i = 0; i < MAX_OUTS; i++) outs[i].type = O_NONE;
   oledIdx = -1;
 }
+// risposta di errore a OUT,ADD: «#ERR,OUT,<motivo>», e il motivo resta segnalato (stato C)
+void outErr(uint8_t why, const __FlashStringHelper *msg) { outBad = why; Serial.print(F("#ERR,OUT,")); Serial.println(msg); }
 void outAdd(char *args) {
   char *f[5]; uint8_t n = 0;
   f[n++] = args;
   for (char *p = args; *p && n < 5; p++) if (*p == ',') { *p = '\0'; f[n++] = p + 1; }
-  if (n < 5) { outBad = 6; Serial.println(F("#ERR,OUT,ARGS")); return; }
-  uint8_t t = strcmp_P(f[0], PSTR("OLED")) == 0 ? O_OLED : strcmp_P(f[0], PSTR("RGB")) == 0 ? O_RGB : strcmp_P(f[0], PSTR("BUZ")) == 0 ? O_BUZ
-            : strcmp_P(f[0], PSTR("BTN")) == 0 ? O_BTN : strcmp_P(f[0], PSTR("SD")) == 0 ? O_SD : O_NONE;
-  if (t == O_NONE) { outBad = 5; Serial.println(F("#ERR,OUT,TYPE")); return; }
+  if (n < 5) { outErr(6, F("ARGS")); return; }
+  static const char ONAMES[] PROGMEM = "OLED\0" "RGB\0" "BUZ\0" "BTN\0" "SD";   // nell'ordine di OutType
+  uint8_t t = O_NONE;
+  PGM_P nm = ONAMES;
+  for (uint8_t k = O_OLED; k <= O_SD; k++) { if (strcmp_P(f[0], nm) == 0) { t = k; break; } nm += strlen_P(nm) + 1; }
+  if (t == O_NONE) { outErr(5, F("TYPE")); return; }
   uint8_t np = t == O_RGB ? 3 : t == O_OLED ? 2 : 1;
   uint8_t pins[3];
-  for (uint8_t k = 0; k < 3; k++) pins[k] = (uint8_t)atoi(f[1 + k]);
+  for (uint8_t k = 0; k < 3; k++) pins[k] = (uint8_t)atol(f[1 + k]);
   for (uint8_t k = 0; k < np; k++) {
-    if (pins[k] < 2 || pins[k] > 19) { outBad = 1; Serial.println(F("#ERR,OUT,PIN")); return; }
-    if (!outPinFree(pins[k], t == O_OLED)) { outBad = 3; Serial.println(F("#ERR,OUT,DUPLICATE")); return; }
+    if (pins[k] < 2 || pins[k] > 19) { outErr(1, F("PIN")); return; }
+    if (!outPinFree(pins[k], t == O_OLED)) { outErr(3, F("DUPLICATE")); return; }
   }
   // il modulo SD prende anche D10…D13 (SPI)
-  if (t == O_SD) for (uint8_t q = 10; q <= 13; q++) if (q != pins[0] && !outPinFree(q, false)) { outBad = 3; Serial.println(F("#ERR,OUT,DUPLICATE")); return; }
+  if (t == O_SD) for (uint8_t q = 10; q <= 13; q++) if (q != pins[0] && !outPinFree(q, false)) { outErr(3, F("DUPLICATE")); return; }
   int8_t slot = -1;
   for (uint8_t i = 0; i < MAX_OUTS; i++) if (outs[i].type == t || (slot < 0 && outs[i].type == O_NONE)) slot = i;
-  if (slot < 0) { outBad = 6; Serial.println(F("#ERR,OUT,FULL")); return; }
+  if (slot < 0) { outErr(6, F("FULL")); return; }
   Out &o = outs[slot];
-  o.type = t; o.p[0] = pins[0]; o.p[1] = pins[1]; o.p[2] = pins[2]; o.opt = (uint8_t)atoi(f[4]);
+  o.type = t; o.p[0] = pins[0]; o.p[1] = pins[1]; o.p[2] = pins[2]; o.opt = (uint8_t)atol(f[4]);
   outApply(slot);
   ledFree = outPinFree(13, false) && !pinTakenBySlot(13);
   Serial.print(F("#ACK,OUT,ADD,")); Serial.println(f[0]);
@@ -886,9 +987,9 @@ void outAdd(char *args) {
 void outsSave() {
   EEPROM.update(0, 'M'); EEPROM.update(1, 2);
   for (uint8_t i = 0; i < MAX_OUTS; i++) {
-    int b = E_OUTS + i * 5;
-    EEPROM.update(b, outs[i].type); EEPROM.update(b + 1, outs[i].p[0]); EEPROM.update(b + 2, outs[i].p[1]);
-    EEPROM.update(b + 3, outs[i].p[2]); EEPROM.update(b + 4, outs[i].opt);
+    // tipo, p1, p2, p3, opz: i 5 byte della struttura, in ordine
+    const uint8_t *o = (const uint8_t *)&outs[i];
+    for (uint8_t k = 0; k < 5; k++) EEPROM.update(E_OUTS + i * 5 + k, o[k]);
   }
   Serial.println(F("#ACK,OUT,SAVE"));
 }
@@ -901,7 +1002,7 @@ void outsLoad() {
     Out &o = outs[i];
     o.type = EEPROM.read(b);
     if (o.type > O_SD) { o.type = O_NONE; continue; }
-    o.p[0] = EEPROM.read(b + 1); o.p[1] = EEPROM.read(b + 2); o.p[2] = EEPROM.read(b + 3); o.opt = EEPROM.read(b + 4);
+    for (uint8_t k = 1; k < 5; k++) ((uint8_t *)&o)[k] = EEPROM.read(b + k);   // p1, p2, p3, opz
     if (o.type != O_NONE) outApply(i);
   }
 }
@@ -1033,7 +1134,7 @@ void parseNmea(char *line) {
     }
   }
 }
-void pollGps() {
+__attribute__((noinline)) void pollGps() {
   if (!gpsSerial) return;
   while (gpsSerial->available() > 0) {
     char c = (char)gpsSerial->read();
@@ -1052,7 +1153,7 @@ void printField(const char *s) {
   if (*s) dout.print(s); else dout.print(F("nan"));
 }
 void gpsStop() {
-  if (gpsSerial) { gpsSerial->end(); delete gpsSerial; gpsSerial = nullptr; }
+  if (gpsSerial) { gpsSerial->~SoftwareSerial(); gpsSerial = nullptr; }   // il distruttore chiama end()
   gpsSlot = -1;
 }
 
@@ -1125,8 +1226,9 @@ uint8_t cfgApply(uint8_t slot, uint8_t type, long ms, uint8_t a, uint8_t b, uint
   if (outClash(a, i2c) || (two && outClash(b, i2c))) return 3;     // un indicatore usa già quel pin
   if (type == S_GPS && gpsSlot >= 0 && gpsSlot != slot) return 4;
   // intervalli minimi: oltre, il sensore non ce la fa
-  long minMs = type == S_DHT ? (opt == 22 ? 2000 : 1000) : type == S_GPS ? 1000 : type == S_SONAR ? 30
-             : type == S_DS18 || type == S_SPS ? 1000 : type == S_HX711 || type == S_MLX ? 100 : type == S_IMU ? 10 : 5;
+  // NONE, NTC, ANA, DHT (DHT22: 2000), SONAR, GPS, DS18, GATE, HX711, IMU, MLX, SPS
+  static const uint16_t MIN_MS[] PROGMEM = { 5, 5, 5, 1000, 30, 1000, 1000, 5, 100, 10, 100, 1000 };
+  long minMs = type == S_DHT && opt == 22 ? 2000 : pgm_read_word(&MIN_MS[type]);
   if (ms < minMs) ms = minMs;
   if (ms > 600000L) ms = 600000L;
   Slot &s = slots[slot];
@@ -1135,7 +1237,7 @@ uint8_t cfgApply(uint8_t slot, uint8_t type, long ms, uint8_t a, uint8_t b, uint
   s.st = 0; s.bad = 0; s.issue = 0;
   if (type == S_SONAR) { pinMode(a, OUTPUT); digitalWrite(a, LOW); pinMode(b, INPUT); }
   if (type == S_DHT) pinMode(a, INPUT_PULLUP);
-  if (type == S_GPS) { gpsSlot = slot; gpsSerial = new SoftwareSerial(a, b); }
+  if (type == S_GPS) { gpsSlot = slot; gpsSerial = new (gpsMem) SoftwareSerial(a, b); }
   if (type == S_DS18) lineRelease(a);
   if (type == S_HX711) { pinMode(a, INPUT); pinMode(b, OUTPUT); digitalWrite(b, LOW); }
   if (type == S_GATE) pinMode(a, (opt & 2) ? INPUT_PULLUP : INPUT);
@@ -1151,14 +1253,14 @@ void cfgAdd(char *args) {
   f[n++] = args;
   for (char *p = args; *p && n < 6; p++) if (*p == ',') { *p = '\0'; f[n++] = p + 1; }
   if (n < 6) { cfgError(-1, F("ARGS"), 6); return; }
-  int slot = atoi(f[0]);
+  int slot = (int)atol(f[0]);
   if (slot < 0 || slot >= MAX_SLOTS) { cfgError(slot, F("SLOT"), 6); return; }
   uint8_t type = S_NONE;
   char nm[6];
   for (uint8_t t = S_NTC; t <= S_LAST; t++) { typeName(t, nm); if (strcmp(nm, f[1]) == 0) type = t; }
   if (type == S_NONE) { cfgError(slot, F("TYPE"), 5); return; }
   cfgPendingType = type;
-  uint8_t e = cfgApply(slot, type, atol(f[2]), (uint8_t)atoi(f[3]), (uint8_t)atoi(f[4]), (uint8_t)atoi(f[5]));
+  uint8_t e = cfgApply(slot, type, atol(f[2]), (uint8_t)atol(f[3]), (uint8_t)atol(f[4]), (uint8_t)atol(f[5]));
   if (e) { cfgError(slot, e == 1 ? F("PIN") : e == 2 ? F("ANALOG") : e == 3 ? F("DUPLICATE") : F("GPS"), e); return; }
   Serial.print(F("#ACK,CFG,ADD,"));
   Serial.println(slot);
@@ -1178,9 +1280,9 @@ void cfgSave(const char *id) {
   }
   for (uint8_t i = 0; i < MAX_SLOTS; i++) {
     const Slot &s = slots[i];
-    int b = E_SLOTS + i * 8;
-    EEPROM.update(b, s.type); EEPROM.update(b + 1, s.pinA); EEPROM.update(b + 2, s.pinB); EEPROM.update(b + 3, s.opt);
-    for (uint8_t k = 0; k < 4; k++) EEPROM.update(b + 4 + k, (uint8_t)(s.intervalMs >> (8 * k)));
+    // tipo, pinA, pinB, opz e l'intervallo (little endian come l'AVR): i primi 8 byte della struttura
+    const uint8_t *d = (const uint8_t *)&s;
+    for (uint8_t k = 0; k < 8; k++) EEPROM.update(E_SLOTS + i * 8 + k, d[k]);
   }
   Serial.println(F("#ACK,CFG,SAVE"));
 }
@@ -1251,7 +1353,7 @@ void stopAll() {
 
 // ---------- lettura di uno slot ----------
 // Restituisce false se la lettura va rimandata (DHT mentre il GPS sta trasmettendo, HX711 non pronto).
-void markBad(Slot &s, bool bad, uint8_t after, uint8_t level) {
+__attribute__((noinline)) void markBad(Slot &s, bool bad, uint8_t after, uint8_t level) {
   if (!bad) { s.bad = 0; s.issue = 0; return; }
   if (s.bad < 255) s.bad++;
   if (s.bad >= after) s.issue = level;
@@ -1262,9 +1364,10 @@ bool readSlot(uint8_t i) {
   switch (s.type) {
     case S_NTC:
     case S_ANA: {
-      float adc = readAdc(s.pinA);
-      dataHead(i, stamp); dout.print(','); dout.println(adc, 2);
-      if (s.type == S_NTC) markBad(s, adc < 2 || adc > 1021, 3, 2);   // sonda staccata o in corto
+      uint16_t sum = readAdcSum(s.pinA);
+      dataHead(i, stamp); dout.print(','); printAdcMean(sum); dout.println();
+      // media < 2 o > 1021 (la media è esatta: somma / 16): sonda staccata o in corto
+      if (s.type == S_NTC) markBad(s, sum < 2 * ADC_SAMPLES || sum > 1021 * ADC_SAMPLES, 3, 2);
       return true;
     }
     case S_DHT: {
@@ -1277,14 +1380,14 @@ bool readSlot(uint8_t i) {
       uint8_t err = dhtRead(s.pinA, s.opt == 22 ? 22 : 11);
       if (gpsSerial) gpsSerial->begin(9600);
       dataHead(i, stamp);
-      for (uint8_t k = 0; k < 4; k++) { dout.print(','); dout.print(dhtData[k]); }
-      dout.print(','); dout.println(err);
+      for (uint8_t k = 0; k < 4; k++) commaNum(dout, dhtData[k]);
+      commaNum(dout, err); dout.println();
       markBad(s, err != 0, 3, 2);
       return true;
     }
     case S_SONAR: {
       unsigned long echo = sonarRead(s.pinA, s.pinB, stamp);
-      dataHead(i, stamp); dout.print(','); dout.println(echo);
+      dataHead(i, stamp); commaNum(dout, echo); dout.println();
       markBad(s, echo == 0, 20, 1);            // nessun eco per un po': bersaglio fuori portata
       return true;
     }
@@ -1304,7 +1407,7 @@ bool readSlot(uint8_t i) {
       uint8_t err = s.st ? ds18Read(s.pinA, raw) : 1;
       dataHead(i, stamp); dout.print(',');
       if (err) dout.print(F("nan")); else dout.print(raw);
-      dout.print(','); dout.println(err);
+      commaNum(dout, err); dout.println();
       markBad(s, err != 0, 2, 2);
       s.st = ds18Convert(s.pinA);               // la prossima è pronta tra 750 ms
       return true;
@@ -1317,7 +1420,7 @@ bool readSlot(uint8_t i) {
         return true;
       }
       long v = hxRead(s.pinA, s.pinB);
-      dataHead(i, stamp); dout.print(','); dout.print(v); dout.println(F(",0"));
+      dataHead(i, stamp); commaNum(dout, v); dout.println(F(",0"));
       markBad(s, false, 1, 2);
       return true;
     }
@@ -1327,7 +1430,7 @@ bool readSlot(uint8_t i) {
       dataHead(i, stamp);
       if (ok) {
         // v: ax, ay, az, temperatura, gx, gy, gz
-        for (uint8_t k = 0; k < 7; k++) if (k != 3) { dout.print(','); dout.print(v[k]); }
+        for (uint8_t k = 0; k < 7; k++) if (k != 3) commaNum(dout, v[k]);
         dout.println(F(",0"));
       } else { dout.println(F(",nan,nan,nan,nan,nan,nan,1")); s.st = 0; }
       markBad(s, !ok, 2, 2);
@@ -1337,24 +1440,24 @@ bool readSlot(uint8_t i) {
       uint16_t obj = 0, amb = 0;
       bool ok = mlxRead(s, 0x07, obj) && mlxRead(s, 0x06, amb);
       dataHead(i, stamp);
-      if (ok) { dout.print(','); dout.print(obj); dout.print(','); dout.print(amb); dout.println(F(",0")); }
+      if (ok) { commaNum(dout, obj); commaNum(dout, amb); dout.println(F(",0")); }
       else dout.println(F(",nan,nan,1"));
       markBad(s, !ok, 2, 2);
       return true;
     }
     case S_SPS: {
-      // legge gli ultimi valori (il sensore li aggiorna ogni secondo); float big-endian → float dell'AVR
+      // legge gli ultimi valori (il sensore li aggiorna ogni secondo): float big-endian, stampati dai bit
       if (!s.st) s.st = spsCmd(s, 0x0010, true);
       uint8_t b[40];
       bool ok = s.st && spsRead(s, b);
       dataHead(i, stamp);
       for (uint8_t k = 0; k < 10; k++) {
         dout.print(',');
-        union { float f; uint8_t c[4]; } v;
-        for (uint8_t j = 0; j < 4; j++) v.c[j] = b[4 * k + 3 - j];
-        if (ok) dout.print(v.f, k == 9 ? 3 : 2); else dout.print(F("nan"));
+        uint32_t v = 0;
+        for (uint8_t j = 0; j < 4; j++) v = (v << 8) | b[4 * k + j];      // float big-endian
+        if (ok) printFixed(v, k == 9 ? 3 : 2); else dout.print(F("nan"));
       }
-      dout.print(','); dout.println(ok ? 0 : 2);
+      commaNum(dout, ok ? 0 : 2); dout.println();
       markBad(s, !ok, 2, 2);
       return true;
     }
@@ -1395,7 +1498,7 @@ void scopeSend(bool fired) {
   Serial.print(fired ? 1 : 0);
   Serial.print(',');
   Serial.print(scopeDt);
-  for (int i = 0; i < scopeN; i++) { Serial.print(','); Serial.print(scopeBuf[i]); }
+  for (int i = 0; i < scopeN; i++) commaNum(Serial, scopeBuf[i]);
   Serial.println();
 }
 void startScope(char *args) {
@@ -1526,9 +1629,9 @@ unsigned long sdSyncMs = 0;
 
 uint16_t rd16(const uint8_t *p) { return p[0] | (p[1] << 8); }
 uint32_t rd32(const uint8_t *p) { return rd16(p) | ((uint32_t)rd16(p + 2) << 16); }
-void wr32(uint8_t *p, uint32_t v) { for (uint8_t i = 0; i < 4; i++) { p[i] = (uint8_t)v; v >>= 8; } }
+__attribute__((noinline)) void wr32(uint8_t *p, uint32_t v) { for (uint8_t i = 0; i < 4; i++) { p[i] = (uint8_t)v; v >>= 8; } }
 
-uint8_t spiX(uint8_t b) { return SPI.transfer(b); }
+__attribute__((noinline)) uint8_t spiX(uint8_t b) { return SPI.transfer(b); }
 bool sdWaitFF(unsigned int ms) {
   unsigned long t = millis();
   while (spiX(0xFF) != 0xFF) if (millis() - t > ms) return false;
@@ -1569,7 +1672,7 @@ bool sdInit() {
   sdCached = 0xFFFFFFFF;
   return true;
 }
-uint32_t sdAddr(uint32_t lba) { return sdHc ? lba : lba << 9; }
+__attribute__((noinline)) uint32_t sdAddr(uint32_t lba) { return sdHc ? lba : lba << 9; }
 bool sdRead(uint32_t lba) {
   bool ok = false;
   sdCached = 0xFFFFFFFF;
@@ -1636,7 +1739,7 @@ uint8_t sdMount() {
   }
   return sdIoErr ? 1 : 0;
 }
-uint32_t clusLba(uint32_t c) { return sdData + (c - 2) * sdSpc; }
+__attribute__((noinline)) uint32_t clusLba(uint32_t c) { return sdData + (c - 2) * sdSpc; }
 uint32_t fatGet(uint32_t c) {
   if (!sdLoad(sdFat + (c >> 7))) return 0x0FFFFFFFUL;
   return rd32(sdBuf + ((c & 127) << 2)) & 0x0FFFFFFFUL;
@@ -1663,7 +1766,7 @@ uint32_t fatAlloc(uint32_t prev) {
   }
   return 0;
 }
-// cartella principale: il LOGnnnnn.CSV più alto (fNum) e il primo posto libero (fDirLba, fDirOff)
+// cartella principale: il LOGnnnnn.NEO più alto (fNum) e il primo posto libero (fDirLba, fDirOff)
 bool dirScan() {
   uint32_t c = sdRoot;
   fNum = 0; fDirLba = 0;
@@ -1678,7 +1781,7 @@ bool dirScan() {
           if (e[0] == 0) return true;                        // fine della cartella
           continue;
         }
-        if (e[11] == 0x0F || memcmp_P(e, PSTR("LOG"), 3) || memcmp_P(e + 8, PSTR("CSV"), 3)) continue;
+        if (e[11] == 0x0F || memcmp_P(e, PSTR("LOG"), 3) || memcmp_P(e + 8, PSTR("NEO"), 3)) continue;
         uint32_t n = 0;
         uint8_t k = 3;
         for (; k < 8 && e[k] >= '0' && e[k] <= '9'; k++) n = n * 10 + e[k] - '0';
@@ -1705,7 +1808,7 @@ uint8_t fileCreate() {
   if (!sdLoad(fDirLba)) return 1;
   uint8_t *e = sdBuf + fDirOff;
   memset(e, 0, 32);
-  memcpy_P(e, PSTR("LOG00000CSV"), 11);
+  memcpy_P(e, PSTR("LOG00000NEO"), 11);
   uint32_t n = fNum;
   for (int8_t k = 7; k >= 3; k--) { e[k] = '0' + n % 10; n /= 10; }
   e[11] = 0x20;                                              // archivio
@@ -1746,7 +1849,7 @@ void logStart() {
   if (e) { sdErr = true; return; }
   sdErr = false;
   dSer = false; sdOn = true;
-  dout.print(F("#MOSAICUS,")); dout.print(FW_VERSION); dout.println(F(",SD"));
+  dout.println(F("#MOSAICUS," FW_VERSION ",SD"));
   dout.print(F("#PROJ,"));
   for (uint8_t k = 0; k < 12; k++) { char c = EEPROM.read(E_ID + k); if (!c) break; dout.write(c); }
   dout.println();
@@ -1755,9 +1858,8 @@ void logStart() {
     const Slot &s = slots[i];
     if (s.type == S_NONE) continue;
     typeName(s.type, nm);
-    dout.print(F("#CFG,")); dout.print(i); dout.print(','); dout.print(nm); dout.print(',');
-    dout.print(s.intervalMs); dout.print(','); dout.print(s.pinA); dout.print(','); dout.print(s.pinB);
-    dout.print(','); dout.println(s.opt);
+    dout.print(F("#CFG,")); dout.print(i); dout.print(','); dout.print(nm);
+    commaNum(dout, s.intervalMs); commaNum(dout, s.pinA); commaNum(dout, s.pinB); commaNum(dout, s.opt); dout.println();
   }
   dout.println(F("#START"));
   startRun();
@@ -1809,30 +1911,43 @@ void setAppLine(char *args) {
   else { strncpy(appSmall, txt, 10); appSmall[10] = 0; }
 }
 
-void handleCommand(char *cmd) {
+__attribute__((noinline)) void handleCommand(char *cmd) {
   if (!cmd[0]) return;                  // righe vuote (disturbi sulla linea): non sono l'app
   bootWait = false;                     // c'è l'app: niente registrazione automatica
   if (sdOn) logStop(false);             // e quella in corso si chiude
   lastCmdMs = millis();
   if (lastCmdMs == 0) lastCmdMs = 1;
-  if (strcmp_P(cmd, PSTR("PING")) == 0) { pinged = true; return; }
-  if (strncmp_P(cmd, PSTR("LINK,"), 5) == 0) { linkBt = cmd[5] == 'B'; return; }
-  if (strcmp_P(cmd, PSTR("ID?")) == 0) sendHello();
-  else if (strcmp_P(cmd, PSTR("STOP")) == 0) stopAll();
-  else if (strcmp_P(cmd, PSTR("START")) == 0) startRun();
-  else if (strcmp_P(cmd, PSTR("CFG,CLEAR")) == 0) cfgClear();
-  else if (strncmp_P(cmd, PSTR("CFG,ADD,"), 8) == 0) { if (mode == RUN) stopAll(); cfgAdd(cmd + 8); }
-  else if (strncmp_P(cmd, PSTR("START,SCOPE,"), 12) == 0) startScope(cmd + 12);
-  else if (strncmp_P(cmd, PSTR("OUT,L,"), 6) == 0) setAppLine(cmd + 6);
-  else if (strcmp_P(cmd, PSTR("OUT,CLEAR")) == 0) { outsClear(); Serial.println(F("#ACK,OUT,CLEAR")); }
-  else if (strncmp_P(cmd, PSTR("OUT,ADD,"), 8) == 0) outAdd(cmd + 8);
-  else if (strcmp_P(cmd, PSTR("OUT,SAVE")) == 0) outsSave();
-  else if (strncmp_P(cmd, PSTR("CFG,SAVE,"), 9) == 0) cfgSave(cmd + 9);
-  else if (strcmp_P(cmd, PSTR("SD,TEST")) == 0) sdTest();
-  else if (strcmp_P(cmd, PSTR("OUT,TEST")) == 0) { if (mode == RUN) stopAll(); outsTest(); }
-  else if (strcmp_P(cmd, PSTR("BT,SETUP")) == 0) { if (mode != IDLE) stopAll(); btSetup(); }
-  else if (strcmp_P(cmd, PSTR("BT,SETUP,BLE")) == 0) { if (mode != IDLE) stopAll(); btSetupBle(); }
-  else if (cmdLen > 0) { Serial.print(F("#ERR,")); Serial.println(cmd); }
+  // i comandi in ordine di prova; quelli che finiscono con ',' sono prefissi (seguono argomenti)
+  static const char CMDS[] PROGMEM =
+    "PING\0" "LINK,\0" "ID?\0" "STOP\0" "START\0" "CFG,CLEAR\0" "CFG,ADD,\0" "START,SCOPE,\0" "OUT,L,\0"
+    "OUT,CLEAR\0" "OUT,ADD,\0" "OUT,SAVE\0" "CFG,SAVE,\0" "SD,TEST\0" "OUT,TEST\0" "BT,SETUP\0" "BT,SETUP,BLE\0";
+  uint8_t k = 0;
+  char *arg = cmd;
+  for (PGM_P p = CMDS; k < 17; k++) {
+    uint8_t n = strlen_P(p);
+    if (pgm_read_byte(p + n - 1) == ',' ? strncmp_P(cmd, p, n) == 0 : strcmp_P(cmd, p) == 0) { arg = cmd + n; break; }
+    p += n + 1;
+  }
+  switch (k) {
+    case 0: pinged = true; break;
+    case 1: linkBt = *arg == 'B'; break;
+    case 2: sendHello(); break;
+    case 3: stopAll(); break;
+    case 4: startRun(); break;
+    case 5: cfgClear(); break;
+    case 6: if (mode == RUN) stopAll(); cfgAdd(arg); break;
+    case 7: startScope(arg); break;
+    case 8: setAppLine(arg); break;
+    case 9: outsClear(); Serial.println(F("#ACK,OUT,CLEAR")); break;
+    case 10: outAdd(arg); break;
+    case 11: outsSave(); break;
+    case 12: cfgSave(arg); break;
+    case 13: sdTest(); break;
+    case 14: if (mode == RUN) stopAll(); outsTest(); break;
+    case 15: if (mode != IDLE) stopAll(); btSetup(); break;
+    case 16: if (mode != IDLE) stopAll(); btSetupBle(); break;
+    default: if (cmdLen > 0) { Serial.print(F("#ERR,")); Serial.println(cmd); }
+  }
 }
 
 void pollSerial() {

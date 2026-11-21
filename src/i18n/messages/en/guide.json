@@ -386,7 +386,7 @@
     },
     "s3": {
       "t": "Start and stop",
-      "d": "With the button: press to start, press again to stop; each recording is a new file (LOG00001.CSV, LOG00002.CSV…). Without a button: it records from when you switch it on until you switch it off. Arduino saves every 2 s: cutting the power loses at most the last few moments."
+      "d": "With the button: press to start, press again to stop; each recording is a new file (LOG00001.NEO, LOG00002.NEO…). Without a button: it records from when you switch it on until you switch it off. Arduino saves every 2 s: cutting the power loses at most the last few moments."
     },
     "s4": {
       "t": "Import into the Notebook",

@@ -1206,7 +1206,7 @@ export async function recordOnSd() {
   if (link?.kind === "simulatore" || link?.kind === "arduino") await prepareSd();
 }
 
-/** Importa nel Quaderno i file LOGnnnnn.CSV della scheda SD. */
+/** Importa nel Quaderno i file LOGnnnnn.NEO della scheda SD (o .CSV, dai firmware precedenti). */
 export async function importSdFiles(files: File[]) {
   const existing = new Set((await repo.all("sessions").catch(() => [])).map((s) => String((s as { sdFile?: string }).sdFile ?? "")));
   let n = 0, lastId: number | null = null;
@@ -1231,7 +1231,7 @@ export async function importSdFiles(files: File[]) {
     }
     const t1 = log.raw[log.raw.length - 1][1] / 1000;
     const rec = {
-      format: 2, name: `${labTitle} · ${f.name.replace(/\.csv$/i, "")}`, experiment: labId, labTitle,
+      format: 2, name: `${labTitle} · ${f.name.replace(/\.(neo|csv)$/i, "")}`, experiment: labId, labTitle,
       rig: { id: rig.id, name: rig.name, sensors: rig.sensors }, created: Date.now(), source: "scheda SD", fw: log.fw,
       raw: log.raw, app: APP_VERSION, sdFile: key,
     };

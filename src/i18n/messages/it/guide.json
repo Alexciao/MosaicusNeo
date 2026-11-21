@@ -386,7 +386,7 @@
     },
     "s3": {
       "t": "Avvia e ferma",
-      "d": "Con il pulsante: premi per iniziare, premi di nuovo per fermare; ogni registrazione è un file nuovo (LOG00001.CSV, LOG00002.CSV…). Senza pulsante: registra da quando lo accendi a quando lo spegni. Arduino salva ogni 2 s: staccando la corrente perdi al massimo gli ultimi istanti."
+      "d": "Con il pulsante: premi per iniziare, premi di nuovo per fermare; ogni registrazione è un file nuovo (LOG00001.NEO, LOG00002.NEO…). Senza pulsante: registra da quando lo accendi a quando lo spegni. Arduino salva ogni 2 s: staccando la corrente perdi al massimo gli ultimi istanti."
     },
     "s4": {
       "t": "Importa nel Quaderno",
