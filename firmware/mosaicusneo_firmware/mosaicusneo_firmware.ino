@@ -219,30 +219,54 @@ void printTime(uint64_t us) {
 }
 void dataHead(uint8_t i, uint64_t stamp) { dout.print(F("D,")); dout.print(i); dout.print(','); printTime(stamp); }
 
-// Come Print::printFloat del core (stessi caratteri in uscita, «nan», «inf», «ovf» compresi), ma
-// senza divisioni né confronti in virgola mobile: i casi speciali si riconoscono dai bit, e
-// l'arrotondamento (0,5 diviso per 10 «digits» volte) è calcolato dal compilatore con gli stessi
-// passaggi. Risparmia le routine di divisione e di confronto della libreria float.
-void printFloat(float x, uint8_t digits) {
-  union { float f; uint32_t u; } v;
-  v.f = x;
-  uint32_t a = v.u & 0x7FFFFFFFUL;
+// '.' e le d cifre decimali (d = 2 o 3), con gli zeri davanti
+void printFrac(uint16_t D, uint8_t d) {
+  dout.print('.');
+  if (d == 3 && D < 100) dout.print('0');
+  if (D < 10) dout.print('0');
+  dout.print(D);
+}
+// Media di 16 letture ADC (somma / 16) con due decimali, solo con interi. Stessi caratteri di
+// Print::printFloat(somma / 16.0, 2), verificato su tutte le 16369 somme possibili: printFloat
+// arrotonda le metà (x,125 x,375 x,625 x,875) per eccesso o per difetto secondo la grandezza.
+void printAdcMean(uint16_t sum) {
+  uint16_t ip = sum >> 4;
+  uint8_t k = sum & 15, d = (k * 25 + 2) >> 2;
+  if ((k & 3) == 2 && ((ip >= 16 && ip < 32) || (ip >= 64 && ip < 128) || (k < 8 && ip < 2))) d--;
+  dout.print(ip);
+  printFrac(d, 2);
+}
+// Un float (bit IEEE 754) con d = 2 o 3 decimali, arrotondato correttamente (metà per eccesso), solo
+// con interi a 32 bit: niente libreria float. Stesso formato di Print::printFloat («nan», «inf»,
+// «ovf» oltre ±4294967040, «-» davanti ai negativi tranne -0.0); l'ultima cifra può differire da
+// printFloat solo dove printFloat sbagliava l'arrotondamento.
+void printFixed(uint32_t u, uint8_t d) {
+  uint32_t a = u & 0x7FFFFFFFUL;
   if (a > 0x7F800000UL) { dout.print(F("nan")); return; }
   if (a == 0x7F800000UL) { dout.print(F("inf")); return; }
-  if (a > 0x4F7FFFFFUL) { dout.print(F("ovf")); return; }   // |x| > 4294967040.0
-  if (a != v.u && a) dout.print('-');                       // negativo (ma non -0.0)
-  v.u = a;
-  float n = v.f + (digits == 3 ? 0.5f / 10 / 10 / 10 : 0.5f / 10 / 10);
-  uint32_t ip = (uint32_t)n;
-  float r = n - (float)ip;
-  dout.print(ip);
-  dout.print('.');
-  while (digits--) {
-    r *= 10;
-    uint16_t d = (uint16_t)r;
-    dout.print(d);
-    r -= d;
+  if (a > 0x4F7FFFFFUL) { dout.print(F("ovf")); return; }
+  if (a != u && a) dout.print('-');
+  uint8_t e = a >> 23;
+  uint32_t m = a & 0x7FFFFFUL;
+  if (e) m |= 0x800000UL; else e = 1;           // valore = m · 2^(e − 150)
+  int16_t sh = 150 - e;                         // bit dopo la virgola
+  uint32_t I, D = 0;
+  if (sh <= 0) I = m << -sh;                    // intero (al massimo 8 posti: il valore sta in 32 bit)
+  else {
+    I = sh < 32 ? m >> sh : 0;
+    uint32_t f = m - (sh < 32 ? I << sh : 0);   // parte frazionaria: f / 2^sh
+    uint32_t T = f * (d == 3 ? 125 : 25);       // f · 10^d = f · 5^d · 2^d   (< 2^31)
+    int16_t k = sh - d;
+    bool up = false;
+    if (k <= 0) D = T << -k;
+    else {
+      if (k < 32) D = T >> k;
+      if (k <= 32) up = (T >> (k - 1)) & 1;     // il primo bit scartato: metà o più
+    }
+    if (up && ++D == (d == 3 ? 1000 : 100)) { D = 0; I++; }
   }
+  dout.print(I);
+  printFrac(D, d);
 }
 
 // ---------- oscilloscopio ----------
@@ -1341,7 +1365,7 @@ bool readSlot(uint8_t i) {
     case S_NTC:
     case S_ANA: {
       uint16_t sum = readAdcSum(s.pinA);
-      dataHead(i, stamp); dout.print(','); printFloat(sum * (1.0f / ADC_SAMPLES), 2); dout.println();
+      dataHead(i, stamp); dout.print(','); printAdcMean(sum); dout.println();
       // media < 2 o > 1021 (la media è esatta: somma / 16): sonda staccata o in corto
       if (s.type == S_NTC) markBad(s, sum < 2 * ADC_SAMPLES || sum > 1021 * ADC_SAMPLES, 3, 2);
       return true;
@@ -1422,16 +1446,16 @@ bool readSlot(uint8_t i) {
       return true;
     }
     case S_SPS: {
-      // legge gli ultimi valori (il sensore li aggiorna ogni secondo); float big-endian → float dell'AVR
+      // legge gli ultimi valori (il sensore li aggiorna ogni secondo): float big-endian, stampati dai bit
       if (!s.st) s.st = spsCmd(s, 0x0010, true);
       uint8_t b[40];
       bool ok = s.st && spsRead(s, b);
       dataHead(i, stamp);
       for (uint8_t k = 0; k < 10; k++) {
         dout.print(',');
-        union { float f; uint8_t c[4]; } v;
-        for (uint8_t j = 0; j < 4; j++) v.c[j] = b[4 * k + 3 - j];
-        if (ok) printFloat(v.f, k == 9 ? 3 : 2); else dout.print(F("nan"));
+        uint32_t v = 0;
+        for (uint8_t j = 0; j < 4; j++) v = (v << 8) | b[4 * k + j];      // float big-endian
+        if (ok) printFixed(v, k == 9 ? 3 : 2); else dout.print(F("nan"));
       }
       commaNum(dout, ok ? 0 : 2); dout.println();
       markBad(s, !ok, 2, 2);
