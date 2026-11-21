@@ -123,7 +123,7 @@
 // __attribute__((noinline)) su alcune funzioni: misurato una per una, risparmia flash (senza, il
 // compilatore le ricopia in ogni punto in cui sono chiamate). Mai sulle funzioni a tempi stretti.
 
-#define FW_VERSION "1.8"          // stringa in flash, unita ai testi vicini (al massimo 4 caratteri: display)
+#define FW_VERSION "1.9"          // stringa in flash, unita ai testi vicini (al massimo 4 caratteri: display)
 
 const uint8_t MAX_SLOTS = 6;
 const uint8_t ADC_SAMPLES = 16;                 // sovracampionamento per ridurre il rumore
