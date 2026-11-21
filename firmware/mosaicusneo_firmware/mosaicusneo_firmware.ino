@@ -1884,24 +1884,37 @@ void handleCommand(char *cmd) {
   if (sdOn) logStop(false);             // e quella in corso si chiude
   lastCmdMs = millis();
   if (lastCmdMs == 0) lastCmdMs = 1;
-  if (strcmp_P(cmd, PSTR("PING")) == 0) { pinged = true; return; }
-  if (strncmp_P(cmd, PSTR("LINK,"), 5) == 0) { linkBt = cmd[5] == 'B'; return; }
-  if (strcmp_P(cmd, PSTR("ID?")) == 0) sendHello();
-  else if (strcmp_P(cmd, PSTR("STOP")) == 0) stopAll();
-  else if (strcmp_P(cmd, PSTR("START")) == 0) startRun();
-  else if (strcmp_P(cmd, PSTR("CFG,CLEAR")) == 0) cfgClear();
-  else if (strncmp_P(cmd, PSTR("CFG,ADD,"), 8) == 0) { if (mode == RUN) stopAll(); cfgAdd(cmd + 8); }
-  else if (strncmp_P(cmd, PSTR("START,SCOPE,"), 12) == 0) startScope(cmd + 12);
-  else if (strncmp_P(cmd, PSTR("OUT,L,"), 6) == 0) setAppLine(cmd + 6);
-  else if (strcmp_P(cmd, PSTR("OUT,CLEAR")) == 0) { outsClear(); Serial.println(F("#ACK,OUT,CLEAR")); }
-  else if (strncmp_P(cmd, PSTR("OUT,ADD,"), 8) == 0) outAdd(cmd + 8);
-  else if (strcmp_P(cmd, PSTR("OUT,SAVE")) == 0) outsSave();
-  else if (strncmp_P(cmd, PSTR("CFG,SAVE,"), 9) == 0) cfgSave(cmd + 9);
-  else if (strcmp_P(cmd, PSTR("SD,TEST")) == 0) sdTest();
-  else if (strcmp_P(cmd, PSTR("OUT,TEST")) == 0) { if (mode == RUN) stopAll(); outsTest(); }
-  else if (strcmp_P(cmd, PSTR("BT,SETUP")) == 0) { if (mode != IDLE) stopAll(); btSetup(); }
-  else if (strcmp_P(cmd, PSTR("BT,SETUP,BLE")) == 0) { if (mode != IDLE) stopAll(); btSetupBle(); }
-  else if (cmdLen > 0) { Serial.print(F("#ERR,")); Serial.println(cmd); }
+  // i comandi in ordine di prova; quelli che finiscono con ',' sono prefissi (seguono argomenti)
+  static const char CMDS[] PROGMEM =
+    "PING\0" "LINK,\0" "ID?\0" "STOP\0" "START\0" "CFG,CLEAR\0" "CFG,ADD,\0" "START,SCOPE,\0" "OUT,L,\0"
+    "OUT,CLEAR\0" "OUT,ADD,\0" "OUT,SAVE\0" "CFG,SAVE,\0" "SD,TEST\0" "OUT,TEST\0" "BT,SETUP\0" "BT,SETUP,BLE\0";
+  uint8_t k = 0;
+  char *arg = cmd;
+  for (PGM_P p = CMDS; k < 17; k++) {
+    uint8_t n = strlen_P(p);
+    if (pgm_read_byte(p + n - 1) == ',' ? strncmp_P(cmd, p, n) == 0 : strcmp_P(cmd, p) == 0) { arg = cmd + n; break; }
+    p += n + 1;
+  }
+  switch (k) {
+    case 0: pinged = true; break;
+    case 1: linkBt = *arg == 'B'; break;
+    case 2: sendHello(); break;
+    case 3: stopAll(); break;
+    case 4: startRun(); break;
+    case 5: cfgClear(); break;
+    case 6: if (mode == RUN) stopAll(); cfgAdd(arg); break;
+    case 7: startScope(arg); break;
+    case 8: setAppLine(arg); break;
+    case 9: outsClear(); Serial.println(F("#ACK,OUT,CLEAR")); break;
+    case 10: outAdd(arg); break;
+    case 11: outsSave(); break;
+    case 12: cfgSave(arg); break;
+    case 13: sdTest(); break;
+    case 14: if (mode == RUN) stopAll(); outsTest(); break;
+    case 15: if (mode != IDLE) stopAll(); btSetup(); break;
+    case 16: if (mode != IDLE) stopAll(); btSetupBle(); break;
+    default: if (cmdLen > 0) { Serial.print(F("#ERR,")); Serial.println(cmd); }
+  }
 }
 
 void pollSerial() {
