@@ -822,8 +822,39 @@ void rgbSet(const Out &o, uint8_t rgb) {
     digitalWrite(o.p[k], (on ^ (o.opt & 1)) ? HIGH : LOW);
   }
 }
+// tone(pin, 2700) e noTone(pin) del core, ridotti a quello che fanno sull'Uno (un solo pin alla
+// volta, timer 2) con la frequenza fissa: 16 MHz / 2700 / 2 → prescaler 32, OCR2A = 91. Stessi
+// registri, nello stesso ordine; il pin si inverte a ogni confronto (durata infinita).
+uint8_t tonePin = 255;                  // come tone_pins[0] del core: 255 = libero
+volatile uint8_t *tonePort;
+uint8_t toneMask;
+void toneOn(uint8_t p) {
+  if (tonePin != p) {
+    if (tonePin != 255) return;         // il timer suona già su un altro pin: il core non fa niente
+    tonePin = p;
+    TCCR2A = 0; TCCR2B = 0;
+    TCCR2A |= _BV(WGM21); TCCR2B |= _BV(CS20);
+    tonePort = portOutputRegister(digitalPinToPort(p));
+    toneMask = digitalPinToBitMask(p);
+  }
+  pinMode(p, OUTPUT);
+  TCCR2B = (TCCR2B & 0b11111000) | 0b011;
+  OCR2A = 91;
+  TIMSK2 |= _BV(OCIE2A);
+}
+void toneOff(uint8_t p) {
+  if (tonePin == p) {
+    tonePin = 255;
+    TIMSK2 &= ~_BV(OCIE2A);
+    TCCR2A = _BV(WGM20);
+    TCCR2B = (TCCR2B & 0b11111000) | _BV(CS22);
+    OCR2A = 0;
+  }
+  digitalWrite(p, LOW);
+}
+ISR(TIMER2_COMPA_vect) { *tonePort ^= toneMask; }
 void buzz(const Out &o, bool on) {
-  if (o.opt & 1) { if (on) tone(o.p[0], 2700); else noTone(o.p[0]); }
+  if (o.opt & 1) { if (on) toneOn(o.p[0]); else toneOff(o.p[0]); }
   else digitalWrite(o.p[0], on ? HIGH : LOW);
   buzzOn = on;
 }
