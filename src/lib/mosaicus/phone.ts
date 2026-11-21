@@ -59,7 +59,7 @@ export class PhoneLink {
       try { this.motionDenied = (await DME.requestPermission()) !== "granted"; } catch { this.motionDenied = true; }
     }
     try { audio(); } catch { /* niente audio: il microfono darà errore solo se serve */ }
-    setTimeout(() => this.emit(`#MOSAICUS,${FW},READY`), 50);
+    setTimeout(() => this.emit(`#MOSAICUSNEO,${FW},READY`), 50);
   }
   async close() { this.stop(); this.closeCb(); }
   private stop() { for (const f of this.stopFns) f(); this.stopFns = []; }
@@ -67,7 +67,7 @@ export class PhoneLink {
   async write(cmd: string) {
     const c = cmd.trim();
     let m: RegExpMatchArray | null;
-    if (c === "ID?") return this.emit(`#MOSAICUS,${FW},READY`);
+    if (c === "ID?") return this.emit(`#MOSAICUSNEO,${FW},READY`);
     if (c === "STOP") { this.stop(); return this.emit("#ACK,STOP"); }
     if (c === "CFG,CLEAR") { this.stop(); this.slots.clear(); return this.emit("#ACK,CFG,CLEAR"); }
     if ((m = c.match(/^CFG,ADD,(\d+),(\w+),(\d+),/))) {

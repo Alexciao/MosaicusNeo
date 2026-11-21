@@ -2,7 +2,7 @@
 //
 // Il firmware scrive le stesse righe che manda all'app via cavo, con un'intestazione che dice
 // quale progetto era configurato:
-//   #MOSAICUS,<fw>,SD
+//   #MOSAICUSNEO,<fw>,SD                         (#MOSAICUS,<fw>,SD fino al firmware 1.8)
 //   #PROJ,<id>                                   (id della configurazione mandata da «Prepara Arduino»)
 //   #CFG,<slot>,<TIPO>,<ms>,<pinA>,<pinB>,<opz>  (una riga per sensore, come CFG,ADD)
 //   #START
@@ -20,7 +20,7 @@ export interface SdLog { fw: string | null; proj: string | null; cfg: SdCfg[]; r
 export function parseSdLog(text: string): SdLog | null {
   const lines = text.split(/\r?\n/);
   const head = lines.find((l) => l.trim());
-  if (!head?.startsWith("#MOSAICUS")) return null;
+  if (!head?.startsWith("#MOSAICUS")) return null;   // anche #MOSAICUSNEO (firmware 1.9 e successivi)
   const log: SdLog = { fw: head.split(",")[1] ?? null, proj: null, cfg: [], raw: [], stopped: false, bad: 0 };
   for (const l of lines) {
     if (l.startsWith("D,")) {

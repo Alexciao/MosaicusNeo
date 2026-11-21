@@ -22,7 +22,7 @@
 
   Protocollo (115200 baud, righe terminate da '\n'):
     App -> Arduino                              Arduino -> App
-    ID?                                         #MOSAICUS,<versione>,READY
+    ID?                                         #MOSAICUSNEO,<versione>,READY
     PING                                        (niente: dice ad Arduino che l'app è collegata)
     LINK,<U|B>                                  (niente: l'app è collegata via USB o via Bluetooth)
     CFG,CLEAR                                   #ACK,CFG,CLEAR
@@ -104,7 +104,7 @@
   Un comando dall'app durante la registrazione la chiude. Ogni 2 s il file viene aggiornato sulla
   scheda: togliendo l'alimentazione si perdono al massimo gli ultimi 2 s.
   File LOG00001.NEO, LOG00002.NEO… nella cartella principale (FAT32; testo, righe come sotto):
-    #MOSAICUS,<versione>,SD
+    #MOSAICUSNEO,<versione>,SD
     #PROJ,<id>
     #CFG,<slot>,<tipo>,<ms>,<pinA>,<pinB>,<opz>   (una riga per sensore, ms = intervallo effettivo)
     #START
@@ -315,7 +315,7 @@ unsigned long runStartMs = 0;
 
 
 void sendHello() {
-  Serial.println(F("#MOSAICUS," FW_VERSION ",READY"));
+  Serial.println(F("#MOSAICUSNEO," FW_VERSION ",READY"));
 }
 
 void led(bool on) { if (ledFree) digitalWrite(LED_BUILTIN, on ? HIGH : LOW); }
@@ -1600,7 +1600,7 @@ void btSetup() {
   Serial.end();
   Serial.begin(9600);
   delay(300);
-  Serial.print(F("AT+NAMEMosaicus"));
+  Serial.print(F("AT+NAMEMosaicusNeo"));
   btListen(1200);
   Serial.print(F("AT+BAUD8"));          // 8 = 115200 baud
   btListen(1200);
@@ -1849,7 +1849,7 @@ void logStart() {
   if (e) { sdErr = true; return; }
   sdErr = false;
   dSer = false; sdOn = true;
-  dout.println(F("#MOSAICUS," FW_VERSION ",SD"));
+  dout.println(F("#MOSAICUSNEO," FW_VERSION ",SD"));
   dout.print(F("#PROJ,"));
   for (uint8_t k = 0; k < 12; k++) { char c = EEPROM.read(E_ID + k); if (!c) break; dout.write(c); }
   dout.println();

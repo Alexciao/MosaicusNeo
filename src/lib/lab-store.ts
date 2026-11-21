@@ -798,7 +798,7 @@ function handleLine(line: string) {
   logSerial(line);
   if (waiter && waiter.match(line)) { const w = waiter; waiter = null; w.resolve(line); return; }
   const kind = link?.kind;
-  if (line.startsWith("#MOSAICUS")) {
+  if (line.startsWith("#MOSAICUS")) {   // #MOSAICUSNEO dalla 1.9, #MOSAICUS prima: vanno bene entrambi
     const fw = line.split(",")[1] ?? null;
     set({ ready: true, fw });
     if (kind === "simulatore" || (fw && cmpVersion(fw, "1.2") >= 0)) startPing();

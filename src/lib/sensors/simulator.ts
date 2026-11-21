@@ -190,7 +190,7 @@ export class SimulatedLink {
 
   onLine(cb: (l: string) => void) { this.lineCb = cb; }
   onClose(cb: () => void) { this.closeCb = cb; }
-  async open() { setTimeout(() => this.emit(`#MOSAICUS,${FW},READY`), 300); }
+  async open() { setTimeout(() => this.emit(`#MOSAICUSNEO,${FW},READY`), 300); }
   async close() { this.stop(); this.closeCb(); }
   private emit(l: string) { this.lineCb(l); }
   private stop() { this.timers.forEach((t) => { clearInterval(t); clearTimeout(t); }); this.timers = []; }
@@ -198,7 +198,7 @@ export class SimulatedLink {
   async write(cmd: string) {
     const c = cmd.trim();
     let m: RegExpMatchArray | null;
-    if (c === "ID?") return this.emit(`#MOSAICUS,${FW},READY`);
+    if (c === "ID?") return this.emit(`#MOSAICUSNEO,${FW},READY`);
     if (c.startsWith("LINK,")) return;
     if (c === "PING") { if (!this.pinged) { this.pinged = true; this.st("I,-1,0"); } return; }
     if (c === "STOP") { const was = this.timers.length > 0; this.stop(); this.emit("#ACK,STOP"); if (was) this.st("I,-1,0"); return; }

@@ -57,7 +57,7 @@ PING (ogni 2 s dall'app) · LINK,<U|B>              ← #ST,<W|I|S|E|T|O|C|R|L>,
                                                    ← #KEY quando si preme il pulsante con l'app collegata
 ```
 
-Sulla scheda SD il firmware scrive le stesse righe `D,…` della seriale, in `LOG00001.NEO`, `LOG00002.NEO`… (FAT32), dopo un'intestazione con la configurazione (`#MOSAICUS,<fw>,SD`, `#PROJ,<id>`, `#CFG,…`, `#START`; `#STOP,<t_ms>` se fermata col pulsante). L'app li importa nel Quaderno con le opzioni del progetto preparato.
+Sulla scheda SD il firmware scrive le stesse righe `D,…` della seriale, in `LOG00001.NEO`, `LOG00002.NEO`… (FAT32), dopo un'intestazione con la configurazione (`#MOSAICUSNEO,<fw>,SD`, `#PROJ,<id>`, `#CFG,…`, `#START`; `#STOP,<t_ms>` se fermata col pulsante). L'app li importa nel Quaderno con le opzioni del progetto preparato.
 
 Pin come numeri (A0 = 14 … A5 = 19); tempi con risoluzione di 1 µs e orologio a 64 bit (nessun azzeramento dopo 71 minuti).
 
