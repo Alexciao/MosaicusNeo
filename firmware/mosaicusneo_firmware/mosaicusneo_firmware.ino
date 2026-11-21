@@ -1200,8 +1200,9 @@ uint8_t cfgApply(uint8_t slot, uint8_t type, long ms, uint8_t a, uint8_t b, uint
   if (outClash(a, i2c) || (two && outClash(b, i2c))) return 3;     // un indicatore usa già quel pin
   if (type == S_GPS && gpsSlot >= 0 && gpsSlot != slot) return 4;
   // intervalli minimi: oltre, il sensore non ce la fa
-  long minMs = type == S_DHT ? (opt == 22 ? 2000 : 1000) : type == S_GPS ? 1000 : type == S_SONAR ? 30
-             : type == S_DS18 || type == S_SPS ? 1000 : type == S_HX711 || type == S_MLX ? 100 : type == S_IMU ? 10 : 5;
+  // NONE, NTC, ANA, DHT (DHT22: 2000), SONAR, GPS, DS18, GATE, HX711, IMU, MLX, SPS
+  static const uint16_t MIN_MS[] PROGMEM = { 5, 5, 5, 1000, 30, 1000, 1000, 5, 100, 10, 100, 1000 };
+  long minMs = type == S_DHT && opt == 22 ? 2000 : pgm_read_word(&MIN_MS[type]);
   if (ms < minMs) ms = minMs;
   if (ms > 600000L) ms = 600000L;
   Slot &s = slots[slot];
