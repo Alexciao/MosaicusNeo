@@ -21,7 +21,10 @@ export const PROJECT_ICONS = {
 } satisfies Record<string, LucideIcon>;
 export type ProjectIconKey = keyof typeof PROJECT_ICONS;
 export const isProjectIcon = (k: unknown): k is ProjectIconKey => typeof k === "string" && k in PROJECT_ICONS;
-export const PROJECT_TONES: Tone[] = ["violet", "sky", "lime", "saffron", "rose"];
+export const PROJECT_TONES: Tone[] = [
+  "violet", "indigo", "sky", "teal", "emerald", "lime",
+  "saffron", "orange", "red", "rose", "fuchsia", "slate",
+];
 export const DEFAULT_PROJECT_TONE: Tone = "violet";
 export const DEFAULT_PROJECT_ICON: ProjectIconKey = "wrench";
 

@@ -54,7 +54,14 @@
       "sky": "Blu",
       "lime": "Verde",
       "saffron": "Ambra",
-      "rose": "Rosa"
+      "rose": "Rosa",
+      "indigo": "Indaco",
+      "teal": "Verde acqua",
+      "emerald": "Smeraldo",
+      "orange": "Arancione",
+      "red": "Rosso",
+      "fuchsia": "Fucsia",
+      "slate": "Grigio"
     },
     "icons": {
       "wrench": "Chiave inglese",

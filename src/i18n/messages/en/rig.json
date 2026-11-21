@@ -54,7 +54,14 @@
       "sky": "Blue",
       "lime": "Green",
       "saffron": "Amber",
-      "rose": "Pink"
+      "rose": "Pink",
+      "indigo": "Indigo",
+      "teal": "Teal",
+      "emerald": "Emerald",
+      "orange": "Orange",
+      "red": "Red",
+      "fuchsia": "Fuchsia",
+      "slate": "Gray"
     },
     "icons": {
       "wrench": "Wrench",

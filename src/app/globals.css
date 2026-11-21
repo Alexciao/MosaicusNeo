@@ -49,11 +49,25 @@
   --color-tone-rose: var(--tone-rose);
   --color-tone-saffron: var(--tone-saffron);
   --color-tone-violet: var(--tone-violet);
+  --color-tone-indigo: var(--tone-indigo);
+  --color-tone-teal: var(--tone-teal);
+  --color-tone-emerald: var(--tone-emerald);
+  --color-tone-orange: var(--tone-orange);
+  --color-tone-red: var(--tone-red);
+  --color-tone-fuchsia: var(--tone-fuchsia);
+  --color-tone-slate: var(--tone-slate);
   --color-tone-lime-fg: var(--tone-lime-fg);
   --color-tone-sky-fg: var(--tone-sky-fg);
   --color-tone-rose-fg: var(--tone-rose-fg);
   --color-tone-saffron-fg: var(--tone-saffron-fg);
   --color-tone-violet-fg: var(--tone-violet-fg);
+  --color-tone-indigo-fg: var(--tone-indigo-fg);
+  --color-tone-teal-fg: var(--tone-teal-fg);
+  --color-tone-emerald-fg: var(--tone-emerald-fg);
+  --color-tone-orange-fg: var(--tone-orange-fg);
+  --color-tone-red-fg: var(--tone-red-fg);
+  --color-tone-fuchsia-fg: var(--tone-fuchsia-fg);
+  --color-tone-slate-fg: var(--tone-slate-fg);
   --color-tone-ink: var(--tone-ink);
   --color-success: var(--success);
   --color-warning: var(--warning);
@@ -109,6 +123,13 @@
   --tone-rose: #ffe4e6;
   --tone-saffron: #fef3c7;
   --tone-violet: #ede9fe;
+  --tone-indigo: #e0e7ff;
+  --tone-teal: #ccfbf1;
+  --tone-emerald: #d1fae5;
+  --tone-orange: #ffedd5;
+  --tone-red: #fee2e2;
+  --tone-fuchsia: #fae8ff;
+  --tone-slate: #e2e8f0;
   --logo-accent: #65a30d;
   /* icone sulle piastrelle colorate: la stessa tinta, più scura */
   --tone-lime-fg: #4d7c0f;
@@ -116,6 +137,13 @@
   --tone-rose-fg: #be123c;
   --tone-saffron-fg: #b45309;
   --tone-violet-fg: #6d28d9;
+  --tone-indigo-fg: #4338ca;
+  --tone-teal-fg: #0f766e;
+  --tone-emerald-fg: #047857;
+  --tone-orange-fg: #c2410c;
+  --tone-red-fg: #b91c1c;
+  --tone-fuchsia-fg: #a21caf;
+  --tone-slate-fg: #475569;
   --tone-ink: #3f6212;
 
   /* canvas: grafici, oscilloscopio */
@@ -185,12 +213,26 @@
   --tone-rose: rgba(244, 114, 182, 0.12);
   --tone-saffron: rgba(251, 191, 36, 0.12);
   --tone-violet: rgba(167, 139, 250, 0.14);
+  --tone-indigo: rgba(129, 140, 248, 0.14);
+  --tone-teal: rgba(45, 212, 191, 0.12);
+  --tone-emerald: rgba(52, 211, 153, 0.12);
+  --tone-orange: rgba(251, 146, 60, 0.12);
+  --tone-red: rgba(248, 113, 113, 0.12);
+  --tone-fuchsia: rgba(232, 121, 249, 0.12);
+  --tone-slate: rgba(148, 163, 184, 0.14);
   --logo-accent: #c6f432;
   --tone-lime-fg: #bef264;
   --tone-sky-fg: #7dd3fc;
   --tone-rose-fg: #fda4af;
   --tone-saffron-fg: #fcd34d;
   --tone-violet-fg: #c4b5fd;
+  --tone-indigo-fg: #a5b4fc;
+  --tone-teal-fg: #5eead4;
+  --tone-emerald-fg: #6ee7b7;
+  --tone-orange-fg: #fdba74;
+  --tone-red-fg: #fca5a5;
+  --tone-fuchsia-fg: #f0abfc;
+  --tone-slate-fg: #cbd5e1;
   --tone-ink: #e4e4e7;
 
   --mz-chart-bg: #111113;

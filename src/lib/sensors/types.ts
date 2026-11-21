@@ -2,7 +2,8 @@
 
 export type Row = Record<string, number | boolean | string> & { t: number };
 export type Options = Record<string, number | string>;
-export type Tone = "lime" | "sky" | "rose" | "saffron" | "violet";
+export type Tone = "lime" | "sky" | "rose" | "saffron" | "violet"
+  | "indigo" | "teal" | "emerald" | "orange" | "red" | "fuchsia" | "slate";
 
 export interface Param {
   key: string;

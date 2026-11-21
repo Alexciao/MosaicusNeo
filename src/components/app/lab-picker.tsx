@@ -120,7 +120,7 @@ function LookDialog({ rig, open, onOpenChange }: { rig: Rig; open: boolean; onOp
         <div className="flex flex-col gap-5">
           <div className="flex flex-col gap-2.5">
             <p id={`tone-${rig.id}`} className="text-xs font-medium text-muted-foreground">{t("color")}</p>
-            <div className="flex gap-2" role="radiogroup" aria-labelledby={`tone-${rig.id}`}>
+            <div className="grid w-fit grid-cols-6 gap-2" role="radiogroup" aria-labelledby={`tone-${rig.id}`}>
               {PROJECT_TONES.map((c) => (
                 <button key={c} type="button" role="radio" aria-checked={c === tone} aria-label={t(`tones.${c}`)} title={t(`tones.${c}`)}
                   onClick={() => setRigLook(rig.id, { tone: c })}
