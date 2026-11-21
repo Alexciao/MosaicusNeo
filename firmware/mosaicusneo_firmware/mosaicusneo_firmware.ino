@@ -191,6 +191,10 @@ struct DataOut : public Print {
   size_t write(uint8_t c) { if (dSer) Serial.write(c); if (sdOn) sdPut(c); return 1; }
 } dout;
 
+// ',' seguita da un numero: stessi caratteri di print(',') + print(v) per ogni intero che qui
+// si stampa (tutti tra -2^31 e 2^31), ma una chiamata sola invece di due
+void commaNum(Print &p, long v) { p.print(','); p.print(v); }
+
 void printTime(uint64_t us) {
   uint64_t rel = us - t0Us;
   // rel / 1000 e rel % 1000 senza la divisione a 64 bit (costa ~200 byte): divisione in colonna
@@ -538,7 +542,7 @@ void gateFlush() {
     GateEv e; e.t = gateQ[gateTail].t; e.slot = gateQ[gateTail].slot; e.level = gateQ[gateTail].level;
     gateTail = (gateTail + 1) % GATE_Q;
     SREG = s;
-    dataHead(e.slot, e.t); dout.print(','); dout.println(e.level);
+    dataHead(e.slot, e.t); commaNum(dout, e.level); dout.println();
   }
 }
 
@@ -871,10 +875,9 @@ void statusTick() {
   St before = state;
   computeState();
   if (state != shownState || stSlot != shownSlot || stK != shownK) {
-    Serial.print(F("#ST,")); Serial.print((char)pgm_read_byte(&ST_CODE[state])); Serial.print(',');
-    Serial.print(stSlot); Serial.print(','); Serial.print(stIssue); Serial.print(',');
-    Serial.print(stK); Serial.print(','); Serial.print(stN); Serial.print(',');
-    Serial.print(btKind); Serial.print(','); Serial.println(linkBt ? 'B' : 'U');
+    Serial.print(F("#ST,")); Serial.print((char)pgm_read_byte(&ST_CODE[state]));
+    commaNum(Serial, stSlot); commaNum(Serial, stIssue); commaNum(Serial, stK); commaNum(Serial, stN);
+    commaNum(Serial, btKind); Serial.print(','); Serial.println(linkBt ? 'B' : 'U');
     if (state != shownState) {
       if ((state == ST_TRACK || state == ST_LOG) && before != state && shownState != (St)255) chirp(2, 60);
       stCycle = now;                            // il nuovo stato si sente subito
@@ -1344,14 +1347,14 @@ bool readSlot(uint8_t i) {
       uint8_t err = dhtRead(s.pinA, s.opt == 22 ? 22 : 11);
       if (gpsSerial) gpsSerial->begin(9600);
       dataHead(i, stamp);
-      for (uint8_t k = 0; k < 4; k++) { dout.print(','); dout.print(dhtData[k]); }
-      dout.print(','); dout.println(err);
+      for (uint8_t k = 0; k < 4; k++) commaNum(dout, dhtData[k]);
+      commaNum(dout, err); dout.println();
       markBad(s, err != 0, 3, 2);
       return true;
     }
     case S_SONAR: {
       unsigned long echo = sonarRead(s.pinA, s.pinB, stamp);
-      dataHead(i, stamp); dout.print(','); dout.println(echo);
+      dataHead(i, stamp); commaNum(dout, echo); dout.println();
       markBad(s, echo == 0, 20, 1);            // nessun eco per un po': bersaglio fuori portata
       return true;
     }
@@ -1371,7 +1374,7 @@ bool readSlot(uint8_t i) {
       uint8_t err = s.st ? ds18Read(s.pinA, raw) : 1;
       dataHead(i, stamp); dout.print(',');
       if (err) dout.print(F("nan")); else dout.print(raw);
-      dout.print(','); dout.println(err);
+      commaNum(dout, err); dout.println();
       markBad(s, err != 0, 2, 2);
       s.st = ds18Convert(s.pinA);               // la prossima è pronta tra 750 ms
       return true;
@@ -1384,7 +1387,7 @@ bool readSlot(uint8_t i) {
         return true;
       }
       long v = hxRead(s.pinA, s.pinB);
-      dataHead(i, stamp); dout.print(','); dout.print(v); dout.println(F(",0"));
+      dataHead(i, stamp); commaNum(dout, v); dout.println(F(",0"));
       markBad(s, false, 1, 2);
       return true;
     }
@@ -1394,7 +1397,7 @@ bool readSlot(uint8_t i) {
       dataHead(i, stamp);
       if (ok) {
         // v: ax, ay, az, temperatura, gx, gy, gz
-        for (uint8_t k = 0; k < 7; k++) if (k != 3) { dout.print(','); dout.print(v[k]); }
+        for (uint8_t k = 0; k < 7; k++) if (k != 3) commaNum(dout, v[k]);
         dout.println(F(",0"));
       } else { dout.println(F(",nan,nan,nan,nan,nan,nan,1")); s.st = 0; }
       markBad(s, !ok, 2, 2);
@@ -1404,7 +1407,7 @@ bool readSlot(uint8_t i) {
       uint16_t obj = 0, amb = 0;
       bool ok = mlxRead(s, 0x07, obj) && mlxRead(s, 0x06, amb);
       dataHead(i, stamp);
-      if (ok) { dout.print(','); dout.print(obj); dout.print(','); dout.print(amb); dout.println(F(",0")); }
+      if (ok) { commaNum(dout, obj); commaNum(dout, amb); dout.println(F(",0")); }
       else dout.println(F(",nan,nan,1"));
       markBad(s, !ok, 2, 2);
       return true;
@@ -1421,7 +1424,7 @@ bool readSlot(uint8_t i) {
         for (uint8_t j = 0; j < 4; j++) v.c[j] = b[4 * k + 3 - j];
         if (ok) printFloat(v.f, k == 9 ? 3 : 2); else dout.print(F("nan"));
       }
-      dout.print(','); dout.println(ok ? 0 : 2);
+      commaNum(dout, ok ? 0 : 2); dout.println();
       markBad(s, !ok, 2, 2);
       return true;
     }
@@ -1462,7 +1465,7 @@ void scopeSend(bool fired) {
   Serial.print(fired ? 1 : 0);
   Serial.print(',');
   Serial.print(scopeDt);
-  for (int i = 0; i < scopeN; i++) { Serial.print(','); Serial.print(scopeBuf[i]); }
+  for (int i = 0; i < scopeN; i++) commaNum(Serial, scopeBuf[i]);
   Serial.println();
 }
 void startScope(char *args) {
@@ -1822,9 +1825,8 @@ void logStart() {
     const Slot &s = slots[i];
     if (s.type == S_NONE) continue;
     typeName(s.type, nm);
-    dout.print(F("#CFG,")); dout.print(i); dout.print(','); dout.print(nm); dout.print(',');
-    dout.print(s.intervalMs); dout.print(','); dout.print(s.pinA); dout.print(','); dout.print(s.pinB);
-    dout.print(','); dout.println(s.opt);
+    dout.print(F("#CFG,")); dout.print(i); dout.print(','); dout.print(nm);
+    commaNum(dout, s.intervalMs); commaNum(dout, s.pinA); commaNum(dout, s.pinB); commaNum(dout, s.opt); dout.println();
   }
   dout.println(F("#START"));
   startRun();
