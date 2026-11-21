@@ -6,7 +6,9 @@
 //  • all'avvio, quando la scheda torna in primo piano, quando torna la rete e ogni minuto,
 //    si scaricano le modifiche fatte dagli altri dispositivi (pull, a partire dall'ultima
 //    ora vista sul server); in caso di conflitto vince la modifica più recente
-//  • le misure create prima di accedere entrano nell'account
+//  • accedendo, i dati di questo dispositivo e quelli dell'account si uniscono: le misure create
+//    prima di accedere entrano nell'account, lab personali e preferenze si uniscono voce per voce
+//    (settings-merge.ts); non si cancella mai niente che l'utente non abbia cancellato
 //  • uscendo, i dati dell'account spariscono da questo dispositivo (restano nel cloud)
 
 import { create } from "zustand";
@@ -18,6 +20,7 @@ import { onPrefChange } from "@/lib/prefs";
 import { useWorkbench } from "@/lib/workbench-store";
 import { refreshSessions, reloadParams } from "@/lib/lab-store";
 import { t } from "@/i18n";
+import { mergeSettings, RIGS_KEY, type SettingsSide } from "./settings-merge";
 
 export type CloudStatus = "off" | "idle" | "syncing" | "offline" | "error";
 interface CloudState {
@@ -49,6 +52,13 @@ const LS = {
 const cursorKey = (u: string, t: string) => `mosaicus.cloud.cursor.${u}.${t}`;
 const TOMB = "mosaicus.cloud.tombstones";
 const SETTINGS_TS = "mosaicus.cloud.settingsUpdated";
+// ore di modifica e lapidi delle singole preferenze e dei singoli lab personali (per l'unione)
+const STAMPS = "mosaicus.cloud.stamps";
+const GONE = "mosaicus.cloud.gone";
+const RIG_STAMPS = "mosaicus.cloud.rigStamps";
+const RIGS_GONE = "mosaicus.cloud.rigsGone";
+/** com'era ogni lab personale l'ultima volta che l'ho visto: per capire quali sono cambiati */
+const RIGS_SEEN = "mosaicus.cloud.rigsSeen";
 interface Tomb { table: Store; id: string; owner: string }
 
 /** Preferenze che seguono l'account (non quelle del singolo dispositivo: tema, LIM, pagina). */
@@ -103,18 +113,6 @@ async function pushTombstones(user: string) {
 }
 
 let settingsDirty = false;
-async function pushSettings(user: string) {
-  if (!settingsDirty) return;
-  const values: Record<string, unknown> = {};
-  for (let i = 0; i < localStorage.length; i++) {
-    const k = localStorage.key(i)!;
-    if (isSynced(k)) values[k] = LS.read(k, null);
-  }
-  const updated = LS.read<number>(SETTINGS_TS, Date.now());
-  const { error } = await supabase()!.from("settings").upsert({ user_id: user, data: { values, updated } });
-  if (error) throw error;
-  settingsDirty = false;
-}
 
 // ---------------------------------------------------------------------------
 // Pull: cloud → locale
@@ -126,7 +124,7 @@ async function pullTable(table: Store, user: string) {
   const byCloud = new Map(local.filter((r) => r.cloudId).map((r) => [r.cloudId!, r]));
   const sessionLocal = new Map<string, number>();
   if (table === "boxes") for (const s of await all("sessions")) if (s.cloudId && s.id) sessionLocal.set(s.cloudId, s.id);
-  let changed = 0;
+  let changed = 0, added = 0;
   for (;;) {
     const { data, error } = await sb.from(table).select("id,data,deleted,updated_at").gt("updated_at", cursor).order("updated_at").limit(200);
     if (error) throw error;
@@ -148,25 +146,92 @@ async function pullTable(table: Store, user: string) {
       if (mine?.id) rec.id = mine.id; else delete rec.id;
       await putQuiet(table, rec);
       changed++;
+      if (!mine) added++;
     }
     LS.write(cursorKey(user, table), cursor);
     if (data.length < 200) break;
   }
-  return changed;
+  return { changed, added };
 }
 
-async function pullSettings(user: string) {
-  const { data, error } = await supabase()!.from("settings").select("data").eq("user_id", user).maybeSingle();
+type Stamps = Record<string, number>;
+interface RemoteSettings { values?: Record<string, unknown>; updated?: number; stamps?: Stamps; gone?: Stamps; rigStamps?: Stamps; rigsGone?: Stamps }
+
+function localSettings(): SettingsSide {
+  const values: Record<string, unknown> = {};
+  for (let i = 0; i < localStorage.length; i++) {
+    const k = localStorage.key(i)!;
+    if (isSynced(k)) values[k] = LS.read(k, null);
+  }
+  return {
+    values, fallback: LS.read<number>(SETTINGS_TS, 0),
+    stamps: LS.read<Stamps>(STAMPS, {}), gone: LS.read<Stamps>(GONE, {}),
+    rigStamps: LS.read<Stamps>(RIG_STAMPS, {}), rigsGone: LS.read<Stamps>(RIGS_GONE, {}),
+  };
+}
+
+/** JSON con le chiavi in ordine: il cloud (jsonb) non conserva l'ordine delle chiavi. */
+const stable = (v: unknown): string =>
+  Array.isArray(v) ? `[${v.map(stable).join(",")}]`
+  : v && typeof v === "object" ? `{${Object.keys(v).sort().map((k) => `${JSON.stringify(k)}:${stable((v as Record<string, unknown>)[k])}`).join(",")}}`
+  : JSON.stringify(v) ?? "null";
+
+const rigsSeen = (list: unknown) =>
+  Object.fromEntries((Array.isArray(list) ? list : []).filter((r) => r && typeof r.id === "string").map((r) => [r.id as string, stable(r)]));
+
+/** Una preferenza sincronizzata è cambiata qui: ne segno l'ora (e, per i lab, quali sono cambiati). */
+function stampPref(k: string, now: number) {
+  const stamps = LS.read<Stamps>(STAMPS, {}), gone = LS.read<Stamps>(GONE, {});
+  let present = false;
+  try { present = localStorage.getItem(k) !== null; } catch { /* niente */ }
+  if (present) { stamps[k] = now; delete gone[k]; } else { gone[k] = now; delete stamps[k]; }
+  LS.write(STAMPS, stamps); LS.write(GONE, gone);
+  if (k !== RIGS_KEY) return;
+  const list = LS.read<unknown>(RIGS_KEY, []);
+  const seen = LS.read<Record<string, string>>(RIGS_SEEN, {}), next = rigsSeen(list);
+  const rs = LS.read<Stamps>(RIG_STAMPS, {}), rg = LS.read<Stamps>(RIGS_GONE, {});
+  for (const [id, json] of Object.entries(next)) if (seen[id] !== json) { rs[id] = now; delete rg[id]; }
+  for (const id of Object.keys(seen)) if (!(id in next)) { rg[id] = now; delete rs[id]; }
+  LS.write(RIG_STAMPS, rs); LS.write(RIGS_GONE, rg); LS.write(RIGS_SEEN, next);
+}
+
+const same = (a: unknown, b: unknown) => stable(a) === stable(b);
+
+/**
+ * Preferenze: unisco quelle di questo dispositivo con quelle del cloud (voce per voce, vedi
+ * settings-merge.ts), scrivo qui quello che manca e carico nel cloud l'unione se è diversa.
+ */
+async function syncSettings(user: string, pull: boolean) {
+  if (!pull && !settingsDirty) return null;
+  const sb = supabase()!;
+  const { data, error } = await sb.from("settings").select("data").eq("user_id", user).maybeSingle();
   if (error) throw error;
-  const remote = data?.data as { values?: Record<string, unknown>; updated?: number } | undefined;
-  if (!remote?.values) { settingsDirty = true; return false; }                // primo dispositivo: carico le mie
-  const localTs = LS.read<number>(SETTINGS_TS, 0);
-  if ((remote.updated ?? 0) <= localTs) { if ((remote.updated ?? 0) < localTs) settingsDirty = true; return false; }
+  const remote = (data?.data ?? {}) as RemoteSettings;
+  const local = localSettings();
+  const m = mergeSettings(local, {
+    values: remote.values ?? {}, fallback: remote.updated ?? 0,
+    stamps: remote.stamps, gone: remote.gone, rigStamps: remote.rigStamps, rigsGone: remote.rigsGone,
+  });
+  // qui: scrivo solo le voci cambiate
+  let localChanged = false;
   applying = true;
-  for (const [k, v] of Object.entries(remote.values)) if (isSynced(k)) LS.write(k, v);
-  applying = false;
-  LS.write(SETTINGS_TS, remote.updated);
-  return true;
+  try {
+    for (const [k, v] of Object.entries(m.values)) if (!(k in local.values) || !same(local.values[k], v)) { LS.write(k, v); localChanged = true; }
+    for (const k of Object.keys(local.values)) if (!(k in m.values)) { LS.del(k); localChanged = true; }
+  } finally { applying = false; }
+  LS.write(STAMPS, m.stamps); LS.write(GONE, m.gone);
+  LS.write(RIG_STAMPS, m.rigStamps); LS.write(RIGS_GONE, m.rigsGone);
+  LS.write(RIGS_SEEN, rigsSeen(m.values[RIGS_KEY]));
+  const updated = Math.max(local.fallback, remote.updated ?? 0);
+  LS.write(SETTINGS_TS, updated);
+  // nel cloud: carico l'unione se è diversa da quella che c'è
+  const next: RemoteSettings = { values: m.values, updated, stamps: m.stamps, gone: m.gone, rigStamps: m.rigStamps, rigsGone: m.rigsGone };
+  settingsDirty = false;
+  if (!data || !same({ ...remote, updated: 0 }, { ...next, updated: 0 }) || remote.updated !== updated) {
+    const { error: e } = await sb.from("settings").upsert({ user_id: user, data: next });
+    if (e) { settingsDirty = true; throw e; }
+  }
+  return { localChanged, fromLocal: m.fromLocal, fromRemote: m.fromRemote };
 }
 
 // ---------------------------------------------------------------------------
@@ -182,33 +247,36 @@ async function countPending(user: string | null) {
   return n;
 }
 
-export async function syncNow({ pull = true, quiet = true } = {}) {
+export interface SyncResult { pushed: number; added: number; fromLocal: number; fromRemote: number }
+
+export async function syncNow({ pull = true, quiet = true } = {}): Promise<SyncResult | null> {
   const user = uid();
-  if (!user || !supabase()) return;
-  if (running) { again = true; return; }
+  if (!user || !supabase()) return null;
+  if (running) { again = true; return null; }
   running = true;
   set({ status: "syncing", error: null });
   try {
-    await pushTable("sessions", user);
-    await pushTable("boxes", user);
+    const pushed = (await pushTable("sessions", user)) + (await pushTable("boxes", user));
     await pushTombstones(user);
-    let refreshed = false;
+    let refreshed = false, added = 0;
     if (pull) {
       const s = await pullTable("sessions", user);
       const b = await pullTable("boxes", user);
-      const st = await pullSettings(user);
-      if (s) await refreshSessions();
-      if (b) await useWorkbench.getState().load();
-      if (st) reloadParams();
-      refreshed = !!(s || b);
+      if (s.changed) await refreshSessions();
+      if (b.changed) await useWorkbench.getState().load();
+      refreshed = !!(s.changed || b.changed);
+      added = s.added + b.added;
     }
-    await pushSettings(user);
+    const st = await syncSettings(user, pull);
+    if (st?.localChanged) reloadParams();
     set({ status: "idle", lastSync: Date.now(), pending: await countPending(user) });
     if (!quiet && !refreshed) toast.success(t("lab.cloud.synced"));
+    return { pushed, added, fromLocal: st?.fromLocal ?? 0, fromRemote: st?.fromRemote ?? 0 };
   } catch (e) {
     const offline = typeof navigator !== "undefined" && !navigator.onLine;
     set({ status: offline ? "offline" : "error", error: offline ? null : (e as Error).message, pending: await countPending(user) });
     if (!quiet) toast.error(offline ? t("lab.cloud.offline") : t("lab.cloud.syncFailed", { msg: (e as Error).message }));
+    return null;
   } finally {
     running = false;
     if (again) { again = false; void syncNow({ pull: false }); }
@@ -234,9 +302,13 @@ export function startCloud() {
     changed: schedulePush,
     deleted: (table, id, owner) => { LS.write(TOMB, [...LS.read<Tomb[]>(TOMB, []), { table, id, owner }]); },
   });
+  // la prima volta: i lab personali di adesso sono il punto di partenza per capire cosa cambia
+  if (LS.read<Record<string, string> | null>(RIGS_SEEN, null) == null) LS.write(RIGS_SEEN, rigsSeen(LS.read<unknown>(RIGS_KEY, [])));
   onPrefChange((k) => {
     if (applying || !isSynced(k)) return;
-    LS.write(SETTINGS_TS, Date.now());
+    const now = Date.now();
+    LS.write(SETTINGS_TS, now);
+    stampPref(k, now);
     settingsDirty = true;
     schedulePush();
   });
@@ -248,24 +320,38 @@ export function startCloud() {
     set({ user, ready: true, status: user ? get_().status === "off" ? "idle" : get_().status : "off" });
     bindRepo({ user: user?.id ?? null });
     if (event === "PASSWORD_RECOVERY") set({ recovery: true });
-    if (user && user.id !== prev) void onSignedIn(user.id);
+    // SIGNED_IN = accesso appena fatto (all'apertura della pagina con la sessione già attiva arriva INITIAL_SESSION)
+    if (user && user.id !== prev) void onSignedIn(user.id, event === "SIGNED_IN");
   });
   setInterval(() => { if (uid() && document.visibilityState === "visible") void syncNow(); }, 60000);
   document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible" && uid()) void syncNow(); });
   window.addEventListener("online", () => { if (uid()) void syncNow(); });
 }
 
-/** Dopo l'accesso: le misure create senza account entrano nell'account, poi sincronizzo tutto. */
-async function onSignedIn(user: string) {
+/**
+ * Dopo l'accesso: i dati di questo dispositivo e quelli dell'account si uniscono. Le misure e i
+ * riquadri creati senza account entrano nell'account; lab personali e preferenze si uniscono voce
+ * per voce. Niente viene sovrascritto per intero e niente viene cancellato. Un avviso lo conferma.
+ */
+async function onSignedIn(user: string, announce: boolean) {
   let adopted = 0;
   for (const t of ["sessions", "boxes"] as Store[]) {
     for (const r of await all(t)) {
       if (!r.owner) { await putQuiet(t, { ...r, owner: user, dirty: true, updated: r.updated ?? Date.now() }); adopted++; }
     }
   }
-  if (adopted) toast.success(t("lab.cloud.adopted", { n: adopted }));
+  // tutte le preferenze passano dall'unione, anche se qui non sono cambiate di recente
+  settingsDirty = true;
   await Promise.all([refreshSessions(), useWorkbench.getState().load()]);
-  await syncNow();
+  while (running) await new Promise((r) => setTimeout(r, 100));       // aspetto una sincronizzazione già in corso
+  const res = await syncNow();
+  if (!announce && !adopted) return;
+  if (!res) {
+    // non raggiungo il cloud: i dati restano qui e si uniranno alla prossima sincronizzazione
+    toast(t("lab.cloud.mergeLater"));
+    return;
+  }
+  toast.success(t("lab.cloud.merged", { local: adopted + res.fromLocal, remote: res.added + res.fromRemote }));
 }
 
 const redirect = () => `${window.location.origin}/`;

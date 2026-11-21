@@ -232,7 +232,8 @@
     "synced": "Data synced.",
     "offline": "You’re offline. Syncing resumes when the connection is back.",
     "syncFailed": "Sync failed: {msg}",
-    "adopted": "{n, plural, one {1 item created on this device has been added} other {# items created on this device have been added}} to your account.",
+    "merged": "Data merged with your account · {local, plural, =0 {nothing new from this device} one {1 item from this device} other {# items from this device}}, {remote, plural, =0 {nothing new from the cloud} one {1 from the cloud} other {# from the cloud}}. Nothing was deleted.",
+    "mergeLater": "Signed in · The data on this device will be merged with your account at the next sync. Nothing was deleted.",
     "deleteUnavailable": "Account deletion isn’t active on the server yet. Write to the address given in the privacy notice.",
     "auth": {
       "invalidLogin": "Incorrect email or password.",

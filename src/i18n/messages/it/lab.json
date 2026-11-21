@@ -232,7 +232,8 @@
     "synced": "Dati sincronizzati.",
     "offline": "Sei offline. La sincronizzazione riprende quando torna la rete.",
     "syncFailed": "Sincronizzazione non riuscita: {msg}",
-    "adopted": "{n, plural, one {1 elemento creato su questo dispositivo è stato aggiunto} other {# elementi creati su questo dispositivo sono stati aggiunti}} al tuo account.",
+    "merged": "Dati uniti al tuo account · {local, plural, =0 {nessun elemento nuovo da questo dispositivo} one {1 elemento da questo dispositivo} other {# elementi da questo dispositivo}}, {remote, plural, =0 {nessuno nuovo dal cloud} one {1 dal cloud} other {# dal cloud}}. Non è stato cancellato niente.",
+    "mergeLater": "Accesso effettuato · I dati di questo dispositivo si uniranno al tuo account alla prossima sincronizzazione. Non è stato cancellato niente.",
     "deleteUnavailable": "La cancellazione non è ancora attiva sul server. Scrivi all'indirizzo indicato nell'informativa sulla privacy.",
     "auth": {
       "invalidLogin": "Email o password non corretti.",
