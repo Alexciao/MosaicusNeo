@@ -203,6 +203,32 @@ void printTime(uint64_t us) {
 }
 void dataHead(uint8_t i, uint64_t stamp) { dout.print(F("D,")); dout.print(i); dout.print(','); printTime(stamp); }
 
+// Come Print::printFloat del core (stessi caratteri in uscita, «nan», «inf», «ovf» compresi), ma
+// senza divisioni né confronti in virgola mobile: i casi speciali si riconoscono dai bit, e
+// l'arrotondamento (0,5 diviso per 10 «digits» volte) è calcolato dal compilatore con gli stessi
+// passaggi. Risparmia le routine di divisione e di confronto della libreria float.
+void printFloat(float x, uint8_t digits) {
+  union { float f; uint32_t u; } v;
+  v.f = x;
+  uint32_t a = v.u & 0x7FFFFFFFUL;
+  if (a > 0x7F800000UL) { dout.print(F("nan")); return; }
+  if (a == 0x7F800000UL) { dout.print(F("inf")); return; }
+  if (a > 0x4F7FFFFFUL) { dout.print(F("ovf")); return; }   // |x| > 4294967040.0
+  if (a != v.u && a) dout.print('-');                       // negativo (ma non -0.0)
+  v.u = a;
+  float n = v.f + (digits == 3 ? 0.5f / 10 / 10 / 10 : 0.5f / 10 / 10);
+  uint32_t ip = (uint32_t)n;
+  float r = n - (float)ip;
+  dout.print(ip);
+  dout.print('.');
+  while (digits--) {
+    r *= 10;
+    uint16_t d = (uint16_t)r;
+    dout.print(d);
+    r -= d;
+  }
+}
+
 // ---------- oscilloscopio ----------
 const int SCOPE_MAX = 400;
 const int SCOPE_HYST = 3;          // isteresi del trigger (conteggi ADC): ignora il rumore
@@ -259,10 +285,11 @@ void led(bool on) { if (ledFree) digitalWrite(LED_BUILTIN, on ? HIGH : LOW); }
 // ADC più veloce per l'oscilloscopio: prescaler 16 → una conversione in ~16 µs (invece di ~112).
 void adcFast(bool on) { ADCSRA = (ADCSRA & ~0x07) | (on ? 0x04 : 0x07); }
 
-float readAdc(uint8_t pin) {
-  unsigned long sum = 0;
+// somma di ADC_SAMPLES letture (al massimo 16 × 1023: sta in 16 bit); la media è somma / 16
+uint16_t readAdcSum(uint8_t pin) {
+  uint16_t sum = 0;
   for (uint8_t i = 0; i < ADC_SAMPLES; i++) sum += analogRead(pin);
-  return sum / (float)ADC_SAMPLES;
+  return sum;
 }
 
 // =====================================================================================
@@ -1265,9 +1292,10 @@ bool readSlot(uint8_t i) {
   switch (s.type) {
     case S_NTC:
     case S_ANA: {
-      float adc = readAdc(s.pinA);
-      dataHead(i, stamp); dout.print(','); dout.println(adc, 2);
-      if (s.type == S_NTC) markBad(s, adc < 2 || adc > 1021, 3, 2);   // sonda staccata o in corto
+      uint16_t sum = readAdcSum(s.pinA);
+      dataHead(i, stamp); dout.print(','); printFloat(sum * (1.0f / ADC_SAMPLES), 2); dout.println();
+      // media < 2 o > 1021 (la media è esatta: somma / 16): sonda staccata o in corto
+      if (s.type == S_NTC) markBad(s, sum < 2 * ADC_SAMPLES || sum > 1021 * ADC_SAMPLES, 3, 2);
       return true;
     }
     case S_DHT: {
@@ -1355,7 +1383,7 @@ bool readSlot(uint8_t i) {
         dout.print(',');
         union { float f; uint8_t c[4]; } v;
         for (uint8_t j = 0; j < 4; j++) v.c[j] = b[4 * k + 3 - j];
-        if (ok) dout.print(v.f, k == 9 ? 3 : 2); else dout.print(F("nan"));
+        if (ok) printFloat(v.f, k == 9 ? 3 : 2); else dout.print(F("nan"));
       }
       dout.print(','); dout.println(ok ? 0 : 2);
       markBad(s, !ok, 2, 2);
