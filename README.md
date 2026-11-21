@@ -31,7 +31,7 @@ Il cuore dell'app è il **progetto**: fino a 6 sensori su un Arduino Uno, anche 
 | Componente | Pin | A che cosa serve |
 |---|---|---|
 | Pulsante Avvia/Ferma | digitale + GND | con l'app collegata (cavo, HC-06, BLE) fa come «Avvia»/«Ferma»; con la scheda SD avvia e ferma la registrazione |
-| Scheda microSD | D10 (CS), D11, D12, D13 (SPI) | Arduino registra da solo, a batteria: si prepara una volta via USB («Prepara Arduino»), poi registra col pulsante o da quando si accende; i file LOGnnnnn.CSV si importano nel Quaderno |
+| Scheda microSD | D10 (CS), D11, D12, D13 (SPI) | Arduino registra da solo, a batteria: si prepara una volta via USB («Prepara Arduino»), poi registra col pulsante o da quando si accende; i file LOGnnnnn.NEO si importano nel Quaderno |
 | Bluetooth HC-06 / Bluetooth LE (HM-10, AT-09, HC-08) | D0, D1 (con partitore) | misurare senza cavo; sceglierlo dal menu di «Collega» lo aggiunge da solo al progetto |
 
 La guida ai collegamenti si genera dai componenti e dai pin scelti: schema **realistico** (Arduino Uno e moduli infilati in una breadboard con colonne e righe numerate, con le resistenze che servono) o **schema** compatto, occorrente e passi foro per foro.
@@ -57,7 +57,7 @@ PING (ogni 2 s dall'app) · LINK,<U|B>              ← #ST,<W|I|S|E|T|O|C|R|L>,
                                                    ← #KEY quando si preme il pulsante con l'app collegata
 ```
 
-Sulla scheda SD il firmware scrive le stesse righe `D,…` della seriale, in `LOG00001.CSV`, `LOG00002.CSV`… (FAT32), dopo un'intestazione con la configurazione (`#MOSAICUS,<fw>,SD`, `#PROJ,<id>`, `#CFG,…`, `#START`; `#STOP,<t_ms>` se fermata col pulsante). L'app li importa nel Quaderno con le opzioni del progetto preparato.
+Sulla scheda SD il firmware scrive le stesse righe `D,…` della seriale, in `LOG00001.NEO`, `LOG00002.NEO`… (FAT32), dopo un'intestazione con la configurazione (`#MOSAICUS,<fw>,SD`, `#PROJ,<id>`, `#CFG,…`, `#START`; `#STOP,<t_ms>` se fermata col pulsante). L'app li importa nel Quaderno con le opzioni del progetto preparato.
 
 Pin come numeri (A0 = 14 … A5 = 19); tempi con risoluzione di 1 µs e orologio a 64 bit (nessun azzeramento dopo 71 minuti).
 

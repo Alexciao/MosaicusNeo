@@ -5,7 +5,7 @@
     "step2": "<b>Registra.</b> Stacca il cavo e alimenta Arduino con un power bank o una pila da 9 V. {detail}",
     "step2Button": "Premi il pulsante per iniziare, premilo di nuovo per fermare: ogni registrazione è un file nuovo.",
     "step2Free": "Registra da quando lo accendi a quando lo spegni (aggiungi un pulsante per decidere tu quando). I dati sono salvati ogni 2 secondi: staccando la corrente perdi al massimo gli ultimi istanti.",
-    "step3": "<b>Importa.</b> Metti la scheda nel computer (o nel telefono con un adattatore) e scegli i file LOG00001.CSV, LOG00002.CSV…: diventano misure del Quaderno, con le grandezze e i grafici di sempre.",
+    "step3": "<b>Importa.</b> Metti la scheda nel computer (o nel telefono con un adattatore) e scegli i file LOG00001.NEO, LOG00002.NEO…: diventano misure del Quaderno, con le grandezze e i grafici di sempre.",
     "liveNote": "Se colleghi l'app mentre Arduino registra, la registrazione si chiude e si misura come sempre.",
     "prepareTitle": "Manda e salva la configurazione, poi prova la scheda",
     "prepareNeedsUsb": "Collega prima Arduino con il cavo USB",

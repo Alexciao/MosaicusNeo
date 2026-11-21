@@ -1,6 +1,6 @@
 "use client";
 // La scheda SD come componente: «Prepara Arduino» (manda e salva la configurazione, prova la
-// scheda) e «Importa dalla scheda» (i file LOGnnnnn.CSV entrano nel Quaderno), con i passi.
+// scheda) e «Importa dalla scheda» (i file LOGnnnnn.NEO, o .CSV dei firmware fino alla 1.8, entrano nel Quaderno), con i passi.
 
 import { useRef } from "react";
 import { CircleCheck, FolderInput, LoaderCircle, TriangleExclamationPoint, Upload } from "lucide-react";
@@ -15,7 +15,7 @@ export function SdImportButton({ size = "sm", variant = "outline", className }: 
   const input = useRef<HTMLInputElement>(null);
   return (
     <>
-      <input ref={input} type="file" accept=".csv,.CSV,text/csv,text/plain" multiple hidden
+      <input ref={input} type="file" accept=".neo,.NEO,.csv,.CSV,text/csv,text/plain" multiple hidden
         onChange={(e) => { const files = [...(e.target.files ?? [])]; e.target.value = ""; if (files.length) void importSdFiles(files); }} />
       <Button size={size} variant={variant} className={className} onClick={() => input.current?.click()}><FolderInput /> {t("import")}</Button>
     </>

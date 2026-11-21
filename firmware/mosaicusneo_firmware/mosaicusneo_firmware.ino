@@ -103,7 +103,7 @@
   con il pulsante aspetta (stato R): una pressione avvia, la successiva ferma, poi un file nuovo.
   Un comando dall'app durante la registrazione la chiude. Ogni 2 s il file viene aggiornato sulla
   scheda: togliendo l'alimentazione si perdono al massimo gli ultimi 2 s.
-  File LOG00001.CSV, LOG00002.CSV… nella cartella principale (FAT32):
+  File LOG00001.NEO, LOG00002.NEO… nella cartella principale (FAT32; testo, righe come sotto):
     #MOSAICUS,<versione>,SD
     #PROJ,<id>
     #CFG,<slot>,<tipo>,<ms>,<pinA>,<pinB>,<opz>   (una riga per sensore, ms = intervallo effettivo)
@@ -660,7 +660,7 @@ bool buzzOn = false;
 bool linkOk() { return pinged ? (millis() - lastCmdMs < 6000) : (lastCmdMs != 0); }
 // c'è tutto per registrare sulla scheda SD senza l'app?
 bool sdArmed() { return outPin(O_SD) && EEPROM.read(E_CFG) == 'C'; }
-uint32_t fNum = 0;              // numero del file LOGnnnnn.CSV aperto (o dell'ultimo)
+uint32_t fNum = 0;              // numero del file LOGnnnnn.NEO aperto (o dell'ultimo)
 
 // Lo stato segue il problema più grave (LED e cicalino); se i sensori in difficoltà sono più
 // d'uno, il display li mostra a turno, prima gli errori e poi quelli in ricerca.
@@ -1733,7 +1733,7 @@ uint32_t fatAlloc(uint32_t prev) {
   }
   return 0;
 }
-// cartella principale: il LOGnnnnn.CSV più alto (fNum) e il primo posto libero (fDirLba, fDirOff)
+// cartella principale: il LOGnnnnn.NEO più alto (fNum) e il primo posto libero (fDirLba, fDirOff)
 bool dirScan() {
   uint32_t c = sdRoot;
   fNum = 0; fDirLba = 0;
@@ -1748,7 +1748,7 @@ bool dirScan() {
           if (e[0] == 0) return true;                        // fine della cartella
           continue;
         }
-        if (e[11] == 0x0F || memcmp_P(e, PSTR("LOG"), 3) || memcmp_P(e + 8, PSTR("CSV"), 3)) continue;
+        if (e[11] == 0x0F || memcmp_P(e, PSTR("LOG"), 3) || memcmp_P(e + 8, PSTR("NEO"), 3)) continue;
         uint32_t n = 0;
         uint8_t k = 3;
         for (; k < 8 && e[k] >= '0' && e[k] <= '9'; k++) n = n * 10 + e[k] - '0';
@@ -1775,7 +1775,7 @@ uint8_t fileCreate() {
   if (!sdLoad(fDirLba)) return 1;
   uint8_t *e = sdBuf + fDirOff;
   memset(e, 0, 32);
-  memcpy_P(e, PSTR("LOG00000CSV"), 11);
+  memcpy_P(e, PSTR("LOG00000NEO"), 11);
   uint32_t n = fNum;
   for (int8_t k = 7; k >= 3; k--) { e[k] = '0' + n % 10; n /= 10; }
   e[11] = 0x20;                                              // archivio
