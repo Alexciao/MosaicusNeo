@@ -59,6 +59,7 @@
         OLED  p1 = SDA, p2 = SCL (SSD1306 64×32 0,49", I2C 0x3C)
         RGB   p1 = R, p2 = G, p3 = B; opz bit0 = anodo comune
         BUZ   p1; opz bit0 = cicalino passivo, bit1 = bip finché non è tutto pronto, bit2 = bip di conferma
+              (con un BTN: in attesa tace, mentre registra fa un «tic» più grave ogni 5 s)
         BTN   p1 = pulsante tra il pin e GND (pull-up interno, antirimbalzo 30 ms)
         SD    p1 = CS del modulo microSD (MOSI D11, MISO D12, SCK D13 fissi; D10 riservato);
               opz bit0 = registra appena acceso (vale solo senza pulsante)
@@ -123,7 +124,7 @@
 // __attribute__((noinline)) su alcune funzioni: misurato una per una, risparmia flash (senza, il
 // compilatore le ricopia in ogni punto in cui sono chiamate). Mai sulle funzioni a tempi stretti.
 
-#define FW_VERSION "1.9"          // stringa in flash, unita ai testi vicini (al massimo 4 caratteri: display)
+#define FW_VERSION "2.0"          // stringa in flash, unita ai testi vicini (al massimo 4 caratteri: display)
 
 const uint8_t MAX_SLOTS = 6;
 const uint8_t ADC_SAMPLES = 16;                 // sovracampionamento per ridurre il rumore
@@ -851,12 +852,14 @@ void rgbSet(const Out &o, uint8_t rgb) {
     digitalWrite(o.p[k], (on ^ (o.opt & 1)) ? HIGH : LOW);
   }
 }
-// tone(pin, 2700) e noTone(pin) del core, ridotti a quello che fanno sull'Uno (un solo pin alla
-// volta, timer 2) con la frequenza fissa: 16 MHz / 2700 / 2 → prescaler 32, OCR2A = 91. Stessi
-// registri, nello stesso ordine; il pin si inverte a ogni confronto (durata infinita).
+// tone(pin, f) e noTone(pin) del core, ridotti a quello che fanno sull'Uno (un solo pin alla
+// volta, timer 2) con due note fisse: 16 MHz / f / 2 → prescaler 32, OCR2A = 91 (2700 Hz, i segnali
+// di stato) o 184 (1350 Hz, il «tic» della registrazione, più grave). Stessi registri, nello stesso
+// ordine; il pin si inverte a ogni confronto (durata infinita).
 uint8_t tonePin = 255;                  // come tone_pins[0] del core: 255 = libero
 volatile uint8_t *tonePort;
 uint8_t toneMask;
+uint8_t toneOcr = 91;
 void toneOn(uint8_t p) {
   if (tonePin != p) {
     if (tonePin != 255) return;         // il timer suona già su un altro pin: il core non fa niente
@@ -868,7 +871,7 @@ void toneOn(uint8_t p) {
   }
   pinMode(p, OUTPUT);
   TCCR2B = (TCCR2B & 0b11111000) | 0b011;
-  OCR2A = 91;
+  OCR2A = toneOcr;
   TIMSK2 |= _BV(OCIE2A);
 }
 void toneOff(uint8_t p) {
@@ -889,6 +892,7 @@ void buzz(const Out &o, bool on) {
 }
 // bip di conferma (bloccante ma breve): n bip da ms millisecondi
 void chirp(uint8_t n, unsigned int ms) {
+  toneOcr = 91;
   for (uint8_t i = 0; i < MAX_OUTS; i++) {
     if (outs[i].type != O_BUZ || !(outs[i].opt & 4)) continue;
     for (uint8_t k = 0; k < n; k++) { buzz(outs[i], true); delay(ms); buzz(outs[i], false); if (k + 1 < n) delay(70); }
@@ -912,10 +916,15 @@ __attribute__((noinline)) void statusTick() {
     }
     shownState = state; shownSlot = stSlot; shownK = stK;
   }
-  // giro di 3 s: 1 bip = attesa / pronto ma fermo, 2 = in ricerca, 3 = problema
-  uint8_t beeps = state == ST_WAIT || state == ST_IDLE || state == ST_READY ? 1 : state == ST_SEARCH ? 2 : state == ST_ERR || state == ST_CFG ? 3 : 0;
+  // giro di 3 s: 1 bip = attesa / pronto ma fermo, 2 = in ricerca, 3 = problema.
+  // Con il pulsante Arduino resta acceso a lungo e registra solo ogni tanto: da fermo tace, e mentre
+  // registra fa un «tic» breve e più grave ogni 5 s (diverso dai bip dei problemi: altra nota, altro ritmo).
+  bool btn = outPin(O_BTN);
+  uint8_t beeps = state == ST_SEARCH ? 2 : state == ST_ERR || state == ST_CFG ? 3
+                : !btn && (state == ST_WAIT || state == ST_IDLE || state == ST_READY) ? 1 : 0;
   unsigned long ph = (now - stCycle) % 3000;
-  bool beepNow = ph < beeps * 200UL && (ph % 200) < 90;
+  bool tic = btn && (state == ST_TRACK || state == ST_LOG) && (now - stCycle + 2500) % 5000 < 100;
+  bool beepNow = tic || (ph < beeps * 200UL && (ph % 200) < 90);
   bool blink = (now / 500) % 2, fast = (now / 125) % 2;
   uint8_t col = state == ST_WAIT ? (blink ? 4 : 0) : state == ST_IDLE || state == ST_READY ? 4 : state == ST_SEARCH ? (fast ? 3 : 0)
               : state == ST_ERR || state == ST_CFG ? (fast ? 1 : 0) : state == ST_TRACK || state == ST_LOG ? 2 : 6;
@@ -924,7 +933,7 @@ __attribute__((noinline)) void statusTick() {
     if (o.type == O_RGB) rgbSet(o, col);
     else if (o.type == O_BUZ) {
       bool want = (o.opt & 2) && beepNow && mode != SCOPE;
-      if (want != buzzOn) buzz(o, want);
+      if (want != buzzOn) { toneOcr = tic ? 184 : 91; buzz(o, want); }
     }
   }
   static uint8_t oledDiv = 0;

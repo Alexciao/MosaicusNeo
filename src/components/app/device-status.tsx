@@ -6,7 +6,7 @@
 
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
-import { ArrowRight, CircleAlert, CircleCheck, LoaderCircle, Plug, SlidersHorizontal, TriangleAlert, Volume2, VolumeX, Wrench, X } from "lucide-react";
+import { ArrowRight, CircleAlert, CircleCheck, LoaderCircle, Plug, SlidersHorizontal, TriangleAlert, Volume1, Volume2, VolumeX, Wrench, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useLab, resolved, showWiring, type DeviceStatus, showComponents } from "@/lib/lab-store";
 import { useDiag, diagDismiss, type Diag } from "@/lib/diagnostics";
@@ -246,7 +246,12 @@ export function DeviceMirror() {
   const led = LED[device.st];
   const ms = tick * (lim ? 500 : 125);
   const ledOn = !led.blink || Math.floor(ms / led.blink) % 2 === 0;
-  const beeps = has("buzzer") && (outs.find((s) => s.type === "buzzer")!.options.nag !== "no") ? BEEPS[device.st] : 0;
+  // come il firmware (2.0): con il pulsante, da fermo tace e mentre registra fa un «tic» grave ogni 5 s
+  const nag = has("buzzer") && outs.find((s) => s.type === "buzzer")!.options.nag !== "no";
+  const btn = rig.sensors.some((s) => s.type === "button");
+  const idle = device.st === "W" || device.st === "I" || device.st === "R";
+  const tic = nag && btn && (device.st === "T" || device.st === "L");
+  const beeps = nag && !(btn && idle) ? BEEPS[device.st] : 0;
   return (
     <div className="flex flex-wrap items-center gap-x-4 gap-y-2 rounded-lg border bg-muted/30 px-3 py-2 text-xs">
       <span className="font-semibold text-muted-foreground">{t("onArduino")}</span>
@@ -259,8 +264,8 @@ export function DeviceMirror() {
       )}
       {has("buzzer") && (
         <span className="inline-flex items-center gap-1.5">
-          {beeps ? <Volume2 className="size-4 text-warning" /> : <VolumeX className="size-4 text-success" />}
-          {beeps ? t("beeps", { n: beeps }) : t("noBeeps")}
+          {beeps ? <Volume2 className="size-4 text-warning" /> : tic ? <Volume1 className="size-4 text-success" /> : <VolumeX className="size-4 text-success" />}
+          {beeps ? t("beeps", { n: beeps }) : tic ? t("tic") : t("noBeeps")}
         </span>
       )}
       {!has("oled") && !has("rgb") && !has("buzzer") && <span>{SENSORS.oled.title}</span>}

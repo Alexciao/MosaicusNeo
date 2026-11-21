@@ -3,18 +3,18 @@
 // Il capitolo «Collegare i componenti» genera lo schema e le istruzioni per i componenti scelti
 // (o per il progetto aperto). Gli altri punti dell'app possono aprirla a un capitolo preciso.
 
-import { useEffect, useState } from "react";
+import { createElement, useEffect, useState } from "react";
 import { create } from "zustand";
 import { useTranslations } from "next-intl";
 import type { LucideIcon } from "lucide-react";
 import {
-  Bluetooth, ChartLine, Check, ChevronLeft, ChevronRight, CircleHelp, Cloud, Copy, Cpu, Download, FlaskConical, LifeBuoy, MemoryStick, Minus, Monitor, Plug, Presentation, Rocket, Share2,
+  Bluetooth, ChartLine, Check, ChevronLeft, ChevronRight, CircleHelp, Cloud, Copy, Cpu, Download, FlaskConical, Laptop, LifeBuoy, MemoryStick, Minus, Monitor, Plug, Presentation, Rocket, Share2,
   Siren, SlidersHorizontal, Smartphone, TriangleAlert, Unplug, X,
 } from "lucide-react";
 import { toast } from "@/lib/toast";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectSeparator, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { SENSORS } from "@/lib/sensors/catalog";
 import { useLab, openGuide, closeGuide, showWiring, setLim } from "@/lib/lab-store";
 import { detectDevice, bluetoothAvailable, DEVICE_LABEL, OS_LABEL, BROWSER_LABEL, type GuideDevice, type DeviceInfo } from "@/lib/device";
@@ -84,26 +84,79 @@ const inSentence = (s: string) => (locale === "it" ? s.toLowerCase() : s);
 // Dispositivo: rilevato, ma si può scegliere un altro (es. leggo dal PC, misurerò col telefono)
 // ---------------------------------------------------------------------------
 const DETECTED: DeviceInfo | null = typeof window !== "undefined" ? detectDevice() : null;
-const useGuideDevice = create<{ device: GuideDevice }>(() => ({ device: DETECTED?.device ?? "pc" }));
-const setGuideDevice = (device: GuideDevice) => useGuideDevice.setState({ device });
-const useDev = () => useGuideDevice((s) => s.device);
-const DEVICE_ICON: Record<GuideDevice, LucideIcon> = { pc: Monitor, android: Smartphone, ios: Smartphone, board: Presentation };
-const DEVICES: GuideDevice[] = ["pc", "android", "ios", "board"];
 
+/** I sistemi da cui si carica il firmware (su Chromebook con l'Arduino Cloud Editor, altrove con Arduino IDE). */
+type FwOs = "windows" | "mac" | "linux" | "chromeos";
+const FW_OSES: FwOs[] = ["windows", "mac", "linux", "chromeos"];
+/** Il sistema del computer: quello rilevato, se questo è un computer; altrimenti Windows. */
+const DETECTED_OS: FwOs = DETECTED && (FW_OSES as string[]).includes(DETECTED.os) ? (DETECTED.os as FwOs) : "windows";
+
+/** Per chi sono le istruzioni: il dispositivo con cui si misura e, se è un computer, il suo sistema
+ *  (resta ricordato anche scegliendo il telefono: il firmware si carica comunque da un computer). */
+const useGuideDevice = create<{ device: GuideDevice; os: FwOs }>(() => ({ device: DETECTED?.device ?? "pc", os: DETECTED_OS }));
+const useDev = () => useGuideDevice((s) => s.device);
+const useOs = () => useGuideDevice((s) => s.os);
+const OTHER_DEVICES = ["android", "ios", "board"] as const;
+const DEVICE_ICON: Record<GuideDevice, LucideIcon> = { pc: Monitor, android: Smartphone, ios: Smartphone, board: Presentation };
+const OS_ICON: Record<FwOs, LucideIcon> = { windows: Monitor, mac: Monitor, linux: Monitor, chromeos: Laptop };
+
+/** Un solo valore per il menu: «pc:windows», «pc:chromeos»… oppure «android», «ios», «board». */
+type Target = `pc:${FwOs}` | (typeof OTHER_DEVICES)[number];
+const targetOf = (device: GuideDevice, os: FwOs): Target => (device === "pc" ? `pc:${os}` : device);
+const DETECTED_TARGET: Target | null = DETECTED ? targetOf(DETECTED.device, DETECTED_OS) : null;
+function setTarget(v: Target) {
+  if (v.startsWith("pc:")) useGuideDevice.setState({ device: "pc", os: v.slice(3) as FwOs });
+  else useGuideDevice.setState({ device: v as GuideDevice });
+}
+const useTarget = () => useGuideDevice((s) => targetOf(s.device, s.os));
+
+/** L'icona di una voce del menu (computer per sistema, telefono, lavagna). */
+const iconOf = (v: Target) => (v.startsWith("pc:") ? OS_ICON[v.slice(3) as FwOs] : DEVICE_ICON[v as GuideDevice]);
+function TargetIcon({ v, className }: { v: Target; className?: string }) {
+  return createElement(iconOf(v), { className });
+}
+
+/** Il nome per esteso: «Computer · Windows», «iPhone or iPad»… */
+function useTargetLabel() {
+  const t = useTranslations("guide.picker");
+  return (v: Target) => (v.startsWith("pc:") ? `${DEVICE_LABEL.pc} · ${t(`os.${v.slice(3) as FwOs}`)}` : DEVICE_LABEL[v as GuideDevice]);
+}
+
+/** «Istruzioni per»: il menu in alto nella guida. Raggruppa i computer per sistema operativo e gli altri
+ *  dispositivi; quello rilevato porta l'etichetta «questo dispositivo». Tutta la guida lo segue. */
 function DevicePicker() {
   const t = useTranslations("guide.picker");
-  const dev = useDev();
-  const items = Object.fromEntries(DEVICES.map((d) => [d, d === DETECTED?.device ? t("itemThis", { label: DEVICE_LABEL[d] }) : DEVICE_LABEL[d]]));
+  const target = useTarget();
+  const label = useTargetLabel();
+  const all: Target[] = [...FW_OSES.map((o) => `pc:${o}` as const), ...OTHER_DEVICES];
+  const items = Object.fromEntries(all.map((v) => [v, label(v)]));
+  const item = (v: Target, text: string) => {
+    return (
+      <SelectItem key={v} value={v} className="pr-8">
+        <TargetIcon v={v} className="text-muted-foreground" />
+        <span className="min-w-0 flex-1 truncate">{text}</span>
+        {v === DETECTED_TARGET && <span className="ml-3 rounded-full bg-muted px-1.5 py-px text-[10px] font-medium tracking-wide text-muted-foreground uppercase">{t("thisDevice")}</span>}
+      </SelectItem>
+    );
+  };
   return (
-    <div className="flex items-center gap-2 text-sm">
+    <div className="flex min-w-0 items-center gap-2 text-sm">
       <span className="hidden text-muted-foreground sm:inline">{t("label")}</span>
-      <Select value={dev} onValueChange={(v) => v && setGuideDevice(v as GuideDevice)} items={items}>
-        <SelectTrigger size="sm" aria-label={t("aria")} className="w-64"><SelectValue /></SelectTrigger>
-        <SelectContent>
-          {DEVICES.map((d) => {
-            const Icon = DEVICE_ICON[d];
-            return <SelectItem key={d} value={d}><Icon /> {DEVICE_LABEL[d]}{d === DETECTED?.device && <span className="text-xs text-muted-foreground">{t("badgeThis")}</span>}</SelectItem>;
-          })}
+      <Select value={target} onValueChange={(v) => v && setTarget(v as Target)} items={items}>
+        <SelectTrigger size="sm" aria-label={t("aria")} className="w-auto min-w-0 gap-2 sm:min-w-56">
+          <TargetIcon v={target} className="text-muted-foreground" />
+          <SelectValue className="truncate" />
+        </SelectTrigger>
+        <SelectContent align="end" className="min-w-64">
+          <SelectGroup>
+            <SelectLabel>{t("groupComputer")}</SelectLabel>
+            {FW_OSES.map((o) => item(`pc:${o}`, t(`os.${o}`)))}
+          </SelectGroup>
+          <SelectSeparator />
+          <SelectGroup>
+            <SelectLabel>{t("groupOther")}</SelectLabel>
+            {OTHER_DEVICES.map((d) => item(d, DEVICE_LABEL[d]))}
+          </SelectGroup>
         </SelectContent>
       </Select>
     </div>
@@ -113,12 +166,13 @@ function DevicePicker() {
 /** Avviso quando si leggono le istruzioni di un dispositivo diverso da questo. */
 function OtherDeviceNote() {
   const t = useTranslations("guide.otherDevice");
-  const dev = useDev();
-  if (!DETECTED || dev === DETECTED.device) return null;
+  const target = useTarget();
+  const label = useTargetLabel();
+  if (!DETECTED_TARGET || target === DETECTED_TARGET) return null;
   return (
     <div className="flex flex-wrap items-center gap-2 rounded-md bg-muted/60 px-3 py-2 text-sm">
-      <span className="min-w-0 flex-1">{t.rich("text", { ...tags, reading: inSentence(DEVICE_LABEL[dev]), here: inSentence(DEVICE_LABEL[DETECTED.device]) })}</span>
-      <Button size="xs" variant="ghost" onClick={() => setGuideDevice(DETECTED.device)}>{t("back")}</Button>
+      <span className="min-w-0 flex-1">{t.rich("text", { ...tags, reading: inSentence(label(target)), here: inSentence(label(DETECTED_TARGET)) })}</span>
+      <Button size="xs" variant="ghost" onClick={() => setTarget(DETECTED_TARGET)}>{t("back")}</Button>
     </div>
   );
 }
@@ -173,10 +227,6 @@ function DeviceChecks({ d }: { d: DeviceInfo }) {
   );
 }
 
-/** I sistemi da cui si carica il firmware (su Chromebook con l'Arduino Cloud Editor, altrove con Arduino IDE). */
-type FwOs = "windows" | "mac" | "linux" | "chromeos";
-const FW_OSES: FwOs[] = ["windows", "mac", "linux", "chromeos"];
-
 function PortHint({ os }: { os: Exclude<FwOs, "chromeos"> }) {
   const t = useTranslations("guide.port");
   return <>{t.rich(os, tags)}</>;
@@ -199,7 +249,7 @@ function ConnectHow() {
 function DevicePath() {
   const t = useTranslations("guide.path");
   const dev = useDev();
-  const os = DETECTED?.device === "pc" ? DETECTED.os : null;
+  const os = useOs();
   if (dev === "pc") return (
     <Steps items={[
       [t("pc.s1.t"), t("pc.s1.d")],
@@ -261,13 +311,15 @@ function ShareLink() {
 function StartDevice() {
   const t = useTranslations("guide.startDevice");
   const dev = useDev();
+  const target = useTarget();
+  const label = useTargetLabel();
   const d = DETECTED;
   const okHere = !d || dev !== d.device || (d.device === "pc" ? d.serial : d.bluetooth);
   return (
     <>
       <div className="flex flex-wrap items-baseline justify-between gap-x-3">
         <H>{t("path")}</H>
-        <span className="text-xs text-muted-foreground">{DEVICE_LABEL[dev]}</span>
+        <span className="text-xs text-muted-foreground">{label(target)}</span>
       </div>
       <OtherDeviceNote />
       {!okHere && <Note kind="warn">{t("cannot")}</Note>}
@@ -310,13 +362,12 @@ function Start() {
   );
 }
 
-/** Il sistema del computer che carica il firmware: quello rilevato, se è un computer; altrimenti Windows. */
-const DETECTED_FW_OS: FwOs = DETECTED && (FW_OSES as string[]).includes(DETECTED.os) ? (DETECTED.os as FwOs) : "windows";
-
+/** I passi seguono il computer scelto in «Istruzioni per» (se si misura col telefono, l'ultimo computer scelto). */
 function Firmware() {
   const t = useTranslations("guide.firmware");
+  const tp = useTranslations("guide.picker");
   const dev = useDev();
-  const [os, setOs] = useState<FwOs>(DETECTED_FW_OS);
+  const os = useOs();
   const links = { ...tags, ide: ext(IDE_URL), cloud: ext(CLOUD_URL) };
   const steps: (string | [string, React.ReactNode])[] = os === "chromeos"
     ? [
@@ -338,24 +389,12 @@ function Firmware() {
   return (
     <>
       <P>{t("intro")}</P>
-      {dev !== "pc" && <Note kind="warn">{t.rich("pcOnly", { ...tags, device: inSentence(DEVICE_LABEL[dev]), target: dev === "board" ? "board" : "phone" })}</Note>}
+      {dev !== "pc" && <Note kind="warn">{t.rich("pcOnly", { ...tags, device: inSentence(DEVICE_LABEL[dev]), target: dev === "board" ? "board" : "phone", os: tp(`os.${os}`) })}</Note>}
       {DETECTED && DETECTED.device !== "pc" && <ShareLink />}
       <div className="flex flex-wrap items-center gap-3 rounded-md bg-muted/60 p-3">
         <Button render={<a href={FIRMWARE_URL} download="mosaicusneo_firmware.ino" />}><Download /> {t("download", { v: FIRMWARE_VERSION })}</Button>
         <Button variant="outline" render={<a href={FIRMWARE_SOURCE_URL} target="_blank" rel="noopener" />}><GithubMark className="size-4" /> {t("source")}</Button>
         <span className="text-xs text-muted-foreground">{t("fileNote")}</span>
-      </div>
-      <div className="flex flex-wrap items-center gap-2 text-sm">
-        <span id="fw-os" className="text-muted-foreground">{t("osLabel")}</span>
-        <div role="radiogroup" aria-labelledby="fw-os" className="inline-flex flex-wrap rounded-lg bg-muted p-0.5">
-          {FW_OSES.map((o) => (
-            <button key={o} type="button" role="radio" aria-checked={os === o} onClick={() => setOs(o)}
-              className={cn("rounded-md px-2.5 py-1 text-xs font-medium transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring/50",
-                os === o ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground")}>
-              {t(`os.${o}`)}
-            </button>
-          ))}
-        </div>
       </div>
       <Steps items={steps} />
       {(os === "windows" || os === "mac") && <Note>{t(`ch340.${os}`)}</Note>}
@@ -586,6 +625,7 @@ function Outputs() {
         </table>
       </div>
       <Note>{t.rich("buzzerNote", tags)}</Note>
+      <Note>{t.rich("buttonBeep", tags)}</Note>
       <H>{t("gpsTitle")}</H>
       <P>{t("gpsText")}</P>
       <H>{t("multiTitle")}</H>

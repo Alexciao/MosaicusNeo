@@ -172,7 +172,7 @@
       "title": "Buzzer",
       "short": "Buzzer",
       "measures": "status beeps",
-      "description": "Every 3 s until something is ready: 1 beep waiting or stopped, 2 GPS or sensor searching, 3 problem. Silence: measurement running.",
+      "description": "Every 3 s until something is ready: 1 beep waiting or stopped, 2 GPS or sensor searching, 3 problem. Silence: measurement running. With a Start/Stop button it stays quiet while waiting and gives a short, lower tick every 5 s while recording.",
       "pin": "+ (signal)",
       "kind": "Type",
       "active": "active (sounds with a steady 5 V)",

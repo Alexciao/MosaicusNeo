@@ -69,6 +69,7 @@
     "onArduino": "On Arduino",
     "beeps": "{n, plural, one {# beep} other {# beeps}} every 3 s",
     "noBeeps": "no beeps",
+    "tic": "a short low tick every 5 s: recording",
     "led": {
       "W": "blinking blue: waiting for the app",
       "I": "blue: connected, ready",

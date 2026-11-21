@@ -69,6 +69,7 @@
     "onArduino": "Su Arduino",
     "beeps": "{n} bip ogni 3 s",
     "noBeeps": "nessun bip",
+    "tic": "un «tic» breve e grave ogni 5 s: sta registrando",
     "led": {
       "W": "blu lampeggiante: in attesa dell'app",
       "I": "blu: collegato, pronto",

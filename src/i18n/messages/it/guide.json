@@ -21,8 +21,15 @@
   "picker": {
     "label": "Istruzioni per",
     "aria": "Istruzioni per quale dispositivo",
-    "itemThis": "{label} (questo)",
-    "badgeThis": "· questo"
+    "thisDevice": "Questo",
+    "groupComputer": "Computer",
+    "groupOther": "Telefono, tablet o lavagna",
+    "os": {
+      "windows": "Windows",
+      "mac": "macOS",
+      "linux": "Linux",
+      "chromeos": "Chromebook"
+    }
   },
   "otherDevice": {
     "text": "Stai leggendo le istruzioni per: <b>{reading}</b>. Questo dispositivo: {here}.",
@@ -191,17 +198,10 @@
   },
   "firmware": {
     "intro": "Il firmware è il programma che gira su Arduino. È uno solo per tutti gli esperimenti: lo carichi una volta, poi l'app gli indica quali componenti leggere.",
-    "pcOnly": "Il firmware si carica <b>da un computer</b> (Windows, Mac, Linux o Chromebook) con il cavo USB: {device} non programma Arduino. Poi misuri con {target, select, board {la lavagna} other {il telefono}} via Bluetooth.",
+    "pcOnly": "Il firmware si carica <b>da un computer</b> (Windows, Mac, Linux o Chromebook) con il cavo USB: {device} non programma Arduino. Poi misuri con {target, select, board {la lavagna} other {il telefono}} via Bluetooth. I passi qui sotto sono per {os}: per cambiarlo, scegli il tuo computer da «Istruzioni per», in alto.",
     "download": "Scarica il firmware v{v}",
     "source": "Codice su GitHub",
     "fileNote": "mosaicusneo_firmware.ino · nessuna libreria da installare",
-    "osLabel": "Il tuo computer",
-    "os": {
-      "windows": "Windows",
-      "mac": "macOS",
-      "linux": "Linux",
-      "chromeos": "Chromebook"
-    },
     "ide": {
       "t": "Installa Arduino IDE 2",
       "windows": "Scaricalo da <ide>arduino.cc/en/software</ide>: scegli <b>Windows</b> (l'installer, o la versione del Microsoft Store) e installalo. Su un PC della scuola senza permessi di amministratore, chiedi al tecnico.",
@@ -376,7 +376,7 @@
     },
     "btTitle": "Bluetooth: dal vivo sul telefono",
     "sdTitle": "Scheda SD: Arduino da solo",
-    "buttonText": "Un pulsante tra un pin digitale e GND (senza resistenza) avvia e ferma. Con la scheda SD avvia e ferma la registrazione. Con l'app collegata, via cavo o Bluetooth, fa come «Avvia» e «Ferma»: comodo quando hai le mani occupate con l'esperimento. Se colleghi l'app mentre Arduino registra sulla scheda, la registrazione si chiude e misuri come al solito."
+    "buttonText": "Un pulsante tra un pin digitale e GND (senza resistenza) avvia e ferma. Con la scheda SD avvia e ferma la registrazione. Con l'app collegata, via cavo o Bluetooth, fa come «Avvia» e «Ferma»: comodo quando hai le mani occupate con l'esperimento. Se colleghi l'app mentre Arduino registra sulla scheda, la registrazione si chiude e misuri come al solito. Con un cicalino, in attesa Arduino tace e mentre registra fa un «tic» leggero ogni 5 s: anche da lontano sai che sta lavorando."
   },
   "sd": {
     "intro": "Con una <b>scheda microSD</b> Arduino misura da solo, alimentato da un power bank o da una batteria: niente computer, niente telefono, anche per ore. Aggiungi il componente <b>Scheda SD</b> (gruppo <b>Memoria</b>), oppure scegli <b>Registra su scheda SD</b> dal menu ▾ di «Collega».",
@@ -474,15 +474,15 @@
     "rows": {
       "waiting": {
         "situation": "Acceso, l'app non è collegata",
-        "display": "NO APP · WAIT · USB v1.9 (con un modulo Bluetooth: USB/BT 1.9)",
+        "display": "NO APP · WAIT · USB v2.0 (con un modulo Bluetooth: USB/BT 2.0)",
         "led": "blu, lampeggia",
-        "beep": "1 bip ogni 3 s"
+        "beep": "1 bip ogni 3 s (silenzio con un pulsante Avvia/Ferma)"
       },
       "connected": {
         "situation": "Collegato, fermo",
         "display": "LINK USB · READY · tap Start (via Bluetooth: «LINK BT»)",
         "led": "blu fisso",
-        "beep": "1 bip ogni 3 s"
+        "beep": "1 bip ogni 3 s (silenzio con un pulsante Avvia/Ferma)"
       },
       "rejected": {
         "situation": "Un componente è stato rifiutato",
@@ -512,24 +512,25 @@
         "situation": "Sta misurando, tutto a posto",
         "display": "● REC 1:23 · 23.4° (il pallino lampeggia durante la registrazione)",
         "led": "verde fisso",
-        "beep": "silenzio (un «bip-bip» quando ci arriva)"
+        "beep": "silenzio (un «bip-bip» quando ci arriva); con un pulsante Avvia/Ferma, un «tic» breve e grave ogni 5 s"
       }
     },
-    "buzzerNote": "<b>Finché il cicalino suona, qualcosa non è pronto.</b> Quando tace, Arduino sta misurando regolarmente.",
+    "buzzerNote": "<b>Finché il cicalino fa bip, qualcosa non è pronto.</b> Quando tace, Arduino sta misurando regolarmente.",
+    "buttonBeep": "<b>Con un pulsante Avvia/Ferma è diverso</b>, perché Arduino resta acceso a lungo e registra solo ogni tanto: in attesa tace, e mentre registra fa un «tic» breve ogni 5 s, più grave e più lento dei bip dei problemi (con un cicalino passivo è anche una nota più bassa). I bip dei problemi restano gli stessi.",
     "gpsTitle": "GPS in ricerca",
     "gpsText": "Appena acceso, o al chiuso, il GPS cerca i satelliti: giallo, 2 bip, e sul display il numero di satelliti visti. All'aperto il fix arriva in 30 secondi o qualche minuto. Se dal GPS non arriva alcun dato, controlla i fili: rosso, 3 bip, «GPS wires?».",
     "multiTitle": "Più sensori, configurazione e Bluetooth",
     "mu1": "Se più sensori hanno un problema, il display li mostra a turno ogni 2,5 secondi, prima gli errori e poi quelli in ricerca: «ERROR 1/2», «ERROR 2/2». LED e cicalino seguono sempre il più grave.",
     "mu2": "Con due sensori dello stesso tipo, il display indica quale con il numero: «#2» è il secondo DHT nell'elenco dei componenti.",
     "mu3": "Se Arduino rifiuta un componente (pin doppio, pin non analogico, secondo GPS), il display mostra «BAD SETUP» con il motivo finché non correggi i pin e riavvii la misura.",
-    "mu4": "In attesa dell'app il display mostra come collegarsi e la versione del firmware: «USB v1.9». Il Bluetooth è facoltativo: dopo «Configura» nel passo Bluetooth, se il modulo risponde, Arduino lo ricorda e il display mostra «USB/BT 1.9».",
+    "mu4": "In attesa dell'app il display mostra come collegarsi e la versione del firmware: «USB v2.0». Il Bluetooth è facoltativo: dopo «Configura» nel passo Bluetooth, se il modulo risponde, Arduino lo ricorda e il display mostra «USB/BT 2.0».",
     "firmwareNote": "Queste funzioni richiedono il firmware v{v}.",
     "details": "Dettagli",
     "d1": "Arduino memorizza gli indicatori: alle accensioni successive mostra subito «in attesa dell'app», anche prima di collegare il telefono.",
     "d2": "Durante la misura il display mostra la prima grandezza in grande e la seconda sotto, aggiornate ogni secondo.",
     "d3": "«Prova display, LED e cicalino» (scheda «Componenti», con Arduino collegato) cambia colore al LED, fa suonare il cicalino e scrive «HELLO» sul display.",
     "d4": "La scheda della misura riporta in piccolo che cosa mostrano in quel momento display, LED e cicalino.",
-    "d5": "Per silenziare il cicalino: opzione «Bip finché non è tutto pronto» → no.",
+    "d5": "Per silenziare il cicalino: opzione «Bip finché non è tutto pronto» → no (spegne anche il «tic» della registrazione).",
     "d6": "Display, accelerometro MPU-6050 e termometro a infrarossi MLX90614 possono condividere i due pin I2C (di solito A4 e A5)."
   },
   "data": {

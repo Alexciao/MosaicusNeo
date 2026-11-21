@@ -21,8 +21,15 @@
   "picker": {
     "label": "Instructions for",
     "aria": "Instructions for which device",
-    "itemThis": "{label} (this one)",
-    "badgeThis": "· this one"
+    "thisDevice": "This device",
+    "groupComputer": "Computer",
+    "groupOther": "Phone, tablet or whiteboard",
+    "os": {
+      "windows": "Windows",
+      "mac": "macOS",
+      "linux": "Linux",
+      "chromeos": "Chromebook"
+    }
   },
   "otherDevice": {
     "text": "You are reading the instructions for: <b>{reading}</b>. This device: {here}.",
@@ -191,17 +198,10 @@
   },
   "firmware": {
     "intro": "The firmware is the program that runs on Arduino. There is just one for all experiments: you upload it once, then the app tells it which components to read.",
-    "pcOnly": "The firmware is uploaded <b>from a computer</b> (Windows, Mac, Linux or Chromebook) with the USB cable: the device you chose ({device}) can't program Arduino. Then you measure with the {target, select, board {whiteboard} other {phone}} via Bluetooth.",
+    "pcOnly": "The firmware is uploaded <b>from a computer</b> (Windows, Mac, Linux or Chromebook) with the USB cable: the device you chose ({device}) can't program Arduino. Then you measure with the {target, select, board {whiteboard} other {phone}} via Bluetooth. The steps below are for {os}: to change it, choose your computer from “Instructions for”, at the top.",
     "download": "Download firmware v{v}",
     "source": "Code on GitHub",
     "fileNote": "mosaicusneo_firmware.ino · no libraries to install",
-    "osLabel": "Your computer",
-    "os": {
-      "windows": "Windows",
-      "mac": "macOS",
-      "linux": "Linux",
-      "chromeos": "Chromebook"
-    },
     "ide": {
       "t": "Install Arduino IDE 2",
       "windows": "Download it from <ide>arduino.cc/en/software</ide>: choose <b>Windows</b> (the installer, or the Microsoft Store version) and install it. On a school PC without admin rights, ask the technician.",
@@ -376,7 +376,7 @@
     },
     "btTitle": "Bluetooth: live on the phone",
     "sdTitle": "SD card: Arduino on its own",
-    "buttonText": "A button between a digital pin and GND (no resistor needed) starts and stops. With the SD card it starts and stops the recording. With the app connected, via cable or Bluetooth, it works like “Start” and “Stop”: handy when your hands are busy with the experiment. If you connect the app while Arduino is recording to the card, the recording is closed and you measure as usual."
+    "buttonText": "A button between a digital pin and GND (no resistor needed) starts and stops. With the SD card it starts and stops the recording. With the app connected, via cable or Bluetooth, it works like “Start” and “Stop”: handy when your hands are busy with the experiment. If you connect the app while Arduino is recording to the card, the recording is closed and you measure as usual. With a buzzer, Arduino stays quiet while waiting and ticks softly every 5 s while recording, so you can tell from a distance that it's working."
   },
   "sd": {
     "intro": "With a <b>microSD card</b> Arduino measures on its own, powered by a power bank or a battery: no computer, no phone, even for hours. Add the <b>SD card</b> component (<b>Storage</b> group), or pick <b>Record to SD card</b> from the ▾ menu of “Connect”.",
@@ -474,15 +474,15 @@
     "rows": {
       "waiting": {
         "situation": "Powered on, the app isn't connected",
-        "display": "NO APP · WAIT · USB v1.9 (with a Bluetooth module: USB/BT 1.9)",
+        "display": "NO APP · WAIT · USB v2.0 (with a Bluetooth module: USB/BT 2.0)",
         "led": "blue, blinking",
-        "beep": "1 beep every 3 s"
+        "beep": "1 beep every 3 s (silent with a Start/Stop button)"
       },
       "connected": {
         "situation": "Connected, idle",
         "display": "LINK USB · READY · tap Start (over Bluetooth: “LINK BT”)",
         "led": "solid blue",
-        "beep": "1 beep every 3 s"
+        "beep": "1 beep every 3 s (silent with a Start/Stop button)"
       },
       "rejected": {
         "situation": "A component was rejected",
@@ -512,24 +512,25 @@
         "situation": "Measuring, all good",
         "display": "● REC 1:23 · 23.4° (the dot blinks while recording)",
         "led": "solid green",
-        "beep": "silent (a “beep-beep” when it gets there)"
+        "beep": "silent (a “beep-beep” when it gets there); with a Start/Stop button, a short low tick every 5 s"
       }
     },
-    "buzzerNote": "<b>As long as the buzzer sounds, something isn't ready.</b> When it's silent, Arduino is measuring normally.",
+    "buzzerNote": "<b>As long as the buzzer beeps, something isn't ready.</b> When it's silent, Arduino is measuring normally.",
+    "buttonBeep": "<b>With a Start/Stop button it's different</b>, because Arduino stays on for a long time and records only now and then: while waiting it's silent, and while recording it gives a short tick every 5 s, lower and slower than the problem beeps (on a passive buzzer it's also a lower note). The problem beeps stay the same.",
     "gpsTitle": "GPS searching",
     "gpsText": "Right after power-on, or indoors, the GPS searches for satellites: yellow, 2 beeps, and the display shows the number of satellites in view. Outdoors the fix arrives within 30 seconds to a few minutes. If no data at all arrive from the GPS, check the wires: red, 3 beeps, “GPS wires?”.",
     "multiTitle": "Several sensors, configuration and Bluetooth",
     "mu1": "If several sensors have a problem, the display shows them in turn every 2.5 seconds, errors first and then those still searching: “ERROR 1/2”, “ERROR 2/2”. LED and buzzer always follow the most serious.",
     "mu2": "With two sensors of the same type, the display tells which one by number: “#2” is the second DHT in the component list.",
     "mu3": "If Arduino rejects a component (duplicate pin, non-analog pin, second GPS), the display shows “BAD SETUP” with the reason until you fix the pins and restart the measurement.",
-    "mu4": "While waiting for the app, the display shows how to connect and the firmware version: “USB v1.9”. Bluetooth is optional: after “Configure” in the Bluetooth step, if the module responds, Arduino remembers it and the display shows “USB/BT 1.9”.",
+    "mu4": "While waiting for the app, the display shows how to connect and the firmware version: “USB v2.0”. Bluetooth is optional: after “Configure” in the Bluetooth step, if the module responds, Arduino remembers it and the display shows “USB/BT 2.0”.",
     "firmwareNote": "These features require firmware v{v}.",
     "details": "Details",
     "d1": "Arduino remembers the indicators: on later power-ups it immediately shows “waiting for the app”, even before you connect the phone.",
     "d2": "During the measurement the display shows the first quantity in large digits and the second below it, updated every second.",
     "d3": "“Test display, LED and buzzer” (“Components” tab, with Arduino connected) changes the LED's color, sounds the buzzer and writes “HELLO” on the display.",
     "d4": "The measurement card shows in small print what the display, LED and buzzer are showing at that moment.",
-    "d5": "To silence the buzzer: option “Beep until everything is ready” → no.",
+    "d5": "To silence the buzzer: option “Beep until everything is ready” → no (this also turns off the recording tick).",
     "d6": "Display, MPU-6050 accelerometer and MLX90614 infrared thermometer can share the two I2C pins (usually A4 and A5)."
   },
   "data": {
