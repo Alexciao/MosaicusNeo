@@ -11,7 +11,7 @@ const inter = Inter({
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://mosaicusneo.alexcorazza.com"),
-  title: "MosaicusNeo · physics micro-lab",
+  title: "MosaicusNeo",
   description:
     "Physics experiments with Arduino and your phone's sensors: real-time charts, oscilloscope, synth, data analysis, Excel export. Works offline too.",
   applicationName: "MosaicusNeo",

@@ -1,90 +1,115 @@
-# MosaicusNeo
+<p align="center">
+  <img src="public/icons/mark.svg" width="72" alt="" />
+</p>
 
-**App:** [mosaicusneo.alexcorazza.com](https://mosaicusneo.alexcorazza.com)
+<h1 align="center">MosaicusNeo</h1>
 
-Micro-laboratorio di fisica nel browser con **Arduino**: scegli i sensori che hai collegato, l'app ti mostra come collegarli, li legge tutti insieme con un unico firmware e li mette sugli stessi grafici. Poi analisi dei dati (retta a occhio, tangente, fit con incertezze e verifica dei residui, righello), mappa per le misure all'aperto, esportazione in Excel, CSV, GPX e GeoJSON. Funziona anche senza rete e si installa come app (PWA).
+<p align="center">
+  A free, open-source physics lab in your browser, built for high-school classes.<br />
+  Plug sensors into an Arduino, record real data, and analyse it on the spot.
+</p>
 
-MosaicusNeo nasce da [Mosaicus](https://ermesfrosi.it) di Ermes Ferdinando Rosi (licenza MIT): migrato a **Next.js + React + shadcn/ui**, ridisegnato, con un sistema a sensori modulare, il Bluetooth per lavorare sul campo e gli account facoltativi per ritrovare i dati su tutti i dispositivi.
+<p align="center">
+  <a href="https://mosaicusneo.alexcorazza.com"><b>Open the app</b></a> ·
+  <a href="#quick-start">Quick start</a> ·
+  <a href="#hardware">Hardware</a> ·
+  <a href="#development">Development</a> ·
+  <a href="https://github.com/Alexciao/MosaicusNeo/issues/new">Report an issue</a>
+</p>
 
-## Sensori ed esperimenti
+![Recording a damped oscillation with an ultrasonic sensor](docs/screenshots/measure.png)
 
-Il cuore dell'app è il **lab**: fino a 6 sensori su un Arduino Uno, anche dello stesso tipo, ognuno sui pin che preferisci e con il suo ritmo di lettura. L'app controlla i pin (doppi, analogici, D0/D1 riservati alla seriale), e genera la guida ai collegamenti. Tutto è un componente, e il catalogo li divide per che cosa fanno: **sensori** (gli ingressi), **comandi** (pulsante), **display, LED e suoni** (le uscite), **memoria** (scheda SD), **Bluetooth** e **telefono**, con ricerca, argomenti e disegni dei moduli. Ogni componente entra nello schema, nell'occorrente e nei passi.
+## What it is
 
-| Sensore | Pin | Grandezze |
+MosaicusNeo turns an Arduino Uno and a handful of cheap sensors into a small data-logging lab. You choose an experiment (or build your own lab from components), the app shows you exactly how to wire it, and then it reads every sensor at once and plots the results live. When you're done, you can fit a curve with uncertainties, check residuals, and export to Excel or CSV.
+
+- **No installation.** It runs in Chrome or Edge on a computer (USB or Bluetooth), and on phones over Bluetooth. It also installs as an app and works offline.
+- **No account needed.** Measurements stay in your browser. An optional account syncs them across devices.
+- **No hardware needed to try it.** Every lab has a built-in simulator.
+- **English and Italian** interface.
+
+MosaicusNeo is based on [**Mosaicus**](https://ermesfrosi.it) by **Ermes Ferdinando Rosi**, released under the MIT license. The calculation engines (fitting, signal processing, canvas charts, formulas, XLSX export) come from Mosaicus. MosaicusNeo rebuilds the interface with Next.js, React and shadcn/ui, and adds modular sensors, generated wiring guides, Bluetooth and SD-card logging, and optional cloud sync.
+
+## Screenshots
+
+| Fit a model with uncertainties | Wiring guide generated from your components |
+|---|---|
+| ![Analysis page: damped sinusoid fit with period, amplitude and damping](docs/screenshots/analysis.png) | ![Breadboard diagram for a GPS and DHT11 setup](docs/screenshots/wiring.png) |
+
+## Quick start
+
+### Try it without hardware
+
+1. Open [mosaicusneo.alexcorazza.com](https://mosaicusneo.alexcorazza.com).
+2. Pick an experiment from the sidebar, for example **Harmonic motion**.
+3. Click **Simulator** in the top bar, then **Start**. Watch the position, velocity and acceleration charts fill in.
+4. Click **Stop**, then **Analyze the whole measurement**. In **Analysis**, choose **Fit** and try the suggested model.
+
+### Use a real Arduino
+
+1. **Upload the firmware once.** Open [`firmware/mosaicusneo_firmware/mosaicusneo_firmware.ino`](firmware/mosaicusneo_firmware/mosaicusneo_firmware.ino) in the Arduino IDE and upload it to an Arduino Uno. It needs no extra libraries.
+2. **Pick a lab** in the sidebar: a ready-made experiment, or **My labs → New lab** to choose your own components.
+3. **Wire it up.** Open the **Wiring** tab: it shows a breadboard diagram for your exact components and pins, a parts list, and step-by-step instructions, hole by hole.
+4. **Connect.** Plug in the USB cable and click **Connect Arduino**. The app sends the sensor configuration to the board automatically.
+5. **Measure.** Click **Start**. Name the run if you like; it is saved to the **Notebook** automatically.
+6. **Analyse.** Drag across a chart to select a range, then send it to **Analysis**. There you can draw a line by eye, take a tangent, fit a model (line, parabola, exponential, damped sinusoid, …), check residuals, and measure with a ruler.
+7. **Export.** Excel, CSV, PNG, GPX or GeoJSON. Raw sensor data is also available for Python, R or MATLAB.
+
+The in-app **Guide** (top bar) covers all of this in more detail, including troubleshooting.
+
+### Ready-made experiments
+
+| Topic | Experiments |
+|---|---|
+| Kinematics | Linear motion, Harmonic motion |
+| Heat and temperature | Cooling, Humidity & temperature |
+| In the field | Temperature map (GPS + temperature) |
+| Tools | Audio oscilloscope, Synth, Electrical oscilloscope (A0), phone accelerometer and gyroscope, Frequency over time |
+
+You can change any experiment; your changes are saved as a new lab in **My labs**, and the original stays as it was.
+
+## Hardware
+
+Up to **6 sensors** at once on one Arduino Uno, even several of the same type (for example, two thermistors to compare two cups). Each one gets its own pins and reading rate, and the app checks for pin conflicts.
+
+| Sensor | Pins | Measures |
 |---|---|---|
-| Termistore NTC (partitore) | A0…A5 | T, ln(T − Tₐ), R |
-| DHT11 / DHT22 | digitale | T, umidità relativa, punto di rugiada, umidità assoluta |
-| Ultrasuoni HC-SR04 | TRIG + ECHO | posizione, velocità, accelerazione |
-| GPS NEO-6M/7M (VMA430 / WPI430) | RX (+ TX) | posizione, altitudine, velocità, distanza percorsa |
-| Fotoresistenza (partitore) | A0…A5 | luminosità relativa |
-| Tensione analogica 0–5 V | A0…A5 | V, o una grandezza tarata y = k·V + q |
-| Sonda DS18B20 (anche impermeabile) | digitale + 4,7 kΩ | T (±0,5 °C, −55…125 °C) |
-| Fotocellula / ingresso digitale | digitale (D2/D3: istanti al µs) | stato, passaggi, periodo, tempo di oscuramento, velocità |
-| Cella di carico + HX711 | DT + SCK | massa, forza |
-| Accelerometro MPU-6050 (GY-521) | SDA + SCL (I2C) | aₓ, aᵧ, a_z, \|a\|, velocità angolari |
-| Termometro a infrarossi MLX90614 (GY-906) | SDA + SCL (I2C) | T della superficie senza contatto (corretta per l'emissività), T del sensore |
+| NTC thermistor (voltage divider) | A0–A5 | temperature, resistance |
+| DHT11 / DHT22 | digital | temperature, relative humidity, dew point |
+| HC-SR04 ultrasonic | TRIG + ECHO | position, velocity, acceleration |
+| GPS NEO-6M/7M | RX (+ TX) | position, altitude, speed, distance |
+| Photoresistor (voltage divider) | A0–A5 | relative light level |
+| Analog voltage 0–5 V | A0–A5 | voltage, or a calibrated quantity y = k·V + q |
+| DS18B20 probe (also waterproof) | digital + 4.7 kΩ | temperature (±0.5 °C) |
+| Photogate / digital input | digital (D2/D3 for µs timing) | state, passages, period, blocking time, speed |
+| Load cell + HX711 | DT + SCK | mass, force |
+| MPU-6050 accelerometer (GY-521) | I2C | acceleration on 3 axes, angular velocity |
+| MLX90614 infrared thermometer | I2C | contactless surface temperature |
 
-**Display, LED e cicalino** (facoltativi, fuori dai 6 posti dei sensori): display OLED 64×32 da 0,49" (I2C), LED RGB, cicalino attivo o passivo. Li comanda Arduino da solo: blu = in attesa dell'app o pronto, giallo = GPS o sensore in ricerca, rosso = problema, verde = sta misurando; il cicalino suona finché qualcosa non è pronto (1, 2 o 3 bip ogni 3 s) e tace quando la misura procede bene. Il display mostra lo stato e, durante la misura, il valore principale. Arduino li ricorda (EEPROM): appena acceso segnala subito «in attesa dell'app». Il GPS senza fix viene mostrato come «in ricerca», non come errore. Con più sensori in difficoltà il display li mostra a turno («PROBL 1/2»), con «#2» per distinguere due sensori dello stesso tipo; un componente rifiutato dalla configurazione resta segnalato («CONFIG», con il motivo). In attesa dell'app il display mostra la versione del firmware e come collegarsi: «USB v1.5», oppure «USB/BT 1.5» se un modulo Bluetooth (facoltativo) ha risposto a «Configura».
+**Extras** that don't count toward the 6 sensors:
 
-**Comandi, memoria e Bluetooth** (anche questi fuori dai 6 posti):
+- **Status outputs:** a 0.49" OLED display, an RGB LED and a buzzer, which show whether the board is waiting, searching, measuring or has a problem.
+- **Start/Stop button:** works like the app's buttons, or starts SD logging on its own.
+- **microSD card:** prepare the board once over USB, then it logs on battery power with no computer. Import the `.NEO` files into the Notebook later.
+- **Bluetooth:** an HC-06 or a BLE module (HM-10, AT-09, HC-08) for measuring without a cable, for example outdoors with a phone and a power bank. BLE also works on iPhone through the Bluefy browser.
 
-| Componente | Pin | A che cosa serve |
-|---|---|---|
-| Pulsante Avvia/Ferma | digitale + GND | con l'app collegata (cavo, HC-06, BLE) fa come «Avvia»/«Ferma»; con la scheda SD avvia e ferma la registrazione |
-| Scheda microSD | D10 (CS), D11, D12, D13 (SPI) | Arduino registra da solo, a batteria: si prepara una volta via USB («Prepara Arduino»), poi registra col pulsante o da quando si accende; i file LOGnnnnn.NEO si importano nel Quaderno |
-| Bluetooth HC-06 / Bluetooth LE (HM-10, AT-09, HC-08) | D0, D1 (con partitore) | misurare senza cavo; sceglierlo dal menu di «Collega» lo aggiunge da solo al lab |
+No Arduino at all? The phone's accelerometer, gyroscope and microphone work as sensors too.
 
-La guida ai collegamenti si genera dai componenti e dai pin scelti: schema **realistico** (Arduino Uno e moduli infilati in una breadboard con colonne e righe numerate, con le resistenze che servono) o **schema** compatto, occorrente e passi foro per foro.
+### Browser support
 
-Gli **esperimenti pronti** sono lab già pensati per una lezione (Moto rettilineo, Moto armonico, Raffreddamento, Umidità e temperatura, Mappa della temperatura): si aprono e funzionano subito, e si possono modificare (le modifiche diventano una versione personale, ripristinabile). In **I miei lab**, in cima alla barra, si compongono lab propri. Gli **strumenti** (oscilloscopio audio, oscilloscopio elettrico su A0, synth) hanno un pannello proprio.
+| | USB cable | Bluetooth HC-06 | Bluetooth LE |
+|---|---|---|---|
+| Chrome / Edge on a computer | ✓ | if paired first | ✓ |
+| Chrome on Android | – | ✓ (Chrome 138+) | ✓ |
+| iPhone / iPad | – | – | in Bluefy |
 
-Con più sensori a ritmi diversi ogni lettura conserva il suo istante; quando servono insieme (mappa, invio a Elaborazione) le grandezze degli altri sensori vengono interpolate sui tempi del sensore scelto. Ogni lab funziona anche con il **simulatore**, senza hardware.
+Safari and Firefox don't support Web Serial or Web Bluetooth. You can still use the simulator, the phone sensors, the Notebook and Analysis.
 
-## Firmware
+## Privacy
 
-Un solo sketch: [`firmware/mosaicusneo_firmware/mosaicusneo_firmware.ino`](firmware/mosaicusneo_firmware/mosaicusneo_firmware.ino) (v1.5, nessuna libreria esterna: I2C, 1-Wire e un FAT32 minimo per la scheda SD scritti apposta, 95 % della flash, 76 % della RAM), da caricare una volta con l'IDE di Arduino. L'app configura i sensori con comandi seriali (115200 baud) e il firmware invia solo dati grezzi (conteggi ADC, tempi di volo, i byte del DHT, i campi NMEA del GPS): le conversioni avvengono nell'app, dove si vedono e si tarano.
+Without an account, everything stays in your browser and nothing is sent anywhere. The microphone is only used live and is never recorded. There are no ads, analytics or tracking cookies. With an optional account, your measurements, panels, labs and preferences are stored on Supabase and are visible only to you; you can delete the account and all its data from the app at any time. Map tiles come from OpenStreetMap.
 
-```
-CFG,CLEAR                                          → #ACK,CFG,CLEAR
-CFG,ADD,<slot>,<NTC|ANA|DHT|SONAR|GPS|DS18|GATE|HX711|IMU|MLX>,<ms>,<pinA>,<pinB>,<opz>
-                                                   → #ACK,CFG,ADD,<slot> | #ERR,CFG,<slot>,<motivo>
-START                                              → #ACK,START, poi D,<slot>,<t_ms>,<valori…>
-STOP · START,SCOPE,… (oscilloscopio) · BT,SETUP (HC-06) · BT,SETUP,BLE (HM-10, AT-09, HC-08) · ID?
-OUT,CLEAR · OUT,ADD,<OLED|RGB|BUZ|BTN|SD>,<p1>,<p2>,<p3>,<opz> · OUT,SAVE · OUT,TEST · OUT,L,<1|2>,<testo>
-CFG,SAVE,<id>                                      → #ACK,CFG,SAVE   (configurazione salvata per la scheda SD)
-SD,TEST                                            → #SD,OK,<MB> | #SD,ERR,<NOOUT|CARD|FAT32|FILE>
-PING (ogni 2 s dall'app) · LINK,<U|B>              ← #ST,<W|I|S|E|T|O|C|R|L>,<slot>,<problema>,<k>,<n>,<bt>,<link> a ogni cambio
-                                                   ← #KEY quando si preme il pulsante con l'app collegata
-```
-
-Sulla scheda SD il firmware scrive le stesse righe `D,…` della seriale, in `LOG00001.NEO`, `LOG00002.NEO`… (FAT32), dopo un'intestazione con la configurazione (`#MOSAICUSNEO,<fw>,SD`, `#PROJ,<id>`, `#CFG,…`, `#START`; `#STOP,<t_ms>` se fermata col pulsante). L'app li importa nel Quaderno con le opzioni del lab preparato.
-
-Pin come numeri (A0 = 14 … A5 = 19); tempi con risoluzione di 1 µs e orologio a 64 bit (nessun azzeramento dopo 71 minuti).
-
-## Sul campo: Arduino + Bluetooth + telefono
-
-Due tipi di modulo, collegati allo stesso modo (TXD → D0, RXD ← D1 tramite partitore 1 kΩ/2 kΩ, in parallelo al cavo USB) e con lo stesso protocollo del cavo:
-
-| | HC-06 (Bluetooth classico) | BLE: HM-10, AT-09 / BT05, HC-08 |
-|---|---|---|
-| Android | Chrome 138+ (Web Serial su RFCOMM) | Chrome (Web Bluetooth) |
-| iPhone / iPad | no (iOS non espone il Bluetooth seriale classico) | sì, nel browser Bluefy (Web Bluetooth) |
-| Computer | se associato prima | Chrome, Edge |
-| Configurazione | «Configura HC-06» (`BT,SETUP`), poi associa (PIN 1234) | «Configura modulo BLE» (`BT,SETUP,BLE`), nessuna associazione |
-
-La configurazione (nome «MosaicusNeo», 115200 baud) si fa una volta, con Arduino collegato via USB: scheda «Collegamenti» → interruttore «Bluetooth» → «Configura». Mentre carichi lo sketch stacca il filo TXD da D0. Sul campo: power bank su Arduino, «Collega» (menu ▾ per scegliere il Bluetooth LE), «Avvia»; lo schermo resta acceso e il Quaderno si salva ogni 30 s.
-
-Safari non ha né Web Serial né Web Bluetooth: su iPhone e iPad serve un modulo BLE e il browser Bluefy.
-
-## Quaderno ed export
-
-Ogni misura finisce da sola nel **Quaderno** (pagina dedicata): ricerca, filtri per lab e sorgente, ordinamento, gruppi per giorno; da lì si riapre in Misura, si manda intera a Elaborazione («Analizza»), si esporta o si rinomina. In Misura, «Analizza il tratto» apre Elaborazione sul nuovo riquadro (il «+» lo aggiunge senza cambiare pagina). Oltre a Excel, CSV, PNG, GPX e GeoJSON c'è l'export dei **dati grezzi** di Arduino (CSV o Excel, una riga per lettura, colonne `t_s, t_ms, sensor, type, slot, …`), per script in Python, R o MATLAB.
-
-## Account e cloud (facoltativi)
-
-Senza account tutto resta nel browser (IndexedDB) e l'app funziona offline. Con un account (email e password, via Supabase) misure, riquadri, lab personali e preferenze dei lab si sincronizzano tra i dispositivi: archivio *local-first*, vince la modifica più recente, le cancellazioni arrivano agli altri dispositivi, Row Level Security. Lo schema è in [`supabase/migrations`](supabase/migrations); per attivare il cloud servono le variabili di [`.env.example`](.env.example). Dal menu dell'account, «Elimina account» cancella subito account e dati sincronizzati (funzione `delete_account`, migrazione `20261119130000_delete_account.sql`).
-
-## Sviluppo
+## Development
 
 ```bash
 npm install
@@ -94,19 +119,46 @@ npm run lint
 npm run typecheck
 ```
 
+Cloud sync is optional. To enable it, copy [`.env.example`](.env.example) and fill in your Supabase project; the database schema is in [`supabase/migrations`](supabase/migrations).
+
 ```
-firmware/                       sketch Arduino (copiato in public/ a ogni build)
-src/lib/sensors/                catalogo dei componenti, progetto, preset, grandezze, simulatore
-src/lib/lab-store.ts            pagina Misura: collegamento, protocollo, dati, sessioni, export
-src/lib/workbench-store.ts      riquadri di Elaborazione ed export Excel
-src/lib/cloud/                  account Supabase, archivio local-first, sincronizzazione
-src/lib/mosaicus/               motori: fit, DSP, grafici su canvas, formule, XLSX, seriale, audio
-src/components/app/             pagina Misura, editor dei componenti, guida ai collegamenti, guida, mappa
-src/components/workbench/       pagina Elaborazione
-src/components/instruments/     oscilloscopio e synth
-supabase/migrations/            schema del database
+firmware/                     Arduino sketch (copied into public/ on each build)
+src/lib/sensors/              component catalogue, presets, quantities, simulator
+src/lib/lab-store.ts          Measure page: connection, protocol, data, sessions, export
+src/lib/workbench-store.ts    Analysis panels and Excel export
+src/lib/cloud/                Supabase account, local-first store, sync
+src/lib/mosaicus/             engines from Mosaicus: fitting, DSP, canvas charts, formulas, XLSX
+src/components/app/           Measure page, component editor, wiring guide, in-app guide, map
+src/components/workbench/     Analysis page
+src/components/instruments/   oscilloscope and synth
+src/i18n/messages/            English and Italian text
 ```
 
-## Licenza
+<details>
+<summary><b>How the firmware works</b></summary>
 
-MIT — © 2026 Ermes Ferdinando Rosi (Mosaicus). Vedi [LICENSE](LICENSE) e [NOTICE.txt](NOTICE.txt).
+One sketch for every lab, with no external libraries: I2C, 1-Wire and a minimal FAT32 writer for the SD card are written from scratch. The app configures the board over serial (115200 baud), and the firmware sends back only raw readings: ADC counts, echo times, DHT bytes, NMEA fields. All conversions happen in the app, where they can be seen and calibrated.
+
+```
+CFG,CLEAR                                   → #ACK,CFG,CLEAR
+CFG,ADD,<slot>,<NTC|ANA|DHT|SONAR|GPS|DS18|GATE|HX711|IMU|MLX>,<ms>,<pinA>,<pinB>,<opt>
+                                            → #ACK,CFG,ADD,<slot> | #ERR,CFG,<slot>,<reason>
+START                                       → #ACK,START, then D,<slot>,<t_ms>,<values…>
+STOP · START,SCOPE,… (oscilloscope) · BT,SETUP (HC-06) · BT,SETUP,BLE · ID?
+OUT,CLEAR · OUT,ADD,<OLED|RGB|BUZ|BTN|SD>,<p1>,<p2>,<p3>,<opt> · OUT,SAVE · OUT,TEST
+CFG,SAVE,<id>                               → #ACK,CFG,SAVE   (configuration stored for SD logging)
+SD,TEST                                     → #SD,OK,<MB> | #SD,ERR,<NOOUT|CARD|FAT32|FILE>
+PING (every 2 s) · LINK,<U|B>               ← #ST,… on every status change · #KEY on button press
+```
+
+On the SD card, the firmware writes the same `D,…` lines to `LOG00001.NEO`, `LOG00002.NEO`, … after a header describing the configuration (`#MOSAICUSNEO,<fw>,SD`, `#PROJ,<id>`, `#CFG,…`, `#START`). Pins are numbers (A0 = 14 … A5 = 19); timestamps have 1 µs resolution on a 64-bit clock.
+
+</details>
+
+## Contributing
+
+Bug reports, ideas for experiments, and pull requests are welcome. Open an [issue](https://github.com/Alexciao/MosaicusNeo/issues) to get started. If you're a teacher using MosaicusNeo in class, feedback on what works (and what doesn't) is especially useful.
+
+## License and credits
+
+MIT. © 2026 Ermes Ferdinando Rosi ([Mosaicus](https://ermesfrosi.it)). See [LICENSE](LICENSE) and [NOTICE.txt](NOTICE.txt), which also lists the third-party libraries and the Inter font license.
