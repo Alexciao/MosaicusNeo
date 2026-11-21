@@ -1630,6 +1630,15 @@ export async function removeSession(id: number) {
   await refreshSessions();
 }
 
+/** Elimina più misure insieme (il «Elimina tutte» del Quaderno): un solo aggiornamento alla fine. */
+export async function removeSessions(ids: number[]) {
+  for (const id of ids) await repo.remove("sessions", id);
+  tabs?.postMessage("removed");
+  const s = get().session;
+  if (s?.id != null && ids.includes(s.id)) set({ session: { ...s, id: undefined } });
+  await refreshSessions();
+}
+
 // ---------------------------------------------------------------------------
 // Percorso guidato: qual è il prossimo gesto
 // ---------------------------------------------------------------------------

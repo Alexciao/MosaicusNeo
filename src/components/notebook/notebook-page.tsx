@@ -12,7 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import {
-  useLab, openSession, removeSession, renameSession, sendSessionToElab, exportSession, goElab, showPage, combineSessions, canCombine, type SessionSummary,
+  useLab, openSession, removeSession, removeSessions, renameSession, sendSessionToElab, exportSession, goElab, showPage, combineSessions, canCombine, type SessionSummary,
 } from "@/lib/lab-store";
 import { useWorkbench } from "@/lib/workbench-store";
 import { useCloud } from "@/lib/cloud/sync";
@@ -88,6 +88,15 @@ export function NotebookPage() {
 
   const filtered = !!query || lab !== "all" || src !== "all";
   const reset = () => { setQ(""); setLab("all"); setSrc("all"); };
+  const clearShown = async () => {
+    const ids = list.map((s) => s.id), n = ids.length, rest = (sessions?.length ?? 0) - n;
+    const ok = await confirm({
+      title: t("clearTitle", { n }),
+      description: `${t("clearDesc")}${rest > 0 ? ` ${t("clearKept", { n: rest })}` : ""}`,
+      action: t("clearAction", { n }), destructive: true,
+    });
+    if (ok) await removeSessions(ids);
+  };
 
   return (
     <div className={PAGE}>
@@ -135,6 +144,16 @@ export function NotebookPage() {
           <ul className="divide-y overflow-hidden rounded-xl border bg-card">{g.items.map((s) => <SessionRow key={s.id} s={s} showDate={!g.label} />)}</ul>
         </section>
       ))}
+
+      {/* in fondo e in sordina: pochi lo vorranno, e chiede sempre conferma. Elimina ciò che si vede. */}
+      {list.length > 0 && (
+        <div className="flex justify-center pt-2">
+          <button type="button" onClick={clearShown}
+            className="inline-flex items-center gap-1.5 rounded px-2 py-1 text-xs text-muted-foreground/80 hover:text-destructive focus-visible:text-destructive focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+            <Trash className="size-3.5" aria-hidden /> {filtered ? t("clearShown", { n: list.length }) : t("clearAll", { n: list.length })}
+          </button>
+        </div>
+      )}
     </div>
   );
 }
