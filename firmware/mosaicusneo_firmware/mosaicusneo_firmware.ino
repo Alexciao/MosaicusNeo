@@ -120,6 +120,8 @@
 #include <SPI.h>
 #include <EEPROM.h>
 #include <new.h>                  // placement new (SoftwareSerial del GPS)
+// __attribute__((noinline)) su alcune funzioni: misurato una per una, risparmia flash (senza, il
+// compilatore le ricopia in ogni punto in cui sono chiamate). Mai sulle funzioni a tempi stretti.
 
 #define FW_VERSION "1.8"          // stringa in flash, unita ai testi vicini (al massimo 4 caratteri: display)
 
@@ -148,7 +150,7 @@ struct Out { uint8_t type; uint8_t p[3]; uint8_t opt; };   // 5 byte, nello stes
 const uint8_t MAX_OUTS = 5;
 Out outs[MAX_OUTS];
 static_assert(sizeof(Out) == 5 && offsetof(Slot, intervalMs) == 4, "disposizione in EEPROM");
-Out *outFind(uint8_t t) { for (uint8_t i = 0; i < MAX_OUTS; i++) if (outs[i].type == t) return &outs[i]; return nullptr; }
+__attribute__((noinline)) Out *outFind(uint8_t t) { for (uint8_t i = 0; i < MAX_OUTS; i++) if (outs[i].type == t) return &outs[i]; return nullptr; }
 uint8_t outPin(uint8_t t) { Out *o = outFind(t); return o ? o->p[0] : 0; }
 // indirizzi in EEPROM (vedi in cima)
 const int E_OUTS = 32, E_CFG = 64, E_ID = 65, E_SLOTS = 80;
@@ -313,7 +315,7 @@ inline void lineLow(uint8_t p) { digitalWrite(p, LOW); pinMode(p, OUTPUT); }
 inline void lineRelease(uint8_t p) { pinMode(p, INPUT_PULLUP); }
 
 uint8_t i2cSda = 18, i2cScl = 19;
-void i2cBus(uint8_t sda, uint8_t scl) { i2cSda = sda; i2cScl = scl; }
+__attribute__((noinline)) void i2cBus(uint8_t sda, uint8_t scl) { i2cSda = sda; i2cScl = scl; }
 void i2cStart() { lineRelease(i2cSda); lineRelease(i2cScl); delayMicroseconds(3); lineLow(i2cSda); delayMicroseconds(3); lineLow(i2cScl); }
 void i2cStop() { lineLow(i2cSda); lineRelease(i2cScl); delayMicroseconds(3); lineRelease(i2cSda); delayMicroseconds(3); }
 bool i2cWrite(uint8_t b) {
@@ -601,7 +603,7 @@ bool oledBegin(const Out &o) {
   for (uint8_t p = 0; p < 4; p++) oledHash[p] = 0xFFFF;
   return ok;
 }
-inline uint8_t glyphCol(char c, uint8_t k) {
+__attribute__((noinline)) uint8_t glyphCol(char c, uint8_t k) {
   uint8_t ch = (uint8_t)c;
   if (ch < 32 || ch > 127) ch = '?';
   return pgm_read_byte(&FONT[(ch - 32) * 5 + k]);
@@ -644,7 +646,7 @@ void oledBig(uint8_t page, const char *s) {
     i2cStop();
   }
 }
-uint16_t hashStr(const char *s, uint16_t h) { while (*s) h = h * 31 + (uint8_t)*s++; return h; }
+__attribute__((noinline)) uint16_t hashStr(const char *s, uint16_t h) { while (*s) h = h * 31 + (uint8_t)*s++; return h; }
 
 // =====================================================================================
 // Stato: lo decide Arduino da solo, così gli indicatori funzionano anche lontano dal telefono
@@ -870,7 +872,7 @@ void chirp(uint8_t n, unsigned int ms) {
 }
 
 // ogni 100 ms: stato, LED, cicalino, display
-void statusTick() {
+__attribute__((noinline)) void statusTick() {
   unsigned long now = millis();
   if (now - stTick < 100) return;
   stTick = now;
@@ -1108,7 +1110,7 @@ void parseNmea(char *line) {
     }
   }
 }
-void pollGps() {
+__attribute__((noinline)) void pollGps() {
   if (!gpsSerial) return;
   while (gpsSerial->available() > 0) {
     char c = (char)gpsSerial->read();
@@ -1327,7 +1329,7 @@ void stopAll() {
 
 // ---------- lettura di uno slot ----------
 // Restituisce false se la lettura va rimandata (DHT mentre il GPS sta trasmettendo, HX711 non pronto).
-void markBad(Slot &s, bool bad, uint8_t after, uint8_t level) {
+__attribute__((noinline)) void markBad(Slot &s, bool bad, uint8_t after, uint8_t level) {
   if (!bad) { s.bad = 0; s.issue = 0; return; }
   if (s.bad < 255) s.bad++;
   if (s.bad >= after) s.issue = level;
@@ -1603,9 +1605,9 @@ unsigned long sdSyncMs = 0;
 
 uint16_t rd16(const uint8_t *p) { return p[0] | (p[1] << 8); }
 uint32_t rd32(const uint8_t *p) { return rd16(p) | ((uint32_t)rd16(p + 2) << 16); }
-void wr32(uint8_t *p, uint32_t v) { for (uint8_t i = 0; i < 4; i++) { p[i] = (uint8_t)v; v >>= 8; } }
+__attribute__((noinline)) void wr32(uint8_t *p, uint32_t v) { for (uint8_t i = 0; i < 4; i++) { p[i] = (uint8_t)v; v >>= 8; } }
 
-uint8_t spiX(uint8_t b) { return SPI.transfer(b); }
+__attribute__((noinline)) uint8_t spiX(uint8_t b) { return SPI.transfer(b); }
 bool sdWaitFF(unsigned int ms) {
   unsigned long t = millis();
   while (spiX(0xFF) != 0xFF) if (millis() - t > ms) return false;
@@ -1646,7 +1648,7 @@ bool sdInit() {
   sdCached = 0xFFFFFFFF;
   return true;
 }
-uint32_t sdAddr(uint32_t lba) { return sdHc ? lba : lba << 9; }
+__attribute__((noinline)) uint32_t sdAddr(uint32_t lba) { return sdHc ? lba : lba << 9; }
 bool sdRead(uint32_t lba) {
   bool ok = false;
   sdCached = 0xFFFFFFFF;
@@ -1713,7 +1715,7 @@ uint8_t sdMount() {
   }
   return sdIoErr ? 1 : 0;
 }
-uint32_t clusLba(uint32_t c) { return sdData + (c - 2) * sdSpc; }
+__attribute__((noinline)) uint32_t clusLba(uint32_t c) { return sdData + (c - 2) * sdSpc; }
 uint32_t fatGet(uint32_t c) {
   if (!sdLoad(sdFat + (c >> 7))) return 0x0FFFFFFFUL;
   return rd32(sdBuf + ((c & 127) << 2)) & 0x0FFFFFFFUL;
@@ -1885,7 +1887,7 @@ void setAppLine(char *args) {
   else { strncpy(appSmall, txt, 10); appSmall[10] = 0; }
 }
 
-void handleCommand(char *cmd) {
+__attribute__((noinline)) void handleCommand(char *cmd) {
   if (!cmd[0]) return;                  // righe vuote (disturbi sulla linea): non sono l'app
   bootWait = false;                     // c'è l'app: niente registrazione automatica
   if (sdOn) logStop(false);             // e quella in corso si chiude
