@@ -59,7 +59,8 @@
         OLED  p1 = SDA, p2 = SCL (SSD1306 64×32 0,49", I2C 0x3C)
         RGB   p1 = R, p2 = G, p3 = B; opz bit0 = anodo comune
         BUZ   p1; opz bit0 = cicalino passivo, bit1 = bip finché non è tutto pronto, bit2 = bip di conferma
-              (con un BTN: in attesa tace, mentre registra fa un «tic» più grave ogni 5 s)
+              (con un BTN: in attesa tace, mentre registra fa un «tic» più grave ogni 5 s);
+              passivo: stato e problemi 2700 Hz, avvio/arresto 1800 Hz, tic 1000 Hz
         BTN   p1 = pulsante tra il pin e GND (pull-up interno, antirimbalzo 30 ms)
         SD    p1 = CS del modulo microSD (MOSI D11, MISO D12, SCK D13 fissi; D10 riservato);
               opz bit0 = registra appena acceso (vale solo senza pulsante)
@@ -853,9 +854,10 @@ void rgbSet(const Out &o, uint8_t rgb) {
   }
 }
 // tone(pin, f) e noTone(pin) del core, ridotti a quello che fanno sull'Uno (un solo pin alla
-// volta, timer 2) con due note fisse: 16 MHz / f / 2 → prescaler 32, OCR2A = 91 (2700 Hz, i segnali
-// di stato) o 184 (1350 Hz, il «tic» della registrazione, più grave). Stessi registri, nello stesso
-// ordine; il pin si inverte a ogni confronto (durata infinita).
+// volta, timer 2) con tre note fisse, una per segnale: 16 MHz / f / 2 → prescaler 32, OCR2A = 91
+// (2700 Hz, acuta: i segnali di stato e i problemi), 138 (1800 Hz: il bip di avvio e arresto) o 249
+// (1000 Hz, grave: il «tic» della registrazione). Solo un cicalino passivo cambia nota: quello attivo
+// suona sempre la sua. Stessi registri, nello stesso ordine; il pin si inverte a ogni confronto.
 uint8_t tonePin = 255;                  // come tone_pins[0] del core: 255 = libero
 volatile uint8_t *tonePort;
 uint8_t toneMask;
@@ -892,7 +894,7 @@ void buzz(const Out &o, bool on) {
 }
 // bip di conferma (bloccante ma breve): n bip da ms millisecondi
 void chirp(uint8_t n, unsigned int ms) {
-  toneOcr = 91;
+  toneOcr = 138;
   for (uint8_t i = 0; i < MAX_OUTS; i++) {
     if (outs[i].type != O_BUZ || !(outs[i].opt & 4)) continue;
     for (uint8_t k = 0; k < n; k++) { buzz(outs[i], true); delay(ms); buzz(outs[i], false); if (k + 1 < n) delay(70); }
@@ -933,7 +935,7 @@ __attribute__((noinline)) void statusTick() {
     if (o.type == O_RGB) rgbSet(o, col);
     else if (o.type == O_BUZ) {
       bool want = (o.opt & 2) && beepNow && mode != SCOPE;
-      if (want != buzzOn) { toneOcr = tic ? 184 : 91; buzz(o, want); }
+      if (want != buzzOn) { toneOcr = tic ? 249 : 91; buzz(o, want); }
     }
   }
   static uint8_t oledDiv = 0;

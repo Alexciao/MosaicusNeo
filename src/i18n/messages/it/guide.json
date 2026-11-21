@@ -517,6 +517,7 @@
     },
     "buzzerNote": "<b>Finché il cicalino fa bip, qualcosa non è pronto.</b> Quando tace, Arduino sta misurando regolarmente.",
     "buttonBeep": "<b>Con un pulsante Avvia/Ferma è diverso</b>, perché Arduino resta acceso a lungo e registra solo ogni tanto: in attesa tace, e mentre registra fa un «tic» breve ogni 5 s, più grave e più lento dei bip dei problemi (con un cicalino passivo è anche una nota più bassa). I bip dei problemi restano gli stessi.",
+    "notes": "<b>Tre note, con un cicalino passivo:</b> i bip dei problemi e dello stato sono acuti (2700 Hz), quelli all'avvio e all'arresto della misura stanno in mezzo (1800 Hz), il «tic» della registrazione è grave (1000 Hz). Un cicalino attivo ha una sua nota fissa: distingue i segnali solo dal ritmo. Per sentire le tre note usa un cicalino passivo e scegli «passivo» in «Tipo».",
     "gpsTitle": "GPS in ricerca",
     "gpsText": "Appena acceso, o al chiuso, il GPS cerca i satelliti: giallo, 2 bip, e sul display il numero di satelliti visti. All'aperto il fix arriva in 30 secondi o qualche minuto. Se dal GPS non arriva alcun dato, controlla i fili: rosso, 3 bip, «GPS wires?».",
     "multiTitle": "Più sensori, configurazione e Bluetooth",

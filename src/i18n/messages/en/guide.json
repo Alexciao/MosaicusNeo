@@ -517,6 +517,7 @@
     },
     "buzzerNote": "<b>As long as the buzzer beeps, something isn't ready.</b> When it's silent, Arduino is measuring normally.",
     "buttonBeep": "<b>With a Start/Stop button it's different</b>, because Arduino stays on for a long time and records only now and then: while waiting it's silent, and while recording it gives a short tick every 5 s, lower and slower than the problem beeps (on a passive buzzer it's also a lower note). The problem beeps stay the same.",
+    "notes": "<b>Three notes, with a passive buzzer:</b> problems and status beeps are high (2700 Hz), the beeps when a measurement starts and stops are in the middle (1800 Hz), the recording tick is low (1000 Hz). An active buzzer has its own fixed note: it tells the signals apart only by rhythm. To hear the three notes, use a passive buzzer and set its “Type” to passive.",
     "gpsTitle": "GPS searching",
     "gpsText": "Right after power-on, or indoors, the GPS searches for satellites: yellow, 2 beeps, and the display shows the number of satellites in view. Outdoors the fix arrives within 30 seconds to a few minutes. If no data at all arrive from the GPS, check the wires: red, 3 beeps, “GPS wires?”.",
     "multiTitle": "Several sensors, configuration and Bluetooth",

@@ -277,7 +277,7 @@ export function DeviceMirror() {
       {/* LED e cicalino disegnati come i componenti veri; le descrizioni restano per chi usa uno screen reader */}
       {has("rgb") && <LedPart color={led.color} on={ledOn} label={t(`led.${device.st}`)} />}
       {buzzer && (
-        <BuzzerPart st={device.st} plan={{ beeps, tic }} passive={buzzer.options.kind === "passive"} simulated={linkKind === "simulatore"}
+        <BuzzerPart st={device.st} plan={{ beeps, tic }} passive={buzzer.options.kind === "passive"} confirm={buzzer.options.confirm !== "no"} simulated={linkKind === "simulatore"}
           label={beeps ? t("beeps", { n: beeps }) : tic ? t("tic") : t("noBeeps")} />
       )}
       {!has("oled") && !has("rgb") && !has("buzzer") && <span>{SENSORS.oled.title}</span>}

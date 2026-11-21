@@ -34,18 +34,23 @@ export function LedPart({ color, on, label }: { color: string; on: boolean; labe
 // ---------------------------------------------------------------------------
 // Il ritmo del cicalino, come nel firmware (statusTick): gruppi di 1–3 bip da 90 ms ogni 3 s (passo
 // 200 ms) contati dal cambio di stato; oppure, con il pulsante e mentre registra, un «tic» grave da
-// 100 ms ogni 5 s, sfasato di 2,5 s.
+// 100 ms ogni 5 s, sfasato di 2,5 s. In più i bip di conferma (chirp): due da 60 ms all'avvio, uno da
+// 350 ms all'arresto. Con un cicalino passivo ognuno ha la sua nota.
 // ---------------------------------------------------------------------------
 export interface BeepPlan { beeps: number; tic: boolean }
-interface Beep { start: number; dur: number; low: boolean }
+type BeepKind = "status" | "confirm" | "tic";
+interface Beep { start: number; dur: number; kind: BeepKind }
+/** Le note del firmware per un cicalino passivo (OCR2A 91, 138, 249); quello attivo ha una nota sola. */
+const NOTE: Record<BeepKind, number> = { status: 2700, confirm: 1800, tic: 1000 };
+const ACTIVE_NOTE = 2300;
 
-function beepsBetween(plan: BeepPlan, anchor: number, from: number, to: number): Beep[] {
-  const out: Beep[] = [];
+function beepsBetween(plan: BeepPlan, anchor: number, from: number, to: number, chirps: Beep[] = []): Beep[] {
+  const out: Beep[] = chirps.filter((b) => b.start + b.dur >= from && b.start <= to);
   if (plan.tic) {
     for (let c = Math.max(0, Math.floor((from - anchor - 2500) / 5000)); ; c++) {
       const s = anchor + 2500 + c * 5000;
       if (s > to) break;
-      if (s + 100 >= from) out.push({ start: s, dur: 100, low: true });
+      if (s + 100 >= from) out.push({ start: s, dur: 100, kind: "tic" });
     }
   } else if (plan.beeps > 0) {
     for (let c = Math.max(0, Math.floor((from - anchor) / 3000)); ; c++) {
@@ -53,14 +58,14 @@ function beepsBetween(plan: BeepPlan, anchor: number, from: number, to: number):
       if (base > to) break;
       for (let i = 0; i < plan.beeps; i++) {
         const s = base + i * 200;
-        if (s + 90 >= from && s <= to) out.push({ start: s, dur: 90, low: false });
+        if (s + 90 >= from && s <= to) out.push({ start: s, dur: 90, kind: "status" });
       }
     }
   }
-  return out;
+  return out.sort((a, b) => a.start - b.start);
 }
 
-// suono: un'onda quadra breve, come un cicalino (passivo: 2700 Hz e 1350 Hz per il tic; attivo: una nota sola)
+// suono: un'onda quadra breve, come un cicalino (passivo: una nota per segnale; attivo: sempre la stessa)
 let audioCtx: AudioContext | null = null;
 function audio() {
   if (!audioCtx) {
@@ -77,7 +82,7 @@ function play(b: Beep, passive: boolean) {
   const at = a.currentTime + Math.max(0, (b.start - performance.now()) / 1000), len = b.dur / 1000;
   const o = a.createOscillator(), g = a.createGain();
   o.type = "square";
-  o.frequency.value = passive ? (b.low ? 1350 : 2700) : 2300;
+  o.frequency.value = passive ? NOTE[b.kind] : ACTIVE_NOTE;
   g.gain.setValueAtTime(0, at);
   g.gain.linearRampToValueAtTime(0.03, at + 0.004);
   g.gain.setValueAtTime(0.03, at + len - 0.006);
@@ -91,28 +96,38 @@ const SOUND_KEY = "mirrorSound";
 
 /** Il cicalino: disegnato, con le onde sonore mentre suona, il conto alla rovescia per il prossimo bip e
  *  il suono vero su questo dispositivo (di serie solo con il simulatore: con Arduino suona già il suo). */
-export function BuzzerPart({ st, plan, passive, simulated, label }: { st: string; plan: BeepPlan; passive: boolean; simulated: boolean; label: string }) {
+export function BuzzerPart({ st, plan, passive, confirm, simulated, label }: { st: string; plan: BeepPlan; passive: boolean; confirm: boolean; simulated: boolean; label: string }) {
   const t = useTranslations("app.device");
   const [sound, setSound] = useState(() => prefs.get<Record<string, boolean>>(SOUND_KEY, {})[simulated ? "sim" : "board"] ?? simulated);
   const [view, setView] = useState<{ on: boolean; low: boolean; next: number | null }>({ on: false, low: false, next: null });
   const soundRef = useRef(sound);
   useEffect(() => { soundRef.current = sound; }, [sound]);
+  // il cambio di stato più recente (da → a): resta uguale se l'effetto riparte senza un cambio vero
+  const trans = useRef<{ st: string | null; prev: string | null; at: number }>({ st: null, prev: null, at: 0 });
 
   // il giro ricomincia a ogni cambio di stato, come nel firmware
   const key = `${st}:${plan.beeps}:${plan.tic}`;
   useEffect(() => {
-    const anchor = performance.now(), queued = new Set<number>();
+    const t0 = performance.now(), queued = new Set<number>();
+    // bip di conferma al cambio di stato, come chirp() nel firmware: blocca Arduino, poi riparte il giro
+    const rec = (x: string | null) => x === "T" || x === "L";
+    if (trans.current.st !== st) trans.current = { st, prev: trans.current.st, at: t0 };
+    const prev = t0 - trans.current.at < 300 ? trans.current.prev : null;
+    const chirps: Beep[] = !confirm || prev == null || rec(prev) === rec(st) ? []
+      : rec(st) ? [{ start: t0, dur: 60, kind: "confirm" }, { start: t0 + 130, dur: 60, kind: "confirm" }]
+      : [{ start: t0, dur: 350, kind: "confirm" }];
+    const anchor = t0 + (chirps.length ? chirps.at(-1)!.start + chirps.at(-1)!.dur - t0 : 0);
     let raf = 0, last = "";
     const frame = () => {
       const now = performance.now();
       // le onde restano visibili almeno 250 ms, così anche un bip da 90 ms si vede
-      const cur = beepsBetween(plan, anchor, now - 250, now).find((b) => b.start <= now);
+      const cur = beepsBetween(plan, anchor, now - 250, now, chirps).findLast((b) => b.start <= now);
       const next = beepsBetween(plan, anchor, now, now + 6000).find((b) => b.start > now);
-      const v = { on: !!cur, low: !!cur?.low, next: next ? Math.ceil((next.start - now) / 100) / 10 : null };
+      const v = { on: !!cur, low: cur?.kind === "tic", next: next ? Math.ceil((next.start - now) / 100) / 10 : null };
       const sig = `${v.on}${v.low}${v.next}`;
       if (sig !== last) { last = sig; setView(v); }
       if (soundRef.current) {
-        for (const b of beepsBetween(plan, anchor, now, now + 200)) {
+        for (const b of beepsBetween(plan, anchor, now, now + 200, chirps)) {
           if (b.start >= now && !queued.has(b.start)) { queued.add(b.start); play(b, passive); }
         }
       }
@@ -121,7 +136,7 @@ export function BuzzerPart({ st, plan, passive, simulated, label }: { st: string
     raf = requestAnimationFrame(frame);
     return () => cancelAnimationFrame(raf);
     // eslint-disable-next-line react-hooks/exhaustive-deps -- key riassume st e plan
-  }, [key, passive]);
+  }, [key, passive, confirm]);
 
   const toggle = () => {
     const v = !sound;

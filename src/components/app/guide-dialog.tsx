@@ -626,6 +626,7 @@ function Outputs() {
       </div>
       <Note>{t.rich("buzzerNote", tags)}</Note>
       <Note>{t.rich("buttonBeep", tags)}</Note>
+      <Note>{t.rich("notes", tags)}</Note>
       <H>{t("gpsTitle")}</H>
       <P>{t("gpsText")}</P>
       <H>{t("multiTitle")}</H>
