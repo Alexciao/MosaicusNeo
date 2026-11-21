@@ -291,6 +291,9 @@ const ldr: SensorDef = {
     { key: "orientation", label: t("sensors.catalog.ldr.orientation"), type: "select", value: "ldr5v",
       options: [["ldr5v", t("sensors.catalog.ldr.ldr5v")], ["ldrgnd", t("sensors.catalog.ldr.ldrgnd")]] },
   ],
+  // il firmware legge un ANA come la tensione generica e ignora l'opzione: bit0 dice «è una fotoresistenza»,
+  // bit1 come è montata. Serve all'import della scheda SD e al simulatore.
+  fwOpt: (o) => 1 | (o.orientation === "ldrgnd" ? 2 : 0),
   quantities: () => [{ key: "light", digits: 1, line: true, primary: true }, { key: "adc", digits: 1, raw: true }],
   parse([adc], o) {
     if (!Number.isFinite(adc)) return null;

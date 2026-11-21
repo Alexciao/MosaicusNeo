@@ -57,9 +57,10 @@ const BY_FW: Record<string, SensorType> = { NTC: "ntc", ANA: "analog", DHT: "dht
 /** Ricostruisce i sensori dalla configurazione scritta nel file (con le opzioni di serie). */
 export function sensorsFromCfg(cfg: SdCfg[]): SensorInstance[] {
   return cfg.flatMap((k) => {
-    const type = BY_FW[k.type];
+    const type = k.type === "ANA" && k.opt & 1 ? "ldr" : BY_FW[k.type];
     if (!type) return [];
     const options: Record<string, string> = {};
+    if (type === "ldr") options.orientation = k.opt & 2 ? "ldrgnd" : "ldr5v";
     if (type === "dht") options.model = k.opt === 22 ? "dht22" : "dht11";
     if (type === "gate") { options.blocked = k.opt & 1 ? "low" : "high"; options.pullup = k.opt & 2 ? "yes" : "no"; }
     if (type === "imu") { options.range = ["2", "4", "8", "16"][k.opt & 3]; options.addr = k.opt & 4 ? "69" : "68"; }
