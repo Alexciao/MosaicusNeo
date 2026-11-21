@@ -1,6 +1,8 @@
 {
   "sd": {
     "import": "Import from SD card",
+    "pickerNeo": "MosaicusNeo Measurement",
+    "pickerCsv": "Older firmware measurement (CSV)",
     "step1": "<b>Prepare, once per lab.</b> With Arduino connected by USB cable, “Prepare Arduino” sends it the sensors, pins and rates, saves them (they stay even when it’s off) and tests the card.",
     "step2": "<b>Record.</b> Unplug the cable and power Arduino from a power bank or a 9 V battery. {detail}",
     "step2Button": "Press the button to start and press it again to stop: each recording is a new file.",

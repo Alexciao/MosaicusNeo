@@ -9,15 +9,40 @@ import { Button } from "@/components/ui/button";
 import { useLab, prepareSd, importSdFiles } from "@/lib/lab-store";
 import { cn } from "@/lib/utils";
 
+// File System Access API (Chrome, Edge): non ancora nei tipi DOM di TypeScript
+type OpenFilePicker = (o: {
+  id?: string; multiple?: boolean; excludeAcceptAllOption?: boolean;
+  types?: { description: string; accept: Record<string, string[]> }[];
+}) => Promise<{ getFile(): Promise<File> }[]>;
+
 /** Bottone che apre la scelta dei file della scheda SD e li importa nel Quaderno. */
 export function SdImportButton({ size = "sm", variant = "outline", className }: { size?: "sm" | "xs"; variant?: "outline" | "ghost"; className?: string }) {
   const t = useTranslations("rig.sd");
   const input = useRef<HTMLInputElement>(null);
+  // Dove c'è showOpenFilePicker il filtro ha un nome nostro («Misura MosaicusNeo (*.neo)»);
+  // con <input type="file"> Windows mostra sempre «File personalizzati» e non si può cambiare.
+  const pick = async () => {
+    const open = (window as unknown as { showOpenFilePicker?: OpenFilePicker }).showOpenFilePicker;
+    if (!open) return input.current?.click();
+    try {
+      const handles = await open({
+        id: "sd-import", multiple: true,
+        types: [
+          { description: t("pickerNeo"), accept: { "application/octet-stream": [".neo"] } },
+          { description: t("pickerCsv"), accept: { "text/csv": [".csv"] } },
+        ],
+      });
+      const files = await Promise.all(handles.map((h) => h.getFile()));
+      if (files.length) void importSdFiles(files);
+    } catch (e) {
+      if ((e as Error)?.name !== "AbortError") input.current?.click(); // annullato: niente; altro errore: il vecchio modo
+    }
+  };
   return (
     <>
-      <input ref={input} type="file" accept=".neo,.NEO,.csv,.CSV,text/csv,text/plain" multiple hidden
+      <input ref={input} type="file" accept=".neo,.csv" multiple hidden
         onChange={(e) => { const files = [...(e.target.files ?? [])]; e.target.value = ""; if (files.length) void importSdFiles(files); }} />
-      <Button size={size} variant={variant} className={className} onClick={() => input.current?.click()}><FolderInput /> {t("import")}</Button>
+      <Button size={size} variant={variant} className={className} onClick={() => void pick()}><FolderInput /> {t("import")}</Button>
     </>
   );
 }

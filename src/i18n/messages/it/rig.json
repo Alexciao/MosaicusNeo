@@ -1,6 +1,8 @@
 {
   "sd": {
     "import": "Importa dalla scheda SD",
+    "pickerNeo": "Misura MosaicusNeo",
+    "pickerCsv": "Misura dei firmware precedenti (CSV)",
     "step1": "<b>Prepara, una volta per lab.</b> Arduino collegato con il cavo USB: «Prepara Arduino» gli manda sensori, pin e ritmi, li salva (restano anche da spento) e prova la scheda.",
     "step2": "<b>Registra.</b> Stacca il cavo e alimenta Arduino con un power bank o una pila da 9 V. {detail}",
     "step2Button": "Premi il pulsante per iniziare, premilo di nuovo per fermare: ogni registrazione è un file nuovo.",
