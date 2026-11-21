@@ -1,3 +1,5 @@
+<p align="center"><b>English</b> · <a href="README.it.md">Italiano</a></p>
+
 <p align="center">
   <img src="public/icons/mark.svg" width="72" alt="" />
 </p>
