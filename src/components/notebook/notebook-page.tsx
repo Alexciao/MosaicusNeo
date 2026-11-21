@@ -1,9 +1,9 @@
 "use client";
 // Quaderno: tutte le misure salvate, da cercare, filtrare, riaprire o mandare a Elaborazione.
 
-import { useDeferredValue, useMemo, useState } from "react";
+import { createElement, useDeferredValue, useMemo, useState } from "react";
 import {
-  BookOpen, CloudCheck, CloudUpload, Combine, Ellipsis, FileSpreadsheet, FileText, Pencil, Search, Trash,
+  BookOpen, CloudCheck, Layers, CloudUpload, Combine, Ellipsis, FileSpreadsheet, FileText, Pencil, Search, Trash,
 } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
@@ -12,7 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import {
-  useLab, openSession, removeSession, removeSessions, renameSession, sendSessionToElab, exportSession, goElab, showPage, combineSessions, canCombine, type SessionSummary,
+  useLab, labInfo, openSession, removeSession, removeSessions, renameSession, sendSessionToElab, exportSession, goElab, showPage, combineSessions, canCombine, type SessionSummary,
 } from "@/lib/lab-store";
 import { useWorkbench } from "@/lib/workbench-store";
 import { useCloud } from "@/lib/cloud/sync";
@@ -20,6 +20,8 @@ import { confirm } from "@/lib/confirm";
 import { fmtVal } from "@/lib/prefs";
 import { SdImportButton } from "@/components/app/sd-controls";
 import { PageHeader, EmptyState, PAGE } from "@/components/app/page-header";
+import { toneFg } from "@/components/app/tone";
+import { cn } from "@/lib/utils";
 import { t as tr, intlLocale, locale } from "@/i18n";
 
 type Sort = "new" | "old" | "name" | "size";
@@ -49,6 +51,7 @@ function duration(s: number) {
 export function NotebookPage() {
   const t = useTranslations("workbench.notebook");
   const sessions = useLab((s) => s.sessions);
+  const customRigs = useLab((s) => s.customRigs);
   const [q, setQ] = useState("");
   const [lab, setLab] = useState("all");
   const [src, setSrc] = useState<Src>("all");
@@ -112,8 +115,15 @@ export function NotebookPage() {
             <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder={t("search")} aria-label={t("searchAria")} className="bg-card pl-8" />
           </div>
           <Select value={lab} onValueChange={(v) => v && setLab(String(v))} items={labItems}>
-            <SelectTrigger aria-label={t("filterLab")} className="bg-card sm:w-44"><SelectValue /></SelectTrigger>
-            <SelectContent>{Object.entries(labItems).map(([k, v]) => <SelectItem key={k} value={k}>{v}</SelectItem>)}</SelectContent>
+            <SelectTrigger aria-label={t("filterLab")} className="bg-card sm:w-44">
+              <LabIcon id={lab} customRigs={customRigs} />
+              <SelectValue className="truncate" />
+            </SelectTrigger>
+            <SelectContent>
+              {Object.entries(labItems).map(([k, v]) => (
+                <SelectItem key={k} value={k}><LabIcon id={k} customRigs={customRigs} /><span className="truncate">{v}</span></SelectItem>
+              ))}
+            </SelectContent>
           </Select>
           <Select value={src} onValueChange={(v) => v && setSrc(v as Src)} items={SOURCES}>
             <SelectTrigger aria-label={t("filterSource")} className="bg-card sm:w-44"><SelectValue /></SelectTrigger>
@@ -156,6 +166,13 @@ export function NotebookPage() {
       )}
     </div>
   );
+}
+
+/** L'icona del lab nel suo colore, come nella barra dei lab; «Tutti i lab»: un'icona neutra. */
+function LabIcon({ id, customRigs }: { id: string; customRigs: ReturnType<typeof useLab.getState>["customRigs"] }) {
+  if (id === "all") return <Layers className="size-4 text-muted-foreground" aria-hidden />;
+  const info = labInfo(id, customRigs);
+  return createElement(info.icon, { className: cn("size-4", toneFg[info.tone]), "aria-hidden": true });
 }
 
 function SessionRow({ s, showDate }: { s: SessionSummary; showDate: boolean }) {
