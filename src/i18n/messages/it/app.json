@@ -397,6 +397,8 @@
     "check": "Da controllare",
     "wiring": "Collegamenti",
     "component": "Componente",
+    "componentBlocked": "Ferma la misura per modificare i componenti",
+    "showResolved": "{n, plural, one {# problema risolto} other {# problemi risolti}}",
     "severity": {
       "error": "Errore",
       "search": "In attesa"

@@ -6,7 +6,7 @@
 
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
-import { ArrowRight, CircleAlert, CircleCheck, LoaderCircle, Plug, SlidersHorizontal, TriangleAlert, Volume1, Volume2, VolumeX, Wrench, X } from "lucide-react";
+import { ArrowRight, ChevronRight, CircleAlert, CircleCheck, LoaderCircle, Plug, SlidersHorizontal, TriangleAlert, Volume1, Volume2, VolumeX, Wrench, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useLab, resolved, showWiring, type DeviceStatus, showComponents } from "@/lib/lab-store";
 import { useDiag, diagDismiss, type Diag } from "@/lib/diagnostics";
@@ -39,6 +39,10 @@ export function Diagnostics() {
   const active = items.filter((d) => d.active).length;
   const errors = items.some((d) => d.active && d.tone === "error");
   const allOk = !active;
+  // finché qualcosa non va, i problemi già risolti si richiudono in fondo: in vista resta ciò che serve
+  const open = allOk ? list : list.filter((d) => d.active);
+  const solved = allOk ? [] : list.filter((d) => !d.active);
+  const row = (d: Diag) => <DiagRow key={d.id} d={d} sensor={rig.sensors.find((x) => x.id === d.sensorId)} running={running} />;
   const HeadIcon = allOk ? CircleCheck : errors ? CircleAlert : TriangleAlert;
   return (
     <section aria-label={t("title")}
@@ -54,9 +58,17 @@ export function Diagnostics() {
         )}
       </header>
       {ended && !running && items.some((d) => !d.setup) && <p className="border-t px-3 py-1.5 text-xs text-muted-foreground">{t("after")}</p>}
-      <ul className="divide-y border-t">
-        {list.map((d) => <DiagRow key={d.id} d={d} sensor={rig.sensors.find((x) => x.id === d.sensorId)} running={running} />)}
-      </ul>
+      <ul className="divide-y border-t">{open.map(row)}</ul>
+      {solved.length > 0 && (
+        <details className="group border-t">
+          <summary className="flex cursor-pointer list-none items-center gap-1.5 px-3 py-1.5 text-xs text-muted-foreground hover:text-foreground [&::-webkit-details-marker]:hidden">
+            <ChevronRight aria-hidden className="size-3.5 transition-transform group-open:rotate-90" />
+            <CircleCheck aria-hidden className="size-3.5 text-success" />
+            {t("showResolved", { n: solved.length })}
+          </summary>
+          <ul className="divide-y border-t">{solved.map(row)}</ul>
+        </details>
+      )}
     </section>
   );
 }
@@ -88,6 +100,7 @@ function DiagRow({ d, sensor, running }: { d: Diag; sensor?: SensorInstance; run
             )}
             <span className={cn("rounded px-1.5 py-px text-[0.65rem] font-semibold",
               resolvedNow ? "bg-success/10 text-success" : d.tone === "error" ? "bg-destructive/10 text-destructive" : "bg-warning/15 text-warning")}>{state}</span>
+            <span className="ml-auto text-[0.7rem] text-muted-foreground tabular">{when}{d.repeats > 0 && ` · ${t("repeats", { n: d.repeats })}`}</span>
           </div>
           <p className={cn("text-sm", resolvedNow && "text-muted-foreground")}>
             {d.text}{resolvedNow && d.okText && <> <ArrowRight className="inline size-3.5 align-[-2px]" /> <span className="text-foreground">{d.okText}</span></>}
@@ -95,13 +108,15 @@ function DiagRow({ d, sensor, running }: { d: Diag; sensor?: SensorInstance; run
           {d.hint && !resolvedNow && (
             <p className="flex items-start gap-1.5 text-xs text-muted-foreground"><Wrench className="mt-px size-3.5 shrink-0" /><span><b className="font-medium text-foreground/80">{t("check")}:</b> {d.hint}</span></p>
           )}
-          <p className="text-[0.7rem] text-muted-foreground tabular">{when}{d.repeats > 0 && ` · ${t("repeats", { n: d.repeats })}`}</p>
         </div>
       </div>
       {!resolvedNow && (sensor || d.setup) && (
         <div className="flex shrink-0 gap-1.5 pl-6.5 sm:pl-0">
           {sensor && !def?.phone && <Button size="xs" variant="outline" onClick={showWiring}><Plug /> {t("wiring")}</Button>}
-          <Button size="xs" variant="ghost" disabled={running} onClick={showComponents}><SlidersHorizontal /> {t("component")}</Button>
+          {/* il title sul contenitore: un pulsante disabilitato non mostra il suo */}
+          <span title={running ? t("componentBlocked") : undefined}>
+            <Button size="xs" variant="ghost" disabled={running} onClick={showComponents}><SlidersHorizontal /> {t("component")}</Button>
+          </span>
         </div>
       )}
     </li>

@@ -397,6 +397,8 @@
     "check": "What to check",
     "wiring": "Wiring",
     "component": "Component",
+    "componentBlocked": "Stop the measurement to change the components",
+    "showResolved": "{n, plural, one {# resolved issue} other {# resolved issues}}",
     "severity": {
       "error": "Error",
       "search": "Waiting"
