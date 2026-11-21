@@ -130,6 +130,7 @@ const unsigned long ECHO_TIMEOUT_US = 30000UL;  // ~5 m andata e ritorno
 enum SensorType : uint8_t { S_NONE, S_NTC, S_ANA, S_DHT, S_SONAR, S_GPS, S_DS18, S_GATE, S_HX711, S_IMU, S_MLX, S_SPS };
 const uint8_t S_LAST = S_SPS;
 
+// i primi 8 byte vanno così come sono in EEPROM (cfgSave)
 struct Slot {
   uint8_t type;
   uint8_t pinA, pinB, opt;
@@ -143,9 +144,10 @@ Slot slots[MAX_SLOTS];
 
 // ---------- indicatori di stato ----------
 enum OutType : uint8_t { O_NONE, O_OLED, O_RGB, O_BUZ, O_BTN, O_SD };
-struct Out { uint8_t type; uint8_t p[3]; uint8_t opt; };
+struct Out { uint8_t type; uint8_t p[3]; uint8_t opt; };   // 5 byte, nello stesso ordine della EEPROM
 const uint8_t MAX_OUTS = 5;
 Out outs[MAX_OUTS];
+static_assert(sizeof(Out) == 5 && offsetof(Slot, intervalMs) == 4, "disposizione in EEPROM");
 Out *outFind(uint8_t t) { for (uint8_t i = 0; i < MAX_OUTS; i++) if (outs[i].type == t) return &outs[i]; return nullptr; }
 uint8_t outPin(uint8_t t) { Out *o = outFind(t); return o ? o->p[0] : 0; }
 // indirizzi in EEPROM (vedi in cima)
@@ -959,9 +961,9 @@ void outAdd(char *args) {
 void outsSave() {
   EEPROM.update(0, 'M'); EEPROM.update(1, 2);
   for (uint8_t i = 0; i < MAX_OUTS; i++) {
-    int b = E_OUTS + i * 5;
-    EEPROM.update(b, outs[i].type); EEPROM.update(b + 1, outs[i].p[0]); EEPROM.update(b + 2, outs[i].p[1]);
-    EEPROM.update(b + 3, outs[i].p[2]); EEPROM.update(b + 4, outs[i].opt);
+    // tipo, p1, p2, p3, opz: i 5 byte della struttura, in ordine
+    const uint8_t *o = (const uint8_t *)&outs[i];
+    for (uint8_t k = 0; k < 5; k++) EEPROM.update(E_OUTS + i * 5 + k, o[k]);
   }
   Serial.println(F("#ACK,OUT,SAVE"));
 }
@@ -974,7 +976,7 @@ void outsLoad() {
     Out &o = outs[i];
     o.type = EEPROM.read(b);
     if (o.type > O_SD) { o.type = O_NONE; continue; }
-    o.p[0] = EEPROM.read(b + 1); o.p[1] = EEPROM.read(b + 2); o.p[2] = EEPROM.read(b + 3); o.opt = EEPROM.read(b + 4);
+    for (uint8_t k = 1; k < 5; k++) ((uint8_t *)&o)[k] = EEPROM.read(b + k);   // p1, p2, p3, opz
     if (o.type != O_NONE) outApply(i);
   }
 }
@@ -1251,9 +1253,9 @@ void cfgSave(const char *id) {
   }
   for (uint8_t i = 0; i < MAX_SLOTS; i++) {
     const Slot &s = slots[i];
-    int b = E_SLOTS + i * 8;
-    EEPROM.update(b, s.type); EEPROM.update(b + 1, s.pinA); EEPROM.update(b + 2, s.pinB); EEPROM.update(b + 3, s.opt);
-    for (uint8_t k = 0; k < 4; k++) EEPROM.update(b + 4 + k, (uint8_t)(s.intervalMs >> (8 * k)));
+    // tipo, pinA, pinB, opz e l'intervallo (little endian come l'AVR): i primi 8 byte della struttura
+    const uint8_t *d = (const uint8_t *)&s;
+    for (uint8_t k = 0; k < 8; k++) EEPROM.update(E_SLOTS + i * 8 + k, d[k]);
   }
   Serial.println(F("#ACK,CFG,SAVE"));
 }
