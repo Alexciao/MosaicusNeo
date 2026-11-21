@@ -193,8 +193,16 @@ struct DataOut : public Print {
 
 void printTime(uint64_t us) {
   uint64_t rel = us - t0Us;
-  uint32_t ms = (uint32_t)(rel / 1000);
-  uint16_t frac = (uint16_t)(rel % 1000);
+  // rel / 1000 e rel % 1000 senza la divisione a 64 bit (costa ~200 byte): divisione in colonna
+  // a pezzi di 16 bit; il resto (< 1000) seguito da 16 bit sta sempre in 32 bit
+  const uint16_t *w = (const uint16_t *)&rel;   // AVR: little endian, w[3] è il pezzo più alto
+  uint32_t r = 0, ms = 0;
+  for (int8_t k = 3; k >= 0; k--) {
+    uint32_t x = (r << 16) | w[k];
+    ms = (ms << 16) | (uint16_t)(x / 1000);    // contano solo i 32 bit bassi del quoziente
+    r = x % 1000;
+  }
+  uint16_t frac = (uint16_t)r;
   dout.print(ms);
   dout.print('.');
   if (frac < 100) dout.print('0');
