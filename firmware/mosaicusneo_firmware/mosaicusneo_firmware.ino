@@ -926,26 +926,30 @@ void outsClear() {
   for (uint8_t i = 0; i < MAX_OUTS; i++) outs[i].type = O_NONE;
   oledIdx = -1;
 }
+// risposta di errore a OUT,ADD: «#ERR,OUT,<motivo>», e il motivo resta segnalato (stato C)
+void outErr(uint8_t why, const __FlashStringHelper *msg) { outBad = why; Serial.print(F("#ERR,OUT,")); Serial.println(msg); }
 void outAdd(char *args) {
   char *f[5]; uint8_t n = 0;
   f[n++] = args;
   for (char *p = args; *p && n < 5; p++) if (*p == ',') { *p = '\0'; f[n++] = p + 1; }
-  if (n < 5) { outBad = 6; Serial.println(F("#ERR,OUT,ARGS")); return; }
-  uint8_t t = strcmp_P(f[0], PSTR("OLED")) == 0 ? O_OLED : strcmp_P(f[0], PSTR("RGB")) == 0 ? O_RGB : strcmp_P(f[0], PSTR("BUZ")) == 0 ? O_BUZ
-            : strcmp_P(f[0], PSTR("BTN")) == 0 ? O_BTN : strcmp_P(f[0], PSTR("SD")) == 0 ? O_SD : O_NONE;
-  if (t == O_NONE) { outBad = 5; Serial.println(F("#ERR,OUT,TYPE")); return; }
+  if (n < 5) { outErr(6, F("ARGS")); return; }
+  static const char ONAMES[] PROGMEM = "OLED\0" "RGB\0" "BUZ\0" "BTN\0" "SD";   // nell'ordine di OutType
+  uint8_t t = O_NONE;
+  PGM_P nm = ONAMES;
+  for (uint8_t k = O_OLED; k <= O_SD; k++) { if (strcmp_P(f[0], nm) == 0) { t = k; break; } nm += strlen_P(nm) + 1; }
+  if (t == O_NONE) { outErr(5, F("TYPE")); return; }
   uint8_t np = t == O_RGB ? 3 : t == O_OLED ? 2 : 1;
   uint8_t pins[3];
   for (uint8_t k = 0; k < 3; k++) pins[k] = (uint8_t)atol(f[1 + k]);
   for (uint8_t k = 0; k < np; k++) {
-    if (pins[k] < 2 || pins[k] > 19) { outBad = 1; Serial.println(F("#ERR,OUT,PIN")); return; }
-    if (!outPinFree(pins[k], t == O_OLED)) { outBad = 3; Serial.println(F("#ERR,OUT,DUPLICATE")); return; }
+    if (pins[k] < 2 || pins[k] > 19) { outErr(1, F("PIN")); return; }
+    if (!outPinFree(pins[k], t == O_OLED)) { outErr(3, F("DUPLICATE")); return; }
   }
   // il modulo SD prende anche D10…D13 (SPI)
-  if (t == O_SD) for (uint8_t q = 10; q <= 13; q++) if (q != pins[0] && !outPinFree(q, false)) { outBad = 3; Serial.println(F("#ERR,OUT,DUPLICATE")); return; }
+  if (t == O_SD) for (uint8_t q = 10; q <= 13; q++) if (q != pins[0] && !outPinFree(q, false)) { outErr(3, F("DUPLICATE")); return; }
   int8_t slot = -1;
   for (uint8_t i = 0; i < MAX_OUTS; i++) if (outs[i].type == t || (slot < 0 && outs[i].type == O_NONE)) slot = i;
-  if (slot < 0) { outBad = 6; Serial.println(F("#ERR,OUT,FULL")); return; }
+  if (slot < 0) { outErr(6, F("FULL")); return; }
   Out &o = outs[slot];
   o.type = t; o.p[0] = pins[0]; o.p[1] = pins[1]; o.p[2] = pins[2]; o.opt = (uint8_t)atol(f[4]);
   outApply(slot);
