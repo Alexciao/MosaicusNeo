@@ -29,6 +29,7 @@
     "actionsFor": "Azioni per «{name}»",
     "rename": "Rinomina",
     "duplicate": "Duplica",
+    "share": "Condividi…",
     "delete": "Elimina",
     "deleteTitle": "Eliminare «{name}»?",
     "deleteDescription": "Le misure restano nel Quaderno.",
@@ -96,6 +97,48 @@
       "bike": "Bicicletta",
       "heart": "Battito",
       "leaf": "Foglia"
+    }
+  },
+  "share": {
+    "title": "Condividi «{name}»",
+    "description": "Con questo codice chiunque può ricreare il lab sul proprio dispositivo: nome, colore, icona, componenti con pin e impostazioni, e i grafici scelti. Le misure non sono incluse.",
+    "codeLabel": "Codice del lab",
+    "contents": "{n, plural, =0 {Nessun componente} one {# componente} other {# componenti}} · da incollare in «Nuovo lab» → «Importa»",
+    "copy": "Copia il codice",
+    "copied": "Copiato",
+    "copyFailed": "Copia non riuscita: seleziona il codice e copialo a mano.",
+    "download": "Scarica {ext}",
+    "saved": "Salvato {file}"
+  },
+  "newLab": {
+    "title": "Nuovo lab",
+    "description": "Scegli nome, colore e componenti, oppure importa un lab che ti hanno condiviso.",
+    "tabCreate": "Crea",
+    "tabImport": "Importa",
+    "name": "Nome del lab",
+    "namePlaceholder": "Nuovo lab",
+    "components": "Componenti",
+    "componentsEmpty": "Ancora nessun componente. Sono facoltativi: puoi aggiungerli anche dopo.",
+    "suggested": "Suggeriti",
+    "componentCount": "{n, plural, =0 {Nessun componente} one {# componente} other {# componenti}}",
+    "browseAll": "Sfoglia tutti i componenti",
+    "remove": "Togli {name}",
+    "cantAdd": "Impossibile aggiungere {name}",
+    "cancel": "Annulla",
+    "create": "Crea il lab",
+    "import": "Importa il lab",
+    "codeLabel": "Codice del lab",
+    "codePlaceholder": "Incolla un codice che inizia con NEO1.",
+    "dropHint": "…oppure trascina qui un file {ext}",
+    "chooseFile": "Scegli un file",
+    "created": "«{name}» creato",
+    "imported": "«{name}» importato",
+    "wiring": "Collegamenti",
+    "errors": {
+      "empty": "Incolla il codice di un lab.",
+      "format": "Questo non è un codice di lab valido: controlla di averlo copiato tutto.",
+      "version": "Questo codice viene da una versione più recente di MosaicusNeo: aggiorna l'app per importarlo.",
+      "noComponents": "Questo lab usa componenti che questa versione non conosce: aggiorna l'app per importarlo."
     }
   },
   "schematic": {

@@ -5,7 +5,7 @@
 
 import { useState } from "react";
 import type { LucideIcon } from "lucide-react";
-import { Check, ChevronDown, Copy, Ellipsis, Palette, Pencil, Plus, Search, Trash, X } from "lucide-react";
+import { ChevronDown, Copy, Ellipsis, Palette, Pencil, Plus, Search, Share2, Trash, X } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -16,14 +16,16 @@ import {
   SidebarContent, SidebarGroup, SidebarGroupContent, SidebarGroupLabel, SidebarHeader, SidebarInput, SidebarMenu, SidebarMenuAction, SidebarMenuButton, SidebarMenuItem, useSidebar,
 } from "@/components/ui/sidebar";
 import { PRESETS, PRESET_TOPICS, PHONE_PRESETS, COLLAPSED_TOPICS, INSTRUMENTS, TOPIC_TONE } from "@/lib/sensors/presets";
-import { DEFAULT_PROJECT_ICON, PROJECT_ICONS, PROJECT_TONES, isProjectIcon, projectIcon, projectTone, type ProjectIconKey } from "@/lib/sensors/project-look";
-import { useLab, selectLab, newRig, rigSummary, renameRigById, duplicateRig, deleteRig, setRigLook } from "@/lib/lab-store";
+import { DEFAULT_PROJECT_ICON, PROJECT_ICONS, isProjectIcon, projectIcon, projectTone, type ProjectIconKey } from "@/lib/sensors/project-look";
+import { useLab, selectLab, rigSummary, renameRigById, duplicateRig, deleteRig, setRigLook } from "@/lib/lab-store";
 import type { Rig } from "@/lib/sensors/rig";
 import type { Tone } from "@/lib/sensors/types";
 import { confirm } from "@/lib/confirm";
 import { prefs } from "@/lib/prefs";
 import { cn } from "@/lib/utils";
-import { toneDot, toneFg } from "./tone";
+import { toneFg } from "./tone";
+import { IconField, ToneField } from "./lab-look";
+import { ShareDialog, openNewLab } from "./lab-share";
 
 /** Dopo la scelta: sul telefono il cassetto si chiude. */
 function useClose() {
@@ -64,6 +66,7 @@ export function RigMenu({ rig, trigger, side = "right" }: { rig: Rig; trigger?: 
   const isOpen = useLab((s) => s.labId === rig.id);
   const [renaming, setRenaming] = useState(false);
   const [styling, setStyling] = useState(false);
+  const [sharing, setSharing] = useState(false);
   const [name, setName] = useState(rig.name);
   const busy = running && isOpen;
   return (
@@ -78,6 +81,7 @@ export function RigMenu({ rig, trigger, side = "right" }: { rig: Rig; trigger?: 
           <DropdownMenuItem onClick={() => { setName(rig.name); setRenaming(true); }}><Pencil /> {t("rename")}</DropdownMenuItem>
           <DropdownMenuItem onClick={() => setStyling(true)}><Palette /> {t("customize")}</DropdownMenuItem>
           <DropdownMenuItem disabled={running} onClick={() => duplicateRig(rig.id)}><Copy /> {t("duplicate")}</DropdownMenuItem>
+          <DropdownMenuItem onClick={() => setSharing(true)}><Share2 /> {t("share")}</DropdownMenuItem>
           <DropdownMenuSeparator />
           <DropdownMenuItem variant="destructive" disabled={busy}
             onClick={async () => { if (await confirm({ title: t("deleteTitle", { name: rig.name }), description: t("deleteDescription"), action: t("delete"), destructive: true })) deleteRig(rig.id); }}>
@@ -98,6 +102,7 @@ export function RigMenu({ rig, trigger, side = "right" }: { rig: Rig; trigger?: 
         </DialogContent>
       </Dialog>
       <LookDialog rig={rig} open={styling} onOpenChange={setStyling} />
+      <ShareDialog rig={rig} open={sharing} onOpenChange={setSharing} />
     </>
   );
 }
@@ -118,32 +123,8 @@ function LookDialog({ rig, open, onOpenChange }: { rig: Rig; open: boolean; onOp
           </DialogTitle>
         </DialogHeader>
         <div className="flex flex-col gap-5">
-          <div className="flex flex-col gap-2.5">
-            <p id={`tone-${rig.id}`} className="text-xs font-medium text-muted-foreground">{t("color")}</p>
-            <div className="grid w-fit grid-cols-6 gap-2" role="radiogroup" aria-labelledby={`tone-${rig.id}`}>
-              {PROJECT_TONES.map((c) => (
-                <button key={c} type="button" role="radio" aria-checked={c === tone} aria-label={t(`tones.${c}`)} title={t(`tones.${c}`)}
-                  onClick={() => setRigLook(rig.id, { tone: c })}
-                  className={cn("grid size-7 place-items-center rounded-full ring-offset-2 ring-offset-popover transition-shadow outline-none focus-visible:ring-2 focus-visible:ring-ring",
-                    toneDot[c], c === tone && "ring-2 ring-foreground")}>
-                  {c === tone && <Check className="size-3.5 text-white dark:text-zinc-950" strokeWidth={3} />}
-                </button>
-              ))}
-            </div>
-          </div>
-          <div className="flex flex-col gap-2.5">
-            <p id={`icon-${rig.id}`} className="text-xs font-medium text-muted-foreground">{t("icon")}</p>
-            <div className="grid grid-cols-8 gap-1" role="radiogroup" aria-labelledby={`icon-${rig.id}`}>
-              {(Object.entries(PROJECT_ICONS) as [ProjectIconKey, LucideIcon][]).map(([key, I]) => (
-                <button key={key} type="button" role="radio" aria-checked={key === iconKey} aria-label={t(`icons.${key}`)} title={t(`icons.${key}`)}
-                  onClick={() => setRigLook(rig.id, { icon: key })}
-                  className={cn("grid aspect-square place-items-center rounded-md transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring [&_svg]:size-4",
-                    key === iconKey ? cn("bg-foreground/[0.07]", toneFg[tone]) : "text-muted-foreground hover:bg-foreground/[0.04] hover:text-foreground")}>
-                  <I />
-                </button>
-              ))}
-            </div>
-          </div>
+          <ToneField id={rig.id} tone={tone} onChange={(c) => setRigLook(rig.id, { tone: c })} />
+          <IconField id={rig.id} icon={iconKey} tone={tone} onChange={(k) => setRigLook(rig.id, { icon: k })} />
         </div>
         <DialogFooter>
           <Button onClick={() => onOpenChange(false)}>{t("done")}</Button>
@@ -217,7 +198,7 @@ export function LabPicker() {
                 ))}
                 {!searching && (
                   <SidebarMenuItem>
-                    <SidebarMenuButton disabled={running} onClick={() => { newRig(); close(); }}
+                    <SidebarMenuButton disabled={running} onClick={() => { openNewLab(); close(); }}
                       className="h-8 gap-2.5 px-2 text-[13px] font-medium text-foreground/80 hover:bg-foreground/[0.04] hover:text-foreground dark:font-normal">
                       <Plus className="size-4! text-muted-foreground" aria-hidden /> <span>{t("newProject")}</span>
                     </SidebarMenuButton>

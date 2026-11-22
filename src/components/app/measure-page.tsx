@@ -7,7 +7,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Sidebar, SidebarInset, SidebarProvider, SidebarRail, SidebarTrigger } from "@/components/ui/sidebar";
 import { useLab, labInfo, needsArduino, hasMap, openGuide, showWiring, setLabsSidebar, addSensor, showComponents } from "@/lib/lab-store";
-import { SENSORS, pinName, type SensorType } from "@/lib/sensors/catalog";
+import { SENSORS, pinName } from "@/lib/sensors/catalog";
 import { sensorLabel, isPhoneRig, type SensorInstance } from "@/lib/sensors/rig";
 import { audioSupported } from "@/lib/mosaicus/audio.js";
 import { LabPicker, RigMenu } from "./lab-picker";
@@ -16,6 +16,7 @@ import { ChartCard } from "./chart-card";
 import { MapCard } from "./map-card";
 import { SidePanel } from "./side-panel";
 import { ComponentPicker } from "./rig-editor";
+import { NewLabDialog, QUICK_COMPONENTS } from "./lab-share";
 import { ComponentThumb } from "./board-diagram";
 import { canReachArduino } from "./connection-controls";
 import { toneBg, toneFg } from "./tone";
@@ -130,8 +131,6 @@ export function LabHeading({ onPick, onSensors }: { onPick: () => void; onSensor
   );
 }
 
-/** I componenti più usati, da aggiungere con un clic quando il progetto è vuoto. */
-const QUICK: SensorType[] = ["sonar", "ntc", "dht", "ldr", "button", "imu"];
 
 /** Progetto vuoto: non si può misurare. Un avviso (non un pannello qualsiasi) con i componenti
  *  più usati da aggiungere con un clic e il catalogo intero. */
@@ -148,7 +147,7 @@ function NoComponents({ onAll }: { onAll: () => void }) {
         </div>
       </div>
       <div className="flex flex-wrap items-center gap-2 sm:pl-7">
-        {QUICK.map((type) => (
+        {QUICK_COMPONENTS.map((type) => (
           <Button key={type} variant="outline" size="sm" disabled={running} onClick={() => addSensor(type)} className="bg-card pl-1.5"
             title={SENSORS[type].measures}>
             <span className="grid size-5 place-items-center" aria-hidden><ComponentThumb type={type} className="size-full" /></span>
@@ -204,6 +203,7 @@ export function MeasurePage() {
 
       {/* «Sfoglia tutti i componenti» dal progetto vuoto: il catalogo direttamente, senza il pannello */}
       <ComponentPicker open={picker} onOpenChange={setPicker} />
+      <NewLabDialog />
     </SidebarProvider>
   );
 }

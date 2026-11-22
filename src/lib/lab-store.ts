@@ -32,6 +32,7 @@ import { parseSdLog, cfgMatches, sensorsFromCfg } from "@/lib/sensors/sd-log";
 import { PRESETS, INSTRUMENTS, presetById, instrumentById, presetSensors, type Preset, type Instrument } from "@/lib/sensors/presets";
 import type { Row, Tone } from "@/lib/sensors/types";
 import { projectIcon, projectTone } from "@/lib/sensors/project-look";
+import type { LabDraft } from "@/lib/sensors/share";
 import { t, intlLocale } from "@/i18n";
 import { boardPlan } from "@/components/app/board-diagram";
 
@@ -584,6 +585,29 @@ export function newRig({ copy = false } = {}) {
   selectLab(rig.id);
   showComponents();
   return rig;
+}
+
+/** Un lab nuovo, già completo (dalla finestra «Nuovo lab» o da un codice condiviso), aperto subito. */
+export function createRig(draft: LabDraft) {
+  if (get().running) { toast(t("lab.toast.stopFirst")); return null; }
+  const rig = normalizeRig({
+    id: `rig-${newId()}`,
+    name: draft.name.trim() || t("lab.info.newProject"),
+    ...(draft.tone ? { tone: draft.tone } : {}),
+    ...(draft.icon ? { icon: draft.icon } : {}),
+    sensors: draft.sensors.map((s) => ({ ...s, id: newId(), options: { ...s.options }, pins: { ...s.pins } })),
+  });
+  if (draft.visible?.length) prefs.set(`mosaicus.visible.${rig.id}`, draft.visible);
+  const list = [...get().customRigs, rig];
+  set({ customRigs: list });
+  prefs.set("mosaicus.rigs", list);
+  selectLab(rig.id);
+  return rig;
+}
+/** I grafici scelti di un lab (per il codice di condivisione). */
+export function rigVisible(id: string): string[] {
+  if (get().rig.id === id) return get().visible;
+  return prefs.get<string[] | null>(`mosaicus.visible.${id}`, null) ?? [];
 }
 
 /** Rinomina un montaggio libero qualsiasi (anche non aperto). */
