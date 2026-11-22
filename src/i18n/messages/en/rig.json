@@ -299,7 +299,7 @@
     "mlxNoteBus": "It can share the same SDA and SCL pins as the display and the MPU-6050.",
     "mlxNoteCone": "It sees a cone of about 90°: the farther away, the larger the area it measures. For a small surface stay 1–2 cm away.",
     "mlxNoteMetal": "Shiny metal surfaces reflect the room’s infrared: cover them with matte tape or black paint and use ε = 0.95.",
-    "oledTitle": "0.49\" OLED display",
+    "oledTitle": "OLED display",
     "oledNote": "Check the order printed on the module: on some, VCC and GND are swapped.",
     "rgbTitle": "RGB LED",
     "commonAnode": "+ (common)",

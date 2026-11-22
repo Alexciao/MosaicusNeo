@@ -384,7 +384,7 @@ export function ModuleArt({ kind, options, x, y, w, h, uid }: { kind: string; op
           <rect x={x + 9} y={top + 4} width={w - 18} height={7} fill="#7dd3fc" />
           <text x={x + 11} y={top + 9.6} fontSize={5.2} fontWeight={700} fill="#020617" fontFamily="monospace">{t("rig.board.oledReady")}</text>
           <text x={x + w / 2} y={top + 24} textAnchor="middle" fontSize={10} fontWeight={700} fill="#7dd3fc" fontFamily="monospace">OK</text>
-          {label("OLED 0,49\"", y + h - 4, "#94a3b8", 5)}
+          {label(options?.size === "large" ? "OLED 0,96\"" : "OLED 0,49\"", y + h - 4, "#94a3b8", 5)}
         </g>
       );
     case "rgb": {

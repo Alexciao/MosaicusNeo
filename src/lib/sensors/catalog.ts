@@ -512,7 +512,9 @@ const oled: SensorDef = {
     { key: "a", role: "SDA", kind: "digital", def: 18, bus: "sda", note: t("sensors.catalog.usuallyA4") },
     { key: "b", role: "SCL", kind: "digital", def: 19, bus: "scl", note: t("sensors.catalog.usuallyA5") },
   ],
-  options: [],
+  // bit0: pannello 128×64 da 0,96" (dal firmware 2.1; i firmware più vecchi lo ignorano)
+  options: [{ key: "size", label: t("sensors.catalog.oled.size"), type: "select", value: "small", options: [["small", t("sensors.catalog.oled.small")], ["large", t("sensors.catalog.oled.large")]] }],
+  fwOpt: (o) => (o.size === "large" ? 1 : 0),
   wiring: (p) => [{ title: t("sensors.catalog.oled.wiringTitle"), pins: { sda: p.a, scl: p.b }, text: t("sensors.catalog.oled.wiring", { sda: p.a, scl: p.b }) }],
 };
 

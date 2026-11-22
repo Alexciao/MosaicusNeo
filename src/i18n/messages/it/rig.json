@@ -299,7 +299,7 @@
     "mlxNoteBus": "Può stare sugli stessi pin SDA e SCL del display e dell'MPU-6050.",
     "mlxNoteCone": "Vede un cono di circa 90°: più è lontano, più grande è la zona che misura. Per una superficie piccola stai a 1–2 cm.",
     "mlxNoteMetal": "Le superfici metalliche lucide riflettono l'infrarosso dell'ambiente: coprile con nastro adesivo opaco o vernice nera e usa ε = 0,95.",
-    "oledTitle": "Display OLED 0,49\"",
+    "oledTitle": "Display OLED",
     "oledNote": "Controlla l'ordine stampato sul modulo: su alcuni VCC e GND sono invertiti.",
     "rgbTitle": "LED RGB",
     "commonAnode": "+ (comune)",

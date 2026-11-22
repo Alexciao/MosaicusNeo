@@ -150,9 +150,12 @@
       "wiring": "VIN (or VCC) to 5V, GND to GND, SDA to {sda}, SCL to {scl}. The sensor sees a cone of about 90°: hold it close to the surface, a few centimeters away."
     },
     "oled": {
-      "title": "OLED display 64×32 (0.49\")",
+      "title": "OLED display (0.49\" or 0.96\")",
       "measures": "status and main value",
-      "description": "0.49\" I2C SSD1306 display (64×32 pixels): shows Arduino's status and, during a measurement, the time and the main value.",
+      "description": "I2C SSD1306 display, 0.49\" (64×32 pixels) or 0.96\" (128×64): shows Arduino's status and, during a measurement, the time and the main value.",
+      "size": "Display size",
+      "small": "0.49\" (64×32)",
+      "large": "0.96\" (128×64)",
       "wiringTitle": "OLED display",
       "wiring": "VCC (or VDD) to 5V, GND to GND, SDA to {sda}, SCL to {scl}."
     },

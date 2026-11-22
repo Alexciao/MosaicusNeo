@@ -56,7 +56,7 @@
                                                 W,<trig>,<dt_us>,<a0>,…,<a(n-1)>   (oscilloscopio su A0)
     OUT,CLEAR                                   #ACK,OUT,CLEAR
     OUT,ADD,<OLED|RGB|BUZ>,<p1>,<p2>,<p3>,<opz> #ACK,OUT,ADD,<tipo>   oppure   #ERR,OUT,<motivo>
-        OLED  p1 = SDA, p2 = SCL (SSD1306 64×32 0,49", I2C 0x3C)
+        OLED  p1 = SDA, p2 = SCL (SSD1306, I2C 0x3C); opz bit0 = 128×64 0,96" (altrimenti 64×32 0,49")
         RGB   p1 = R, p2 = G, p3 = B; opz bit0 = anodo comune
         BUZ   p1; opz bit0 = cicalino passivo, bit1 = bip finché non è tutto pronto, bit2 = bip di conferma
               (con un BTN: in attesa tace, mentre registra fa un «tic» più grave ogni 5 s);
@@ -125,7 +125,7 @@
 // __attribute__((noinline)) su alcune funzioni: misurato una per una, risparmia flash (senza, il
 // compilatore le ricopia in ogni punto in cui sono chiamate). Mai sulle funzioni a tempi stretti.
 
-#define FW_VERSION "2.0"          // stringa in flash, unita ai testi vicini (al massimo 4 caratteri: display)
+#define FW_VERSION "2.1"         // stringa in flash, unita ai testi vicini (al massimo 4 caratteri: display)
 
 const uint8_t MAX_SLOTS = 6;
 const uint8_t ADC_SAMPLES = 16;                 // sovracampionamento per ridurre il rumore
@@ -342,14 +342,23 @@ inline void lineRelease(uint8_t p) { pinMode(p, INPUT_PULLUP); }
 
 uint8_t i2cSda = 18, i2cScl = 19;
 __attribute__((noinline)) void i2cBus(uint8_t sda, uint8_t scl) { i2cSda = sda; i2cScl = scl; }
-void i2cStart() { lineRelease(i2cSda); lineRelease(i2cScl); delayMicroseconds(3); lineLow(i2cSda); delayMicroseconds(3); lineLow(i2cScl); }
-void i2cStop() { lineLow(i2cSda); lineRelease(i2cScl); delayMicroseconds(3); lineRelease(i2cSda); delayMicroseconds(3); }
+// Lascia salire SCL e aspetta che sia davvero alto: un dispositivo lento può tenerlo basso finché
+// non è pronto (clock stretching; l'MLX90614 lo fa). Senza questa attesa il bit si leggeva troppo
+// presto e ogni tanto una lettura andava persa. Al massimo ~3 ms, poi si va avanti comunque.
+// Il tempo alto resta breve: l'MLX90614 azzera la comunicazione se SCL resta alto più di ~45 µs.
+__attribute__((noinline)) void sclUp() {
+  lineRelease(i2cScl);
+  for (uint16_t n = 0; n < 600 && digitalRead(i2cScl) == LOW; n++) delayMicroseconds(4);
+  delayMicroseconds(2);
+}
+void i2cStart() { lineRelease(i2cSda); sclUp(); delayMicroseconds(2); lineLow(i2cSda); delayMicroseconds(3); lineLow(i2cScl); }
+void i2cStop() { lineLow(i2cSda); sclUp(); delayMicroseconds(2); lineRelease(i2cSda); delayMicroseconds(3); }
 bool i2cWrite(uint8_t b) {
   for (uint8_t m = 0x80; m; m >>= 1) {
     if (b & m) lineRelease(i2cSda); else lineLow(i2cSda);
-    lineRelease(i2cScl); delayMicroseconds(2); lineLow(i2cScl);
+    sclUp(); lineLow(i2cScl);
   }
-  lineRelease(i2cSda); lineRelease(i2cScl); delayMicroseconds(2);
+  lineRelease(i2cSda); sclUp();
   bool ack = digitalRead(i2cSda) == LOW;
   lineLow(i2cScl);
   return ack;
@@ -358,12 +367,12 @@ uint8_t i2cRead(bool ack) {
   uint8_t b = 0;
   lineRelease(i2cSda);
   for (uint8_t i = 0; i < 8; i++) {
-    lineRelease(i2cScl); delayMicroseconds(2);
+    sclUp();
     b = (b << 1) | (digitalRead(i2cSda) ? 1 : 0);
     lineLow(i2cScl);
   }
   if (ack) lineLow(i2cSda); else lineRelease(i2cSda);
-  lineRelease(i2cScl); delayMicroseconds(2); lineLow(i2cScl);
+  sclUp(); lineLow(i2cScl);
   lineRelease(i2cSda);
   return b;
 }
@@ -452,19 +461,24 @@ uint8_t crcSmbus(uint8_t c, uint8_t b) {
   for (uint8_t k = 0; k < 8; k++) c = (c & 0x80) ? (uint8_t)((c << 1) ^ 0x07) : (uint8_t)(c << 1);
   return c;
 }
+// Un disturbo isolato (un'interruzione nel momento sbagliato, un filo lungo) rovina una lettura ogni
+// tanto: si riprova subito una volta prima di darla per persa.
 bool mlxRead(const Slot &s, uint8_t reg, uint16_t &v) {
   i2cBus(s.pinA, s.pinB);
-  i2cStart();
-  if (!i2cWrite(MLX_ADDR << 1) || !i2cWrite(reg)) { i2cStop(); return false; }
-  i2cStart();
-  if (!i2cWrite((MLX_ADDR << 1) | 1)) { i2cStop(); return false; }
-  uint8_t lo = i2cRead(true), hi = i2cRead(true), pec = i2cRead(false);
-  i2cStop();
-  uint8_t c = crcSmbus(0, MLX_ADDR << 1);
-  c = crcSmbus(c, reg); c = crcSmbus(c, (MLX_ADDR << 1) | 1); c = crcSmbus(c, lo); c = crcSmbus(c, hi);
-  if (c != pec || (hi & 0x80)) return false;
-  v = ((uint16_t)hi << 8) | lo;
-  return true;
+  for (uint8_t t = 0; t < 2; t++) {
+    i2cStart();
+    if (!i2cWrite(MLX_ADDR << 1) || !i2cWrite(reg)) { i2cStop(); continue; }
+    i2cStart();
+    if (!i2cWrite((MLX_ADDR << 1) | 1)) { i2cStop(); continue; }
+    uint8_t lo = i2cRead(true), hi = i2cRead(true), pec = i2cRead(false);
+    i2cStop();
+    uint8_t c = crcSmbus(0, MLX_ADDR << 1);
+    c = crcSmbus(c, reg); c = crcSmbus(c, (MLX_ADDR << 1) | 1); c = crcSmbus(c, lo); c = crcSmbus(c, hi);
+    if (c != pec || (hi & 0x80)) continue;
+    v = ((uint16_t)hi << 8) | lo;
+    return true;
+  }
+  return false;
 }
 
 // ---------- SPS30 (polveri sottili, Sensirion) ----------
@@ -577,8 +591,9 @@ void gateFlush() {
 }
 
 // =====================================================================================
-// Display OLED SSD1306 64×32 (0,49"): niente buffer in RAM, si scrive pagina per pagina.
-// 4 righe da 8 pixel; il carattere 5×7 occupa 6 colonne → 10 caratteri per riga.
+// Display OLED SSD1306 64×32 (0,49") o 128×64 (0,96"): niente buffer in RAM, si scrive pagina per
+// pagina. Sul 64×32: 4 righe da 8 pixel, il carattere 5×7 occupa 6 colonne → 10 caratteri per riga.
+// Sul 128×64 lo stesso schermo, con ogni pixel raddoppiato.
 // =====================================================================================
 const uint8_t FONT[] PROGMEM = {
   0x00,0x00,0x00,0x00,0x00, 0x00,0x00,0x5F,0x00,0x00, 0x00,0x07,0x00,0x07,0x00, 0x14,0x7F,0x14,0x7F,0x14,
@@ -611,7 +626,10 @@ const uint8_t OLED_INIT[] PROGMEM = {
   0xAE, 0xD5, 0x80, 0xA8, 0x1F, 0xD3, 0x00, 0x40, 0x8D, 0x14, 0x20, 0x02,
   0xA1, 0xC8, 0xDA, 0x12, 0x81, 0xCF, 0xD9, 0xF1, 0xDB, 0x40, 0xA4, 0xA6, 0xAF,
 };
-const uint8_t OLED_ADDR = 0x3C, OLED_X0 = 32;     // il pannello 64×32 sta al centro della RAM 128×64
+const uint8_t OLED_ADDR = 0x3C;
+// scala del display: 1 = 64×32 (0,49"), 2 = 128×64 (0,96", opz bit0). Stesse tre righe, ingrandite:
+// il 64×32 sta al centro della RAM 128×64 (colonne 32…95), il 128×64 la usa tutta.
+uint8_t oledF = 1;
 
 int8_t oledIdx = -1;
 uint16_t oledHash[4];
@@ -624,8 +642,10 @@ bool oledCmd(uint8_t c) {
 }
 bool oledBegin(const Out &o) {
   i2cBus(o.p[0], o.p[1]);
+  oledF = (o.opt & 1) + 1;
   bool ok = true;
-  for (uint8_t i = 0; i < sizeof(OLED_INIT) && ok; i++) ok = oledCmd(pgm_read_byte(&OLED_INIT[i]));
+  // il quinto byte è il numero di righe meno uno: 0x1F (32) o 0x3F (64)
+  for (uint8_t i = 0; i < sizeof(OLED_INIT) && ok; i++) ok = oledCmd(i == 4 ? oledF * 32 - 1 : pgm_read_byte(&OLED_INIT[i]));
   for (uint8_t p = 0; p < 4; p++) oledHash[p] = 0xFFFF;
   return ok;
 }
@@ -635,40 +655,31 @@ __attribute__((noinline)) uint8_t glyphCol(char c, uint8_t k) {
   return pgm_read_byte(&FONT[(ch - 32) * 5 + k]);
 }
 void oledPageStart(uint8_t page) {
-  oledCmd(0xB0 | page); oledCmd(OLED_X0 & 0x0F); oledCmd(0x10 | (OLED_X0 >> 4));
+  uint8_t x0 = oledF == 1 ? 32 : 0;
+  oledCmd(0xB0 | page); oledCmd(x0 & 0x0F); oledCmd(0x10 | (x0 >> 4));
   i2cStart(); i2cWrite(OLED_ADDR << 1); i2cWrite(0x40);
 }
-// riga di testo piccolo (10 caratteri), eventualmente in negativo (barra in alto)
-void oledText(uint8_t page, const char *s, bool inv) {
-  oledPageStart(page);
-  uint8_t x = 0, m = inv ? 0xFF : 0x00;
-  bool end = false;
-  for (uint8_t i = 0; i < 10; i++) {
-    char c = end ? ' ' : s[i];
-    if (!c) { end = true; c = ' '; }
-    for (uint8_t k = 0; k < 5; k++) i2cWrite(glyphCol(c, k) ^ m);
-    i2cWrite(m); x += 6;
-  }
-  while (x++ < 64) i2cWrite(m);
-  i2cStop();
-}
-// due pagine di testo grande (caratteri 10×14, al massimo 5), centrato
-uint8_t dbl(uint8_t n) { uint8_t r = 0; for (uint8_t i = 0; i < 4; i++) if (n & (1 << i)) r |= 3 << (2 * i); return r; }
-void oledBig(uint8_t page, const char *s) {
-  uint8_t len = 0; while (len < 5 && s[len]) len++;
-  uint8_t w = len * 12, pad = (64 - w) / 2;
-  for (uint8_t half = 0; half < 2; half++) {
-    oledPageStart(page + half);
-    for (uint8_t x = 0; x < pad; x++) i2cWrite(0);
+// Una riga di testo, ingrandita sc volte (ogni pixel del carattere 5×7 diventa sc×sc, su sc pagine):
+//   piccola: sc = oledF, 10 caratteri allineati a sinistra, eventualmente in negativo (barra in alto)
+//   grande:  sc = 2 × oledF, al massimo 5 caratteri, centrata
+void oledRow(uint8_t page, const char *s, bool big, bool inv) {
+  uint8_t sc = big ? 2 * oledF : oledF, n = big ? 5 : 10, bpp = 8 / sc, m = inv ? 0xFF : 0x00;
+  uint8_t len = 0; while (len < n && s[len]) len++;
+  uint8_t W = 64 * oledF, pad = big ? (W - len * 6 * sc) / 2 : 0;
+  for (uint8_t h = 0; h < sc; h++) {
+    oledPageStart(page + h);
+    uint8_t x = 0;
+    for (; x < pad; x++) i2cWrite(m);
     for (uint8_t i = 0; i < len; i++) {
-      for (uint8_t k = 0; k < 5; k++) {
-        uint8_t col = glyphCol(s[i], k);
-        uint8_t b = dbl(half ? col >> 4 : col & 0x0F);
-        i2cWrite(b); i2cWrite(b);
+      for (uint8_t k = 0; k < 6; k++) {
+        // le righe del carattere che cadono in questa pagina, ognuna ripetuta sc volte
+        uint8_t col = k < 5 ? glyphCol(s[i], k) >> (h * bpp) : 0, b = 0;
+        for (uint8_t j = 0; j < bpp; j++) if (col & (1 << j)) b |= ((1 << sc) - 1) << (j * sc);
+        for (uint8_t r = 0; r < sc; r++) i2cWrite(b ^ m);
+        x += sc;
       }
-      i2cWrite(0); i2cWrite(0);
     }
-    for (uint8_t x = pad + w; x < 64; x++) i2cWrite(0);
+    while (x < W) { i2cWrite(m); x++; }
     i2cStop();
   }
 }
@@ -842,9 +853,9 @@ void oledRefresh() {
   screenTexts(bar, big, small);
   i2cBus(outs[oledIdx].p[0], outs[oledIdx].p[1]);
   uint16_t h0 = hashStr(bar, 7), h1 = hashStr(big, 11), h3 = hashStr(small, 13);
-  if (h0 != oledHash[0]) { oledText(0, bar, true); oledHash[0] = h0; }
-  if (h1 != oledHash[1]) { oledBig(1, big); oledHash[1] = h1; }
-  if (h3 != oledHash[3]) { oledText(3, small, false); oledHash[3] = h3; }
+  if (h0 != oledHash[0]) { oledRow(0, bar, false, true); oledHash[0] = h0; }
+  if (h1 != oledHash[1]) { oledRow(oledF, big, true, false); oledHash[1] = h1; }
+  if (h3 != oledHash[3]) { oledRow(3 * oledF, small, false, false); oledHash[3] = h3; }
 }
 
 void rgbSet(const Out &o, uint8_t rgb) {
@@ -1027,9 +1038,9 @@ void outsTest() {
     if (outs[i].type == O_OLED) {
       i2cBus(outs[i].p[0], outs[i].p[1]);
       char a[11], b[6];
-      strcpy_P(a, PSTR("TEST")); oledText(0, a, true);
-      strcpy_P(b, PSTR("HELLO")); oledBig(1, b);
-      strcpy_P(a, PSTR("it works!")); oledText(3, a, false);
+      strcpy_P(a, PSTR("TEST")); oledRow(0, a, false, true);
+      strcpy_P(b, PSTR("HELLO")); oledRow(oledF, b, true, false);
+      strcpy_P(a, PSTR("it works!")); oledRow(3 * oledF, a, false, false);
       for (uint8_t p = 0; p < 4; p++) oledHash[p] = 0xFFFF;
     }
   }
@@ -1453,7 +1464,8 @@ bool readSlot(uint8_t i) {
       dataHead(i, stamp);
       if (ok) { commaNum(dout, obj); commaNum(dout, amb); dout.println(F(",0")); }
       else dout.println(F(",nan,nan,1"));
-      markBad(s, !ok, 2, 2);
+      // errore dopo 3 letture fallite di fila, come la diagnostica dell'app: display e app concordano
+      markBad(s, !ok, 3, 2);
       return true;
     }
     case S_SPS: {
