@@ -492,11 +492,11 @@ html.lim *::after {
 }
 
 /* ------------------------------------------------------------------------------------------
-   Schermata d'avvio (app-loader.tsx): il marchio e la barra che scorre compaiono subito,
-   insieme, senza animazioni d'ingresso: l'app di solito si carica prima che se ne vedano.
+   Schermata d'avvio (app-loader.tsx): sfondo pieno, marchio (con un alone appena accennato) e
+   nome al centro, subito, senza animazioni d'ingresso. La barra che scorre compare in dissolvenza
+   sotto di loro solo se la schermata resta su più di 100 ms (ritardo dell'animazione CSS, conta
+   dalla prima pittura: niente JS); è fuori dal flusso, quindi non sposta niente quando arriva.
    ------------------------------------------------------------------------------------------ */
-/* Sfondo pieno, niente griglia: marchio (con un alone appena accennato), nome e una barra sottile,
-   leggermente sopra il centro geometrico (il centro ottico). */
 .mz-boot {
   position: fixed;
   inset: 0;
@@ -506,10 +506,10 @@ html.lim *::after {
   background: var(--background);
 }
 .mz-boot-stack {
+  position: relative;
   display: flex;
   flex-direction: column;
   align-items: center;
-  translate: 0 -4vh;
 }
 .mz-boot-mark { position: relative; color: var(--foreground); }
 .mz-boot-mark svg { position: relative; display: block; }
@@ -538,14 +538,20 @@ html.lim *::after {
   color: var(--foreground);
 }
 .mz-boot-word span { color: inherit; }
+/* fuori dal flusso, appesa sotto il nome: marchio e nome restano centrati con o senza barra */
 .mz-boot-bar {
-  position: relative;
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  translate: -50% 0;
   margin-top: 28px;
   width: 112px;
   height: 3px;
   border-radius: 999px;
   overflow: hidden;
   background: color-mix(in oklab, var(--foreground) 10%, transparent);
+  opacity: 0;
+  animation: mz-boot-bar-in 400ms var(--ease-out) 100ms forwards;
 }
 .mz-boot-bar span {
   position: absolute;
@@ -553,9 +559,13 @@ html.lim *::after {
   width: 40%;
   border-radius: inherit;
   background: linear-gradient(90deg, transparent, var(--foreground), transparent);
-  animation: mz-boot-slide 1.4s var(--ease-in-out) infinite;
+  /* parte insieme alla dissolvenza, dal bordo sinistro */
+  animation: mz-boot-slide 1.4s var(--ease-in-out) 100ms infinite backwards;
 }
 
+@keyframes mz-boot-bar-in {
+  to { opacity: 1; }
+}
 @keyframes mz-boot-slide {
   from { transform: translateX(-100%); }
   to { transform: translateX(250%); }
