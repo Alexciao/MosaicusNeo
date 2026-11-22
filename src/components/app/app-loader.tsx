@@ -12,9 +12,6 @@ import { LogoMark } from "./logo";
 function BootScreen() {
   return (
     <div className="mz-boot" role="status" aria-live="polite" aria-label="MosaicusNeo">
-      <div className="mz-boot-grid" aria-hidden />
-      <div className="mz-boot-glow" aria-hidden />
-
       <div className="mz-boot-stack">
         <div className="mz-boot-mark">
           {/* the mark (logo.tsx), inline so it paints with the HTML */}

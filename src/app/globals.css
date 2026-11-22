@@ -495,8 +495,9 @@ html.lim *::after {
    Schermata d'avvio (app-loader.tsx): il marchio e la barra che scorre compaiono subito,
    insieme, senza animazioni d'ingresso: l'app di solito si carica prima che se ne vedano.
    ------------------------------------------------------------------------------------------ */
+/* Sfondo pieno, niente griglia né alone: marchio, nome e una barra sottile, leggermente sopra il
+   centro geometrico (il centro ottico). */
 .mz-boot {
-  --boot-line: color-mix(in oklab, var(--foreground) 5%, transparent);
   position: fixed;
   inset: 0;
   display: grid;
@@ -504,64 +505,39 @@ html.lim *::after {
   overflow: hidden;
   background: var(--background);
 }
-.mz-boot-grid {
-  position: absolute;
-  inset: 0;
-  background-image:
-    linear-gradient(var(--boot-line) 1px, transparent 1px),
-    linear-gradient(90deg, var(--boot-line) 1px, transparent 1px);
-  background-size: 32px 32px;
-  background-position: center center;
-  mask-image: radial-gradient(ellipse 50% 45% at 50% 50%, #000 20%, transparent 100%);
-}
-.mz-boot-glow {
-  position: absolute;
-  left: 50%;
-  top: 50%;
-  width: 520px;
-  height: 520px;
-  translate: -50% -58%;
-  border-radius: 50%;
-  background: radial-gradient(circle, color-mix(in oklab, var(--primary) 18%, transparent) 0%, transparent 65%);
-  filter: blur(20px);
-}
-.dark .mz-boot-glow {
-  background: radial-gradient(circle, color-mix(in oklab, var(--primary) 10%, transparent) 0%, transparent 60%);
-}
 .mz-boot-stack {
-  position: relative;
   display: flex;
   flex-direction: column;
   align-items: center;
+  translate: 0 -4vh;
 }
 .mz-boot-mark { color: var(--foreground); }
 .mz-boot-mark svg { display: block; }
 .mz-boot-word {
-  margin-top: 20px;
-  font-size: 22px;
-  font-weight: 650;
-  letter-spacing: -0.025em;
+  margin-top: 18px;
+  font-size: 20px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
   color: var(--foreground);
 }
 .mz-boot-word span { color: inherit; }
 .mz-boot-bar {
   position: relative;
-  margin-top: 22px;
-  width: 140px;
-  height: 3px;
+  margin-top: 28px;
+  width: 112px;
+  height: 2px;
   border-radius: 999px;
   overflow: hidden;
-  background: color-mix(in oklab, var(--foreground) 8%, transparent);
+  background: color-mix(in oklab, var(--foreground) 10%, transparent);
 }
 .mz-boot-bar span {
   position: absolute;
   inset: 0 auto 0 0;
   width: 40%;
   border-radius: inherit;
-  background: linear-gradient(90deg, transparent, var(--brand), transparent);
-  animation: mz-boot-slide 1.3s var(--ease-in-out) infinite;
+  background: var(--foreground);
+  animation: mz-boot-slide 1.4s var(--ease-in-out) infinite;
 }
-.dark .mz-boot-bar span { background: linear-gradient(90deg, transparent, #c6f432, transparent); }
 
 @keyframes mz-boot-slide {
   from { transform: translateX(-100%); }
