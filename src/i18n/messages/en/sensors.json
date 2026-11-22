@@ -150,14 +150,15 @@
       "wiring": "VIN (or VCC) to 5V, GND to GND, SDA to {sda}, SCL to {scl}. The sensor sees a cone of about 90°: hold it close to the surface, a few centimeters away."
     },
     "oled": {
-      "title": "OLED display (0.49\" or 0.96\")",
+      "title": "OLED display 64×32 (0.49\")",
       "measures": "status and main value",
-      "description": "I2C SSD1306 display, 0.49\" (64×32 pixels) or 0.96\" (128×64): shows Arduino's status and, during a measurement, the time and the main value.",
-      "size": "Display size",
-      "small": "0.49\" (64×32)",
-      "large": "0.96\" (128×64)",
+      "description": "0.49\" I2C SSD1306 display (64×32 pixels): shows Arduino's status and, during a measurement, the time and the main value.",
       "wiringTitle": "OLED display",
       "wiring": "VCC (or VDD) to 5V, GND to GND, SDA to {sda}, SCL to {scl}."
+    },
+    "oled96": {
+      "title": "OLED display 128×64 (0.96\")",
+      "description": "0.96\" I2C SSD1306 display (128×64 pixels), the most common one: shows Arduino's status and, during a measurement, the time and the main value, in large print. Requires firmware 2.1."
     },
     "rgb": {
       "title": "RGB LED",
@@ -293,6 +294,7 @@
     "hx711": "scale weight load cell newton force meter dynamometer",
     "analog": "potentiometer voltmeter voltage signal generic battery",
     "oled": "screen display ssd1306 status text",
+    "oled96": "screen display ssd1306 128x64 0.96 status text",
     "rgb": "led colors light status traffic light",
     "buzzer": "buzzer sound beep alarm alert",
     "button": "button push key start stop switch",
@@ -515,6 +517,7 @@
     "onlyAccessories": "There are only accessories (display, LED, button, SD card, Bluetooth): add at least one sensor.",
     "empty": "The lab is empty: add at least one sensor.",
     "oneBluetooth": "Only one Bluetooth module at a time: they all use D0 and D1. Remove the extra one.",
+    "oneDisplay": "Only one OLED display at a time: they all use address 0x3C. Remove the extra one.",
     "tooMany": "Too many sensors: Arduino reads at most {max}. Remove some.",
     "maxType": "{max, plural, =1 {You can use only one “{title}”: remove the extra one.} other {You can use at most # “{title}”: remove the extra ones.}}",
     "serialPin": "{sensor}: D0 and D1 are reserved for the serial port (USB and Bluetooth). Choose another pin.",

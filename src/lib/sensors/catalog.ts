@@ -13,7 +13,7 @@ import { nmeaToDeg, haversine, nmeaTime } from "@/lib/mosaicus/geo";
 import { t } from "@/i18n";
 import type { Options, Param, Tone, WiringBlock } from "./types";
 
-export type SensorType = "ntc" | "dht" | "sonar" | "gps" | "analog" | "ldr" | "ds18b20" | "gate" | "hx711" | "imu" | "mlx" | "sps30" | "oled" | "rgb" | "buzzer" | "button" | "sd" | "hc06" | "ble" | "pmotion" | "psound";
+export type SensorType = "ntc" | "dht" | "sonar" | "gps" | "analog" | "ldr" | "ds18b20" | "gate" | "hx711" | "imu" | "mlx" | "sps30" | "oled" | "oled96" | "rgb" | "buzzer" | "button" | "sd" | "hc06" | "ble" | "pmotion" | "psound";
 export type Rec = Record<string, number | boolean> & { t: number };
 
 /** bus: i pin I2C si possono condividere tra più dispositivi I2C (display, MPU-6050, MLX90614);
@@ -512,11 +512,18 @@ const oled: SensorDef = {
     { key: "a", role: "SDA", kind: "digital", def: 18, bus: "sda", note: t("sensors.catalog.usuallyA4") },
     { key: "b", role: "SCL", kind: "digital", def: 19, bus: "scl", note: t("sensors.catalog.usuallyA5") },
   ],
-  // bit0: pannello 128×64 da 0,96" (dal firmware 2.1; i firmware più vecchi lo ignorano)
-  options: [{ key: "size", label: t("sensors.catalog.oled.size"), type: "select", value: "small", options: [["small", t("sensors.catalog.oled.small")], ["large", t("sensors.catalog.oled.large")]] }],
-  fwOpt: (o) => (o.size === "large" ? 1 : 0),
+  options: [],
   wiring: (p) => [{ title: t("sensors.catalog.oled.wiringTitle"), pins: { sda: p.a, scl: p.b }, text: t("sensors.catalog.oled.wiring", { sda: p.a, scl: p.b }) }],
 };
+// Lo stesso display in versione da 0,96" (128×64): stesso schermo con ogni pixel raddoppiato.
+// Per il firmware è sempre OLED, con opz bit0 = 128×64 (dalla 2.1). Uno solo dei due per progetto.
+const oled96: SensorDef = {
+  ...oled, since: "2.1",
+  type: "oled96", title: t("sensors.catalog.oled96.title"), description: t("sensors.catalog.oled96.description"),
+  fwOpt: () => 1,
+};
+/** Display OLED, di qualunque dimensione (ne va al massimo uno: indirizzo 0x3C, un solo schermo nel firmware). */
+export const isOled = (t: SensorType) => t === "oled" || t === "oled96";
 
 const rgb: SensorDef = {
   ...outputBase,
@@ -647,10 +654,10 @@ const psound: SensorDef = {
   wiring: () => [{ title: t("sensors.catalog.nothingToConnect"), text: t("sensors.catalog.psound.wiring") }],
 };
 
-export const SENSORS: Record<SensorType, SensorDef> = { ntc, dht, sonar, gps, analog, ldr, ds18b20, gate, hx711, imu, mlx, sps30, oled, rgb, buzzer, button, sd, hc06, ble, pmotion, psound };
+export const SENSORS: Record<SensorType, SensorDef> = { ntc, dht, sonar, gps, analog, ldr, ds18b20, gate, hx711, imu, mlx, sps30, oled, oled96, rgb, buzzer, button, sd, hc06, ble, pmotion, psound };
 export const isPhoneType = (t: SensorType) => !!SENSORS[t].phone;
 /** Tutti i componenti, nell'ordine del catalogo «Aggiungi un componente». */
-export const COMPONENTS: SensorType[] = ["dht", "ntc", "ds18b20", "mlx", "sps30", "sonar", "imu", "gate", "gps", "ldr", "hx711", "analog", "button", "oled", "rgb", "buzzer", "sd", "hc06", "ble", "pmotion", "psound"];
+export const COMPONENTS: SensorType[] = ["dht", "ntc", "ds18b20", "mlx", "sps30", "sonar", "imu", "gate", "gps", "ldr", "hx711", "analog", "button", "oled", "oled96", "rgb", "buzzer", "sd", "hc06", "ble", "pmotion", "psound"];
 export const OUTPUTS: SensorType[] = COMPONENTS.filter((t) => SENSORS[t].output);
 /** Gruppo di un componente nel catalogo. */
 export const groupOf = (t: SensorType): ComponentGroup => SENSORS[t].group ?? (SENSORS[t].phone ? "phone" : SENSORS[t].output ? "output" : "sensor");
@@ -675,7 +682,7 @@ export const TAGS: [ComponentTag, string][] = [
 export const COMPONENT_TAGS: Record<SensorType, ComponentTag[]> = {
   dht: ["temp"], ntc: ["temp"], ds18b20: ["temp"], mlx: ["temp"], sps30: ["air"], sonar: ["motion", "place"], imu: ["motion", "force"], gate: ["motion", "light"],
   gps: ["place", "motion"], ldr: ["light"], hx711: ["force"], analog: ["volt"],
-  oled: [], rgb: [], buzzer: [], button: [], sd: [], hc06: [], ble: [],
+  oled: [], oled96: [], rgb: [], buzzer: [], button: [], sd: [], hc06: [], ble: [],
   pmotion: ["motion"], psound: [],
 };
 /** Parole in più per la ricerca (nomi comuni, sinonimi, kit). */
@@ -695,6 +702,7 @@ export const COMPONENT_KEYWORDS: Record<SensorType, string> = {
   hx711: t("sensors.keywords.hx711"),
   analog: t("sensors.keywords.analog"),
   oled: t("sensors.keywords.oled"),
+  oled96: t("sensors.keywords.oled96"),
   rgb: t("sensors.keywords.rgb"),
   buzzer: t("sensors.keywords.buzzer"),
   button: t("sensors.keywords.button"),

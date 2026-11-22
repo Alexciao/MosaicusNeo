@@ -11,7 +11,7 @@ import { Button } from "@/components/ui/button";
 import { useLab, resolved, showWiring, type DeviceStatus, showComponents } from "@/lib/lab-store";
 import { useDiag, diagDismiss, type Diag } from "@/lib/diagnostics";
 import { indicatorsOf, sensorLabel, type SensorInstance } from "@/lib/sensors/rig";
-import { SENSORS, pinName } from "@/lib/sensors/catalog";
+import { SENSORS, isOled, pinName } from "@/lib/sensors/catalog";
 import { glyph } from "@/lib/mosaicus/oled-font";
 import { cn } from "@/lib/utils";
 import { LedPart, BuzzerPart } from "./arduino-parts";
@@ -238,7 +238,7 @@ export function DeviceMirror() {
   const outs = indicatorsOf(rig);
   const tick = useTick(lim ? 500 : 125, !!device && outs.length > 0);
   if (!device || !outs.length) return null;
-  const has = (t: string) => outs.some((s) => s.type === t);
+  const has = (t: string) => outs.some((s) => (t === "oled" ? isOled(s.type) : s.type === t));
   const res = resolved(rig);
   const slotSensor = device.slot >= 0 ? res.byCode.get(device.slot) : undefined;
   const rows = useLab.getState().rows;

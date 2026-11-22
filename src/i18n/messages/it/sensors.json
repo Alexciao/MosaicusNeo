@@ -150,14 +150,15 @@
       "wiring": "VIN (o VCC) a 5V, GND a GND, SDA su {sda}, SCL su {scl}. Il sensore vede un cono di circa 90°: avvicinalo alla superficie, a pochi centimetri."
     },
     "oled": {
-      "title": "Display OLED (0,49\" o 0,96\")",
+      "title": "Display OLED 64×32 (0,49\")",
       "measures": "stato e valore principale",
-      "description": "Display I2C SSD1306 da 0,49\" (64×32 pixel) o da 0,96\" (128×64): mostra lo stato di Arduino e, durante la misura, il tempo e il valore principale.",
-      "size": "Dimensione del display",
-      "small": "0,49\" (64×32)",
-      "large": "0,96\" (128×64)",
+      "description": "Display I2C SSD1306 da 0,49\" (64×32 pixel): mostra lo stato di Arduino e, durante la misura, il tempo e il valore principale.",
       "wiringTitle": "Display OLED",
       "wiring": "VCC (o VDD) a 5V, GND a GND, SDA su {sda}, SCL su {scl}."
+    },
+    "oled96": {
+      "title": "Display OLED 128×64 (0,96\")",
+      "description": "Display I2C SSD1306 da 0,96\" (128×64 pixel), il più diffuso: mostra lo stato di Arduino e, durante la misura, il tempo e il valore principale, a caratteri grandi. Serve il firmware 2.1."
     },
     "rgb": {
       "title": "LED RGB",
@@ -293,6 +294,7 @@
     "hx711": "bilancia peso cella di carico newton dinamometro",
     "analog": "potenziometro voltmetro tensione segnale generico pila",
     "oled": "schermo display ssd1306 stato scritte",
+    "oled96": "schermo display ssd1306 128x64 0,96 stato scritte",
     "rgb": "led colori luce stato semaforo",
     "buzzer": "cicalino suono beep allarme avviso",
     "button": "pulsante tasto bottone avvia ferma start stop interruttore",
@@ -515,6 +517,7 @@
     "onlyAccessories": "Ci sono solo accessori (display, LED, pulsante, scheda SD, Bluetooth): aggiungi almeno un sensore.",
     "empty": "Il lab è vuoto: aggiungi almeno un sensore.",
     "oneBluetooth": "Un solo modulo Bluetooth alla volta: stanno tutti su D0 e D1. Togli quello in più.",
+    "oneDisplay": "Un solo display OLED alla volta: hanno tutti l'indirizzo 0x3C. Togli quello in più.",
     "tooMany": "Troppi sensori: Arduino ne legge al massimo {max}. Rimuovine qualcuno.",
     "maxType": "{max, plural, =1 {Puoi usare un solo «{title}»: rimuovi quello in più.} other {Puoi usare al massimo # «{title}»: rimuovi quelli in più.}}",
     "serialPin": "{sensor}: D0 e D1 sono riservati alla seriale (USB e Bluetooth). Scegli un altro pin.",

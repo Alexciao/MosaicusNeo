@@ -394,6 +394,7 @@
     "notWithArduino": "non insieme ai componenti di Arduino: crea un lab a parte",
     "notWithPhone": "non insieme ai sensori del telefono",
     "oneBt": "c'è già un modulo Bluetooth: un solo modulo alla volta",
+    "oneDisplay": "c'è già un display: un solo display alla volta",
     "maxSensors": "Arduino legge al massimo {n} sensori",
     "pickerSelectOne": "Seleziona {name}",
     "pickerSelected": "{n, plural, one {# selezionato} other {# selezionati}}",

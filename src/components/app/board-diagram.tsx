@@ -35,7 +35,7 @@ const BOT_PINS: (number | string | null)[] = [null, null, null, "3V3", "5V", "GN
 // disegno dei moduli: larghezza, altezza (piedini sul lato in alto); ntc e ldr sono componenti sciolti
 const SIZE: Record<string, [number, number]> = {
   dht: [54, 86], sonar: [124, 76], gps: [80, 98], analog: [52, 66], ds18b20: [64, 92], gate: [66, 78], hx711: [62, 74],
-  imu: [100, 70], mlx: [54, 66], oled: [58, 66], rgb: [54, 64], buzzer: [58, 76], hc06: [60, 96], ble: [60, 96],
+  imu: [100, 70], mlx: [54, 66], oled: [58, 66], oled96: [74, 74], rgb: [54, 64], buzzer: [58, 76], hc06: [60, 96], ble: [60, 96],
   button: [40, 48], sd: [82, 94], sps30: [76, 118],
 };
 const ON_BOARD = new Set(["ntc", "ldr"]);
@@ -44,7 +44,7 @@ const BARE = new Set(["rgb", "buzzer", "button"]);
 /** Larghezza vera dei moduli (mm) lungo la fila dei piedini: infilati nella breadboard stanno in
  *  piedi, uno accanto all'altro nella riga e, e due vicini non devono toccarsi. */
 const WIDTH_MM: Record<string, number> = {
-  dht: 16, sonar: 45, gps: 25, analog: 20, ds18b20: 6, gate: 25, hx711: 21, imu: 21, mlx: 12, oled: 13,
+  dht: 16, sonar: 45, gps: 25, analog: 20, ds18b20: 6, gate: 25, hx711: 21, imu: 21, mlx: 12, oled: 13, oled96: 27,
   rgb: 15, buzzer: 13, hc06: 16, ble: 16, button: 12, sd: 24, sps30: 14,
 };
 /** Colonne di una breadboard intera (830 fori). */
@@ -377,6 +377,7 @@ export function ModuleArt({ kind, options, x, y, w, h, uid }: { kind: string; op
       );
     }
     case "oled":
+    case "oled96":
       return (
         <g>
           {pcb("#0f172a")}
@@ -384,7 +385,7 @@ export function ModuleArt({ kind, options, x, y, w, h, uid }: { kind: string; op
           <rect x={x + 9} y={top + 4} width={w - 18} height={7} fill="#7dd3fc" />
           <text x={x + 11} y={top + 9.6} fontSize={5.2} fontWeight={700} fill="#020617" fontFamily="monospace">{t("rig.board.oledReady")}</text>
           <text x={x + w / 2} y={top + 24} textAnchor="middle" fontSize={10} fontWeight={700} fill="#7dd3fc" fontFamily="monospace">OK</text>
-          {label(options?.size === "large" ? "OLED 0,96\"" : "OLED 0,49\"", y + h - 4, "#94a3b8", 5)}
+          {label(kind === "oled96" ? "OLED 0,96\"" : "OLED 0,49\"", y + h - 4, "#94a3b8", 5)}
         </g>
       );
     case "rgb": {

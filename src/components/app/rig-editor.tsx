@@ -13,7 +13,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Dialog, DialogClose, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
-import { SENSORS, COMPONENTS, COMPONENT_TAGS, COMPONENT_KEYWORDS, TAGS, GROUPS, MAX_ARDUINO, defaultOptions, groupOf, isSlot, pinName, pinsFor, type ComponentGroup, type ComponentTag, type SensorType } from "@/lib/sensors/catalog";
+import { SENSORS, COMPONENTS, COMPONENT_TAGS, COMPONENT_KEYWORDS, TAGS, GROUPS, MAX_ARDUINO, defaultOptions, groupOf, isOled, isSlot, pinName, pinsFor, type ComponentGroup, type ComponentTag, type SensorType } from "@/lib/sensors/catalog";
 import { validateRig, usedPins, sensorLabel, inputsOf, indicatorsOf, type SensorInstance } from "@/lib/sensors/rig";
 import { QUANTITIES } from "@/lib/sensors/quantities";
 import type { Param } from "@/lib/sensors/types";
@@ -344,6 +344,7 @@ export function ComponentPicker({ open, onOpenChange, base, onAdd }: { open: boo
     if (def.phone && planned.some((s) => !SENSORS[s.type].phone)) return [true, t("notWithArduino")];
     if (!def.phone && planned.some((s) => SENSORS[s.type].phone)) return [true, t("notWithPhone")];
     if (def.link && planned.some((s) => SENSORS[s.type].link)) return [true, t("oneBt")];
+    if (isOled(type) && planned.some((s) => isOled(s.type))) return [true, t("oneDisplay")];
     if (isSlot(type) && !def.phone && nArduino >= MAX_ARDUINO) return [true, t("maxSensors", { n: MAX_ARDUINO })];
     // pin, bus I2C e posto sulla breadboard: se non c'è modo di montarlo davvero, non si aggiunge
     const plan = checkAdd(planned, type);

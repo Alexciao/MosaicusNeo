@@ -23,7 +23,7 @@ import { APP_VERSION, FIRMWARE_VERSION, cmpVersion } from "@/lib/version";
 import { prefs, fmtVal, stamp } from "@/lib/prefs";
 import { useWorkbench, type NewBox } from "@/lib/workbench-store";
 import { toGPX, toGeoJSON, type TrackPoint } from "@/lib/mosaicus/geo";
-import { SENSORS, pinName, type SensorType } from "@/lib/sensors/catalog";
+import { SENSORS, isOled, pinName, type SensorType } from "@/lib/sensors/catalog";
 import {
   resolveRig, validateRig, hasErrors, firmwareCommands, buildRows, alignRows, seriesOf, interpAt, tolerance,
   planAdd, type AddPlan, newId, normalizeRig, sensorLabel, LEGACY, inputsOf, outputsOf, isPhoneRig, firmwareNeeded, btOf, type Rig, type SensorInstance, type Resolved, type ResolvedQuantity,
@@ -921,7 +921,7 @@ let oledTimer: ReturnType<typeof setInterval> | null = null;
 /** Durante la misura: valore principale grande, secondo valore piccolo (una volta al secondo). */
 function startOledFeed() {
   stopOledFeed();
-  if (!outputsOf(get().rig).some((s) => s.type === "oled")) return;
+  if (!outputsOf(get().rig).some((s) => isOled(s.type))) return;
   oledTimer = setInterval(() => {
     const st = get();
     if (!st.running || !link) return;

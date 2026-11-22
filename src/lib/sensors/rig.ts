@@ -11,7 +11,7 @@
 
 import { cmpVersion } from "@/lib/version";
 import { t } from "@/i18n";
-import { SENSORS, MAX_ARDUINO, pinName, pinsFor, defaultOptions, isSlot, type Rec, type SensorType } from "./catalog";
+import { SENSORS, MAX_ARDUINO, pinName, pinsFor, defaultOptions, isSlot, isOled, type Rec, type SensorType } from "./catalog";
 import { QUANTITIES, symOf } from "./quantities";
 import type { Options, Row, Tone } from "./types";
 
@@ -71,6 +71,14 @@ export function makeSensor(type: SensorType, taken: Set<number> = new Set(), ext
  * stesso oggetto se non c'era niente da riparare.
  */
 export function normalizeRig(rig: Rig): Rig {
+  // per poco il display da 0,96" è stato un'opzione del display OLED: ora è un componente a sé
+  if (rig.sensors.some((s) => s.type === "oled" && s.options?.size != null)) {
+    rig = { ...rig, sensors: rig.sensors.map((s) => {
+      if (s.type !== "oled" || s.options?.size == null) return s;
+      const { size, ...options } = s.options;
+      return { ...s, type: size === "large" ? "oled96" : "oled", options };
+    }) };
+  }
   const ok = (p: unknown): p is number => typeof p === "number" && Number.isFinite(p);
   // opzioni mancanti o fuori dall'elenco (versioni vecchie): il valore di serie
   const badOpt = (s: SensorInstance) => SENSORS[s.type]?.options.some((o) => {
@@ -116,7 +124,7 @@ export interface PinMove { sensor: SensorInstance; role: string; from: number; t
 /** Indirizzo I2C (esadecimale) dei dispositivi I2C; null per gli altri. */
 export function i2cAddr(s: SensorInstance): string | null {
   switch (s.type) {
-    case "oled": return "3C";
+    case "oled": case "oled96": return "3C";
     case "mlx": return "5A";
     case "sps30": return "69";              // fisso: non si può cambiare
     case "imu": return String(s.options.addr ?? "68");
@@ -247,7 +255,7 @@ export function usedPins(rig: Rig, except?: string) {
 export const inputsOf = (rig: Rig) => rig.sensors.filter((s) => isSlot(s.type));
 export const outputsOf = (rig: Rig) => rig.sensors.filter((s) => SENSORS[s.type].output);
 /** Indicatori di stato veri e propri: display, LED RGB, cicalino. */
-export const indicatorsOf = (rig: Rig) => rig.sensors.filter((s) => s.type === "oled" || s.type === "rgb" || s.type === "buzzer");
+export const indicatorsOf = (rig: Rig) => rig.sensors.filter((s) => isOled(s.type) || s.type === "rgb" || s.type === "buzzer");
 /** Modulo Bluetooth del progetto (componente HC-06 o BLE), se c'è. */
 export const btOf = (rig: Rig | SensorInstance[]): "hc06" | "ble" | null => {
   const list = Array.isArray(rig) ? rig : rig.sensors;
@@ -306,6 +314,7 @@ export function validateRig(rig: Rig): Issue[] {
   if (phoneOf(rig).length && arduinoOf(rig).length) out.push({ level: "error", text: t("sensors.rig.phoneMix") });
   if (!inputs.length) out.push({ level: "error", text: rig.sensors.length ? t("sensors.rig.onlyAccessories") : t("sensors.rig.empty") });
   if (rig.sensors.filter((s) => SENSORS[s.type].link).length > 1) out.push({ level: "error", text: t("sensors.rig.oneBluetooth") });
+  if (rig.sensors.filter((s) => isOled(s.type)).length > 1) out.push({ level: "error", text: t("sensors.rig.oneDisplay") });
   if (arduino.length > MAX_ARDUINO) out.push({ level: "error", text: t("sensors.rig.tooMany", { max: MAX_ARDUINO }) });
   const count = new Map<SensorType, number>();
   for (const s of rig.sensors) count.set(s.type, (count.get(s.type) ?? 0) + 1);

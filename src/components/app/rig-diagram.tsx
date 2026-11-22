@@ -171,6 +171,7 @@ function moduleRows(s: SensorInstance, color: string): Omit<Mod, "kind"> {
         notes: [t("rig.modules.spsNoteCable"), t("rig.modules.spsNoteSel"), t("rig.modules.spsNoteShort"), t("rig.modules.spsNoteAir")],
       };
     case "oled":
+    case "oled96":
       return {
         title: title(t("rig.modules.oledTitle")), color,
         rows: [{ label: "GND", conn: "GND" }, { label: "VCC", conn: "5V" }, { label: "SCL", conn: p("b") }, { label: "SDA", conn: p("a") }],
