@@ -29,21 +29,13 @@ import { toneBg, toneFg } from "./tone";
 /** I componenti più usati: proposti nel lab vuoto e nella finestra «Nuovo lab». */
 export const QUICK_COMPONENTS: SensorType[] = ["sonar", "ntc", "dht", "ldr", "button", "imu"];
 
-/** Suggeriti della finestra «Nuovo lab», in ordine: i primi sempre in vista, gli altri per riempire le righe. */
-const NEW_LAB_SUGGESTIONS: SensorType[] = [...QUICK_COMPONENTS, "ds18b20", "gate", "oled96", "mlx", "hx711", "gps", "buzzer", "rgb", "analog", "sd", "sps30", "oled"];
-const SUGGEST_COLS = 4, SUGGEST_BASE = 2 * SUGGEST_COLS - 1;  // due righe piene, con «Sfoglia tutti» in fondo
+/** Suggeriti della finestra «Nuovo lab»: sette più «Sfoglia tutti» fanno due righe piene da quattro. */
+const NEW_LAB_SUGGESTIONS: SensorType[] = [...QUICK_COMPONENTS, "ds18b20"];
 
-/** Le caselle da mostrare: i suggeriti di base, poi ciò che è arrivato dal catalogo (spuntato), poi
- *  altri suggeriti finché le righe sono piene (contando «Sfoglia tutti», sempre ultima). */
-function suggestionTiles(chosen: SensorType[]): SensorType[] {
-  const tiles = NEW_LAB_SUGGESTIONS.slice(0, SUGGEST_BASE);
-  for (const type of chosen) if (!tiles.includes(type)) tiles.push(type);
-  for (const type of NEW_LAB_SUGGESTIONS) {
-    if ((tiles.length + 1) % SUGGEST_COLS === 0) break;
-    if (!tiles.includes(type)) tiles.push(type);
-  }
-  return tiles;
-}
+/** Le caselle da mostrare: i suggeriti, poi ciò che è arrivato dal catalogo (spuntato); «Sfoglia tutti»
+ *  segue sempre per ultima. */
+const suggestionTiles = (chosen: SensorType[]): SensorType[] =>
+  [...NEW_LAB_SUGGESTIONS, ...chosen.filter((type) => !NEW_LAB_SUGGESTIONS.includes(type))];
 
 const codeClass = "w-full resize-none rounded-lg border border-input bg-transparent px-2.5 py-2 font-mono text-xs leading-relaxed break-all outline-none placeholder:font-sans placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 aria-invalid:border-destructive aria-invalid:ring-3 aria-invalid:ring-destructive/20 dark:bg-input/30";
 
