@@ -233,16 +233,19 @@ function PickerRow({ type, count, disabled, active, selected, selecting, onPick,
       onMouseMove={onFocus} onClick={() => { if (disabled) return; if (selecting) onToggle(); else onPick(); }}
       className={cn("group/row flex cursor-pointer items-center gap-3 rounded-md px-2 py-1.5 select-none",
         active && "bg-foreground/[0.06]", disabled && "cursor-default opacity-50")}>
-      {/* casella per scegliere più componenti: compare passando sopra, sempre visibile mentre se ne scelgono */}
-      <span role="checkbox" aria-checked={selected} aria-label={t("pickerSelectOne", { name: def.title })} tabIndex={-1}
-        onClick={(e) => { e.stopPropagation(); if (!disabled) onToggle(); }}
-        className={cn("grid size-4 shrink-0 place-items-center rounded-[4px] border transition-opacity",
-          selected ? "border-foreground bg-foreground text-background" : "border-foreground/30 bg-background",
-          !selected && !selecting && "opacity-0 group-hover/row:opacity-100 pointer-coarse:opacity-100")}>
-        {selected && <Check className="size-3" strokeWidth={3} />}
-      </span>
-      <span className="grid size-9 shrink-0 place-items-center rounded-md bg-muted/70 p-1" aria-hidden>
-        <ComponentThumb type={type} className="size-full" />
+      <span className="relative shrink-0">
+        <span className="grid size-9 place-items-center rounded-md bg-muted/70 p-1" aria-hidden>
+          <ComponentThumb type={type} className="size-full" />
+        </span>
+        {/* casella per scegliere più componenti, sull'angolo dell'immagine così non occupa una colonna vuota:
+            compare passando sopra, sempre visibile mentre se ne scelgono */}
+        <span role="checkbox" aria-checked={selected} aria-label={t("pickerSelectOne", { name: def.title })} tabIndex={-1}
+          onClick={(e) => { e.stopPropagation(); if (!disabled) onToggle(); }}
+          className={cn("absolute -top-1 -left-1 grid size-4 place-items-center rounded-[4px] border shadow-xs transition-opacity",
+            selected ? "border-foreground bg-foreground text-background" : "border-foreground/30 bg-background",
+            !selected && !selecting && "opacity-0 group-hover/row:opacity-100 pointer-coarse:opacity-100")}>
+          {selected && <Check className="size-3" strokeWidth={3} />}
+        </span>
       </span>
       <span className="min-w-0 flex-1">
         <span className="block truncate text-[13px] font-medium">{def.title}</span>
