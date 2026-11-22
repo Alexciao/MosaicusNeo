@@ -838,6 +838,10 @@ function handleLine(line: string) {
   if (line.startsWith("#ERR,PHONE,")) { toast.error(line.slice(11), { duration: 8000 }); return; }
   if (line.startsWith("#ERR")) {
     const what = line.slice(5);
+    // Con il GPS in misura la SoftwareSerial tiene spente le interruzioni per ~1 ms a carattere e
+    // la seriale dell'app perde dei byte: PING arriva come «PI», «PIG»… Non è un firmware vecchio
+    // né un errore dell'utente (il PING successivo arriva tra 2 s, lo STOP è già ripetuto): si tace.
+    if (rigHas(["gps"]) && (get().running || Date.now() < gpsNoiseUntil)) return;
     toast.error(/SCOPE|BT|CFG|START/.test(what)
       ? t("lab.toast.fwOutdatedLoad", { v: FIRMWARE_VERSION })
       : t("lab.toast.unknownCommand", { what }), { duration: 8000 });
@@ -865,6 +869,8 @@ function handleLine(line: string) {
 // Indicatori di stato (firmware 1.2): PING per dire ad Arduino che l'app c'è, righe del display
 // ---------------------------------------------------------------------------
 let pingTimer: ReturnType<typeof setInterval> | null = null;
+/** Fino a quando le risposte #ERR possono essere comandi storpiati dal GPS (subito dopo lo STOP). */
+let gpsNoiseUntil = 0;
 function startPing() {
   stopPing();
   void link?.write("PING");
@@ -1039,7 +1045,11 @@ export async function stop() {
     try {
       await link?.write("STOP");
       // con il GPS acceso la SoftwareSerial può far perdere qualche carattere: lo ripeto
-      if (rigHas(["gps"])) { await new Promise((r) => setTimeout(r, 250)); await link?.write("STOP"); }
+      if (rigHas(["gps"])) {
+        gpsNoiseUntil = Date.now() + 2000;
+        await new Promise((r) => setTimeout(r, 250));
+        await link?.write("STOP");
+      }
     } catch { /* scollegato */ }
   }
   recompute();
