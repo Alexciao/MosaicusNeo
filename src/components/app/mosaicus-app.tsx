@@ -22,6 +22,8 @@ import { startCloud } from "@/lib/cloud/sync";
 import { GithubMark } from "./github-mark";
 import { ErrorBoundary } from "./error-boundary";
 import { REPO_URL, ISSUES_URL } from "@/lib/links";
+import { codeFromHash } from "@/lib/sensors/share";
+import { openNewLab } from "./lab-share";
 
 /** Barra in basso sul telefono: Lab apre l'elenco, Misura e Elaborazione cambiano pagina. */
 function MobileNav() {
@@ -79,6 +81,16 @@ export function MosaicusApp() {
       window.history.replaceState(null, "", window.location.pathname + window.location.hash);
     }
     void boot();
+    // un link condiviso (#lab=NEO2…): si apre l'import con il codice già pronto, poi l'indirizzo torna pulito
+    const openShared = () => {
+      const code = codeFromHash(window.location.hash);
+      if (!code) return;
+      showPage("misura");
+      openNewLab(code);
+      window.history.replaceState(null, "", window.location.pathname + window.location.search);
+    };
+    openShared();
+    window.addEventListener("hashchange", openShared);
     if ("serviceWorker" in navigator && process.env.NODE_ENV === "production") {
       // una versione nuova prende il posto della vecchia da sola (skipWaiting): se la pagina era già
       // servita da un service worker, lo si dice e si propone di ricaricare, senza farlo d'autorità
@@ -90,6 +102,7 @@ export function MosaicusApp() {
       }, { once: true });
       navigator.serviceWorker.register("/sw.js").catch(() => { /* offline non disponibile */ });
     }
+    return () => window.removeEventListener("hashchange", openShared);
   }, []);
   return (
     <div className="flex min-h-svh flex-col pb-[calc(4rem+env(safe-area-inset-bottom))] md:pb-0">
