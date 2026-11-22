@@ -31,9 +31,9 @@ export interface MergedSettings {
   gone: Stamps;
   rigStamps: Stamps;
   rigsGone: Stamps;
-  /** voci (lab personali, preferenze) che c'erano solo su questo dispositivo */
+  /** voci (lab personali, preferenze) che c'erano solo su questo dispositivo, o più recenti qui */
   fromLocal: number;
-  /** voci che c'erano solo nel cloud */
+  /** voci che c'erano solo nel cloud, o più recenti nel cloud */
   fromRemote: number;
 }
 
@@ -42,6 +42,13 @@ const rigList = (v: unknown): RigLike[] =>
   Array.isArray(v) ? v.filter((r): r is RigLike => !!r && typeof r === "object" && typeof (r as RigLike).id === "string") : [];
 
 const has = (o: object, k: string) => Object.prototype.hasOwnProperty.call(o, k);
+
+/** JSON con le chiavi in ordine: il cloud (jsonb) non conserva l'ordine delle chiavi. */
+export const stable = (v: unknown): string =>
+  Array.isArray(v) ? `[${v.map(stable).join(",")}]`
+  : v && typeof v === "object" ? `{${Object.keys(v).sort().map((k) => `${JSON.stringify(k)}:${stable((v as Record<string, unknown>)[k])}`).join(",")}}`
+  : JSON.stringify(v) ?? "null";
+const differs = (a: unknown, b: unknown) => stable(a) !== stable(b);
 
 export function mergeSettings(L: SettingsSide, R: SettingsSide, now = Date.now()): MergedSettings {
   const out: MergedSettings = { values: {}, stamps: {}, gone: {}, rigStamps: {}, rigsGone: {}, fromLocal: 0, fromRemote: 0 };
@@ -62,6 +69,7 @@ export function mergeSettings(L: SettingsSide, R: SettingsSide, now = Date.now()
       out.stamps[k] = stamp;
       if (inL && !inR) out.fromLocal++;
       else if (inR && !inL) out.fromRemote++;
+      else if (differs(L.values[k], R.values[k])) { if (lt >= rt) out.fromLocal++; else out.fromRemote++; }
     } else if (goneAt >= 0 && now - goneAt < TOMB_TTL) {
       out.gone[k] = goneAt;
     }
@@ -84,6 +92,7 @@ export function mergeSettings(L: SettingsSide, R: SettingsSide, now = Date.now()
     out.rigStamps[id] = stamp;
     if (l && !r) out.fromLocal++;
     else if (r && !l) out.fromRemote++;
+    else if (differs(l, r)) { if (lt >= rt) out.fromLocal++; else out.fromRemote++; }
   }
   for (const id of new Set([...Object.keys(lrg), ...Object.keys(rrg)])) {
     if (has(out.rigStamps, id)) continue;
