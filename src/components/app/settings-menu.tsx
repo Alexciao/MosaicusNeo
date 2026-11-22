@@ -2,10 +2,10 @@
 // Un solo menu per account e impostazioni: chi è collegato (e se è sincronizzato), tema, modalità LIM, link utili.
 // Collegato: il pulsante è l'avatar con lo stato del cloud. Altrimenti: un ingranaggio, e accanto «Accedi» se l'account è disponibile.
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
 import { useTheme } from "next-themes";
-import { Bug, ExternalLink, LogIn, LogOut, Monitor, Moon, Presentation, RefreshCw, Settings2, ShieldCheck, Sun, Trash } from "lucide-react";
+import { Bug, CloudCheck, ExternalLink, LogIn, LogOut, Monitor, Moon, Presentation, RefreshCw, Settings2, ShieldCheck, Sun, Trash } from "lucide-react";
 import { GithubMark } from "./github-mark";
 import { REPO_URL, ISSUES_URL } from "@/lib/links";
 import { Button } from "@/components/ui/button";
@@ -15,7 +15,7 @@ import {
   DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem, DropdownMenuLabel, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuSeparator, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useLab, setLim } from "@/lib/lab-store";
-import { syncNow } from "@/lib/cloud/sync";
+import { syncNow, useCloud } from "@/lib/cloud/sync";
 import { cn } from "@/lib/utils";
 import { APP_VERSION } from "@/lib/version";
 import { AuthDialog, Avatar, DeleteAccountDialog, RecoveryDialog, logout, useAccount } from "./account-menu";
@@ -25,8 +25,25 @@ import { openPrivacy } from "./privacy-dialog";
 // i tre temi come riquadri affiancati: un solo sguardo, un solo clic (le frecce su/giù li percorrono comunque)
 const tile = "flex-col justify-center gap-1 px-1 py-2 text-xs data-checked:bg-accent data-checked:font-medium data-checked:ring-1 data-checked:ring-foreground/10 [&>[data-slot=dropdown-menu-radio-item-indicator]]:hidden [&_svg:not([class*='size-'])]:size-[1.125rem]";
 
+/** Vero per 500 ms dopo ogni sincronizzazione riuscita: il segno di spunta si accende del colore del marchio. */
+function useSyncFlash() {
+  const [flash, setFlash] = useState(false);
+  useEffect(() => {
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const unsub = useCloud.subscribe((s, prev) => {
+      if (!s.lastSync || s.lastSync === prev.lastSync) return;
+      setFlash(true);
+      clearTimeout(timer);
+      timer = setTimeout(() => setFlash(false), 500);
+    });
+    return () => { unsub(); clearTimeout(timer); };
+  }, []);
+  return flash;
+}
+
 export function SettingsMenu() {
   const { enabled, ready, user, text, Icon, iconClass } = useAccount();
+  const flash = useSyncFlash();
   const { theme = "system", setTheme } = useTheme();
   const lim = useLab((s) => s.lim);
   const t = useTranslations("app.appearance");
@@ -55,7 +72,11 @@ export function SettingsMenu() {
                 <span className="relative">
                   <Avatar email={user.email} />
                   <span className="absolute -right-0.5 -bottom-0.5 grid size-3.5 place-items-center rounded-full bg-background ring-1 ring-border">
-                    <Icon className={cn("size-2.5 text-muted-foreground", iconClass)} />
+                    {/* a ogni sincronizzazione la spunta passa al colore del marchio e torna grigia (transizione:
+                        una nuova sincronizzazione durante il ritorno riparte da dove si trova). starting: fa partire
+                        dal grigio anche l'icona appena montata al posto della rotellina */}
+                    <Icon className={cn("size-2.5 text-muted-foreground transition-colors duration-200 ease-[ease] starting:text-muted-foreground",
+                      flash && Icon === CloudCheck && "text-brand", iconClass)} />
                   </span>
                 </span>
                 <Settings2 className="size-4 text-muted-foreground" />
