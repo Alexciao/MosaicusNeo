@@ -5,13 +5,13 @@
 
 import { useEffect, useId, useRef, useState } from "react";
 import { create } from "zustand";
-import { Check, Copy, Download, FileUp, Plus, Search, Sparkles, TriangleExclamationPoint, X } from "lucide-react";
+import { Check, Copy, Download, FileUp, Plus, Search, Sparkles, TriangleExclamationPoint } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { SENSORS, pinName, type SensorType } from "@/lib/sensors/catalog";
+import { SENSORS, type SensorType } from "@/lib/sensors/catalog";
 import { sensorLabel, type Rig, type SensorInstance } from "@/lib/sensors/rig";
 import { DEFAULT_PROJECT_ICON, DEFAULT_PROJECT_TONE, PROJECT_ICONS, isProjectIcon, projectTone, type ProjectIconKey } from "@/lib/sensors/project-look";
 import { SHARE_EXT, ShareError, decodeLab, encodeLab, findCode, shareFileName, type LabDraft } from "@/lib/sensors/share";
@@ -79,36 +79,31 @@ export function ShareDialog({ rig, open, onOpenChange }: { rig: Rig; open: boole
 // ---------------------------------------------------------------------------
 // Nuovo lab
 
-/** Un componente nella bozza, con la crocetta per toglierlo. */
-function DraftChip({ s, onRemove }: { s: SensorInstance; onRemove?: () => void }) {
-  const t = useTranslations("rig.newLab");
+/** Un componente nell'anteprima di un lab importato. */
+function DraftChip({ s }: { s: SensorInstance }) {
   return (
-    <li className="inline-flex h-7 shrink-0 items-center gap-1.5 rounded-md border bg-card pr-1 pl-1 text-xs whitespace-nowrap">
+    <li className="inline-flex h-7 shrink-0 items-center gap-1.5 rounded-md border bg-card pr-2 pl-1 text-xs whitespace-nowrap">
       <span className="grid size-5 place-items-center" aria-hidden><ComponentThumb type={s.type} className="size-full" /></span>
-      <span className={cn("max-w-40 truncate font-medium", !onRemove && "pr-1")} title={sensorLabel(s)}>{sensorLabel(s)}</span>
-      {onRemove && (
-        <button type="button" onClick={onRemove} aria-label={t("remove", { name: sensorLabel(s) })}
-          className="grid size-5 place-items-center rounded text-muted-foreground transition-colors hover:bg-foreground/[0.06] hover:text-foreground"><X className="size-3" /></button>
-      )}
+      <span className="max-w-40 truncate font-medium" title={sensorLabel(s)}>{sensorLabel(s)}</span>
     </li>
   );
 }
 
-/** Un componente scelto nella finestra «Nuovo lab»: che cosa misura, i pin, la crocetta per toglierlo. */
-function DraftRow({ s, onRemove }: { s: SensorInstance; onRemove: () => void }) {
-  const t = useTranslations("rig.newLab");
-  const def = SENSORS[s.type];
-  const pins = def.phone ? "" : def.pins.map((p) => pinName(s.pins[p.key])).join(" · ");
+/** Una casella dei componenti suggeriti nella finestra «Nuovo lab». */
+function Tile({ on, label, title, icon, onClick, haspopup }: { on: boolean; label: string; title?: string; icon: React.ReactNode; onClick: () => void; haspopup?: boolean }) {
   return (
-    <li className="flex min-w-0 items-center gap-2.5 py-1.5 pr-1.5 pl-2">
-      <span className="grid size-8 shrink-0 place-items-center rounded-md bg-muted/60 p-1" aria-hidden><ComponentThumb type={s.type} className="size-full" /></span>
-      <span className="min-w-0 flex-1">
-        <span className="block truncate text-[13px] font-medium">{sensorLabel(s)}</span>
-        <span className="block truncate text-xs text-muted-foreground">{def.measures}{pins && <span className="font-mono text-[11px]"> · {pins}</span>}</span>
-      </span>
-      <Button type="button" variant="ghost" size="icon-sm" onClick={onRemove} aria-label={t("remove", { name: sensorLabel(s) })} title={t("remove", { name: sensorLabel(s) })}
-        className="shrink-0 text-muted-foreground hover:text-foreground"><X /></Button>
-    </li>
+    <button type="button" onClick={onClick} title={title} aria-pressed={haspopup ? undefined : on} aria-haspopup={haspopup ? "dialog" : undefined}
+      className={cn("group/tile relative flex h-10 min-w-0 items-center gap-2 rounded-lg border bg-card px-2.5 text-left transition-[background-color,border-color,scale] duration-150 ease-out outline-none focus-visible:ring-3 focus-visible:ring-ring/50 active:scale-[0.98]",
+        on ? "border-foreground/30 bg-foreground/[0.04]" : "hover:bg-foreground/[0.03]")}>
+      <span className="grid size-6 shrink-0 place-items-center" aria-hidden>{icon}</span>
+      <span className="min-w-0 flex-1 truncate text-[13px] font-medium">{label}</span>
+      {/* spunta in un angolo: non toglie spazio al nome */}
+      {on && (
+        <span aria-hidden className="absolute -top-1.5 -right-1.5 grid size-4 place-items-center rounded-full bg-foreground text-background shadow-sm ring-2 ring-popover">
+          <Check className="size-2.5" strokeWidth={3.5} />
+        </span>
+      )}
+    </button>
   );
 }
 
@@ -205,6 +200,8 @@ export function NewLabDialog() {
   const importLab = () => { if (decoded.state === "ok") finish(decoded.draft, true); };
 
   const draft = decoded.state === "ok" ? decoded.draft : null;
+  // componenti scelti dal catalogo intero (non tra i suggeriti)
+  const extra = sensors.filter((s) => !QUICK_COMPONENTS.includes(s.type));
   return (
     <>
       <Dialog open={open} onOpenChange={change}>
@@ -244,34 +241,22 @@ export function NewLabDialog() {
                 <section className="flex flex-col gap-2.5" aria-labelledby={`${uid}-components`}>
                   <div className="flex items-baseline justify-between gap-2">
                     <p id={`${uid}-components`} className="text-xs font-medium text-muted-foreground">{t("components")}</p>
-                    {sensors.length > 0 && <p className="text-xs text-muted-foreground tabular">{t("componentCount", { n: sensors.length })}</p>}
+                    <p className="text-xs text-muted-foreground tabular">{sensors.length ? t("componentCount", { n: sensors.length }) : t("optional")}</p>
                   </div>
-                  {sensors.length > 0 ? (
-                    <ul className="flex flex-col divide-y rounded-lg border bg-card">
-                      {sensors.map((s) => <DraftRow key={s.id} s={s} onRemove={() => setSensors(sensors.filter((x) => x.id !== s.id))} />)}
-                    </ul>
-                  ) : (
-                    <p className="rounded-lg border border-dashed px-3 py-3 text-center text-[13px] text-muted-foreground">{t("componentsEmpty")}</p>
-                  )}
-                  <p className="mt-1.5 text-xs font-medium text-muted-foreground">{t("suggested")}</p>
-                  <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+                  {/* i più usati (un clic aggiunge, un altro toglie) e, per ultimo, il catalogo intero:
+                      la spunta su «Sfoglia» dice che da lì è arrivato qualcos'altro */}
+                  <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
                     {QUICK_COMPONENTS.map((type) => {
                       const on = sensors.some((s) => s.type === type);
                       return (
-                        <button key={type} type="button" aria-pressed={on} title={SENSORS[type].measures}
-                          onClick={() => { const last = sensors.findLast((s) => s.type === type); if (last) setSensors(sensors.filter((s) => s.id !== last.id)); else addTypes([type]); }}
-                          className={cn("group/tile flex h-10 min-w-0 items-center gap-2 rounded-lg border bg-card px-2.5 text-left transition-[background-color,border-color,scale] duration-150 ease-out outline-none focus-visible:ring-3 focus-visible:ring-ring/50 active:scale-[0.98]",
-                            on ? "border-foreground/30 bg-foreground/[0.04]" : "hover:bg-foreground/[0.03]")}>
-                          <span className="grid size-6 shrink-0 place-items-center" aria-hidden><ComponentThumb type={type} className="size-full" /></span>
-                          <span className="min-w-0 flex-1 truncate text-[13px] font-medium">{SENSORS[type].short}</span>
-                          {on
-                            ? <Check aria-hidden className="size-4 shrink-0 text-foreground" />
-                            : <Plus aria-hidden className="size-4 shrink-0 text-muted-foreground opacity-60 transition-opacity group-hover/tile:opacity-100" />}
-                        </button>
+                        <Tile key={type} on={on} title={SENSORS[type].measures} label={SENSORS[type].short}
+                          icon={<ComponentThumb type={type} className="size-full" />}
+                          onClick={() => { const last = sensors.findLast((s) => s.type === type); if (last) setSensors(sensors.filter((s) => s.id !== last.id)); else addTypes([type]); }} />
                       );
                     })}
+                    <Tile on={extra.length > 0} label={t("browseAll")} title={extra.length ? extra.map(sensorLabel).join(", ") : undefined}
+                      icon={<Search className="size-4 text-muted-foreground" />} onClick={() => setBrowse(true)} haspopup />
                   </div>
-                  <Button type="button" variant="outline" size="sm" onClick={() => setBrowse(true)} className="w-full"><Search /> {t("browseAll")}</Button>
                 </section>
               </form>
               <DialogFooter className="m-0 border-t px-5 py-3">
