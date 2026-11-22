@@ -374,7 +374,6 @@ export function NewLabDialog() {
                       <TriangleExclamationPoint aria-hidden className="mt-0.5 size-3.5 shrink-0" /> {decoded.message}
                     </p>
                   )}
-                  {decoded.state === "idle" && <p className="text-[13px] text-muted-foreground">{t("importHint")}</p>}
                 </div>
               </div>
               <DialogFooter className="m-0 border-t px-5 py-3">

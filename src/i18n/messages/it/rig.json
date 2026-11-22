@@ -151,7 +151,6 @@
     "pasteFailed": "Impossibile leggere gli appunti: incolla con Ctrl+V.",
     "clear": "Svuota",
     "dropNow": "Rilascia il file per leggerlo",
-    "importHint": "I codici iniziano con NEO2 (o NEO1 quelli più vecchi). L'anteprima compare appena il codice è completo.",
     "previewLabel": "Lab da importare",
     "previewSummary": "{n, plural, =0 {Nessun componente} one {# componente} other {# componenti}}, {charts, plural, =0 {nessun grafico} one {# grafico} other {# grafici}}"
   },

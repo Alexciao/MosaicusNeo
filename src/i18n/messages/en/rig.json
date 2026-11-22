@@ -151,7 +151,6 @@
     "pasteFailed": "Couldn't read the clipboard: paste with Ctrl+V instead.",
     "clear": "Clear",
     "dropNow": "Drop the file to read it",
-    "importHint": "Codes start with NEO2 (or NEO1 for older ones). A preview appears as soon as the code is complete.",
     "previewLabel": "Lab to import",
     "previewSummary": "{n, plural, =0 {No components} one {# component} other {# components}}, {charts, plural, =0 {no charts} one {# chart} other {# charts}}"
   },
