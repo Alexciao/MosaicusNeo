@@ -29,6 +29,22 @@ import { toneBg, toneFg } from "./tone";
 /** I componenti più usati: proposti nel lab vuoto e nella finestra «Nuovo lab». */
 export const QUICK_COMPONENTS: SensorType[] = ["sonar", "ntc", "dht", "ldr", "button", "imu"];
 
+/** Suggeriti della finestra «Nuovo lab», in ordine: i primi sempre in vista, gli altri per riempire le righe. */
+const NEW_LAB_SUGGESTIONS: SensorType[] = [...QUICK_COMPONENTS, "ds18b20", "gate", "oled96", "mlx", "hx711", "gps", "buzzer", "rgb", "analog", "sd", "sps30", "oled"];
+const SUGGEST_COLS = 4, SUGGEST_BASE = 2 * SUGGEST_COLS - 1;  // due righe piene, con «Sfoglia tutti» in fondo
+
+/** Le caselle da mostrare: i suggeriti di base, poi ciò che è arrivato dal catalogo (spuntato), poi
+ *  altri suggeriti finché le righe sono piene (contando «Sfoglia tutti», sempre ultima). */
+function suggestionTiles(chosen: SensorType[]): SensorType[] {
+  const tiles = NEW_LAB_SUGGESTIONS.slice(0, SUGGEST_BASE);
+  for (const type of chosen) if (!tiles.includes(type)) tiles.push(type);
+  for (const type of NEW_LAB_SUGGESTIONS) {
+    if ((tiles.length + 1) % SUGGEST_COLS === 0) break;
+    if (!tiles.includes(type)) tiles.push(type);
+  }
+  return tiles;
+}
+
 const codeClass = "w-full resize-none rounded-lg border border-input bg-transparent px-2.5 py-2 font-mono text-xs leading-relaxed break-all outline-none placeholder:font-sans placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 aria-invalid:border-destructive aria-invalid:ring-3 aria-invalid:ring-destructive/20 dark:bg-input/30";
 
 // ---------------------------------------------------------------------------
@@ -200,8 +216,7 @@ export function NewLabDialog() {
   const importLab = () => { if (decoded.state === "ok") finish(decoded.draft, true); };
 
   const draft = decoded.state === "ok" ? decoded.draft : null;
-  // componenti scelti dal catalogo intero (non tra i suggeriti)
-  const extra = sensors.filter((s) => !QUICK_COMPONENTS.includes(s.type));
+  const tiles = suggestionTiles([...new Set(sensors.map((s) => s.type))]);
   return (
     <>
       <Dialog open={open} onOpenChange={change}>
@@ -243,19 +258,18 @@ export function NewLabDialog() {
                     <p id={`${uid}-components`} className="text-xs font-medium text-muted-foreground">{t("components")}</p>
                     <p className="text-xs text-muted-foreground tabular">{sensors.length ? t("componentCount", { n: sensors.length }) : t("optional")}</p>
                   </div>
-                  {/* i più usati (un clic aggiunge, un altro toglie) e, per ultimo, il catalogo intero:
-                      la spunta su «Sfoglia» dice che da lì è arrivato qualcos'altro */}
+                  {/* un clic aggiunge, un altro toglie; ciò che arriva dal catalogo diventa una casella spuntata
+                      (e sparisce se la si toglie); «Sfoglia tutti» resta l'ultima */}
                   <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-                    {QUICK_COMPONENTS.map((type) => {
+                    {tiles.map((type) => {
                       const on = sensors.some((s) => s.type === type);
                       return (
                         <Tile key={type} on={on} title={SENSORS[type].measures} label={SENSORS[type].short}
                           icon={<ComponentThumb type={type} className="size-full" />}
-                          onClick={() => { const last = sensors.findLast((s) => s.type === type); if (last) setSensors(sensors.filter((s) => s.id !== last.id)); else addTypes([type]); }} />
+                          onClick={() => { if (on) setSensors(sensors.filter((s) => s.type !== type)); else addTypes([type]); }} />
                       );
                     })}
-                    <Tile on={extra.length > 0} label={t("browseAll")} title={extra.length ? extra.map(sensorLabel).join(", ") : undefined}
-                      icon={<Search className="size-4 text-muted-foreground" />} onClick={() => setBrowse(true)} haspopup />
+                    <Tile on={false} label={t("browseAll")} icon={<Search className="size-4 text-muted-foreground" />} onClick={() => setBrowse(true)} haspopup />
                   </div>
                 </section>
               </form>
