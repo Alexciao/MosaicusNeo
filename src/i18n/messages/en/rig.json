@@ -29,7 +29,7 @@
     "actionsFor": "Actions for “{name}”",
     "rename": "Rename",
     "duplicate": "Duplicate",
-    "share": "Share…",
+    "share": "Share",
     "delete": "Delete",
     "deleteTitle": "Delete “{name}”?",
     "deleteDescription": "Measurements stay in the Notebook.",
