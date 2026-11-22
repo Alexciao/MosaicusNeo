@@ -20,7 +20,7 @@ import { onPrefChange } from "@/lib/prefs";
 import { useWorkbench } from "@/lib/workbench-store";
 import { refreshSessions, reloadParams } from "@/lib/lab-store";
 import { t } from "@/i18n";
-import { mergeSettings, RIGS_KEY, type SettingsSide } from "./settings-merge";
+import { mergeSettings, RIGS_KEY, stable, type SettingsSide } from "./settings-merge";
 
 export type CloudStatus = "off" | "idle" | "syncing" | "offline" | "error";
 interface CloudState {
@@ -169,12 +169,6 @@ function localSettings(): SettingsSide {
     rigStamps: LS.read<Stamps>(RIG_STAMPS, {}), rigsGone: LS.read<Stamps>(RIGS_GONE, {}),
   };
 }
-
-/** JSON con le chiavi in ordine: il cloud (jsonb) non conserva l'ordine delle chiavi. */
-const stable = (v: unknown): string =>
-  Array.isArray(v) ? `[${v.map(stable).join(",")}]`
-  : v && typeof v === "object" ? `{${Object.keys(v).sort().map((k) => `${JSON.stringify(k)}:${stable((v as Record<string, unknown>)[k])}`).join(",")}}`
-  : JSON.stringify(v) ?? "null";
 
 const rigsSeen = (list: unknown) =>
   Object.fromEntries((Array.isArray(list) ? list : []).filter((r) => r && typeof r.id === "string").map((r) => [r.id as string, stable(r)]));
@@ -331,7 +325,8 @@ export function startCloud() {
 /**
  * Dopo l'accesso: i dati di questo dispositivo e quelli dell'account si uniscono. Le misure e i
  * riquadri creati senza account entrano nell'account; lab personali e preferenze si uniscono voce
- * per voce. Niente viene sovrascritto per intero e niente viene cancellato. Un avviso lo conferma.
+ * per voce. Niente viene sovrascritto per intero e niente viene cancellato. Un avviso lo conferma,
+ * ma solo se le due parti erano davvero diverse: altrimenti la sincronizzazione è silenziosa.
  */
 async function onSignedIn(user: string, announce: boolean) {
   let adopted = 0;
@@ -351,7 +346,10 @@ async function onSignedIn(user: string, announce: boolean) {
     toast(t("lab.cloud.mergeLater"));
     return;
   }
-  toast.success(t("lab.cloud.merged", { local: adopted + res.fromLocal, remote: res.added + res.fromRemote }));
+  const local = adopted + res.fromLocal, remote = res.added + res.fromRemote;
+  // dati uguali da tutte e due le parti: la sincronizzazione resta silenziosa
+  if (!local && !remote) return;
+  toast.success(t("lab.cloud.merged", { local, remote }));
 }
 
 const redirect = () => `${window.location.origin}/`;
