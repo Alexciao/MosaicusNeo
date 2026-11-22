@@ -5,10 +5,9 @@
 
 import { useState } from "react";
 import type { LucideIcon } from "lucide-react";
-import { ChevronDown, Copy, Ellipsis, Palette, Pencil, Plus, Search, Share2, Trash, X } from "lucide-react";
+import { ChevronDown, Copy, Ellipsis, Pencil, Plus, Search, Share2, Trash, X } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
@@ -16,7 +15,7 @@ import {
   SidebarContent, SidebarGroup, SidebarGroupContent, SidebarGroupLabel, SidebarHeader, SidebarInput, SidebarMenu, SidebarMenuAction, SidebarMenuButton, SidebarMenuItem, useSidebar,
 } from "@/components/ui/sidebar";
 import { PRESETS, PRESET_TOPICS, PHONE_PRESETS, COLLAPSED_TOPICS, INSTRUMENTS, TOPIC_TONE } from "@/lib/sensors/presets";
-import { DEFAULT_PROJECT_ICON, PROJECT_ICONS, isProjectIcon, projectIcon, projectTone, type ProjectIconKey } from "@/lib/sensors/project-look";
+import { DEFAULT_PROJECT_ICON, isProjectIcon, projectIcon, projectTone, type ProjectIconKey } from "@/lib/sensors/project-look";
 import { useLab, selectLab, rigSummary, renameRigById, duplicateRig, deleteRig, setRigLook } from "@/lib/lab-store";
 import type { Rig } from "@/lib/sensors/rig";
 import type { Tone } from "@/lib/sensors/types";
@@ -24,7 +23,7 @@ import { confirm } from "@/lib/confirm";
 import { prefs } from "@/lib/prefs";
 import { cn } from "@/lib/utils";
 import { toneFg } from "./tone";
-import { IconField, ToneField } from "./lab-look";
+import { LabIdentityFields } from "./lab-look";
 import { ShareDialog, openNewLab } from "./lab-share";
 
 /** Dopo la scelta: sul telefono il cassetto si chiude. */
@@ -57,17 +56,14 @@ function Item({ id, title, icon: Icon, tone, menu }: Entry) {
   );
 }
 
-/** Menu «⋯» di un progetto: rinomina, duplica, elimina. */
-/** Menu di un progetto: rinomina, colore e icona, duplica, elimina. trigger: il pulsante che lo apre
- *  (di serie i «⋯» della barra dei lab; accanto al titolo del lab, una matita). */
+/** Menu di un progetto: modifica (nome, colore, icona), duplica, condividi, elimina. trigger: il
+ *  pulsante che lo apre (di serie i «⋯» della barra dei lab; accanto al titolo del lab, una matita). */
 export function RigMenu({ rig, trigger, side = "right" }: { rig: Rig; trigger?: React.ReactElement; side?: "right" | "bottom" }) {
   const t = useTranslations("rig.picker");
   const running = useLab((s) => s.running);
   const isOpen = useLab((s) => s.labId === rig.id);
-  const [renaming, setRenaming] = useState(false);
-  const [styling, setStyling] = useState(false);
+  const [editing, setEditing] = useState(false);
   const [sharing, setSharing] = useState(false);
-  const [name, setName] = useState(rig.name);
   const busy = running && isOpen;
   return (
     <>
@@ -78,8 +74,7 @@ export function RigMenu({ rig, trigger, side = "right" }: { rig: Rig; trigger?: 
           </DropdownMenuTrigger>
         )}
         <DropdownMenuContent side={side} align="start" className="w-48">
-          <DropdownMenuItem onClick={() => { setName(rig.name); setRenaming(true); }}><Pencil /> {t("rename")}</DropdownMenuItem>
-          <DropdownMenuItem onClick={() => setStyling(true)}><Palette /> {t("customize")}</DropdownMenuItem>
+          <DropdownMenuItem onClick={() => setEditing(true)}><Pencil /> {t("edit")}</DropdownMenuItem>
           <DropdownMenuItem disabled={running} onClick={() => duplicateRig(rig.id)}><Copy /> {t("duplicate")}</DropdownMenuItem>
           <DropdownMenuItem onClick={() => setSharing(true)}><Share2 /> {t("share")}</DropdownMenuItem>
           <DropdownMenuSeparator />
@@ -89,45 +84,42 @@ export function RigMenu({ rig, trigger, side = "right" }: { rig: Rig; trigger?: 
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
-      <Dialog open={renaming} onOpenChange={setRenaming}>
-        <DialogContent className="sm:max-w-sm">
-          <DialogHeader><DialogTitle>{t("renameTitle")}</DialogTitle></DialogHeader>
-          <form onSubmit={(e) => { e.preventDefault(); renameRigById(rig.id, name); setRenaming(false); }} className="flex flex-col gap-4">
-            <Input autoFocus value={name} onChange={(e) => setName(e.target.value)} aria-label={t("projectName")} />
-            <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => setRenaming(false)}>{t("cancel")}</Button>
-              <Button type="submit">{t("save")}</Button>
-            </DialogFooter>
-          </form>
-        </DialogContent>
-      </Dialog>
-      <LookDialog rig={rig} open={styling} onOpenChange={setStyling} />
+      <EditDialog rig={rig} open={editing} onOpenChange={setEditing} />
       <ShareDialog rig={rig} open={sharing} onOpenChange={setSharing} />
     </>
   );
 }
 
-/** Colore e icona di un progetto: si applicano subito (anteprima dal vivo nella barra). */
-function LookDialog({ rig, open, onOpenChange }: { rig: Rig; open: boolean; onOpenChange: (o: boolean) => void }) {
+/** «Modifica il lab»: nome, colore e icona insieme, come in «Nuovo lab»; si salva con «Salva». */
+function EditDialog({ rig, open, onOpenChange }: { rig: Rig; open: boolean; onOpenChange: (o: boolean) => void }) {
   const t = useTranslations("rig.picker");
-  const tone = projectTone(rig);
-  const iconKey: ProjectIconKey = isProjectIcon(rig.icon) ? rig.icon : DEFAULT_PROJECT_ICON;
-  const Icon = PROJECT_ICONS[iconKey];
+  const [name, setName] = useState(rig.name);
+  const [tone, setTone] = useState<Tone>(projectTone(rig));
+  const [icon, setIcon] = useState<ProjectIconKey>(isProjectIcon(rig.icon) ? rig.icon : DEFAULT_PROJECT_ICON);
+  // a ogni apertura si riparte dal lab com'è
+  const [wasOpen, setWasOpen] = useState(open);
+  if (open !== wasOpen) {
+    setWasOpen(open);
+    if (open) { setName(rig.name); setTone(projectTone(rig)); setIcon(isProjectIcon(rig.icon) ? rig.icon : DEFAULT_PROJECT_ICON); }
+  }
+  const save = () => {
+    if (tone !== projectTone(rig) || icon !== rig.icon) setRigLook(rig.id, { tone, icon });
+    if (name.trim() !== rig.name) renameRigById(rig.id, name);
+    onOpenChange(false);
+  };
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-sm">
-        <DialogHeader>
-          <DialogTitle className="flex min-w-0 items-center gap-2">
-            <Icon className={cn("size-4 shrink-0", toneFg[tone])} aria-hidden />
-            <span className="truncate">{rig.name}</span>
-          </DialogTitle>
+      <DialogContent className="flex max-h-[min(40rem,92dvh)] flex-col gap-0 overflow-hidden p-0 sm:max-w-xl">
+        <DialogHeader className="px-5 pt-5 pb-4">
+          <DialogTitle>{t("editTitle")}</DialogTitle>
         </DialogHeader>
-        <div className="flex flex-col gap-5">
-          <ToneField id={rig.id} tone={tone} onChange={(c) => setRigLook(rig.id, { tone: c })} />
-          <IconField id={rig.id} icon={iconKey} tone={tone} onChange={(k) => setRigLook(rig.id, { icon: k })} />
-        </div>
-        <DialogFooter>
-          <Button onClick={() => onOpenChange(false)}>{t("done")}</Button>
+        <form id={`edit-${rig.id}`} onSubmit={(e) => { e.preventDefault(); save(); }}
+          className="flex min-h-0 flex-1 flex-col gap-5 overflow-y-auto overscroll-contain border-t px-5 py-4">
+          <LabIdentityFields id={`edit-${rig.id}`} name={name} onName={setName} tone={tone} onTone={setTone} icon={icon} onIcon={setIcon} placeholder={t("newProject")} />
+        </form>
+        <DialogFooter className="m-0 border-t px-5 py-3">
+          <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>{t("cancel")}</Button>
+          <Button type="submit" form={`edit-${rig.id}`}>{t("save")}</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

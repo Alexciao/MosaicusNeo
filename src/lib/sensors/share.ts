@@ -1,4 +1,4 @@
-// MosaicusNeo — condivisione dei miei lab: un codice di testo (e un file .neoproj che lo contiene, e
+// MosaicusNeo — condivisione dei miei lab: un codice di testo (e un file .neolab che lo contiene, e
 // un link che lo porta) con tutto il necessario per ricrearlo su un altro dispositivo: nome, colore,
 // icona, componenti con pin, opzioni, intervallo ed etichetta, e i grafici scelti.
 //
@@ -18,7 +18,9 @@ import { newId, normalizeRig, resolveRig, type Rig, type SensorInstance } from "
 import { PROJECT_TONES, isProjectIcon } from "./project-look";
 import type { Options, Tone } from "./types";
 
-export const SHARE_EXT = ".neoproj";
+export const SHARE_EXT = ".neolab";
+/** Estensioni accettate all'import: .neoproj è il nome di prima, letto ancora senza dirlo. */
+export const SHARE_EXTS = [SHARE_EXT, ".neoproj"];
 const MAX_SENSORS = 40;
 
 /** Un lab pronto per essere creato (da un codice o dalla finestra «Nuovo lab»). */
@@ -307,6 +309,6 @@ export const shareLink = (code: string) =>
 /** Il codice nell'indirizzo della pagina (#lab=…), se c'è. */
 export const codeFromHash = (hash: string) => { const m = hash.match(/[#&]lab=([^&]+)/); return m ? decodeURIComponent(m[1]) : null; };
 
-/** Nome del file .neoproj di un lab. */
+/** Nome del file .neolab di un lab. */
 export const shareFileName = (name: string) =>
   `${name.normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/[^\w\- ]+/g, "").trim().replace(/\s+/g, "-").slice(0, 60) || "lab"}${SHARE_EXT}`;

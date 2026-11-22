@@ -1,13 +1,39 @@
 "use client";
-// Colore e icona di un lab: i due selettori usati da «Colore e icona» e dalla finestra «Nuovo lab».
+// Nome, colore e icona di un lab: lo stesso blocco in «Nuovo lab» e in «Modifica il lab».
 
 import type { LucideIcon } from "lucide-react";
 import { Check } from "lucide-react";
 import { useTranslations } from "next-intl";
+import { Input } from "@/components/ui/input";
 import { PROJECT_ICONS, PROJECT_TONES, type ProjectIconKey } from "@/lib/sensors/project-look";
 import type { Tone } from "@/lib/sensors/types";
+import { isPhoneWidth } from "@/lib/prefs";
 import { cn } from "@/lib/utils";
-import { toneDot, toneFg } from "./tone";
+import { toneBg, toneDot, toneFg } from "./tone";
+
+/** La piastrella del lab (anteprima dal vivo), il nome, i colori e le icone. */
+export function LabIdentityFields({ id, name, onName, tone, onTone, icon, onIcon, placeholder, onPaste }: {
+  id: string; name: string; onName: (n: string) => void; tone: Tone; onTone: (c: Tone) => void; icon: ProjectIconKey; onIcon: (k: ProjectIconKey) => void;
+  placeholder: string; onPaste?: React.ClipboardEventHandler<HTMLInputElement>;
+}) {
+  const t = useTranslations("rig.picker");
+  const Icon = PROJECT_ICONS[icon];
+  return (
+    <>
+      <div className="flex items-center gap-2.5">
+        <span aria-hidden className={cn("grid size-9 shrink-0 place-items-center rounded-lg transition-colors [&_svg]:size-4", toneBg[tone], toneFg[tone])}><Icon /></span>
+        <label htmlFor={`${id}-name`} className="sr-only">{t("projectName")}</label>
+        <Input id={`${id}-name`} autoFocus={!isPhoneWidth()} value={name} maxLength={80} placeholder={placeholder}
+          onChange={(e) => onName(e.target.value)} onPaste={onPaste}
+          className="h-9 min-w-0 flex-1 text-[15px] font-medium md:text-[15px]" />
+      </div>
+      <div className="grid gap-5 sm:grid-cols-[auto_minmax(0,1fr)]">
+        <ToneField id={id} tone={tone} onChange={onTone} />
+        <IconField id={id} icon={icon} tone={tone} onChange={onIcon} />
+      </div>
+    </>
+  );
+}
 
 export function ToneField({ id, tone, onChange, className }: { id: string; tone: Tone; onChange: (c: Tone) => void; className?: string }) {
   const t = useTranslations("rig.picker");

@@ -1,13 +1,13 @@
 "use client";
 // Condividere e creare i miei lab.
-//  - ShareDialog: link (con il suo codice QR), codice da copiare e file .neoproj.
+//  - ShareDialog: link (con il suo codice QR), codice da copiare e file .neolab.
 //  - NewLabDialog: «Nuovo lab», da zero (nome, colore, icona, componenti) o da un codice, un link o
 //    un file. Si apre anche dal link (#lab=…): vedi openNewLab.
 
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { create } from "zustand";
 import { encode as encodeQr } from "uqr";
-import { Check, ClipboardPaste, Copy, Download, FileUp, Plus, Search, Share2, Sparkles, TriangleExclamationPoint, X } from "lucide-react";
+import { Check, ClipboardPaste, Copy, Download, FileUp, Maximize2, Plus, Search, Share2, Sparkles, TriangleExclamationPoint, X } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -16,7 +16,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { SENSORS, type SensorType } from "@/lib/sensors/catalog";
 import { sensorLabel, type Rig, type SensorInstance } from "@/lib/sensors/rig";
 import { DEFAULT_PROJECT_ICON, DEFAULT_PROJECT_TONE, PROJECT_ICONS, isProjectIcon, projectTone, type ProjectIconKey } from "@/lib/sensors/project-look";
-import { SHARE_EXT, ShareError, decodeLab, encodeLab, hasCode, shareFileName, shareLink, type LabDraft } from "@/lib/sensors/share";
+import { SHARE_EXT, SHARE_EXTS, ShareError, decodeLab, encodeLab, hasCode, shareFileName, shareLink, type LabDraft } from "@/lib/sensors/share";
 import type { Tone } from "@/lib/sensors/types";
 import { useLab, checkAdd, createRig, rigVisible, showWiring } from "@/lib/lab-store";
 import { download } from "@/lib/mosaicus/export.js";
@@ -25,7 +25,7 @@ import { isPhoneWidth } from "@/lib/prefs";
 import { cn } from "@/lib/utils";
 import { ComponentThumb } from "./board-diagram";
 import { ComponentPicker } from "./rig-editor";
-import { IconField, ToneField } from "./lab-look";
+import { LabIdentityFields } from "./lab-look";
 import { toneBg, toneFg } from "./tone";
 
 /** I componenti più usati: proposti nel lab vuoto e nella finestra «Nuovo lab». */
@@ -75,6 +75,11 @@ export function ShareDialog({ rig, open, onOpenChange }: { rig: Rig; open: boole
   const link = code ? shareLink(code) : "";
   const charts = code ? rigVisible(rig.id).length : 0;
   const canShare = typeof navigator !== "undefined" && typeof navigator.share === "function";
+  // il QR ingrandito; in modalità lavagna si apre per primo (lo si proietta, i telefoni lo inquadrano)
+  const lim = useLab((s) => s.lim);
+  const [expanded, setExpanded] = useState(false);
+  const [wasOpen, setWasOpen] = useState(open);
+  if (open !== wasOpen) { setWasOpen(open); setExpanded(open && lim); }
   useEffect(() => { if (!copied) return; const id = setTimeout(() => setCopied(null), 1800); return () => clearTimeout(id); }, [copied]);
   const copy = async (what: "link" | "code") => {
     try { await navigator.clipboard.writeText(what === "link" ? link : code); setCopied(what); }
@@ -99,12 +104,13 @@ export function ShareDialog({ rig, open, onOpenChange }: { rig: Rig; open: boole
         </DialogHeader>
         <div className="grid gap-5 border-t px-5 py-5 sm:grid-cols-[auto_minmax(0,1fr)]">
           {/* il QR: per aprire il lab subito su un telefono (dalla lavagna, dal compagno di banco) */}
-          <figure className="flex flex-col items-center gap-2 justify-self-center sm:justify-self-start">
-            <div className="rounded-xl bg-white p-3 text-zinc-950 shadow-xs ring-1 ring-black/10">
-              {link && <QrCode value={link} label={t("qrLabel", { name: rig.name })} className="size-40 sm:size-36" />}
-            </div>
-            <figcaption className="max-w-40 text-center text-xs leading-snug text-muted-foreground">{t("qrHint")}</figcaption>
-          </figure>
+          <button type="button" onClick={() => setExpanded(true)} aria-label={t("qrExpand")} title={t("qrExpand")}
+            className="group/qr relative self-start justify-self-center rounded-xl bg-white p-3 text-zinc-950 shadow-xs ring-1 ring-black/10 transition-[scale,box-shadow] duration-150 ease-out outline-none hover:shadow-md focus-visible:ring-3 focus-visible:ring-ring/50 active:scale-[0.98] sm:justify-self-start">
+            {link && <QrCode value={link} label={t("qrLabel", { name: rig.name })} className="size-40 sm:size-36" />}
+            <span aria-hidden className="absolute right-1.5 bottom-1.5 grid size-6 place-items-center rounded-md bg-zinc-950/80 text-white opacity-0 transition-opacity group-hover/qr:opacity-100 group-focus-visible/qr:opacity-100 pointer-coarse:opacity-100">
+              <Maximize2 className="size-3.5" />
+            </span>
+          </button>
           <div className="flex min-w-0 flex-col gap-4">
             <div className="flex flex-col gap-1.5">
               <p className="text-xs font-medium text-muted-foreground">{t("linkLabel")}</p>
@@ -133,6 +139,20 @@ export function ShareDialog({ rig, open, onOpenChange }: { rig: Rig; open: boole
           </div>
         </DialogFooter>
       </DialogContent>
+      {/* il QR in grande: il codice sotto, per chi lo scrive a mano */}
+      <Dialog open={open && expanded} onOpenChange={setExpanded}>
+        <DialogContent className="flex flex-col items-center gap-5 p-6 sm:max-w-[min(40rem,calc(100vw-2rem))] sm:p-8">
+          <DialogTitle className="flex min-w-0 items-center gap-2.5 self-stretch pr-8 text-lg">
+            <span aria-hidden className={cn("grid size-8 shrink-0 place-items-center rounded-lg [&_svg]:size-4", toneBg[tone], toneFg[tone])}><Icon /></span>
+            <span className="truncate">{rig.name}</span>
+          </DialogTitle>
+          <DialogDescription className="sr-only">{t("qrLabel", { name: rig.name })}</DialogDescription>
+          <div className="rounded-2xl bg-white p-5 text-zinc-950 ring-1 ring-black/10">
+            {link && <QrCode value={link} label={t("qrLabel", { name: rig.name })} className="size-[min(26rem,calc(100vw-7rem),calc(100dvh-20rem))]" />}
+          </div>
+          <p className="max-w-full text-center font-mono text-lg tracking-wider break-all sm:text-xl"><GroupedCode code={code} /></p>
+        </DialogContent>
+      </Dialog>
     </Dialog>
   );
 }
@@ -290,23 +310,10 @@ export function NewLabDialog() {
             <TabsContent value="create" className="flex min-h-0 flex-1 flex-col">
               <form id={`${uid}-create`} onSubmit={(e) => { e.preventDefault(); create(); }}
                 className="flex min-h-0 flex-1 flex-col gap-5 overflow-y-auto overscroll-contain border-t px-5 py-4">
-                <div className="flex items-center gap-2.5">
-                  <span aria-hidden className={cn("grid size-9 shrink-0 place-items-center rounded-lg transition-colors [&_svg]:size-4", toneBg[tone], toneFg[tone])}>
-                    {(() => { const I = PROJECT_ICONS[icon]; return <I />; })()}
-                  </span>
-                  <div className="flex min-w-0 flex-1 flex-col gap-1">
-                    <label htmlFor={`${uid}-name`} className="sr-only">{t("name")}</label>
-                    <Input id={`${uid}-name`} autoFocus={!isPhoneWidth()} value={name} maxLength={80} placeholder={t("namePlaceholder")}
-                      onChange={(e) => setName(e.target.value)}
-                      // un codice incollato nel nome: si passa da soli all'import
-                      onPaste={(e) => { const c = e.clipboardData.getData("text"); if (hasCode(c)) { e.preventDefault(); setText(c.trim()); setTab("import"); } }}
-                      className="h-9 text-[15px] font-medium md:text-[15px]" />
-                  </div>
-                </div>
-                <div className="grid gap-5 sm:grid-cols-[auto_minmax(0,1fr)]">
-                  <ToneField id={`${uid}-new`} tone={tone} onChange={setTone} />
-                  <IconField id={`${uid}-new`} icon={icon} tone={tone} onChange={setIcon} />
-                </div>
+                <LabIdentityFields id={`${uid}-new`} name={name} onName={setName} tone={tone} onTone={setTone} icon={icon} onIcon={setIcon}
+                  placeholder={t("namePlaceholder")}
+                  // un codice incollato nel nome: si passa da soli all'import
+                  onPaste={(e) => { const c = e.clipboardData.getData("text"); if (hasCode(c)) { e.preventDefault(); setText(c.trim()); setTab("import"); } }} />
                 <section className="flex flex-col gap-2.5" aria-labelledby={`${uid}-components`}>
                   <div className="flex items-baseline justify-between gap-2">
                     <p id={`${uid}-components`} className="text-xs font-medium text-muted-foreground">{t("components")}</p>
@@ -356,7 +363,7 @@ export function NewLabDialog() {
                         className="text-muted-foreground max-sm:ml-auto"><X /></Button>
                     )}
                   </div>
-                  <input ref={fileRef} type="file" accept={`${SHARE_EXT},text/plain`} className="hidden"
+                  <input ref={fileRef} type="file" accept={[...SHARE_EXTS, "text/plain"].join(",")} className="hidden"
                     onChange={(e) => { void readFile(e.target.files?.[0]); e.target.value = ""; }} />
                   {dragging && (
                     <div aria-hidden className="pointer-events-none absolute inset-0 grid place-items-center rounded-xl bg-card/90 text-[13px] font-medium">
