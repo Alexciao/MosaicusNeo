@@ -318,9 +318,12 @@ function PickerDetail({ type, disabled, why, onPick, selecting, selected }: { ty
  * (argomenti dentro «Sensori»), elenco al centro con la tastiera (↑ ↓, Invio), anteprima a destra.
  * Sul telefono: gruppi in una riga di filtri, elenco a tutta larghezza, un tocco aggiunge.
  */
-export function ComponentPicker({ open, onOpenChange }: { open: boolean; onOpenChange: (o: boolean) => void }) {
+/** Il catalogo dei componenti. Di serie aggiunge al lab aperto; con base e onAdd lavora su una bozza
+ *  (la finestra «Nuovo lab»): controlla i componenti di base e consegna i tipi scelti a onAdd. */
+export function ComponentPicker({ open, onOpenChange, base, onAdd }: { open: boolean; onOpenChange: (o: boolean) => void; base?: SensorInstance[]; onAdd?: (types: SensorType[]) => void }) {
   const t = useTranslations("rig.editor");
-  const rig = useLab((s) => s.rig);
+  const labRig = useLab((s) => s.rig);
+  const rig = base ? { sensors: base } : labRig;
   const [query, setQuery] = useState("");
   const [group, setGroup] = useState<ComponentGroup | "all">("all");
   const [tag, setTag] = useState<ComponentTag | "all">("all");
@@ -373,8 +376,8 @@ export function ComponentPicker({ open, onOpenChange }: { open: boolean; onOpenC
   const sections = groups.map(([g, label]) => ({ g, label, items: list.filter((type) => groupOf(type) === g) })).filter((s) => s.items.length);
   const flat = sections.flatMap((s) => s.items);
   const active = activeType && flat.includes(activeType) ? activeType : flat[0] ?? null;
-  const pick = (type: SensorType) => { if (state(type)[0]) return; addSensor(type); change(false); };
-  const addSelected = () => { if (!sel.length) return; addSensors(sel); change(false); };
+  const pick = (type: SensorType) => { if (state(type)[0]) return; if (onAdd) onAdd([type]); else addSensor(type); change(false); };
+  const addSelected = () => { if (!sel.length) return; if (onAdd) onAdd(sel); else addSensors(sel); change(false); };
   const change = (o: boolean) => { onOpenChange(o); if (!o) { setQuery(""); setGroup("all"); setTag("all"); setActiveType(null); setSel([]); } };
   const groupCount = (g: ComponentGroup | "all") => searched.filter((type) => groupShown(groupOf(type)) && (g === "all" ? q || hasPhone || groupOf(type) !== "phone" : groupOf(type) === g)).length;
   const optId = (type: SensorType) => `pick-${type}`;

@@ -29,6 +29,7 @@
     "actionsFor": "Actions for “{name}”",
     "rename": "Rename",
     "duplicate": "Duplicate",
+    "share": "Share…",
     "delete": "Delete",
     "deleteTitle": "Delete “{name}”?",
     "deleteDescription": "Measurements stay in the Notebook.",
@@ -96,6 +97,46 @@
       "bike": "Bicycle",
       "heart": "Heartbeat",
       "leaf": "Leaf"
+    }
+  },
+  "share": {
+    "title": "Share “{name}”",
+    "description": "Anyone with this code can recreate the lab on their device: name, color, icon, components with their pins and settings, and the charts you picked. Measurements aren't included.",
+    "codeLabel": "Lab code",
+    "contents": "{n, plural, =0 {No components} one {# component} other {# components}} · paste it in “New lab” → “Import”",
+    "copy": "Copy code",
+    "copied": "Copied",
+    "copyFailed": "Couldn't copy: select the code and copy it by hand.",
+    "download": "Download {ext}",
+    "saved": "Saved {file}"
+  },
+  "newLab": {
+    "title": "New lab",
+    "description": "Pick a name, a color and the components, or import a lab someone shared with you.",
+    "tabCreate": "Create",
+    "tabImport": "Import",
+    "name": "Lab name",
+    "namePlaceholder": "New lab",
+    "components": "Components",
+    "optional": "Optional",
+    "componentCount": "{n, plural, =0 {No components} one {# component} other {# components}}",
+    "browseAll": "Browse all",
+    "cantAdd": "Can't add {name}",
+    "cancel": "Cancel",
+    "create": "Create lab",
+    "import": "Import lab",
+    "codeLabel": "Lab code",
+    "codePlaceholder": "Paste a code that starts with NEO1.",
+    "dropHint": "…or drop a {ext} file here",
+    "chooseFile": "Choose a file",
+    "created": "“{name}” created",
+    "imported": "“{name}” imported",
+    "wiring": "Wiring",
+    "errors": {
+      "empty": "Paste a lab code.",
+      "format": "This isn't a valid lab code: check that it was copied in full.",
+      "version": "This code comes from a newer version of MosaicusNeo: update the app to import it.",
+      "noComponents": "This lab uses components this version doesn't know: update the app to import it."
     }
   },
   "schematic": {
