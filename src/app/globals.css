@@ -495,8 +495,8 @@ html.lim *::after {
    Schermata d'avvio (app-loader.tsx): il marchio e la barra che scorre compaiono subito,
    insieme, senza animazioni d'ingresso: l'app di solito si carica prima che se ne vedano.
    ------------------------------------------------------------------------------------------ */
-/* Sfondo pieno, niente griglia né alone: marchio, nome e una barra sottile, leggermente sopra il
-   centro geometrico (il centro ottico). */
+/* Sfondo pieno, niente griglia: marchio (con un alone appena accennato), nome e una barra sottile,
+   leggermente sopra il centro geometrico (il centro ottico). */
 .mz-boot {
   position: fixed;
   inset: 0;
@@ -511,8 +511,25 @@ html.lim *::after {
   align-items: center;
   translate: 0 -4vh;
 }
-.mz-boot-mark { color: var(--foreground); }
-.mz-boot-mark svg { display: block; }
+.mz-boot-mark { position: relative; color: var(--foreground); }
+.mz-boot-mark svg { position: relative; display: block; }
+/* alone dietro il marchio: piccolo, tenue e sfumato, nel colore del marchio */
+.mz-boot-mark::before {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 200px;
+  height: 200px;
+  translate: -50% -50%;
+  border-radius: 50%;
+  filter: blur(14px);
+  background: radial-gradient(circle, color-mix(in oklab, var(--brand) 16%, transparent) 0%, transparent 70%);
+  pointer-events: none;
+}
+.dark .mz-boot-mark::before {
+  background: radial-gradient(circle, color-mix(in oklab, var(--brand) 11%, transparent) 0%, transparent 70%);
+}
 .mz-boot-word {
   margin-top: 18px;
   font-size: 20px;
@@ -525,7 +542,7 @@ html.lim *::after {
   position: relative;
   margin-top: 28px;
   width: 112px;
-  height: 2px;
+  height: 3px;
   border-radius: 999px;
   overflow: hidden;
   background: color-mix(in oklab, var(--foreground) 10%, transparent);
@@ -535,7 +552,7 @@ html.lim *::after {
   inset: 0 auto 0 0;
   width: 40%;
   border-radius: inherit;
-  background: var(--foreground);
+  background: linear-gradient(90deg, transparent, var(--foreground), transparent);
   animation: mz-boot-slide 1.4s var(--ease-in-out) infinite;
 }
 
