@@ -94,6 +94,8 @@
     "noArduinoOther": "Usa Chrome o Edge su computer o Android. Su Android puoi collegarti anche via Bluetooth (HC-06 o modulo BLE). Il simulatore funziona comunque.",
     "openGuide": "Apri la guida",
     "toggleLabs": "Mostra o nascondi i lab (Ctrl+B)",
+    "togglePanel": "Mostra o nascondi il pannello laterale (Ctrl+Alt+B)",
+    "panel": "Pannello del lab",
     "custom": "modificato",
     "changeLab": "Cambia lab",
     "editComponents": "Componenti",

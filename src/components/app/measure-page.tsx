@@ -1,20 +1,23 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
-import { Cable, LayoutGrid, Pencil, Plus, Search, SlidersHorizontal, TriangleExclamationPoint } from "lucide-react";
+import { Cable, LayoutGrid, PanelRight, Pencil, Plus, Search, SlidersHorizontal, TriangleExclamationPoint } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Sidebar, SidebarInset, SidebarProvider, SidebarRail, SidebarTrigger } from "@/components/ui/sidebar";
-import { useLab, labInfo, needsArduino, hasMap, openGuide, showWiring, setLabsSidebar, addSensor, showComponents } from "@/lib/lab-store";
+import { useLab, labInfo, needsArduino, hasMap, openGuide, showWiring, setLabsSidebar, setLabPanel, addSensor, showComponents } from "@/lib/lab-store";
 import { SENSORS, pinName } from "@/lib/sensors/catalog";
 import { sensorLabel, isPhoneRig, type SensorInstance } from "@/lib/sensors/rig";
+import { LAB_SCROLL_ID, PANEL_ID } from "@/lib/lab-panel";
+import { usePanelDocked } from "@/hooks/use-panel-docked";
 import { audioSupported } from "@/lib/mosaicus/audio.js";
 import { LabPicker, RigMenu } from "./lab-picker";
 import { RunCard } from "./run-card";
 import { ChartCard } from "./chart-card";
 import { MapCard } from "./map-card";
 import { SidePanel } from "./side-panel";
+import { AppFooter } from "./app-footer";
 import { ComponentPicker } from "./rig-editor";
 import { NewLabDialog, QUICK_COMPONENTS } from "./lab-share";
 import { ComponentThumb } from "./board-diagram";
@@ -65,6 +68,7 @@ export function LabHeading({ onPick, onSensors }: { onPick: () => void; onSensor
   const rig = useLab((s) => s.rig);
   const modified = useLab((s) => s.modified);
   const project = useLab((s) => s.customRigs.find((r) => r.id === s.labId));
+  const panel = useLab((s) => s.labPanel);
   const t = useTranslations("app.measure");
   const tp = useTranslations("rig.picker");
   const info = labInfo(labId);
@@ -91,6 +95,10 @@ export function LabHeading({ onPick, onSensors }: { onPick: () => void; onSensor
           )}
         </div>
         <Button variant="outline" size="sm" className="hidden md:inline-flex lg:hidden" onClick={onPick}><LayoutGrid /> {t("changeLab")}</Button>
+        <Button variant="ghost" size="icon-sm" className="-mr-1.5 hidden text-muted-foreground aria-expanded:not-hover:bg-transparent aria-expanded:not-hover:text-muted-foreground xl:inline-flex" onClick={() => setLabPanel(!panel)}
+          aria-expanded={panel} aria-controls={PANEL_ID} aria-label={t("togglePanel")} title={t("togglePanel")}>
+          <PanelRight />
+        </Button>
       </div>
       {!info.instrument && (
         <div className="flex items-center gap-3">
@@ -113,13 +121,13 @@ export function LabHeading({ onPick, onSensors }: { onPick: () => void; onSensor
           </ul>
           <div className="flex shrink-0 items-center gap-1.5">
             {!phoneLab && (
-              <Button variant="outline" size="sm" onClick={onSensors} className="2xl:hidden" aria-label={rig.sensors.length ? t("editComponents") : t("addComponents")}>
+              <Button variant="outline" size="sm" onClick={onSensors} className={cn(panel && "xl:hidden")} aria-label={rig.sensors.length ? t("editComponents") : t("addComponents")}>
                 {rig.sensors.length ? <SlidersHorizontal /> : <Plus />}
                 <span className="hidden sm:inline">{rig.sensors.length ? t("editComponents") : t("addComponents")}</span>
               </Button>
             )}
             {!!rig.sensors.length && (
-              <Button variant="outline" size="sm" onClick={showWiring} className="2xl:hidden" aria-label={phoneLab ? t("howToUse") : t("howToWire")}>
+              <Button variant="outline" size="sm" onClick={showWiring} className={cn(panel && "xl:hidden")} aria-label={phoneLab ? t("howToUse") : t("howToWire")}>
                 <Cable />
                 <span className="hidden sm:inline">{phoneLab ? t("howToUse") : t("howToWire")}</span>
               </Button>
@@ -160,6 +168,35 @@ function NoComponents({ onAll }: { onAll: () => void }) {
   );
 }
 
+/** La barra di destra. Da xl in su è una colonna alta quanto la pagina, a filo del bordo, che scorre da
+ *  sola e si chiude (pulsante accanto al titolo o Ctrl+Alt+B); sotto xl è una scheda in coda alla misura. */
+function LabPanel() {
+  const t = useTranslations("app.measure");
+  const open = useLab((s) => s.labPanel);
+  const docked = usePanelDocked();
+  useEffect(() => {
+    if (!docked) return;
+    const onKey = (e: KeyboardEvent) => {
+      // e.code: con Alt il carattere cambia (∫ sul Mac)
+      if (e.code !== "KeyB" || !e.altKey || !(e.ctrlKey || e.metaKey) || e.shiftKey || useLab.getState().page !== "misura") return;
+      e.preventDefault();
+      // da tastiera di colpo, come la barra dei lab
+      document.documentElement.dataset.sidebarInstant = "";
+      setLabPanel(!useLab.getState().labPanel);
+      requestAnimationFrame(() => requestAnimationFrame(() => { delete document.documentElement.dataset.sidebarInstant; }));
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [docked]);
+  return (
+    // il riquadro esterno si stringe, la barra dentro resta larga uguale: esce dal bordo senza rimpaginarsi
+    <aside aria-label={t("panel")} inert={docked && !open} data-slot="lab-panel" data-state={open ? "expanded" : "collapsed"}
+      className="min-w-0 p-3 pt-0 sm:p-4 sm:pt-0 xl:w-(--lab-panel-width) xl:shrink-0 xl:overflow-hidden xl:p-0 xl:transition-[width] xl:duration-200 xl:ease-linear xl:[--lab-panel-width:22rem] xl:data-[state=collapsed]:w-0 2xl:[--lab-panel-width:24rem]">
+      <div className="xl:h-full xl:w-(--lab-panel-width)"><SidePanel /></div>
+    </aside>
+  );
+}
+
 export function MeasurePage() {
   const labId = useLab((s) => s.labId);
   const rig = useLab((s) => s.rig);
@@ -172,16 +209,16 @@ export function MeasurePage() {
   const side = useLab((s) => s.labsSidebar);
   const editComponents = showComponents;
   return (
-    <SidebarProvider open={side} onOpenChange={setLabsSidebar} openMobile={labsOpen} onOpenMobileChange={setLabs} className="min-h-0">
+    <SidebarProvider open={side} onOpenChange={setLabsSidebar} openMobile={labsOpen} onOpenMobileChange={setLabs} className="min-h-0 xl:h-full">
       {/* barra a filo, sotto l'intestazione (alta 3,5 rem); sotto lg diventa un cassetto dal basso */}
       <Sidebar variant="sidebar" style={{ top: "3.5rem", height: "calc(100svh - 3.5rem)" }}>
         <LabPicker />
         <SidebarRail />
       </Sidebar>
 
-      <SidebarInset className="bg-transparent">
-        <div className="mx-auto grid w-full max-w-[1600px] gap-4 p-3 sm:p-4 2xl:grid-cols-[minmax(0,1fr)_24rem]">
-          <section className="flex min-w-0 flex-col gap-4">
+      <SidebarInset className="bg-transparent xl:min-h-0 xl:flex-row">
+        <div id={LAB_SCROLL_ID} className="flex min-w-0 flex-col xl:relative xl:flex-1 xl:overflow-y-auto xl:overscroll-contain xl:[scrollbar-width:thin]">
+          <section className="mx-auto flex w-full max-w-[1600px] min-w-0 flex-col gap-4 p-3 sm:p-4">
             <LabHeading onPick={() => setLabs(true)} onSensors={editComponents} />
             <SupportBanner />
             {ins?.kind === "scope" ? <ScopePanel key={ins.id} exp={ins} />
@@ -194,11 +231,9 @@ export function MeasurePage() {
                   </>
                 )}
           </section>
-
-          <aside className="min-w-0 2xl:col-start-2 2xl:row-start-1">
-            <div className="2xl:sticky 2xl:top-[4.5rem]"><SidePanel /></div>
-          </aside>
+          <AppFooter className="mt-auto hidden xl:flex" />
         </div>
+        <LabPanel />
       </SidebarInset>
 
       {/* «Sfoglia tutti i componenti» dal progetto vuoto: il catalogo direttamente, senza il pannello */}

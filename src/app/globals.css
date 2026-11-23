@@ -603,9 +603,10 @@ html.lim *::after {
   }
 }
 
-/* barra laterale aperta/chiusa con ⌘/Ctrl+B: senza transizione (azione da tastiera) */
+/* barre laterali aperte/chiuse con ⌘/Ctrl+B e ⌘/Ctrl+Alt+B: senza transizione (azione da tastiera) */
 html[data-sidebar-instant] [data-slot="sidebar-gap"],
-html[data-sidebar-instant] [data-slot="sidebar-container"] {
+html[data-sidebar-instant] [data-slot="sidebar-container"],
+html[data-sidebar-instant] [data-slot="lab-panel"] {
   transition: none !important;
 }
 

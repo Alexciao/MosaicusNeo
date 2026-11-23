@@ -9,6 +9,7 @@ import { WiringBlocks } from "./wiring";
 import { WiringGuide } from "./wiring-diagram";
 import { SENSORS } from "@/lib/sensors/catalog";
 import { isPhoneRig } from "@/lib/sensors/rig";
+import { PANEL_ID } from "@/lib/lab-panel";
 import { RigEditor } from "./rig-editor";
 import { cn } from "@/lib/utils";
 
@@ -37,14 +38,17 @@ function SerialMonitor() {
   const ref = useRef<HTMLPreElement>(null);
   useEffect(() => { const el = ref.current; if (el) el.scrollTop = el.scrollHeight; }, [log]);
   return (
-    <div className="flex flex-col gap-2">
+    <div className="flex flex-col gap-2 xl:h-full">
       <p className="text-xs text-muted-foreground">{t("serialHint")}</p>
-      <pre ref={ref} className={cn("h-72 overflow-auto rounded-lg bg-screen p-3 font-mono text-xs leading-relaxed font-normal", log.length ? "text-lime/80" : "text-lime/40")}>
+      <pre ref={ref} className={cn("h-72 overflow-auto overscroll-contain rounded-lg bg-screen p-3 font-mono text-xs leading-relaxed font-normal xl:h-auto xl:min-h-40 xl:flex-1", log.length ? "text-lime/80" : "text-lime/40")}>
         {log.length ? log.join("\n") : t("serialWaiting")}
       </pre>
     </div>
   );
 }
+
+/** Una scheda del pannello: quando è agganciato a destra scorre da sola, sotto le linguette. */
+const PANE = "xl:relative xl:min-h-0 xl:overflow-y-auto xl:overscroll-contain xl:[scrollbar-width:thin]";
 
 export function SidePanel() {
   const t = useTranslations("rig.side.tabs");
@@ -60,17 +64,17 @@ export function SidePanel() {
   const tab = useLab((s) => s.sideTab);
   const active = tabs.some(([id]) => id === tab) ? tab : tabs[0][0];
   return (
-    <Card id="side-panel" className="scroll-mt-20 gap-0 p-0">
-      <Tabs value={active} onValueChange={(v) => setSideTab(String(v))}>
-        <div className="border-b p-2">
+    <Card id={PANEL_ID} className="scroll-mt-20 gap-0 p-0 xl:h-full xl:rounded-none xl:border-0 xl:border-l xl:border-sidebar-border xl:bg-sidebar xl:text-sidebar-foreground xl:shadow-none">
+      <Tabs value={active} onValueChange={(v) => setSideTab(String(v))} className="xl:min-h-0 xl:flex-1 xl:gap-0">
+        <div className="shrink-0 border-b p-2">
           <TabsList className="w-full">
             {tabs.map(([id, label]) => <TabsTrigger key={id} value={id} className="text-[13px]">{label}</TabsTrigger>)}
           </TabsList>
         </div>
-        <TabsContent value="sensors" className="p-4"><RigEditor /></TabsContent>
+        <TabsContent value="sensors" className={cn("p-4", PANE)}><RigEditor /></TabsContent>
         {/* le sezioni dei collegamenti sono righe con il filo sopra: margine in alto ridotto */}
-        <TabsContent value="wiring" className="px-4 py-1">{ins ? <WiringBlocks blocks={ins.wiring} /> : <RigWiring />}</TabsContent>
-        <TabsContent value="serial" className="p-4"><SerialMonitor /></TabsContent>
+        <TabsContent value="wiring" className={cn("px-4 py-1", PANE)}>{ins ? <WiringBlocks blocks={ins.wiring} /> : <RigWiring />}</TabsContent>
+        <TabsContent value="serial" className={cn("p-4", PANE)}><SerialMonitor /></TabsContent>
       </Tabs>
     </Card>
   );

@@ -110,7 +110,8 @@ function SidebarProvider({
     const handleKeyDown = (event: KeyboardEvent) => {
       if (
         event.key === SIDEBAR_KEYBOARD_SHORTCUT &&
-        (event.metaKey || event.ctrlKey)
+        (event.metaKey || event.ctrlKey) &&
+        !event.altKey // MosaicusNeo: con Alt è la barra di destra del Lab
       ) {
         event.preventDefault()
         // da tastiera si apre e chiude di colpo: niente animazione su un'azione ripetuta a mano

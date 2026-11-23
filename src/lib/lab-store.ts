@@ -20,6 +20,7 @@ import { SimulatedLink, WARP, WARPS } from "@/lib/sensors/simulator";
 import * as repo from "@/lib/cloud/repo";
 import { toCSV, toXLSX, download } from "@/lib/mosaicus/export.js";
 import { APP_VERSION, FIRMWARE_VERSION, cmpVersion } from "@/lib/version";
+import { LAB_SCROLL_ID, PANEL_ID, panelDocked } from "@/lib/lab-panel";
 import { prefs, fmtVal, stamp } from "@/lib/prefs";
 import { useWorkbench, type NewBox } from "@/lib/workbench-store";
 import { toGPX, toGeoJSON, type TrackPoint } from "@/lib/mosaicus/geo";
@@ -126,6 +127,8 @@ interface LabState {
   labsOpen: boolean;
   /** barra laterale dei lab aperta (sul computer; ricordato) */
   labsSidebar: boolean;
+  /** barra di destra (componenti, collegamenti, seriale) aperta (schermi larghi; ricordato) */
+  labPanel: boolean;
   /** capitolo della guida aperto (null = guida chiusa) */
   guide: string | null;
   /** stato riferito da Arduino e righe mandate al display */
@@ -168,6 +171,7 @@ export const useLab = create<LabState>(() => ({
   dragHint: false,
   labsOpen: false,
   labsSidebar: prefs.get("mosaicus.labsSidebar", true),
+  labPanel: prefs.get("mosaicus.labPanel", true),
   guide: null,
   lastSent: null,
   sdCheck: null,
@@ -291,26 +295,37 @@ export function instrumentApi(ins: Instrument): InstrumentApi {
 // Pagine e preferenze del dispositivo
 // ---------------------------------------------------------------------------
 const scrollOf: Partial<Record<Page, number>> = {};
+/** Che cosa scorre in una pagina: la finestra, o la colonna centrale del Lab quando il pannello è agganciato. */
+function scroller(page: Page): Element {
+  const lab = page === "misura" && panelDocked() ? document.getElementById(LAB_SCROLL_ID) : null;
+  return lab ?? document.scrollingElement ?? document.documentElement;
+}
 /** Cambia pagina; ognuna ritrova il punto in cui la si era lasciata. */
 export function showPage(page: Page, { restoreScroll = true } = {}) {
   const from = get().page;
   if (from === page) return;
-  scrollOf[from] = window.scrollY;
+  scrollOf[from] = scroller(from).scrollTop;
   set({ page });
   prefs.set("mosaicus.page", page);
-  if (restoreScroll) requestAnimationFrame(() => window.scrollTo({ top: scrollOf[page] ?? 0 }));
+  if (restoreScroll) requestAnimationFrame(() => scroller(page).scrollTo({ top: scrollOf[page] ?? 0 }));
 }
 export function setSideTab(tab: string) { set({ sideTab: tab }); prefs.set("mosaicus.sideTab", tab); }
+/** Apre o chiude la barra di destra (schermi larghi). */
+export function setLabPanel(open: boolean) { set({ labPanel: open }); prefs.set("mosaicus.labPanel", open); }
 /** Apre una scheda del pannello accanto alla misura (componenti, collegamenti…) e ci porta lì,
- *  con un lampo per farla trovare. */
+ *  con un lampo per farla trovare. Sugli schermi larghi apre la barra di destra, se era chiusa. */
 function showSideTab(tab: string) {
   showPage("misura", { restoreScroll: false });
   setSideTab(tab);
+  const docked = panelDocked();
+  if (docked && !get().labPanel) setLabPanel(true);
   requestAnimationFrame(() => {
-    const el = document.getElementById("side-panel");
+    const el = document.getElementById(PANEL_ID);
     if (!el) return;
-    el.scrollIntoView({ behavior: "smooth", block: "start" });
-    el.animate?.([{ boxShadow: "0 0 0 0 transparent" }, { boxShadow: "0 0 0 4px color-mix(in oklab, var(--primary) 70%, transparent)" }, { boxShadow: "0 0 0 0 transparent" }], { duration: 1400, easing: "ease-out", delay: 250 });
+    // agganciato è già in vista; il lampo sta dentro, perché fuori lo taglierebbe il bordo della barra
+    if (!docked) el.scrollIntoView({ behavior: "smooth", block: "start" });
+    const ring = docked ? "inset 0 0 0" : "0 0 0";
+    el.animate?.([{ boxShadow: `${ring} 0 transparent` }, { boxShadow: `${ring} 4px color-mix(in oklab, var(--primary) 70%, transparent)` }, { boxShadow: `${ring} 0 transparent` }], { duration: 1400, easing: "ease-out", delay: 250 });
   });
 }
 /** I collegamenti (schema e passi). */
@@ -321,7 +336,7 @@ export const showComponents = () => showSideTab("sensors");
 /** Logo: torna alla pagina iniziale (Misura, in cima). */
 export function goHome() {
   showPage("misura", { restoreScroll: false });
-  window.scrollTo({ top: 0, behavior: "smooth" });
+  scroller("misura").scrollTo({ top: 0, behavior: "smooth" });
 }
 /** Apre la guida a un capitolo (es. dal messaggio "firmware vecchio" o dalla sezione Bluetooth). */
 export function setLabsSidebar(open: boolean) { set({ labsSidebar: open }); prefs.set("mosaicus.labsSidebar", open); }
