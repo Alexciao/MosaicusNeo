@@ -19,9 +19,8 @@ import { PrivacyDialog, openPrivacy } from "./privacy-dialog";
 import { WorkbenchPage } from "@/components/workbench/workbench-page";
 import { NotebookPage } from "@/components/notebook/notebook-page";
 import { startCloud } from "@/lib/cloud/sync";
-import { GithubMark } from "./github-mark";
+import { AppFooter } from "./app-footer";
 import { ErrorBoundary } from "./error-boundary";
-import { REPO_URL, ISSUES_URL } from "@/lib/links";
 import { codeFromHash } from "@/lib/sensors/share";
 import { openNewLab } from "./lab-share";
 
@@ -68,7 +67,7 @@ function GenChip() {
 
 export function MosaicusApp() {
   const page = useLab((s) => s.page);
-  const t = useTranslations("app.footer");
+  const lab = page === "misura";
   // Le due pagine restano montate (si nasconde quella non attiva): cambiare pagina è istantaneo,
   // senza dissolvenza (lo si fa decine di volte al giorno), e i grafici non si ricostruiscono. Elaborazione si monta alla prima visita.
   const [seen, setSeen] = useState<Record<string, boolean>>({ [page]: true });
@@ -105,21 +104,16 @@ export function MosaicusApp() {
     return () => window.removeEventListener("hashchange", openShared);
   }, []);
   return (
-    <div className="flex min-h-svh flex-col pb-[calc(4rem+env(safe-area-inset-bottom))] md:pb-0">
+    // nel Lab, da xl in su, l'app è alta quanto la finestra: non scorre lei ma ciascuna delle sue colonne
+    <div className={cn("flex min-h-svh flex-col pb-[calc(4rem+env(safe-area-inset-bottom))] md:pb-0", lab && "xl:h-svh")}>
       <AppHeader />
-      <main id="main" tabIndex={-1} className="flex-1 pr-[env(safe-area-inset-right)] pl-[env(safe-area-inset-left)] outline-none">
-        <div hidden={page !== "misura"}><ErrorBoundary where="misura"><MeasurePage /></ErrorBoundary></div>
+      <main id="main" tabIndex={-1} className={cn("flex-1 pr-[env(safe-area-inset-right)] pl-[env(safe-area-inset-left)] outline-none", lab && "xl:min-h-0")}>
+        <div hidden={!lab} className="xl:h-full"><ErrorBoundary where="misura"><MeasurePage /></ErrorBoundary></div>
         {seen.quaderno && <div hidden={page !== "quaderno"}><ErrorBoundary where="quaderno"><NotebookPage /></ErrorBoundary></div>}
         {seen.elab && <div hidden={page !== "elab"}><ErrorBoundary where="elab"><WorkbenchPage /></ErrorBoundary></div>}
       </main>
-      <footer className="mx-auto flex w-full max-w-[1600px] flex-wrap items-center justify-center gap-x-4 gap-y-1 px-4 py-6 text-xs text-muted-foreground">
-        <span>{t("credits")}</span>
-        <span className="flex items-center gap-4">
-          <a className="inline-flex items-center gap-1 transition-colors hover:text-foreground" href={REPO_URL} target="_blank" rel="noopener"><GithubMark className="size-3" />GitHub</a>
-          <a className="transition-colors hover:text-foreground" href={ISSUES_URL} target="_blank" rel="noopener">{t("report")}</a>
-          <button type="button" className="transition-colors hover:text-foreground" onClick={openPrivacy}>{t("privacy")}</button>
-        </span>
-      </footer>
+      {/* nel Lab, quando le colonne scorrono da sole, sta in fondo a quella centrale */}
+      <AppFooter className={cn(lab && "xl:hidden")} />
       <MobileNav />
       <GenChip />
       <ConfirmHost />
