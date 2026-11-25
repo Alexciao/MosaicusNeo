@@ -1,5 +1,11 @@
 {
   "sd": {
+    "importUsb": "Import via Arduino",
+    "importFiles": "Choose files instead",
+    "usbRequired": "Connect Arduino by USB and stop the measurement first.",
+    "updateFirmware": "Update Arduino to firmware 2.2 to import through USB.",
+    "transferFailed": "SD transfer failed. Check the card and USB connection, then try again.",
+    "noFiles": "No recordings found on the SD card.",
     "import": "Import from SD card",
     "pickerNeo": "MosaicusNeo Measurement",
     "pickerCsv": "Older firmware measurement (CSV)",
@@ -7,7 +13,7 @@
     "step2": "<b>Record.</b> Unplug the cable and power Arduino from a power bank or a 9 V battery. {detail}",
     "step2Button": "Press the button to start and press it again to stop: each recording is a new file.",
     "step2Free": "It records from when you switch it on until you switch it off (add a button to decide when yourself). Data is saved every 2 seconds: cutting the power loses at most the last few moments.",
-    "step3": "<b>Import.</b> Put the card in the computer (or in the phone with an adapter) and choose the files LOG00001.NEO, LOG00002.NEO…: they become Notebook measurements, with the usual quantities and charts.",
+    "step3": "<b>Import.</b> Connect Arduino by USB and choose “Import via Arduino”. You can also insert the card into your computer and choose the files.",
     "liveNote": "If you connect the app while Arduino is recording, the recording is closed and you measure as usual.",
     "prepareTitle": "Send and save the configuration, then test the card",
     "prepareNeedsUsb": "Connect Arduino with the USB cable first",

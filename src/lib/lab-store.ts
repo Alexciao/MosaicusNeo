@@ -1240,6 +1240,46 @@ export async function recordOnSd() {
   if (link?.kind === "simulatore" || link?.kind === "arduino") await prepareSd();
 }
 
+let sdImportBusy = false;
+/** Read recorded files through the connected Arduino, without removing the card. */
+export async function importSdViaUsb() {
+  if (sdImportBusy) return;
+  sdImportBusy = true;
+  try {
+    if (!link) { await connect("arduino"); if (!(await waitReady())) return; }
+    if (!link || link.kind !== "arduino" || link.transport !== "serial" || (link as unknown as { viaBluetooth?: boolean }).viaBluetooth || get().running) throw new Error(t("rig.sd.usbRequired"));
+    if (!get().fw || cmpVersion(get().fw!, "2.2") < 0) throw new Error(t("rig.sd.updateFirmware"));
+    const device = link;
+    stopPing();
+    const ask = async (command: string) => {
+      if (link !== device || waiter) throw new Error(t("rig.sd.transferFailed"));
+      const reply = await request(command, (line) => line.startsWith("#SI,"), 10000);
+      if (!reply || reply.startsWith("#SI,ERR")) throw new Error(t("rig.sd.transferFailed"));
+      return reply.split(",");
+    };
+    if ((await ask("SD,OPEN"))[1] !== "OPEN") throw new Error(t("rig.sd.transferFailed"));
+    const files: File[] = [];
+    for (let index = 0; index < 100000; index++) {
+      const info = await ask(`SD,FILE,${index}`);
+      if (info[1] === "END") break;
+      const size = Number(info[3]), cluster = Number(info[4]);
+      if (info[1] !== "FILE" || !/^LOG[0-9]{5}\.NEO$/.test(info[2]) || !Number.isSafeInteger(size) || size < 0 || size > 100_000_000 || !Number.isSafeInteger(cluster) || cluster < 2) throw new Error(t("rig.sd.transferFailed"));
+      const bytes = new Uint8Array(size);
+      for (let offset = 0; offset < size; offset += 128) {
+        const data = await ask(`SD,GET,${cluster},${offset}`);
+        const hex = data[3];
+        if (data[1] !== "DATA" || Number(data[2]) !== offset || !/^[0-9A-F]{256}$/.test(hex ?? "")) throw new Error(t("rig.sd.transferFailed"));
+        let sum = 0;
+        for (let i = 0; i < 128; i++) { const value = parseInt(hex.slice(i * 2, i * 2 + 2), 16); sum += value; if (offset + i < size) bytes[offset + i] = value; }
+        if (sum !== Number(data[4])) throw new Error(t("rig.sd.transferFailed"));
+      }
+      files.push(new File([bytes], info[2], { lastModified: 0 }));
+    }
+    if (files.length) await importSdFiles(files); else toast(t("rig.sd.noFiles"));
+  } catch (error) { toast.error((error as Error).message || t("rig.sd.transferFailed")); }
+  finally { sdImportBusy = false; if (link && get().ready) startPing(); }
+}
+
 /** Importa nel Quaderno i file LOGnnnnn.NEO della scheda SD (o .CSV, dai firmware precedenti). */
 export async function importSdFiles(files: File[]) {
   const existing = new Set((await repo.all("sessions").catch(() => [])).map((s) => String((s as { sdFile?: string }).sdFile ?? "")));

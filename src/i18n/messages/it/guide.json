@@ -400,7 +400,7 @@
     },
     "s4": {
       "t": "Importa nel Quaderno",
-      "d": "Metti la scheda nel computer e premi <b>Importa dalla scheda SD</b> (nel Quaderno o nella scheda del componente): ogni file diventa una misura, con le grandezze, i grafici e l'Elaborazione di sempre."
+      "d": "Collega Arduino via USB e premi <b>Importa tramite Arduino</b> nel Quaderno o nella scheda del componente. Aggiorna prima Arduino al firmware 2.2. Puoi anche inserire la scheda nel computer e scegliere direttamente i file."
     },
     "statusNote": "Il display, il LED e il cicalino dicono che cosa succede: «SD CARD · PRESS» aspetta il pulsante, «● SD REC · 1:23» sta registrando, «ERROR · SD» se la scheda manca o non è FAT32.",
     "buttonTitle": "Pulsante Avvia/Ferma"
