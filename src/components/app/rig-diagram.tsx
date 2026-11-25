@@ -66,7 +66,10 @@ function moduleRows(s: SensorInstance, color: string): Omit<Mod, "kind"> {
       return {
         title: title(s.options.model === "dht22" ? "DHT22" : "DHT11"), color,
         // modulo a 3 piedini (VCC, DATA, GND) o sensore senza schedina a 4 (VCC, DATA, libero, GND)
-        rows: [{ label: "VCC (+)", conn: "5V" }, { label: "DATA (out)", conn: p("a"), via: "pullup", res: "10k", note: t("rig.modules.pullTo5v", { ohms: OHMS["10k"] }) },
+        rows: [
+          ...(s.options.pkg === "signalFirst" ? [] : [{ label: "VCC (+)", conn: "5V" as const }]),
+          { label: "DATA (out)", conn: p("a"), via: "pullup", res: "10k", note: t("rig.modules.pullTo5v", { ohms: OHMS["10k"] }) },
+          ...(s.options.pkg === "signalFirst" ? [{ label: "VCC (+)", conn: "5V" as const }] : []),
           ...(s.options.pkg === "bare" ? [{ label: "NC", conn: "NC" as const }] : []), { label: "GND (−)", conn: "GND" }],
         notes: [
           t("rig.modules.dhtNote"),

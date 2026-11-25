@@ -150,7 +150,7 @@ const dht: SensorDef = {
       options: [["dht11", t("sensors.catalog.dht.dht11")], ["dht22", t("sensors.catalog.dht.dht22")]] },
     // cambia solo i collegamenti: il sensore senza schedina ha un piedino in più (il 3, libero)
     { key: "pkg", label: t("sensors.catalog.dht.pkg"), type: "select", value: "module",
-      options: [["module", t("sensors.catalog.dht.pkgModule")], ["bare", t("sensors.catalog.dht.pkgBare")]] },
+      options: [["module", t("sensors.catalog.dht.pkgModule")], ["bare", t("sensors.catalog.dht.pkgBare")], ["signalFirst", t("sensors.catalog.dht.pkgSignalFirst")]] },
     { key: "offsetT", label: t("sensors.catalog.dht.offsetT"), unit: "°C", value: 0, step: 0.1, advanced: true },
     { key: "offsetRH", label: t("sensors.catalog.dht.offsetRH"), unit: "%", value: 0, step: 0.5, advanced: true },
   ],

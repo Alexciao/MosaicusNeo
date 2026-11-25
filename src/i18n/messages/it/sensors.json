@@ -32,6 +32,7 @@
       "wiring": "DATA su {pin}, VCC a 5 V, GND a GND. Il modulo a 3 pin ha già il pull-up; il sensore a 4 pin senza schedina richiede 10 kΩ tra DATA e 5 V.",
       "pkg": "Formato",
       "pkgModule": "Modulo a 3 piedini (su schedina)",
+      "pkgSignalFirst": "Modulo a 3 pin: segnale, VCC, GND",
       "pkgBare": "Sensore a 4 piedini (senza schedina)"
     },
     "sonar": {

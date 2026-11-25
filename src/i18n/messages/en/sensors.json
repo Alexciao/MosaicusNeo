@@ -32,6 +32,7 @@
       "wiring": "DATA to {pin}, VCC to 5 V, GND to GND. The 3-pin module already has the pull-up; the bare 4-pin sensor needs 10 kΩ between DATA and 5 V.",
       "pkg": "Package",
       "pkgModule": "3-pin module (on a board)",
+      "pkgSignalFirst": "3-pin module: signal, VCC, GND",
       "pkgBare": "4-pin bare sensor"
     },
     "sonar": {
