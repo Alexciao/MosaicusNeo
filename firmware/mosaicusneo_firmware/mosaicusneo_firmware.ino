@@ -1071,7 +1071,9 @@ uint8_t dhtRead(uint8_t pin, uint8_t model) {
   digitalWrite(pin, LOW);
   if (model == 22) delayMicroseconds(1100); else delay(20);
   pinMode(pin, INPUT_PULLUP);
-  delayMicroseconds(40);
+  // Attendi esplicitamente l'inizio della risposta: il sensore può lasciare DATA
+  // alto fino a 40 µs dopo il rilascio, prima del suo impulso basso di 80 µs.
+  if (!dhtWhile(pin, HIGH, 200)) return 1;
   if (!dhtWhile(pin, LOW, 200)) return 1;
   if (!dhtWhile(pin, HIGH, 200)) return 1;
   for (uint8_t i = 0; i < 40; i++) {
