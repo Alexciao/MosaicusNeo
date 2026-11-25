@@ -92,7 +92,7 @@ Up to **6 sensors** at once on one Arduino Uno, even several of the same type (f
 
 - **Status outputs:** a 0.49" OLED display, an RGB LED and a buzzer, which show whether the board is waiting, searching, measuring or has a problem.
 - **Start/Stop button:** works like the app's buttons, or starts SD logging on its own.
-- **microSD card:** prepare the board once over USB, then it logs on battery power with no computer. Import the `.NEO` files into the Notebook later.
+- **microSD card:** prepare the board once over USB, then it logs on battery power with no computer. Connect Arduino by USB and import the recordings into the Notebook (firmware 2.2); alternatively import the `.NEO` files directly from the card.
 - **Bluetooth:** an HC-06 or a BLE module (HM-10, AT-09, HC-08) for measuring without a cable, for example outdoors with a phone and a power bank. BLE also works on iPhone through the Bluefy browser.
 
 No Arduino at all? The phone's accelerometer, gyroscope and microphone work as sensors too.

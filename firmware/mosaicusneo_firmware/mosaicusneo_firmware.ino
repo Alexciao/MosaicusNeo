@@ -125,7 +125,7 @@
 // __attribute__((noinline)) su alcune funzioni: misurato una per una, risparmia flash (senza, il
 // compilatore le ricopia in ogni punto in cui sono chiamate). Mai sulle funzioni a tempi stretti.
 
-#define FW_VERSION "2.1"         // stringa in flash, unita ai testi vicini (al massimo 4 caratteri: display)
+#define FW_VERSION "2.2"         // stringa in flash, unita ai testi vicini (al massimo 4 caratteri: display)
 
 const uint8_t MAX_SLOTS = 6;
 const uint8_t ADC_SAMPLES = 16;                 // sovracampionamento per ridurre il rumore
@@ -1923,6 +1923,53 @@ void btnPoll() {
   else if (sdArmed()) logStart();
 }
 
+// USB import protocol: bounded request/response blocks with checksums.
+void sdImportOpen() {
+  if (mode != IDLE) stopAll();
+  if (!outPin(O_SD)) { Serial.println(F("#SI,ERR,NOOUT")); return; }
+  uint8_t e = sdMount();
+  Serial.println(e ? F("#SI,ERR,CARD") : F("#SI,OPEN"));
+}
+void sdImportFile(char *arg) {
+  uint32_t wanted = strtoul(arg, NULL, 10), index = 0, c = sdRoot, visited = 0;
+  while (c >= 2 && c < sdClusN && visited++ < sdClusN) {
+    for (uint8_t s = 0; s < sdSpc; s++) {
+      if (!sdLoad(clusLba(c) + s)) { Serial.println(F("#SI,ERR,READ")); return; }
+      for (uint16_t o = 0; o < 512; o += 32) {
+        uint8_t *e = sdBuf + o;
+        if (!e[0]) { Serial.println(F("#SI,END")); return; }
+        if (e[0] == 0xE5 || (e[11] & 0x18) || memcmp_P(e, PSTR("LOG"), 3) || memcmp_P(e + 8, PSTR("NEO"), 3)) continue;
+        bool digits = true;
+        for (uint8_t k = 3; k < 8; k++) if (e[k] < '0' || e[k] > '9') digits = false;
+        if (!digits || index++ != wanted) continue;
+        Serial.print(F("#SI,FILE,"));
+        for (uint8_t k = 0; k < 8; k++) Serial.write(e[k]);
+        Serial.print(F(".NEO,")); Serial.print(rd32(e + 28)); Serial.write(',');
+        Serial.println(((uint32_t)rd16(e + 20) << 16) | rd16(e + 26)); return;
+      }
+    }
+    c = fatGet(c);
+    if (sdIoErr) { Serial.println(F("#SI,ERR,READ")); return; }
+  }
+  Serial.println(visited >= sdClusN ? F("#SI,ERR,CHAIN") : F("#SI,END"));
+}
+void sdImportGet(char *arg) {
+  char *sep = strchr(arg, ',');
+  if (!sep) { Serial.println(F("#SI,ERR,ARG")); return; }
+  *sep++ = 0;
+  uint32_t c = strtoul(arg, NULL, 10), offset = strtoul(sep, NULL, 10);
+  uint32_t skip = offset / ((uint32_t)sdSpc * 512);
+  if (skip >= sdClusN) { Serial.println(F("#SI,ERR,CHAIN")); return; }
+  while (skip-- && c >= 2 && c < sdClusN) c = fatGet(c);
+  if (c < 2 || c >= sdClusN || sdIoErr || !sdLoad(clusLba(c) + (offset / 512) % sdSpc)) { Serial.println(F("#SI,ERR,READ")); return; }
+  uint16_t start = offset % 512, count = min((uint16_t)128, (uint16_t)(512 - start));
+  uint16_t sum = 0;
+  Serial.print(F("#SI,DATA,")); Serial.print(offset); Serial.write(',');
+  const char hex[] = "0123456789ABCDEF";
+  for (uint16_t i = 0; i < count; i++) { uint8_t b = sdBuf[start + i]; sum += b; Serial.write(hex[b >> 4]); Serial.write(hex[b & 15]); }
+  Serial.write(','); Serial.println(sum);
+}
+
 // ---------- comandi ----------
 void setAppLine(char *args) {
   // "<1|2>,<testo>": 1 = valore grande (5 caratteri), 2 = riga piccola (10)
@@ -1943,10 +1990,10 @@ __attribute__((noinline)) void handleCommand(char *cmd) {
   // i comandi in ordine di prova; quelli che finiscono con ',' sono prefissi (seguono argomenti)
   static const char CMDS[] PROGMEM =
     "PING\0" "LINK,\0" "ID?\0" "STOP\0" "START\0" "CFG,CLEAR\0" "CFG,ADD,\0" "START,SCOPE,\0" "OUT,L,\0"
-    "OUT,CLEAR\0" "OUT,ADD,\0" "OUT,SAVE\0" "CFG,SAVE,\0" "SD,TEST\0" "OUT,TEST\0" "BT,SETUP\0" "BT,SETUP,BLE\0";
+    "OUT,CLEAR\0" "OUT,ADD,\0" "OUT,SAVE\0" "CFG,SAVE,\0" "SD,TEST\0" "OUT,TEST\0" "BT,SETUP\0" "BT,SETUP,BLE\0" "SD,OPEN\0" "SD,FILE,\0" "SD,GET,\0";
   uint8_t k = 0;
   char *arg = cmd;
-  for (PGM_P p = CMDS; k < 17; k++) {
+  for (PGM_P p = CMDS; k < 20; k++) {
     uint8_t n = strlen_P(p);
     if (pgm_read_byte(p + n - 1) == ',' ? strncmp_P(cmd, p, n) == 0 : strcmp_P(cmd, p) == 0) { arg = cmd + n; break; }
     p += n + 1;
@@ -1969,6 +2016,9 @@ __attribute__((noinline)) void handleCommand(char *cmd) {
     case 14: if (mode == RUN) stopAll(); outsTest(); break;
     case 15: if (mode != IDLE) stopAll(); btSetup(); break;
     case 16: if (mode != IDLE) stopAll(); btSetupBle(); break;
+    case 17: sdImportOpen(); break;
+    case 18: sdImportFile(arg); break;
+    case 19: sdImportGet(arg); break;
     default: if (cmdLen > 0) { Serial.print(F("#ERR,")); Serial.println(cmd); }
   }
 }

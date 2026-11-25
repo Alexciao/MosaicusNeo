@@ -1,5 +1,11 @@
 {
   "sd": {
+    "importUsb": "Importa tramite Arduino",
+    "importFiles": "Scegli i file",
+    "usbRequired": "Collega Arduino via USB e ferma prima la misura.",
+    "updateFirmware": "Aggiorna Arduino al firmware 2.2 per importare via USB.",
+    "transferFailed": "Trasferimento SD non riuscito. Controlla la scheda e il collegamento USB, poi riprova.",
+    "noFiles": "Nessuna registrazione trovata sulla scheda SD.",
     "import": "Importa dalla scheda SD",
     "pickerNeo": "Misura MosaicusNeo",
     "pickerCsv": "Misura dei firmware precedenti (CSV)",
@@ -7,7 +13,7 @@
     "step2": "<b>Registra.</b> Stacca il cavo e alimenta Arduino con un power bank o una pila da 9 V. {detail}",
     "step2Button": "Premi il pulsante per iniziare, premilo di nuovo per fermare: ogni registrazione è un file nuovo.",
     "step2Free": "Registra da quando lo accendi a quando lo spegni (aggiungi un pulsante per decidere tu quando). I dati sono salvati ogni 2 secondi: staccando la corrente perdi al massimo gli ultimi istanti.",
-    "step3": "<b>Importa.</b> Metti la scheda nel computer (o nel telefono con un adattatore) e scegli i file LOG00001.NEO, LOG00002.NEO…: diventano misure del Quaderno, con le grandezze e i grafici di sempre.",
+    "step3": "<b>Importa.</b> Collega Arduino via USB e scegli “Importa tramite Arduino”. Puoi anche inserire la scheda nel computer e scegliere i file.",
     "liveNote": "Se colleghi l'app mentre Arduino registra, la registrazione si chiude e si misura come sempre.",
     "prepareTitle": "Manda e salva la configurazione, poi prova la scheda",
     "prepareNeedsUsb": "Collega prima Arduino con il cavo USB",

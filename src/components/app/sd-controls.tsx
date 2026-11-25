@@ -2,11 +2,11 @@
 // La scheda SD come componente: «Prepara Arduino» (manda e salva la configurazione, prova la
 // scheda) e «Importa dalla scheda» (i file LOGnnnnn.NEO, o .CSV dei firmware fino alla 1.8, entrano nel Quaderno), con i passi.
 
-import { useRef } from "react";
+import { useRef, useState } from "react";
 import { CircleCheck, FolderInput, LoaderCircle, TriangleExclamationPoint, Upload } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
-import { useLab, prepareSd, importSdFiles } from "@/lib/lab-store";
+import { useLab, prepareSd, importSdFiles, importSdViaUsb } from "@/lib/lab-store";
 import { cn } from "@/lib/utils";
 
 // File System Access API (Chrome, Edge): non ancora nei tipi DOM di TypeScript
@@ -19,6 +19,7 @@ type OpenFilePicker = (o: {
 export function SdImportButton({ size = "sm", variant = "outline", className }: { size?: "sm" | "xs"; variant?: "outline" | "ghost"; className?: string }) {
   const t = useTranslations("rig.sd");
   const input = useRef<HTMLInputElement>(null);
+  const [busy, setBusy] = useState(false);
   // Dove c'è showOpenFilePicker il filtro ha un nome nostro («Misura MosaicusNeo (*.neo)»);
   // con <input type="file"> Windows mostra sempre «File personalizzati» e non si può cambiare.
   const pick = async () => {
@@ -42,7 +43,8 @@ export function SdImportButton({ size = "sm", variant = "outline", className }: 
     <>
       <input ref={input} type="file" accept=".neo,.csv" multiple hidden
         onChange={(e) => { const files = [...(e.target.files ?? [])]; e.target.value = ""; if (files.length) void importSdFiles(files); }} />
-      <Button size={size} variant={variant} className={className} onClick={() => void pick()}><FolderInput /> {t("import")}</Button>
+      <Button size={size} variant={variant} className={className} disabled={busy} onClick={() => { setBusy(true); void importSdViaUsb().finally(() => setBusy(false)); }}>{busy ? <LoaderCircle className="animate-spin" /> : <Upload />} {t("importUsb")}</Button>
+      <Button size={size} variant="ghost" disabled={busy} onClick={() => void pick()}><FolderInput /> {t("importFiles")}</Button>
     </>
   );
 }

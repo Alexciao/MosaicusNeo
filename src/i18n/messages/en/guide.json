@@ -400,7 +400,7 @@
     },
     "s4": {
       "t": "Import into the Notebook",
-      "d": "Put the card in the computer and press <b>Import from SD card</b> (in the Notebook or in the component's card): each file becomes a measurement, with the usual quantities, charts and Analysis."
+      "d": "Connect Arduino by USB and press <b>Import via Arduino</b> in the Notebook or component card. Update Arduino to firmware 2.2 first. You can also insert the card into your computer and choose the files directly."
     },
     "statusNote": "The display, LED and buzzer tell you what's happening: “SD CARD · PRESS” waits for the button, “● SD REC · 1:23” is recording, “ERROR · SD” if the card is missing or not FAT32.",
     "buttonTitle": "Start/Stop button"
