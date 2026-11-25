@@ -52,7 +52,7 @@ export function Diagnostics() {
         <HeadIcon aria-hidden className={cn("size-4 shrink-0", errors ? "text-destructive" : allOk ? "text-success" : "text-warning")} />
         <h3 className="text-sm font-semibold">{t("title")}</h3>
         <span aria-live="polite" className="text-xs text-muted-foreground tabular">
-          {allOk ? t("allResolved") : t("live", { n: items.length, active })}
+          {allOk ? t("allResolved") : t("live", { n: items.length, active: running ? active : 0 })}
         </span>
         {ended && !running && (
           <Button size="icon-xs" variant="ghost" className="ml-auto text-muted-foreground" aria-label={t("dismiss")} title={t("dismiss")} onClick={diagDismiss}><X /></Button>

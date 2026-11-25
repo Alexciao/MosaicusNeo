@@ -281,7 +281,7 @@
     "ntcPosition": "Il termistore è {side, select, gnd {verso GND} other {verso 5V}}: deve corrispondere all'opzione «Posizione» nella scheda Componenti.",
     "ldrPosition": "La fotoresistenza è {side, select, gnd {verso GND} other {verso 5V}}: deve corrispondere all'opzione «Posizione» nella scheda Componenti.",
     "pullTo5v": "{ohms} a 5V",
-    "dhtNote": "Controlla l'ordine dei piedini stampato sul tuo modulo: lo schema segue VCC, DATA, GND (sensore a 4 piedini: VCC, DATA, libero, GND; scegli il formato nelle opzioni). La resistenza da 10 kΩ tra DATA e 5V è indispensabile col sensore senza schedina; il modulo a 3 piedini ce l'ha già, ma lasciarla non fa danni.",
+    "dhtNote": "L'ordine dei piedini varia tra i moduli a 3 pin. A corrente scollegata, controlla le scritte sulla schedina e collega seguendo quelle, non la posizione: VCC/+ a 5V, DATA/S/OUT al pin dati scelto e GND/− a GND. Il disegno assume VCC, DATA, GND. Il sensore nudo a 4 pin usa VCC, DATA, NC, GND visto dal davanti; selezionalo nelle opzioni. Usa una resistenza da 10 kΩ tra DATA e 5V; molti moduli la includono già.",
     "sonarNote": "Punta il sensore verso un bersaglio piatto, tra 5 cm e 3 m.",
     "rxOptional": "RX (facolt.)",
     "divider": "partitore",

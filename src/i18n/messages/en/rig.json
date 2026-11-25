@@ -281,7 +281,7 @@
     "ntcPosition": "The thermistor is on the {side, select, gnd {GND side} other {5V side}}: this must match the “Position” option in the Components tab.",
     "ldrPosition": "The photoresistor is on the {side, select, gnd {GND side} other {5V side}}: this must match the “Position” option in the Components tab.",
     "pullTo5v": "{ohms} to 5V",
-    "dhtNote": "Check the pin order printed on your module: the diagram follows VCC, DATA, GND (4-pin sensor: VCC, DATA, free, GND; pick the package in the options). The 10 kΩ resistor between DATA and 5V is essential with the bare sensor; the 3-pin module already has it, but leaving it in does no harm.",
+    "dhtNote": "Pin order varies between 3-pin modules. With power disconnected, check the labels on your board and connect by label, not position: VCC/+ to 5V, DATA/S/OUT to the chosen data pin, and GND/− to GND. The drawing assumes VCC, DATA, GND. A bare 4-pin sensor uses VCC, DATA, NC, GND when viewed from the front; select it in the options. Use a 10 kΩ resistor between DATA and 5V; many modules already include one.",
     "sonarNote": "Point the sensor at a flat target, between 5 cm and 3 m away.",
     "rxOptional": "RX (opt.)",
     "divider": "divider",
